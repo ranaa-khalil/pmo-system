@@ -307,6 +307,62 @@ def seed():
         db.commit()
         print(f"✅ Created release v1.0.0 linked to Q3 milestone with 3 backlog items")
 
+        # --- Auto-routed approval chain for the release ---
+        # The release is in "In Progress" phase. Backfill:
+        # 1. Approved approval for Planning → In Progress (Product Owner gate)
+        # 2. Pending approval for In Progress → Testing (Tech Lead gate)
+        from app.models.approval import ApprovalRequest, ApprovalStep
+        from sqlalchemy.sql import func
+
+        # 1. Approved: Planning → In Progress (Product Owner)
+        ap1 = ApprovalRequest(
+            project_id=pnu.id,
+            title=f"Release {rel.version}: Planning → In Progress",
+            description="Approve requirements are complete and ready for development",
+            request_type="release",
+            requested_by=admin.id,
+            release_id=rel.id,
+            target_phase="In Progress",
+            status="Approved",
+        )
+        db.add(ap1)
+        db.commit()
+        db.refresh(ap1)
+        st1 = ApprovalStep(
+            request_id=ap1.id,
+            step_order=1,
+            role_name="Product Owner",
+            status="Approved",
+            approver_id=admin.id,
+            comment="Requirements reviewed and approved",
+            decided_at=func.now(),
+        )
+        db.add(st1)
+
+        # 2. Pending: In Progress → Testing (Tech Lead)
+        ap2 = ApprovalRequest(
+            project_id=pnu.id,
+            title=f"Release {rel.version}: In Progress → Testing",
+            description="Approve code completion and readiness for testing",
+            request_type="release",
+            requested_by=admin.id,
+            release_id=rel.id,
+            target_phase="Testing",
+            status="Pending",
+        )
+        db.add(ap2)
+        db.commit()
+        db.refresh(ap2)
+        st2 = ApprovalStep(
+            request_id=ap2.id,
+            step_order=1,
+            role_name="Tech Lead",
+            status="Pending",
+        )
+        db.add(st2)
+        db.commit()
+        print(f"✅ Created auto-routed approval chain: Planning→In Progress (approved), In Progress→Testing (pending Tech Lead)")
+
     db.close()
     print("\n🔐 Login credentials:")
     print("   Email:    rana@opex.com.sa")

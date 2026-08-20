@@ -39,6 +39,8 @@ def create_approval_request(
         description=req.description,
         request_type=req.request_type,
         requested_by=current_user.id,
+        release_id=req.release_id,
+        target_phase=req.target_phase,
     )
     db.add(request)
     db.commit()
@@ -95,7 +97,12 @@ def approve_step(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Approve a step in the approval chain. Advances to next step or completes."""
+    """Approve a step in the approval chain. Advances to next step or completes.
+
+    If this is a release phase-gate approval and this is the last step, the
+    release is auto-advanced to the target phase and the next phase's approval
+    is auto-created.
+    """
     request = db.query(ApprovalRequest).filter(ApprovalRequest.id == approval_id).first()
     if not request:
         raise HTTPException(status_code=404, detail="Approval request not found")
@@ -122,13 +129,32 @@ def approve_step(
     if step.step_order >= all_steps[-1].step_order:
         # Last step approved — request is fully approved
         request.status = "Approved"
+
+        # ── AUTO-ADVANCE RELEASE ───────────────────────────────────────────
+        # If this is a release phase-gate approval, advance the release to
+        # the target phase and create the next phase's approval.
+        if request.request_type == "release" and request.release_id and request.target_phase:
+            from app.models.release import Release
+            from app.routers.releases import V_CYCLE, PHASE_GATE_ROLES, _create_phase_approval
+            from datetime import date as _date
+
+            release = db.query(Release).filter(Release.id == request.release_id).first()
+            if release and release.status != request.target_phase:
+                release.status = request.target_phase
+                if request.target_phase == "Released":
+                    release.release_date = _date.today().isoformat()
+                db.commit()
+                db.refresh(release)
+
+                # Auto-create the next phase's approval
+                _create_phase_approval(db, release, current_user)
     else:
         # Advance to next step
         request.current_step = step.step_order + 1
 
     db.commit()
     db.refresh(request)
-    request.steps = all_steps
+    request.steps = db.query(ApprovalStep).filter(ApprovalStep.request_id == approval_id).order_by(ApprovalStep.step_order).all()
     return request
 
 

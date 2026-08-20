@@ -26,6 +26,8 @@ class ApprovalRequestCreate(BaseModel):
     title: str
     description: Optional[str] = None
     request_type: str
+    release_id: Optional[int] = None
+    target_phase: Optional[str] = None
     steps: List[ApprovalStepCreate]
 
 
@@ -42,6 +44,8 @@ class ApprovalRequestResponse(BaseModel):
     requested_by: Optional[int] = None
     status: str
     current_step: int
+    release_id: Optional[int] = None
+    target_phase: Optional[str] = None
     model_config = {"from_attributes": True}
 
 

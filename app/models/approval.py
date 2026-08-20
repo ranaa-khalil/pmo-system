@@ -33,6 +33,9 @@ class ApprovalRequest(Base):
     requested_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     status = Column(String(50), default="Pending", nullable=False)
     current_step = Column(Integer, default=1, nullable=False)
+    # Auto-routing: link to a specific release + the phase transition this approval gates
+    release_id = Column(Integer, ForeignKey("releases.id", ondelete="CASCADE"), nullable=True)
+    target_phase = Column(String(50), nullable=True)  # e.g. "In Progress" — the phase this approval unlocks
     created_at = Column(String, server_default=func.now(), nullable=False)
     updated_at = Column(String, server_default=func.now(), onupdate=func.now())
 

@@ -8,6 +8,7 @@ class ReleaseCreate(BaseModel):
     name: str
     description: Optional[str] = None
     target_date: Optional[str] = None
+    milestone_id: Optional[int] = None
 
 
 class ReleaseUpdate(BaseModel):
@@ -17,6 +18,7 @@ class ReleaseUpdate(BaseModel):
     status: Optional[str] = None
     target_date: Optional[str] = None
     release_date: Optional[str] = None
+    milestone_id: Optional[int] = None
 
 
 class ReleaseResponse(BaseModel):
@@ -29,5 +31,6 @@ class ReleaseResponse(BaseModel):
     target_date: Optional[str] = None
     release_date: Optional[str] = None
     release_notes: Optional[str] = None
+    milestone_id: Optional[int] = None
     created_by: Optional[int] = None
     model_config = {"from_attributes": True}

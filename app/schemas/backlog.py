@@ -7,6 +7,7 @@ class BacklogItemBase(BaseModel):
     title: str
     description: Optional[str] = None
     priority: str = "Medium"
+    kpi_id: Optional[int] = None
 
 
 class BacklogItemCreate(BacklogItemBase):
@@ -20,6 +21,7 @@ class BacklogItemUpdate(BaseModel):
     status: Optional[str] = None
     priority: Optional[str] = None
     assigned_to: Optional[int] = None
+    kpi_id: Optional[int] = None
 
 
 class BacklogItemResponse(BacklogItemBase):

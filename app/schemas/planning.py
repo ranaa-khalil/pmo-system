@@ -29,6 +29,7 @@ class KPIBase(BaseModel):
     current_value: Optional[str] = None
     unit: Optional[str] = None
     category: Optional[str] = None
+    vision_objective: Optional[str] = None
 
 class KPICreate(KPIBase):
     project_id: int
@@ -39,6 +40,7 @@ class KPIUpdate(BaseModel):
     current_value: Optional[str] = None
     unit: Optional[str] = None
     category: Optional[str] = None
+    vision_objective: Optional[str] = None
 
 class KPIResponse(KPIBase):
     id: int

@@ -16,6 +16,7 @@ class KPI(Base):
     current_value = Column(String(255), nullable=True)
     unit = Column(String(50), nullable=True)
     category = Column(String(100), nullable=True)
+    vision_objective = Column(String(500), nullable=True)
     created_at = Column(String, server_default=func.now(), nullable=False)
 
     def __repr__(self):

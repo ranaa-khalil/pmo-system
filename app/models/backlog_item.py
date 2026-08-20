@@ -38,6 +38,7 @@ class BacklogItem(Base):
     priority = Column(String(50), default="Medium", nullable=False)
     github_issue_number = Column(Integer, nullable=True)
     assigned_to = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    kpi_id = Column(Integer, ForeignKey("kpis.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(String, server_default=func.now(), nullable=False)
     updated_at = Column(String, server_default=func.now(), onupdate=func.now())
 

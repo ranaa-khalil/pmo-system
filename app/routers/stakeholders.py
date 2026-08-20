@@ -202,6 +202,101 @@ def delete_assignment(
     db.commit()
 
 
+@router.get("/projects/{project_id}/traceability")
+def get_traceability(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return the full traceability chain: Vision → KPIs → Milestones → Releases → Backlog Items."""
+    from app.models.project_vision import ProjectVision
+    from app.models.kpi import KPI
+    from app.models.roadmap import Roadmap
+    from app.models.milestone import Milestone
+    from app.models.backlog_item import BacklogItem
+    from app.models.release import Release, ReleaseItem
+
+    # Vision
+    vision = db.query(ProjectVision).filter(ProjectVision.project_id == project_id).first()
+    vision_data = None
+    if vision:
+        vision_data = {
+            "statement": vision.statement,
+            "strategic_objectives": vision.strategic_objectives,
+        }
+
+    # KPIs (with linked backlog items)
+    kpis = db.query(KPI).filter(KPI.project_id == project_id).all()
+    kpi_data = []
+    for k in kpis:
+        linked_items = db.query(BacklogItem).filter(BacklogItem.kpi_id == k.id).all()
+        kpi_data.append({
+            "id": k.id,
+            "name": k.name,
+            "target_value": k.target_value,
+            "current_value": k.current_value,
+            "unit": k.unit,
+            "category": k.category,
+            "vision_objective": k.vision_objective,
+            "backlog_items": [{"id": i.id, "title": i.title, "phase": i.current_phase, "status": i.status} for i in linked_items],
+        })
+
+    # Roadmaps → Milestones → Releases
+    roadmaps = db.query(Roadmap).filter(Roadmap.project_id == project_id).all()
+    roadmap_data = []
+    for rm in roadmaps:
+        milestones = db.query(Milestone).filter(Milestone.roadmap_id == rm.id).all()
+        milestone_list = []
+        for ms in milestones:
+            linked_releases = db.query(Release).filter(Release.milestone_id == ms.id).all()
+            release_list = []
+            for rel in linked_releases:
+                items = db.query(ReleaseItem).filter(ReleaseItem.release_id == rel.id).all()
+                backlog_items = []
+                for ri in items:
+                    bi = db.query(BacklogItem).filter(BacklogItem.id == ri.backlog_item_id).first()
+                    if bi:
+                        backlog_items.append({
+                            "id": bi.id, "title": bi.title, "phase": bi.current_phase,
+                            "status": bi.status, "priority": bi.priority, "kpi_id": bi.kpi_id,
+                        })
+                release_list.append({
+                    "id": rel.id, "version": rel.version, "name": rel.name,
+                    "status": rel.status, "target_date": rel.target_date,
+                    "items": backlog_items,
+                })
+            milestone_list.append({
+                "id": ms.id, "title": ms.title, "target_date": str(ms.target_date) if ms.target_date else None,
+                "status": ms.status, "releases": release_list,
+            })
+        roadmap_data.append({
+            "id": rm.id, "title": rm.title,
+            "start_date": str(rm.start_date) if rm.start_date else None,
+            "end_date": str(rm.end_date) if rm.end_date else None,
+            "milestones": milestone_list,
+        })
+
+    # Unlinked backlog items (no KPI)
+    unlinked = db.query(BacklogItem).filter(
+        BacklogItem.project_id == project_id, BacklogItem.kpi_id.is_(None)
+    ).all()
+    unlinked_data = [{"id": i.id, "title": i.title, "phase": i.current_phase, "status": i.status, "priority": i.priority} for i in unlinked]
+
+    # Unlinked releases (no milestone)
+    unlinked_releases = db.query(Release).filter(
+        Release.project_id == project_id, Release.milestone_id.is_(None)
+    ).all()
+    unlinked_rel_data = [{"id": r.id, "version": r.version, "name": r.name, "status": r.status, "target_date": r.target_date} for r in unlinked_releases]
+
+    return {
+        "vision": vision_data,
+        "kpis": kpi_data,
+        "roadmaps": roadmap_data,
+        "unlinked_backlog": unlinked_data,
+        "unlinked_releases": unlinked_rel_data,
+    }
+
+
 # ===== User Management (Super Admin) =====
 
 @router.get("/users", response_model=List[dict])

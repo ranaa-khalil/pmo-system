@@ -38,6 +38,7 @@ class Release(Base):
     target_date = Column(String(50), nullable=True)
     release_date = Column(String(50), nullable=True)
     release_notes = Column(Text, nullable=True)
+    milestone_id = Column(Integer, ForeignKey("milestones.id", ondelete="SET NULL"), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

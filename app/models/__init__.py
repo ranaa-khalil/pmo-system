@@ -13,6 +13,7 @@ from app.models.milestone import Milestone
 from app.models.backlog_item import BacklogItem
 from app.models.form_template import FormTemplate, FormInstance
 from app.models.approval import ApprovalRequest, ApprovalStep
+from app.models.stakeholder import Stakeholder
 
 __all__ = [
     "Client", "Project", "User", "Role", "RoleAssignment",
@@ -20,4 +21,5 @@ __all__ = [
     "ProjectVision", "KPI", "Roadmap", "Milestone", "BacklogItem",
     "FormTemplate", "FormInstance",
     "ApprovalRequest", "ApprovalStep",
+    "Stakeholder",
 ]

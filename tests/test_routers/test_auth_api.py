@@ -91,12 +91,18 @@ class TestAuthAPI:
         assert data["email"] == "rana@opex.com.sa"
         assert data["full_name"] == "Rana Khalil"
 
-    def test_get_me_without_token_returns_401(self, client):
+    def test_get_me_without_token_returns_401(self, db_session):
         """GET /api/auth/me without token returns 401."""
-        response = client.get("/api/auth/me")
+        from fastapi.testclient import TestClient
+        from app.main import app as fastapi_app
+        raw_client = TestClient(fastapi_app)
+        response = raw_client.get("/api/auth/me")
         assert response.status_code == 401
 
-    def test_get_me_with_invalid_token_returns_401(self, client):
+    def test_get_me_with_invalid_token_returns_401(self, db_session):
         """GET /api/auth/me with invalid token returns 401."""
-        response = client.get("/api/auth/me", headers={"Authorization": "Bearer invalidtoken123"})
+        from fastapi.testclient import TestClient
+        from app.main import app as fastapi_app
+        raw_client = TestClient(fastapi_app)
+        response = raw_client.get("/api/auth/me", headers={"Authorization": "Bearer invalidtoken123"})
         assert response.status_code == 401

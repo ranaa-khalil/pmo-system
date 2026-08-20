@@ -7,12 +7,14 @@ from app.database import get_db
 from app.models.project import Project
 from app.models.client import Client
 from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectResponse
+from app.dependencies import get_current_user
+from app.models.user import User
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
 @router.post("", response_model=ProjectResponse, status_code=201)
-def create_project(project: ProjectCreate, db: Session = Depends(get_db)):
+def create_project(project: ProjectCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Create a new project linked to a client."""
     # Verify client exists
     client = db.query(Client).filter(Client.id == project.client_id).first()
@@ -39,6 +41,7 @@ def list_projects(
     limit: int = 100,
     client_id: Optional[int] = Query(None, description="Filter by client ID"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """List all projects, optionally filtered by client."""
     query = db.query(Project)
@@ -48,7 +51,7 @@ def list_projects(
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)
-def get_project(project_id: int, db: Session = Depends(get_db)):
+def get_project(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Get a specific project by ID."""
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
@@ -57,7 +60,7 @@ def get_project(project_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{project_id}", response_model=ProjectResponse)
-def update_project(project_id: int, project_update: ProjectUpdate, db: Session = Depends(get_db)):
+def update_project(project_id: int, project_update: ProjectUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Update a project."""
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
@@ -73,7 +76,7 @@ def update_project(project_id: int, project_update: ProjectUpdate, db: Session =
 
 
 @router.delete("/{project_id}", status_code=204)
-def delete_project(project_id: int, db: Session = Depends(get_db)):
+def delete_project(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Delete a project."""
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:

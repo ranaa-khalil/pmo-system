@@ -758,47 +758,158 @@
                 </div>
             </div>
 
-            <!-- ============ ROADMAPS VIEW ============ -->
-            <div x-show="route === 'roadmap'" class="view-enter space-y-4 max-w-5xl">
-                <div>
-                    <h1 class="text-[26px] font-bold text-slate-900 tracking-tight">Roadmaps</h1>
-                    <p class="text-[14px] text-slate-500 mt-1.5">Timeline view across all projects.</p>
+            <!-- ============ ROADMAPS / TIMELINE VIEW ============ -->
+            <div x-show="route === 'roadmap'" class="view-enter space-y-5 max-w-7xl">
+                <div class="flex items-end justify-between">
+                    <div>
+                        <h1 class="text-[26px] font-bold text-slate-900 tracking-tight">Timeline</h1>
+                        <p class="text-[14px] text-slate-500 mt-1.5">Gantt-style roadmap across all projects.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button @click="timelineZoom = Math.max(0.5, timelineZoom - 0.25)" class="w-8 h-8 rounded-lg bg-white border border-slate-200/60 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4"/></svg>
+                        </button>
+                        <span class="text-[11px] font-medium text-slate-400 tabular-nums w-10 text-center" x-text="Math.round(timelineZoom * 100) + '%'"></span>
+                        <button @click="timelineZoom = Math.min(3, timelineZoom + 0.25)" class="w-8 h-8 rounded-lg bg-white border border-slate-200/60 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                        </button>
+                    </div>
                 </div>
+
                 <template x-if="projects.length === 0">
                     <div class="bg-white rounded-2xl border border-slate-200/60 p-8 text-center text-[13px] text-slate-400">No projects yet. Create a project first.</div>
                 </template>
-                <template x-for="p in projects" :key="p.id">
-                    <div class="bg-white rounded-2xl border border-slate-200/60 p-5">
-                        <div class="flex items-center justify-between mb-3">
-                            <h3 class="text-[14px] font-semibold text-slate-800" x-text="p.name"></h3>
-                            <button @click="openProject(p)" class="text-[12px] font-medium text-brand-600 hover:text-brand-700">Open project →</button>
-                        </div>
-                        <template x-if="!p._roadmaps">
-                            <div class="text-[13px] text-slate-400">Loading...</div>
-                        </template>
-                        <template x-if="p._roadmaps && p._roadmaps.length === 0">
-                            <div class="text-[13px] text-slate-400">No roadmaps for this project.</div>
-                        </template>
-                        <template x-for="rm in (p._roadmaps || [])" :key="rm.id">
-                            <div class="border-l-2 border-violet-300 pl-4 mb-3">
-                                <div class="flex items-center gap-2 mb-2">
-                                    <div class="text-[13px] font-medium text-slate-700" x-text="rm.title"></div>
-                                    <span class="text-[10px] text-slate-400" x-text="(rm.start_date || '') + ' → ' + (rm.end_date || '')"></span>
+
+                <!-- Timeline container -->
+                <div x-show="projects.length > 0" class="bg-white rounded-2xl border border-slate-200/60 overflow-hidden">
+                    <!-- Timeline scroll area -->
+                    <div class="overflow-x-auto">
+                        <div :style="'width: ' + (timelineTotalWidth + 260) + 'px; min-width: 100%'">
+                            <!-- Header: project label column + time axis -->
+                            <div class="flex sticky top-0 z-20 bg-white border-b border-slate-100">
+                                <div class="w-[240px] flex-shrink-0 px-5 py-3 border-r border-slate-100">
+                                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em]">Projects</div>
                                 </div>
-                                <template x-for="ms in (rm.milestones || [])" :key="ms.id">
-                                    <div class="flex items-center gap-2 mb-1.5 ml-2">
-                                        <div class="w-2 h-2 rounded-full" :class="{'bg-emerald-400': ms.status === 'On Track', 'bg-rose-400': ms.status === 'At Risk', 'bg-slate-300': ms.status === 'Completed'}"></div>
-                                        <div class="text-[12px] text-slate-600 flex-1" x-text="ms.title"></div>
-                                        <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-md"
-                                              :class="{'bg-emerald-50 text-emerald-600': ms.status === 'On Track', 'bg-rose-50 text-rose-600': ms.status === 'At Risk', 'bg-slate-100 text-slate-500': ms.status === 'Completed'}"
-                                              x-text="ms.status"></span>
-                                        <span class="text-[10px] text-slate-400" x-text="ms.target_date || ''"></span>
+                                <!-- Month columns header -->
+                                <div class="flex-1 flex" :style="'width: ' + timelineTotalWidth + 'px'">
+                                    <template x-for="month in timelineMonths" :key="month.key">
+                                        <div class="flex-shrink-0 border-r border-slate-50 px-2 py-2.5" :style="'width: ' + (monthWidth * timelineZoom) + 'px'">
+                                            <div class="text-[10px] font-bold tracking-wide" :class="month.isQuarter ? 'text-brand-600' : 'text-slate-400'" x-text="month.label"></div>
+                                            <div class="text-[9px] text-slate-300" x-text="month.year"></div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <!-- Today marker line (absolute positioned across the whole timeline) -->
+                            <div class="relative">
+                                <div class="absolute top-0 bottom-0 z-10 pointer-events-none"
+                                     :style="'left: ' + (260 + todayOffset * timelineZoom) + 'px'">
+                                    <div class="w-px h-full bg-rose-400/50"></div>
+                                    <div class="absolute -top-0 -translate-x-1/2 left-0">
+                                        <div class="px-1.5 py-0.5 rounded-md bg-rose-500 text-white text-[9px] font-bold whitespace-nowrap shadow-sm">TODAY</div>
+                                    </div>
+                                </div>
+
+                                <!-- Project rows -->
+                                <template x-for="p in projects" :key="p.id">
+                                    <div class="flex border-b border-slate-50 hover:bg-slate-50/30 transition-colors group">
+                                        <!-- Project label -->
+                                        <div class="w-[240px] flex-shrink-0 px-5 py-4 border-r border-slate-100 flex items-center gap-3 cursor-pointer" @click="openProject(p)">
+                                            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-50 to-violet-50 flex items-center justify-center ring-1 ring-brand-100/40 flex-shrink-0">
+                                                <span class="text-[12px] font-bold text-brand-600" x-text="p.name.charAt(0)"></span>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <div class="text-[13px] font-semibold text-slate-700 truncate group-hover:text-brand-600 transition-colors" x-text="p.name"></div>
+                                                <div class="text-[10px] text-slate-400" x-text="getClientName(p.client_id)"></div>
+                                            </div>
+                                        </div>
+                                        <!-- Timeline track -->
+                                        <div class="flex-1 relative py-3" :style="'width: ' + timelineTotalWidth + 'px; min-height: 72px'">
+                                            <!-- Grid lines -->
+                                            <div class="absolute inset-0 flex pointer-events-none">
+                                                <template x-for="month in timelineMonths" :key="month.key">
+                                                    <div class="flex-shrink-0 border-r border-slate-50" :style="'width: ' + (monthWidth * timelineZoom) + 'px'"></div>
+                                                </template>
+                                            </div>
+
+                                            <!-- Roadmap bars + milestones -->
+                                            <template x-if="!p._roadmaps">
+                                                <div class="text-[11px] text-slate-300 px-4 py-3">Loading...</div>
+                                            </template>
+                                            <template x-if="p._roadmaps && p._roadmaps.length === 0">
+                                                <div class="text-[11px] text-slate-300 px-4 py-3">No roadmap</div>
+                                            </template>
+
+                                            <template x-for="(rm, rmIdx) in (p._roadmaps || [])" :key="rm.id">
+                                                <div class="relative mb-2 last:mb-0" :style="'height: 28px'">
+                                                    <!-- Roadmap bar -->
+                                                    <div class="absolute h-7 rounded-lg overflow-hidden cursor-pointer transition-all hover:shadow-md group/bar"
+                                                         :style="'left: ' + (roadmapLeftPx(rm) * timelineZoom) + 'px; width: ' + Math.max(roadmapWidthPx(rm) * timelineZoom, 40) + 'px'"
+                                                         :class="rmIdx % 2 === 0 ? 'bg-gradient-to-r from-brand-500 to-violet-500' : 'bg-gradient-to-r from-violet-500 to-purple-500'"
+                                                         @click="openProject(p)">
+                                                        <div class="absolute inset-0 bg-black/0 group-hover/bar:bg-black/10 transition-colors"></div>
+                                                        <div class="relative h-full flex items-center px-3">
+                                                            <span class="text-[10px] font-semibold text-white truncate" x-text="rm.title"></span>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Milestone diamonds -->
+                                                    <template x-for="ms in (rm.milestones || [])" :key="ms.id">
+                                                        <div class="absolute z-5 group/ms" :style="'left: ' + (milestoneLeftPx(ms) * timelineZoom) + 'px; top: -2px'"
+                                                             @click="openProject(p)">
+                                                            <!-- Diamond marker -->
+                                                            <div class="relative -translate-x-1/2 cursor-pointer">
+                                                                <div class="w-3.5 h-3.5 rotate-45 rounded-sm shadow-sm border-2 border-white"
+                                                                     :class="{'bg-emerald-400': ms.status === 'On Track', 'bg-rose-400': ms.status === 'At Risk', 'bg-slate-300': ms.status === 'Completed'}"></div>
+                                                                <!-- Tooltip on hover -->
+                                                                <div class="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 opacity-0 group-hover/ms:opacity-100 transition-opacity pointer-events-none z-30">
+                                                                    <div class="bg-slate-900 text-white rounded-xl shadow-lg px-3 py-2 whitespace-nowrap">
+                                                                        <div class="text-[11px] font-semibold" x-text="ms.title"></div>
+                                                                        <div class="text-[9px] text-slate-300 mt-0.5" x-text="ms.target_date || 'TBD'"></div>
+                                                                        <div class="flex items-center gap-1.5 mt-1">
+                                                                            <span class="w-1.5 h-1.5 rounded-full" :class="{'bg-emerald-400': ms.status === 'On Track', 'bg-rose-400': ms.status === 'At Risk', 'bg-slate-400': ms.status === 'Completed'}"></span>
+                                                                            <span class="text-[9px] text-slate-300" x-text="ms.status"></span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="w-2 h-2 bg-slate-900 rotate-45 absolute left-1/2 -translate-x-1/2 -bottom-1"></div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                        </div>
                                     </div>
                                 </template>
                             </div>
-                        </template>
+                        </div>
                     </div>
-                </template>
+                </div>
+
+                <!-- Legend -->
+                <div class="flex items-center gap-4 px-1">
+                    <div class="flex items-center gap-1.5">
+                        <div class="w-3 h-3 rotate-45 rounded-sm bg-emerald-400 border border-white shadow-sm"></div>
+                        <span class="text-[11px] text-slate-500">On Track</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <div class="w-3 h-3 rotate-45 rounded-sm bg-rose-400 border border-white shadow-sm"></div>
+                        <span class="text-[11px] text-slate-500">At Risk</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <div class="w-3 h-3 rotate-45 rounded-sm bg-slate-300 border border-white shadow-sm"></div>
+                        <span class="text-[11px] text-slate-500">Completed</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <div class="w-4 h-2 rounded-sm bg-gradient-to-r from-brand-500 to-violet-500"></div>
+                        <span class="text-[11px] text-slate-500">Roadmap</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <div class="w-px h-3 bg-rose-400"></div>
+                        <span class="text-[11px] text-slate-500">Today</span>
+                    </div>
+                </div>
             </div>
 
             <!-- ============ SETTINGS VIEW ============ -->
@@ -2256,6 +2367,10 @@ function pmoApp() {
         // ===== Dashboard stats =====
         dashStats: null,
 
+        // ===== Timeline state =====
+        timelineZoom: 1,
+        monthWidth: 80,  // base px per month at zoom=1
+
         navItems: [
             { id: 'dashboard', label: 'Dashboard', group: 'workspace', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>' },
             { id: 'clients', label: 'Clients', group: 'workspace', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>' },
@@ -2405,6 +2520,80 @@ function pmoApp() {
 
         kpiProgressPct(kpi) {
             return this.kpiProgress(kpi);
+        },
+
+        // ===== Timeline computed properties =====
+        get timelineRange() {
+            let minDate = null, maxDate = null;
+            for (const p of this.projects) {
+                for (const rm of (p._roadmaps || [])) {
+                    if (rm.start_date) { const d = new Date(rm.start_date); if (!minDate || d < minDate) minDate = d; }
+                    if (rm.end_date) { const d = new Date(rm.end_date); if (!maxDate || d > maxDate) maxDate = d; }
+                    for (const ms of (rm.milestones || [])) {
+                        if (ms.target_date) { const d = new Date(ms.target_date); if (!minDate || d < minDate) minDate = d; if (!maxDate || d > maxDate) maxDate = d; }
+                    }
+                }
+            }
+            if (!minDate) { minDate = new Date(); maxDate = new Date(); maxDate.setMonth(maxDate.getMonth() + 6); }
+            // Pad by 1 month on each side
+            minDate = new Date(minDate); minDate.setDate(1); minDate.setMonth(minDate.getMonth() - 1);
+            maxDate = new Date(maxDate); maxDate.setMonth(maxDate.getMonth() + 2);
+            return { min: minDate, max: maxDate };
+        },
+
+        get timelineMonths() {
+            const { min, max } = this.timelineRange;
+            const months = [];
+            const cur = new Date(min.getFullYear(), min.getMonth(), 1);
+            const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            while (cur <= max) {
+                const q = Math.floor(cur.getMonth() / 3) + 1;
+                months.push({
+                    key: cur.getFullYear() + '-' + cur.getMonth(),
+                    label: monthNames[cur.getMonth()],
+                    year: cur.getFullYear().toString(),
+                    isQuarter: cur.getMonth() % 3 === 0,
+                    quarter: 'Q' + q,
+                    date: new Date(cur),
+                });
+                cur.setMonth(cur.getMonth() + 1);
+            }
+            return months;
+        },
+
+        get timelineTotalWidth() {
+            return this.timelineMonths.length * this.monthWidth;
+        },
+
+        get todayOffset() {
+            const { min } = this.timelineRange;
+            const now = new Date();
+            const monthsDiff = (now.getFullYear() - min.getFullYear()) * 12 + (now.getMonth() - min.getMonth());
+            const dayInMonth = now.getDate() / 30;
+            return (monthsDiff + dayInMonth) * this.monthWidth;
+        },
+
+        timelineDateToPx(dateStr) {
+            if (!dateStr) return 0;
+            const { min } = this.timelineRange;
+            const d = new Date(dateStr);
+            const monthsDiff = (d.getFullYear() - min.getFullYear()) * 12 + (d.getMonth() - min.getMonth());
+            const dayInMonth = d.getDate() / 30;
+            return (monthsDiff + dayInMonth) * this.monthWidth;
+        },
+
+        roadmapLeftPx(rm) {
+            return this.timelineDateToPx(rm.start_date);
+        },
+
+        roadmapWidthPx(rm) {
+            const left = this.timelineDateToPx(rm.start_date);
+            const right = this.timelineDateToPx(rm.end_date);
+            return Math.max(right - left, 40);
+        },
+
+        milestoneLeftPx(ms) {
+            return this.timelineDateToPx(ms.target_date);
         },
 
         async api(method, url, body) {

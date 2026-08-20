@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PMO System — OPEX</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        primary: {
+                            50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe',
+                            300: '#a5b4fc', 400: '#818cf8', 500: '#6366f1',
+                            600: '#4f46e5', 700: '#4338ca', 800: '#3730a3',
+                            900: '#312e81',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        [x-cloak] { display: none !important; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .fade-in { animation: fadeIn 0.2s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        .slide-in { animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
+    </style>
+</head>
+<body class="h-full bg-slate-50 font-sans antialiased" x-data="pmoApp()" x-init="init()" x-cloak>
+
+<!-- ==================== SIDEBAR ==================== -->
+<div class="fixed inset-0 flex" style="z-index: 40;">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col flex-shrink-0" style="z-index: 50;">
+        <!-- Logo -->
+        <div class="h-16 flex items-center px-6 border-b border-slate-800">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 bg-primary-600 rounded-lg flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2a4 4 0 014-4h2a4 4 0 014 4v2M9 7h6m-6 4h6m-9 8h12a2 2 0 002-2V5a2 2 0 00-2-2H6a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="text-white font-bold text-sm">PMO System</div>
+                    <div class="text-slate-500 text-xs">OPEX</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+            <template x-for="item in navItems" :key="item.id">
+                <a href="#"
+                   @click.prevent="navigate(item.id)"
+                   :class="route === item.id
+                       ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/20'
+                       : 'text-slate-400 hover:bg-slate-800 hover:text-white'"
+                   class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150">
+                    <span x-html="item.icon" class="w-5 h-5 flex-shrink-0"></span>
+                    <span x-text="item.label"></span>
+                    <template x-if="item.badge !== undefined">
+                        <span class="ml-auto bg-slate-700 text-slate-300 text-xs px-2 py-0.5 rounded-full" x-text="item.badge"></span>
+                    </template>
+                </a>
+            </template>
+        </nav>
+
+        <!-- User section -->
+        <div class="p-3 border-t border-slate-800">
+            <div class="flex items-center gap-3 px-3 py-2">
+                <div class="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center text-white text-sm font-medium">R</div>
+                <div class="flex-1 min-w-0">
+                    <div class="text-white text-sm font-medium truncate">Rana Khalil</div>
+                    <div class="text-slate-500 text-xs">PM</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ==================== MAIN CONTENT ==================== -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- Topbar -->
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0">
+            <div>
+                <h1 class="text-lg font-semibold text-slate-800" x-text="pageTitle"></h1>
+                <p class="text-xs text-slate-500" x-text="pageSubtitle"></p>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
+                    <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                    API Connected
+                </span>
+            </div>
+        </header>
+
+        <!-- Page content -->
+        <main class="flex-1 overflow-y-auto p-6">
+
+            <!-- ============ DASHBOARD VIEW ============ -->
+            <div x-show="route === 'dashboard'" class="fade-in space-y-6">
+                <!-- Stats cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <template x-for="stat in stats" :key="stat.label">
+                        <div class="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition-shadow">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="w-10 h-10 rounded-lg flex items-center justify-center" :class="stat.bg">
+                                    <span x-html="stat.icon" class="w-5 h-5" :class="stat.color"></span>
+                                </div>
+                            </div>
+                            <div class="text-2xl font-bold text-slate-800" x-text="stat.value ?? '—'"></div>
+                            <div class="text-sm text-slate-500 mt-0.5" x-text="stat.label"></div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Recent projects -->
+                <div class="bg-white rounded-xl border border-slate-200">
+                    <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                        <h2 class="text-sm font-semibold text-slate-700">Recent Projects</h2>
+                        <button @click="navigate('projects')" class="text-xs font-medium text-primary-600 hover:text-primary-700">View all →</button>
+                    </div>
+                    <div class="p-5">
+                        <template x-if="projects.length === 0">
+                            <div class="text-center py-8 text-slate-400">
+                                <svg class="w-12 h-12 mx-auto mb-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
+                                <p class="text-sm">No projects yet. Create your first project!</p>
+                            </div>
+                        </template>
+                        <div class="space-y-2">
+                            <template x-for="project in projects.slice(0, 5)" :key="project.id">
+                                <div class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-9 h-9 bg-primary-50 rounded-lg flex items-center justify-center">
+                                            <svg class="w-4 h-4 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/></svg>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-medium text-slate-800" x-text="project.name"></div>
+                                            <div class="text-xs text-slate-500" x-text="project.github_repo || 'No repo linked'"></div>
+                                        </div>
+                                    </div>
+                                    <span class="text-xs font-medium px-2.5 py-1 rounded-full"
+                                          :class="project.status === 'Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'"
+                                          x-text="project.status"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System info -->
+                <div class="bg-white rounded-xl border border-slate-200 p-5">
+                    <h2 class="text-sm font-semibold text-slate-700 mb-4">System Architecture</h2>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                        <div class="flex flex-col gap-1"><span class="text-slate-400 text-xs">Backend</span><span class="font-medium text-slate-700">FastAPI</span></div>
+                        <div class="flex flex-col gap-1"><span class="text-slate-400 text-xs">Frontend</span><span class="font-medium text-slate-700">Tailwind + Alpine</span></div>
+                        <div class="flex flex-col gap-1"><span class="text-slate-400 text-xs">Database</span><span class="font-medium text-slate-700">SQLite → PostgreSQL</span></div>
+                        <div class="flex flex-col gap-1"><span class="text-slate-400 text-xs">Testing</span><span class="font-medium text-slate-700">pytest (TDD)</span></div>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-slate-100">
+                        <a href="/docs" target="_blank" class="inline-flex items-center gap-2 text-sm font-medium text-primary-600 hover:text-primary-700">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            API Documentation (Swagger)
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============ CLIENTS VIEW ============ -->
+            <div x-show="route === 'clients'" class="fade-in space-y-4">
+                <div class="flex items-center justify-between">
+                    <p class="text-sm text-slate-500">Manage client organizations</p>
+                    <button @click="openClientModal()" class="inline-flex items-center gap-2 bg-primary-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors shadow-sm">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                        New Client
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b border-slate-100 bg-slate-50/50">
+                                    <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Name</th>
+                                    <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Contact</th>
+                                    <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Email</th>
+                                    <th class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Description</th>
+                                    <th class="text-right text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <template x-if="clients.length === 0">
+                                    <tr><td colspan="5" class="text-center py-12 text-slate-400 text-sm">No clients yet. Click "New Client" to create one.</td></tr>
+                                </template>
+                                <template x-for="c in clients" :key="c.id">
+                                    <tr class="hover:bg-slate-50 transition-colors">
+                                        <td class="px-5 py-3">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500 text-xs font-medium" x-text="c.name.charAt(0)"></div>
+                                            <span class="text-sm font-medium text-slate-800" x-text="c.name"></span>
+                                            </div>
+                                        </td>
+                                        <td class="px-5 py-3 text-sm text-slate-600" x-text="c.contact_name || '—'"></td>
+                                        <td class="px-5 py-3 text-sm text-slate-600" x-text="c.contact_email || '—'"></td>
+                                        <td class="px-5 py-3 text-sm text-slate-500 max-w-xs truncate" x-text="c.description || '—'"></td>
+                                        <td class="px-5 py-3 text-right">
+                                            <div class="flex items-center justify-end gap-1">
+                                                <button @click="openClientModal(c)" class="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded transition-colors" title="Edit">
+                                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                                </button>
+                                                <button @click="deleteClient(c)" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors" title="Delete">
+                                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============ PROJECTS VIEW ============ -->
+            <div x-show="route === 'projects'" class="fade-in space-y-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <p class="text-sm text-slate-500">Manage projects</p>
+                        <select x-model="projectFilter" @change="loadProjects()" class="text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                            <option value="">All Clients</option>
+                            <template x-for="c in clients" :key="c.id">
+                                <option :value="c.id" x-text="c.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <button @click="openProjectModal()" class="inline-flex items-center gap-2 bg-primary-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors shadow-sm">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                        New Project
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <template x-if="projects.length === 0">
+                        <div class="col-span-full text-center py-12 text-slate-400">
+                            <svg class="w-12 h-12 mx-auto mb-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
+                            <p class="text-sm">No projects yet. Create your first project!</p>
+                        </div>
+                    </template>
+                    <template x-for="p in projects" :key="p.id">
+                        <div class="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition-shadow">
+                            <div class="flex items-start justify-between mb-3">
+                                <div class="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/></svg>
+                                </div>
+                                <span class="text-xs font-medium px-2.5 py-1 rounded-full"
+                                      :class="p.status === 'Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'"
+                                      x-text="p.status"></span>
+                            </div>
+                            <h3 class="text-sm font-semibold text-slate-800 mb-1" x-text="p.name"></h3>
+                            <p class="text-xs text-slate-500 mb-3" x-text="getClientName(p.client_id)"></p>
+                            <p class="text-xs text-slate-400 line-clamp-2 mb-3" x-text="p.description || ''"></p>
+                            <div class="flex items-center gap-2 pt-3 border-t border-slate-50">
+                                <template x-if="p.github_repo">
+                                    <a :href="'https://github.com/' + p.github_repo" target="_blank" class="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700">
+                                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                                        <span x-text="p.github_repo"></span>
+                                    </a>
+                                </template>
+                                <div class="ml-auto flex items-center gap-1">
+                                    <button @click="openProjectModal(p)" class="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded transition-colors">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                    </button>
+                                    <button @click="deleteProject(p)" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- ============ ROADMAP VIEW (placeholder) ============ -->
+            <div x-show="route === 'roadmap'" class="fade-in">
+                <div class="bg-white rounded-xl border border-slate-200 p-12 text-center">
+                    <div class="w-16 h-16 bg-primary-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+                    </div>
+                    <h2 class="text-lg font-semibold text-slate-700 mb-1">Project Roadmaps</h2>
+                    <p class="text-sm text-slate-400 mb-4">Visual roadmaps with timelines will appear here in Phase 3.</p>
+                    <div class="inline-flex items-center gap-2 text-xs font-medium text-primary-600 bg-primary-50 px-3 py-1.5 rounded-full">
+                        <span class="w-1.5 h-1.5 bg-primary-500 rounded-full animate-pulse"></span>
+                        Coming in Phase 3
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============ SETTINGS VIEW (placeholder) ============ -->
+            <div x-show="route === 'settings'" class="fade-in">
+                <div class="bg-white rounded-xl border border-slate-200 p-12 text-center">
+                    <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    </div>
+                    <h2 class="text-lg font-semibold text-slate-700 mb-1">Settings</h2>
+                    <p class="text-sm text-slate-400">RBAC, GitHub integration, and system settings will appear here.</p>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<!-- ==================== CLIENT MODAL ==================== -->
+<div x-show="clientModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+    <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" @click="clientModalOpen = false"></div>
+    <div class="flex min-h-full items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md slide-in" @click.outside="clientModalOpen = false">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h2 class="text-base font-semibold text-slate-800" x-text="editingClient.id ? 'Edit Client' : 'New Client'"></h2>
+                <button @click="clientModalOpen = false" class="text-slate-400 hover:text-slate-600">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <form @submit.prevent="saveClient()" class="px-6 py-4 space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1.5">Name *</label>
+                    <input x-model="editingClient.name" type="text" required
+                           class="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                           placeholder="e.g., NITC / PNU">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1.5">Contact Name</label>
+                    <input x-model="editingClient.contact_name" type="text"
+                           class="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                           placeholder="e.g., Aldaana Almuqrin">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1.5">Contact Email</label>
+                    <input x-model="editingClient.contact_email" type="email"
+                           class="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                           placeholder="e.g., contact@example.com">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1.5">Description</label>
+                    <textarea x-model="editingClient.description" rows="3"
+                              class="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                              placeholder="Brief description..."></textarea>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" @click="clientModalOpen = false" class="text-sm font-medium text-slate-600 px-4 py-2 rounded-lg hover:bg-slate-100 transition-colors">Cancel</button>
+                    <button type="submit" class="text-sm font-medium text-white bg-primary-600 px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors shadow-sm">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== PROJECT MODAL ==================== -->
+<div x-show="projectModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+    <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" @click="projectModalOpen = false"></div>
+    <div class="flex min-h-full items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md slide-in" @click.outside="projectModalOpen = false">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h2 class="text-base font-semibold text-slate-800" x-text="editingProject.id ? 'Edit Project' : 'New Project'"></h2>
+                <button @click="projectModalOpen = false" class="text-slate-400 hover:text-slate-600">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <form @submit.prevent="saveProject()" class="px-6 py-4 space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1.5">Name *</label>
+                    <input x-model="editingProject.name" type="text" required
+                           class="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                           placeholder="e.g., PNU Cloud">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1.5">Client *</label>
+                    <select x-model="editingProject.client_id" required
+                            class="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <option value="">Select a client...</option>
+                        <template x-for="c in clients" :key="c.id">
+                            <option :value="c.id" x-text="c.name"></option>
+                        </template>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1.5">Status</label>
+                    <select x-model="editingProject.status"
+                            class="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <option value="Active">Active</option>
+                        <option value="On Hold">On Hold</option>
+                        <option value="Completed">Completed</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1.5">GitHub Repo</label>
+                    <input x-model="editingProject.github_repo" type="text"
+                           class="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                           placeholder="e.g., opexsa/pnu-cloud">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1.5">Description</label>
+                    <textarea x-model="editingProject.description" rows="3"
+                              class="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                              placeholder="Brief description..."></textarea>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" @click="projectModalOpen = false" class="text-sm font-medium text-slate-600 px-4 py-2 rounded-lg hover:bg-slate-100 transition-colors">Cancel</button>
+                    <button type="submit" class="text-sm font-medium text-white bg-primary-600 px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors shadow-sm">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== TOAST ==================== -->
+<div x-show="toast.show" x-cloak x-transition class="fixed bottom-6 right-6 z-50">
+    <div class="flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg" :class="toast.type === 'error' ? 'bg-rose-600' : 'bg-emerald-600'">
+        <svg x-show="toast.type !== 'error'" class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+        <svg x-show="toast.type === 'error'" class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        <span class="text-sm font-medium text-white" x-text="toast.message"></span>
+    </div>
+</div>
+
+<!-- ==================== ALPINE.JS ==================== -->
+<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<script>
+function pmoApp() {
+    return {
+        // ===== State =====
+        route: 'dashboard',
+        clients: [],
+        projects: [],
+        projectFilter: '',
+        clientModalOpen: false,
+        projectModalOpen: false,
+        editingClient: {},
+        editingProject: {},
+        toast: { show: false, message: '', type: 'success' },
+
+        // ===== Navigation =====
+        navItems: [
+            { id: 'dashboard', label: 'Dashboard', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>' },
+            { id: 'clients', label: 'Clients', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>' },
+            { id: 'projects', label: 'Projects', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/></svg>' },
+            { id: 'roadmap', label: 'Roadmaps', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>' },
+            { id: 'settings', label: 'Settings', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>' },
+        ],
+
+        get pageTitle() {
+            return { dashboard: 'Dashboard', clients: 'Clients', projects: 'Projects', roadmap: 'Roadmaps', settings: 'Settings' }[this.route] || '';
+        },
+        get pageSubtitle() {
+            return {
+                dashboard: 'Overview of your PMO system',
+                clients: 'Manage client organizations',
+                projects: 'Manage projects and GitHub repos',
+                roadmap: 'Visual project roadmaps with timelines',
+                settings: 'System configuration and integrations',
+            }[this.route] || '';
+        },
+        get stats() {
+            return [
+                { label: 'Total Clients', value: this.clients.length, icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>', bg: 'bg-primary-50', color: 'text-primary-600' },
+                { label: 'Active Projects', value: this.projects.filter(p => p.status === 'Active').length, icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/></svg>', bg: 'bg-emerald-50', color: 'text-emerald-600' },
+                { label: 'GitHub Repos', value: this.projects.filter(p => p.github_repo).length, icon: '<svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>', bg: 'bg-slate-100', color: 'text-slate-700' },
+                { label: 'Total Projects', value: this.projects.length, icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>', bg: 'bg-amber-50', color: 'text-amber-600' },
+            ];
+        },
+
+        // ===== Init =====
+        async init() {
+            await Promise.all([this.loadClients(), this.loadProjects()]);
+        },
+
+        // ===== API =====
+        async api(method, url, body) {
+            const opts = { method, headers: { 'Content-Type': 'application/json' } };
+            if (body) opts.body = JSON.stringify(body);
+            const res = await fetch('/api' + url, opts);
+            if (res.status === 204) return null;
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'API error');
+            return data;
+        },
+
+        navigate(route) {
+            this.route = route;
+        },
+
+        // ===== Clients =====
+        async loadClients() {
+            try {
+                this.clients = await this.api('GET', '/clients');
+            } catch (e) { this.showToast('Failed to load clients: ' + e.message, 'error'); }
+        },
+
+        getClientName(id) {
+            return this.clients.find(c => c.id === id)?.name || 'Unknown';
+        },
+
+        openClientModal(client = null) {
+            this.editingClient = client ? { ...client } : { name: '', contact_name: '', contact_email: '', description: '' };
+            this.clientModalOpen = true;
+        },
+
+        async saveClient() {
+            try {
+                if (this.editingClient.id) {
+                    await this.api('PUT', '/clients/' + this.editingClient.id, this.editingClient);
+                    this.showToast('Client updated');
+                } else {
+                    await this.api('POST', '/clients', this.editingClient);
+                    this.showToast('Client created');
+                }
+                this.clientModalOpen = false;
+                await this.loadClients();
+            } catch (e) { this.showToast('Failed to save: ' + e.message, 'error'); }
+        },
+
+        async deleteClient(client) {
+            if (!confirm('Delete "' + client.name + '"? This will also delete related projects.')) return;
+            try {
+                await this.api('DELETE', '/clients/' + client.id);
+                this.showToast('Client deleted');
+                await Promise.all([this.loadClients(), this.loadProjects()]);
+            } catch (e) { this.showToast('Failed to delete: ' + e.message, 'error'); }
+        },
+
+        // ===== Projects =====
+        async loadProjects() {
+            try {
+                const url = this.projectFilter ? '/projects?client_id=' + this.projectFilter : '/projects';
+                this.projects = await this.api('GET', url);
+            } catch (e) { this.showToast('Failed to load projects: ' + e.message, 'error'); }
+        },
+
+        openProjectModal(project = null) {
+            this.editingProject = project ? { ...project } : { name: '', client_id: '', status: 'Active', github_repo: '', description: '' };
+            this.projectModalOpen = true;
+        },
+
+        async saveProject() {
+            try {
+                if (this.editingProject.id) {
+                    await this.api('PUT', '/projects/' + this.editingProject.id, this.editingProject);
+                    this.showToast('Project updated');
+                } else {
+                    await this.api('POST', '/projects', this.editingProject);
+                    this.showToast('Project created');
+                }
+                this.projectModalOpen = false;
+                await this.loadProjects();
+            } catch (e) { this.showToast('Failed to save: ' + e.message, 'error'); }
+        },
+
+        async deleteProject(project) {
+            if (!confirm('Delete "' + project.name + '"?')) return;
+            try {
+                await this.api('DELETE', '/projects/' + project.id);
+                this.showToast('Project deleted');
+                await this.loadProjects();
+            } catch (e) { this.showToast('Failed to delete: ' + e.message, 'error'); }
+        },
+
+        // ===== Toast =====
+        showToast(message, type = 'success') {
+            this.toast = { show: true, message, type };
+            setTimeout(() => this.toast.show = false, 3000);
+        },
+    };
+}
+</script>
+
+</body>
+</html>

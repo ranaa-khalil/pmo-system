@@ -1,1 +1,6 @@
-venv/\n__pycache__/\n*.pyc\n*.db\n.env\n.pytest_cache/
+venv/
+__pycache__/
+*.pyc
+*.db
+.env
+.pytest_cache/

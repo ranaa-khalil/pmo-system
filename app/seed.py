@@ -48,12 +48,14 @@ def seed():
             email="rana@opex.com.sa",
             name="Rana Khalil",
             hashed_password=hash_password("Pmo@2026"),
+            system_role="super_admin",
         )
         db.add(admin)
-        print("✅ Created admin user: rana@opex.com.sa")
+        print("✅ Created super admin: rana@opex.com.sa")
     else:
         admin.hashed_password = hash_password("Pmo@2026")
-        print("ℹ️ Admin user already exists — password reset to default")
+        admin.system_role = "super_admin"
+        print("ℹ️ Admin user already exists — password reset, role set to super_admin")
 
     # --- RACI Roles ---
     for name, desc in RACI_ROLES:
@@ -69,9 +71,12 @@ def seed():
     if not nitc:
         nitc = Client(name="NITC / PNU", contact_name="Aldaana Almuqrin",
                        contact_email="pmo@nitc.gov.sa",
-                       description="Princess Nourah University — Cloud Services")
+                       description="Princess Nourah University — Cloud Services",
+                       account_manager_id=admin.id)
         db.add(nitc)
-        print("✅ Created client: NITC / PNU")
+        print("✅ Created client: NITC / PNU (AM: Rana)")
+    else:
+        nitc.account_manager_id = admin.id
 
     go = db.query(Client).filter(Client.name == "GO Telecom").first()
     if not go:
@@ -91,6 +96,7 @@ def seed():
             description="Cloud infrastructure and managed services for PNU",
             status="Active",
             github_repo="opexsa/pnu-cloud",
+            project_manager_id=admin.id,
         )
         db.add(pnu)
         db.commit()

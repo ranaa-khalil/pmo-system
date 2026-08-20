@@ -24,6 +24,7 @@ class ClientUpdate(BaseModel):
 
 class ClientResponse(ClientBase):
     id: int
+    account_manager_id: Optional[int] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

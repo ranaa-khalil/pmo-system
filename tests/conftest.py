@@ -95,6 +95,12 @@ def client(db_session):
         "full_name": "Test User",
         "password": "TestPass123!",
     })
+    # Elevate test user to super_admin so RBAC permission checks pass
+    from app.models.user import User
+    test_user = db_session.query(User).filter(User.email == "testuser@test.com").first()
+    if test_user:
+        test_user.system_role = "super_admin"
+        db_session.commit()
     login_resp = TestClient.post(test_client, "/api/auth/login", json={
         "email": "testuser@test.com",
         "password": "TestPass123!",

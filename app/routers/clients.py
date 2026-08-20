@@ -1,20 +1,23 @@
-"""Clients API router — CRUD endpoints for clients."""
-from fastapi import APIRouter, Depends, HTTPException, Query
+"""Clients API router — CRUD endpoints with hierarchical RBAC."""
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
 from app.database import get_db
 from app.models.client import Client
+from app.models.user import User
 from app.schemas.client import ClientCreate, ClientUpdate, ClientResponse
 from app.dependencies import get_current_user
-from app.models.user import User
+from app.permissions import can_create_client, can_manage_client, get_visible_clients
 
 router = APIRouter(prefix="/api/clients", tags=["clients"])
 
 
 @router.post("", response_model=ClientResponse, status_code=201)
 def create_client(client: ClientCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """Create a new client."""
+    """Create a new client (super admin only)."""
+    if not can_create_client(current_user):
+        raise HTTPException(status_code=403, detail="Only super admins can create clients")
     db_client = Client(
         name=client.name,
         contact_name=client.contact_name,
@@ -28,9 +31,9 @@ def create_client(client: ClientCreate, db: Session = Depends(get_db), current_u
 
 
 @router.get("", response_model=List[ClientResponse])
-def list_clients(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """List all clients."""
-    return db.query(Client).offset(skip).limit(limit).all()
+def list_clients(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """List clients visible to the current user."""
+    return get_visible_clients(current_user, db)
 
 
 @router.get("/{client_id}", response_model=ClientResponse)
@@ -44,15 +47,40 @@ def get_client(client_id: int, db: Session = Depends(get_db), current_user: User
 
 @router.put("/{client_id}", response_model=ClientResponse)
 def update_client(client_id: int, client_update: ClientUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """Update a client."""
+    """Update a client (super admin or assigned AM)."""
     client = db.query(Client).filter(Client.id == client_id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
-
+    if not can_manage_client(current_user, client):
+        raise HTTPException(status_code=403, detail="You don't have permission to manage this client")
     update_data = client_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(client, field, value)
+    db.commit()
+    db.refresh(client)
+    return client
 
+
+@router.put("/{client_id}/account-manager", response_model=ClientResponse)
+def assign_account_manager(
+    client_id: int,
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Assign an account manager to a client (super admin only)."""
+    if not can_create_client(current_user):
+        raise HTTPException(status_code=403, detail="Only super admins can assign account managers")
+    client = db.query(Client).filter(Client.id == client_id).first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    am_id = data.get("account_manager_id")
+    if am_id:
+        am = db.query(User).filter(User.id == am_id).first()
+        if not am:
+            raise HTTPException(status_code=404, detail="User not found")
+        am.system_role = "account_manager"
+    client.account_manager_id = am_id
     db.commit()
     db.refresh(client)
     return client
@@ -60,10 +88,11 @@ def update_client(client_id: int, client_update: ClientUpdate, db: Session = Dep
 
 @router.delete("/{client_id}", status_code=204)
 def delete_client(client_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """Delete a client."""
+    """Delete a client (super admin only)."""
+    if not can_create_client(current_user):
+        raise HTTPException(status_code=403, detail="Only super admins can delete clients")
     client = db.query(Client).filter(Client.id == client_id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
-
     db.delete(client)
     db.commit()

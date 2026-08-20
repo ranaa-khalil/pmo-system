@@ -27,6 +27,7 @@ class ProjectUpdate(BaseModel):
 
 class ProjectResponse(ProjectBase):
     id: int
+    project_manager_id: Optional[int] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -16,7 +16,8 @@ class Project(Base):
     description = Column(Text, nullable=True)
     status = Column(String(50), nullable=False, default="Active")
     start_date = Column(Date, nullable=True)
-    github_repo = Column(String(255), nullable=True)  # e.g., "opexsa/cloudgate"
+    github_repo = Column(String(255), nullable=True)
+    project_manager_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
+from app.models.client import Client
 from app.models.project import Project
 from app.models.role import Role
 from app.models.role_assignment import RoleAssignment
@@ -314,13 +315,19 @@ def list_users(
             role = db.query(Role).filter(Role.id == a.role_id).first()
             if role:
                 roles.append({"role": role.name, "project_id": a.project_id})
+        # Find managed clients and projects
+        managed_clients = db.query(Client).filter(Client.account_manager_id == u.id).all()
+        managed_projects = db.query(Project).filter(Project.project_manager_id == u.id).all()
         result.append({
             "id": u.id,
             "email": u.email,
             "name": u.name,
+            "system_role": u.system_role,
             "is_active": u.is_active,
             "created_at": str(u.created_at) if u.created_at else None,
             "roles": roles,
+            "managed_clients": [{"id": c.id, "name": c.name} for c in managed_clients],
+            "managed_projects": [{"id": p.id, "name": p.name} for p in managed_projects],
         })
     return result
 
@@ -336,15 +343,16 @@ def create_user(
     email = data.get("email")
     name = data.get("name")
     password = data.get("password")
+    system_role = data.get("system_role", "member")
     if not email or not name or not password:
         raise HTTPException(status_code=400, detail="email, name, and password are required")
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
-    user = User(email=email, name=name, hashed_password=hash_password(password))
+    user = User(email=email, name=name, hashed_password=hash_password(password), system_role=system_role)
     db.add(user)
     db.commit()
     db.refresh(user)
-    return {"id": user.id, "email": user.email, "name": user.name, "message": "User created"}
+    return {"id": user.id, "email": user.email, "name": user.name, "system_role": user.system_role, "message": "User created"}
 
 
 @router.delete("/users/{user_id}", status_code=204)

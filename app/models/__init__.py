@@ -6,5 +6,13 @@ from app.models.role import Role
 from app.models.role_assignment import RoleAssignment
 from app.models.permission import Permission
 from app.models.role_permission import RolePermission
+from app.models.project_vision import ProjectVision
+from app.models.kpi import KPI
+from app.models.roadmap import Roadmap
+from app.models.milestone import Milestone
 
-__all__ = ["Client", "Project", "User", "Role", "RoleAssignment", "Permission", "RolePermission"]
+__all__ = [
+    "Client", "Project", "User", "Role", "RoleAssignment",
+    "Permission", "RolePermission",
+    "ProjectVision", "KPI", "Roadmap", "Milestone",
+]

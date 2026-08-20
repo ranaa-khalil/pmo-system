@@ -200,3 +200,69 @@ def delete_assignment(
         raise HTTPException(status_code=404, detail="Assignment not found")
     db.delete(a)
     db.commit()
+
+
+# ===== User Management (Super Admin) =====
+
+@router.get("/users", response_model=List[dict])
+def list_users(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List all users (super admin only)."""
+    users = db.query(User).order_by(User.created_at.desc()).all()
+    result = []
+    for u in users:
+        assignments = db.query(RoleAssignment).filter(RoleAssignment.user_id == u.id).all()
+        roles = []
+        for a in assignments:
+            role = db.query(Role).filter(Role.id == a.role_id).first()
+            if role:
+                roles.append({"role": role.name, "project_id": a.project_id})
+        result.append({
+            "id": u.id,
+            "email": u.email,
+            "name": u.name,
+            "is_active": u.is_active,
+            "created_at": str(u.created_at) if u.created_at else None,
+            "roles": roles,
+        })
+    return result
+
+
+@router.post("/users", status_code=201)
+def create_user(
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create a new user (super admin only)."""
+    from app.services.auth import hash_password
+    email = data.get("email")
+    name = data.get("name")
+    password = data.get("password")
+    if not email or not name or not password:
+        raise HTTPException(status_code=400, detail="email, name, and password are required")
+    if db.query(User).filter(User.email == email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+    user = User(email=email, name=name, hashed_password=hash_password(password))
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return {"id": user.id, "email": user.email, "name": user.name, "message": "User created"}
+
+
+@router.delete("/users/{user_id}", status_code=204)
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete a user (super admin only)."""
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot delete yourself")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    db.delete(user)
+    db.commit()

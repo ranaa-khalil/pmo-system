@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import Base, engine
-from app.routers import clients, projects, auth, planning, backlog, forms, approvals, dashboard, stakeholders
+from app.routers import clients, projects, auth, planning, backlog, forms, approvals, dashboard, stakeholders, releases
 from app.frontend import router as frontend_router
 import app.models  # noqa: F401 — register all models
 
@@ -35,6 +35,7 @@ app.include_router(forms.router)
 app.include_router(approvals.router)
 app.include_router(dashboard.router)
 app.include_router(stakeholders.router)
+app.include_router(releases.router)
 
 # Register frontend UI
 app.include_router(frontend_router)

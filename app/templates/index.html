@@ -623,9 +623,63 @@
                         </template>
                     </div>
                 </div>
+                <!-- Team Management card -->
+                <div class="bg-white rounded-2xl border border-slate-200/80 p-6">
+                    <h3 class="text-[14px] font-semibold text-slate-800 mb-4">Team Management</h3>
+                    <!-- Create user -->
+                    <div class="grid grid-cols-3 gap-2 mb-4">
+                        <input x-model="userForm.name" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Full name">
+                        <input x-model="userForm.email" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Email">
+                        <input x-model="userForm.password" type="password" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Password">
+                    </div>
+                    <button @click="createUser()" class="text-[13px] font-medium text-white bg-gradient-to-br from-brand-500 to-violet-600 px-4 py-2 rounded-xl shadow-md hover:shadow-lg transition-all mb-4">Add User</button>
+                    <!-- Users list -->
+                    <div class="space-y-2">
+                        <template x-for="u in users" :key="u.id">
+                            <div class="flex items-center justify-between bg-slate-50 rounded-xl p-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-violet-600 text-white text-[11px] font-bold flex items-center justify-center" x-text="u.name.charAt(0)"></div>
+                                    <div>
+                                        <div class="text-[13px] font-medium text-slate-800" x-text="u.name"></div>
+                                        <div class="text-[11px] text-slate-400" x-text="u.email"></div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <template x-for="r in u.roles" :key="r.role + r.project_id">
+                                        <span class="text-[10px] font-medium px-2 py-0.5 rounded-md bg-brand-50 text-brand-600" x-text="r.role"></span>
+                                    </template>
+                                    <button x-show="u.id !== currentUser.id" @click="deleteUser(u.id)" class="text-[11px] text-rose-400 hover:text-rose-600 ml-1">Remove</button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                <!-- Assign Role card -->
+                <div class="bg-white rounded-2xl border border-slate-200/80 p-6">
+                    <h3 class="text-[14px] font-semibold text-slate-800 mb-4">Assign Role to User</h3>
+                    <div class="grid grid-cols-3 gap-2">
+                        <select x-model="assignmentForm.user_id" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                            <option value="">Select user...</option>
+                            <template x-for="u in users" :key="u.id">
+                                <option :value="u.id" x-text="u.name"></option>
+                            </template>
+                        </select>
+                        <select x-model="assignmentForm.role_id" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                            <option value="">Select role...</option>
+                            <template x-for="r in roles" :key="r.id">
+                                <option :value="r.id" x-text="r.name"></option>
+                            </template>
+                        </select>
+                        <select x-model="assignmentForm.project_id" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                            <option value="">Select project...</option>
+                            <template x-for="p in projects" :key="p.id">
+                                <option :value="p.id" x-text="p.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <button @click="assignRole()" class="mt-3 text-[13px] font-medium text-white bg-gradient-to-br from-brand-500 to-violet-600 px-4 py-2 rounded-xl shadow-md hover:shadow-lg transition-all">Assign</button>
+                </div>
             </div>
-
-            <!-- ============ PROJECT DETAIL VIEW ============ -->
             <div x-show="route === 'project-detail' && selectedProject" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="mb-6">
                 <!-- Back button -->
                 <button @click="backToProjects()" class="flex items-center gap-2 text-[13px] text-slate-500 hover:text-slate-800 mb-4 transition-colors">
@@ -659,6 +713,7 @@
                     <button @click="projectTab='backlog'" :class="projectTab==='backlog' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Backlog</button>
                     <button @click="projectTab='forms'" :class="projectTab==='forms' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Forms</button>
                     <button @click="projectTab='approvals'" :class="projectTab==='approvals' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Approvals</button>
+                    <button @click="projectTab='releases'" :class="projectTab==='releases' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Releases</button>
                     <button @click="projectTab='stakeholders'" :class="projectTab==='stakeholders' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Stakeholders</button>
                 </div>
 
@@ -921,6 +976,172 @@
                     </div>
                 </div>
             </template>
+        </div>
+    </div>
+
+    <!-- Releases tab -->
+    <div x-show="projectTab==='releases'" class="max-w-4xl">
+        <!-- V-Cycle diagram -->
+        <div class="bg-white rounded-2xl border border-slate-200/80 p-5 mb-4">
+            <h3 class="text-[13px] font-semibold text-slate-800 mb-3">Release V-Cycle</h3>
+            <div class="flex items-center justify-between text-[10px] font-medium">
+                <div class="flex flex-col items-center gap-1">
+                    <div class="w-12 h-12 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center text-center px-1">Requirements</div>
+                </div>
+                <div class="text-slate-300">→</div>
+                <div class="flex flex-col items-center gap-1">
+                    <div class="w-12 h-12 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center text-center px-1">Design</div>
+                </div>
+                <div class="text-slate-300">→</div>
+                <div class="flex flex-col items-center gap-1">
+                    <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-center px-1">Dev</div>
+                </div>
+                <div class="text-slate-300">→</div>
+                <div class="flex flex-col items-center gap-1">
+                    <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-center px-1">Testing</div>
+                </div>
+                <div class="text-slate-300">→</div>
+                <div class="flex flex-col items-center gap-1">
+                    <div class="w-12 h-12 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center text-center px-1">UAT</div>
+                </div>
+                <div class="text-slate-300">→</div>
+                <div class="flex flex-col items-center gap-1">
+                    <div class="w-12 h-12 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center text-center px-1">Pre-Rel</div>
+                </div>
+                <div class="text-slate-300">→</div>
+                <div class="flex flex-col items-center gap-1">
+                    <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-center px-1">Release</div>
+                </div>
+                <div class="text-slate-300">→</div>
+                <div class="flex flex-col items-center gap-1">
+                    <div class="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-center px-1">Post-Rel</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create release form -->
+        <div class="bg-white rounded-2xl shadow-card p-5 mb-4">
+            <h3 class="text-[13px] font-semibold text-slate-800 mb-3">Plan New Release</h3>
+            <div class="grid grid-cols-4 gap-3">
+                <input x-model="releaseForm.version" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Version (e.g., 1.2.0)">
+                <input x-model="releaseForm.name" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 col-span-2" placeholder="Release name">
+                <input x-model="releaseForm.target_date" type="date" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400">
+            </div>
+            <textarea x-model="releaseForm.description" rows="2" class="w-full text-[13px] border border-slate-200 rounded-xl px-3 py-2 mt-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Release description..."></textarea>
+            <button @click="saveRelease()" class="mt-2 text-[13px] font-medium text-white bg-gradient-to-br from-brand-500 to-violet-600 px-4 py-2 rounded-xl shadow-md hover:shadow-lg transition-all">Create Release</button>
+        </div>
+
+        <!-- Releases list -->
+        <template x-if="projectReleases.length === 0">
+            <div class="bg-white rounded-2xl shadow-card p-8 text-center text-[13px] text-slate-400">No releases yet. Plan one above.</div>
+        </template>
+        <div class="space-y-2">
+            <template x-for="rel in projectReleases" :key="rel.id">
+                <div @click="openRelease(rel)" class="bg-white rounded-2xl border border-slate-200/80 p-4 card-lift hover:shadow-card-hover transition-all cursor-pointer">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-50 to-violet-50 flex items-center justify-center ring-1 ring-brand-100/50">
+                                <svg class="w-5 h-5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                            </div>
+                            <div>
+                                <div class="text-[14px] font-semibold text-slate-800 flex items-center gap-2">
+                                    <span x-text="rel.version"></span>
+                                    <span class="text-slate-300">·</span>
+                                    <span x-text="rel.name"></span>
+                                </div>
+                                <div class="text-[11px] text-slate-400 mt-0.5">
+                                    Target: <span x-text="rel.target_date || 'TBD'"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <span class="text-[11px] font-medium px-2.5 py-1 rounded-lg" :class="releaseStatusColor(rel.status)" x-text="rel.status"></span>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Release detail modal -->
+    <div x-show="selectedRelease" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" @keydown.escape.window="closeRelease()">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="closeRelease()"></div>
+        <div class="relative bg-white rounded-3xl shadow-modal w-full max-w-2xl max-h-[85vh] overflow-y-auto modal-enter">
+            <div class="sticky top-0 bg-white/95 backdrop-blur border-b border-slate-100 px-6 py-4 flex items-center justify-between rounded-t-3xl z-10">
+                <div>
+                    <h3 class="text-[15px] font-bold text-slate-900 flex items-center gap-2">
+                        <span x-text="selectedRelease?.version"></span>
+                        <span class="text-slate-300">·</span>
+                        <span x-text="selectedRelease?.name"></span>
+                    </h3>
+                    <div class="flex items-center gap-2 mt-0.5">
+                        <span class="text-[11px] font-medium px-2 py-0.5 rounded-md" :class="releaseStatusColor(selectedRelease?.status)" x-text="selectedRelease?.status"></span>
+                        <span class="text-[11px] text-slate-400" x-text="'Target: ' + (selectedRelease?.target_date || 'TBD')"></span>
+                    </div>
+                </div>
+                <button @click="closeRelease()" class="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-5">
+                <!-- Status controls -->
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Advance V-Cycle:</span>
+                    <template x-for="s in releaseStatuses" :key="s">
+                        <button @click="updateReleaseStatus(selectedRelease.id, s)" class="text-[11px] font-medium px-2.5 py-1 rounded-lg transition-colors"
+                                :class="selectedRelease?.status === s ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'"
+                                x-text="s"></button>
+                    </template>
+                </div>
+
+                <!-- Linked backlog items -->
+                <div>
+                    <h4 class="text-[12px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Backlog Items in Release</h4>
+                    <template x-if="!selectedRelease?.items || selectedRelease.items.length === 0">
+                        <div class="text-[13px] text-slate-400 bg-slate-50 rounded-xl p-4 text-center">No items linked yet. Add from Backlog tab.</div>
+                    </template>
+                    <div class="space-y-2">
+                        <template x-for="item in (selectedRelease?.items || [])" :key="item.id">
+                            <div class="flex items-center justify-between bg-slate-50 rounded-xl p-3">
+                                <div class="flex-1">
+                                    <div class="text-[13px] font-medium text-slate-800" x-text="item.title"></div>
+                                    <div class="flex items-center gap-2 mt-0.5">
+                                        <span class="text-[10px] font-medium px-2 py-0.5 rounded-md bg-brand-50 text-brand-600" x-text="item.current_phase"></span>
+                                        <span class="text-[10px] text-slate-400" x-text="item.status"></span>
+                                    </div>
+                                </div>
+                                <button @click="removeItemFromRelease(selectedRelease.id, item.id)" class="text-[11px] text-rose-400 hover:text-rose-600 ml-2">Remove</button>
+                            </div>
+                        </template>
+                    </div>
+                    <!-- Add from backlog -->
+                    <div class="mt-3">
+                        <select @change="if($event.target.value) { addBacklogToRelease(selectedRelease.id, parseInt($event.target.value)); $event.target.value=''; }"
+                                class="w-full text-[12px] border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                            <option value="">+ Add backlog item to release...</option>
+                            <template x-for="item in backlogItems" :key="item.id">
+                                <option :value="item.id" x-text="item.title"></option>
+                            </template>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Release notes -->
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <h4 class="text-[12px] font-semibold text-slate-500 uppercase tracking-wider">Release Notes</h4>
+                        <button @click="generateNotes(selectedRelease.id)" class="text-[12px] font-medium text-brand-600 hover:text-brand-700">Generate</button>
+                    </div>
+                    <template x-if="selectedRelease?.release_notes">
+                        <pre class="text-[12px] text-slate-600 bg-slate-50 rounded-xl p-4 whitespace-pre-wrap font-mono" x-text="selectedRelease.release_notes"></pre>
+                    </template>
+                    <template x-if="!selectedRelease?.release_notes">
+                        <div class="text-[12px] text-slate-400 bg-slate-50 rounded-xl p-4 text-center">No release notes yet. Click "Generate" to auto-create.</div>
+                    </template>
+                </div>
+            </div>
+            <div class="sticky bottom-0 bg-white/95 backdrop-blur border-t border-slate-100 px-6 py-4 flex justify-between rounded-b-3xl">
+                <button @click="deleteRelease(selectedRelease?.id)" class="text-[12px] text-rose-500 hover:text-rose-700">Delete Release</button>
+                <button @click="closeRelease()" class="text-[13px] font-medium text-slate-600 hover:text-slate-800 px-4 py-2">Close</button>
+            </div>
         </div>
     </div>
 
@@ -1381,6 +1602,17 @@ function pmoApp() {
         // ===== Roles state =====
         roles: [],
 
+        // ===== Releases state =====
+        projectReleases: [],
+        selectedRelease: null,
+        releaseForm: { version: '', name: '', description: '', target_date: '' },
+        releaseStatuses: ['Planning', 'In Progress', 'Testing', 'UAT', 'Pre-Release', 'Released', 'Post-Release', 'Cancelled'],
+
+        // ===== User management state =====
+        users: [],
+        userForm: { name: '', email: '', password: '' },
+        assignmentForm: { user_id: '', role_id: '', project_id: '' },
+
         // ===== Dashboard stats =====
         dashStats: null,
 
@@ -1434,7 +1666,7 @@ function pmoApp() {
                 }
             }
             if (this.isLoggedIn) {
-                await Promise.all([this.loadClients(), this.loadProjects(), this.loadDashboard(), this.loadRoles()]);
+                await Promise.all([this.loadClients(), this.loadProjects(), this.loadDashboard(), this.loadRoles(), this.loadUsers()]);
             }
             setInterval(() => {
                 this.currentTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -1528,7 +1760,7 @@ function pmoApp() {
             this.selectedProject = project;
             this.route = 'project-detail';
             this.projectTab = 'overview';
-            await Promise.all([this.loadVision(), this.loadKPIs(), this.loadRoadmaps(), this.loadBacklog(), this.loadForms(), this.loadApprovals(), this.loadStakeholders()]);
+            await Promise.all([this.loadVision(), this.loadKPIs(), this.loadRoadmaps(), this.loadBacklog(), this.loadForms(), this.loadApprovals(), this.loadStakeholders(), this.loadReleases()]);
         },
 
         backToProjects() {
@@ -1929,6 +2161,118 @@ function pmoApp() {
                 'C': 'bg-amber-100 text-amber-700',
                 'I': 'bg-slate-100 text-slate-500',
             }[type] || 'bg-slate-100 text-slate-500';
+        },
+
+        // ===== Releases =====
+        async loadReleases() {
+            try {
+                this.projectReleases = await this.api('GET', `/projects/${this.selectedProject.id}/releases`);
+            } catch { this.projectReleases = []; }
+        },
+
+        async saveRelease() {
+            try {
+                await this.api('POST', `/projects/${this.selectedProject.id}/releases`, this.releaseForm);
+                this.releaseForm = { version: '', name: '', description: '', target_date: '' };
+                await this.loadReleases();
+                this.showToast('Release created', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async openRelease(release) {
+            try {
+                this.selectedRelease = await this.api('GET', `/releases/${release.id}`);
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        closeRelease() { this.selectedRelease = null; },
+
+        async addBacklogToRelease(releaseId, backlogItemId) {
+            try {
+                await this.api('POST', `/releases/${releaseId}/items/${backlogItemId}`);
+                await this.openRelease({ id: releaseId });
+                this.showToast('Item added to release', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async removeItemFromRelease(releaseId, backlogItemId) {
+            try {
+                await this.api('DELETE', `/releases/${releaseId}/items/${backlogItemId}`);
+                await this.openRelease({ id: releaseId });
+                this.showToast('Item removed', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async generateNotes(releaseId) {
+            try {
+                const result = await this.api('POST', `/releases/${releaseId}/generate-notes`);
+                await this.openRelease({ id: releaseId });
+                this.showToast('Release notes generated', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async updateReleaseStatus(releaseId, status) {
+            try {
+                await this.api('PUT', `/releases/${releaseId}`, { status });
+                await this.openRelease({ id: releaseId });
+                await this.loadReleases();
+                this.showToast('Release status updated', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async deleteRelease(id) {
+            try {
+                await this.api('DELETE', `/releases/${id}`);
+                this.selectedRelease = null;
+                await this.loadReleases();
+                this.showToast('Release deleted', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        releaseStatusColor(status) {
+            return {
+                'Planning': 'bg-slate-100 text-slate-600',
+                'In Progress': 'bg-blue-50 text-blue-700',
+                'Testing': 'bg-amber-50 text-amber-700',
+                'UAT': 'bg-violet-50 text-violet-700',
+                'Pre-Release': 'bg-orange-50 text-orange-700',
+                'Released': 'bg-emerald-50 text-emerald-700',
+                'Post-Release': 'bg-teal-50 text-teal-700',
+                'Cancelled': 'bg-rose-50 text-rose-700',
+            }[status] || 'bg-slate-100 text-slate-600';
+        },
+
+        // ===== User Management =====
+        async loadUsers() {
+            try {
+                this.users = await this.api('GET', '/users');
+            } catch { this.users = []; }
+        },
+
+        async createUser() {
+            try {
+                await this.api('POST', '/users', this.userForm);
+                this.userForm = { name: '', email: '', password: '' };
+                await this.loadUsers();
+                this.showToast('User created', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async deleteUser(id) {
+            try {
+                await this.api('DELETE', `/users/${id}`);
+                await this.loadUsers();
+                this.showToast('User deleted', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async assignRole() {
+            try {
+                await this.api('POST', `/projects/${this.assignmentForm.project_id}/assignments`, this.assignmentForm);
+                this.assignmentForm = { user_id: '', role_id: '', project_id: '' };
+                await this.loadUsers();
+                this.showToast('Role assigned', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
         },
 
         async loadClients() {

@@ -14,6 +14,7 @@ from app.models.backlog_item import BacklogItem
 from app.models.form_template import FormTemplate, FormInstance
 from app.models.approval import ApprovalRequest, ApprovalStep
 from app.models.stakeholder import Stakeholder
+from app.models.release import Release, ReleaseItem
 
 __all__ = [
     "Client", "Project", "User", "Role", "RoleAssignment",
@@ -22,4 +23,5 @@ __all__ = [
     "FormTemplate", "FormInstance",
     "ApprovalRequest", "ApprovalStep",
     "Stakeholder",
+    "Release", "ReleaseItem",
 ]

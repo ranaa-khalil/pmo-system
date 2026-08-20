@@ -198,6 +198,10 @@
         }
         .stagger-in { animation: staggerIn 0.3s cubic-bezier(0.16,1,0.3,1) both; }
 
+        /* Skeleton loading */
+        @keyframes shimmer { 0% { background-position: -200px 0; } 100% { background-position: 200px 0; } }
+        .skeleton { background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%); background-size: 400px 100%; animation: shimmer 1.5s infinite linear; border-radius: 0.5rem; }
+
         /* Aurora background for login */
         .aurora-bg {
             background: #0a0a0f;
@@ -431,7 +435,7 @@
                 <!-- Stats cards -->
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <template x-for="stat in stats" :key="stat.label">
-                        <div class="relative bg-white rounded-2xl border border-slate-200/60 p-5 card-lift hover:shadow-card-hover cursor-default overflow-hidden">
+                        <div class="relative bg-white rounded-2xl border border-slate-200/60 p-5 card-lift hover:border border-slate-200/60-hover cursor-default overflow-hidden">
                             <div class="absolute top-0 right-0 w-24 h-24 rounded-full blur-2xl opacity-15" :class="stat.glow"></div>
                             <div class="relative flex items-center justify-between mb-4">
                                 <div class="w-10 h-10 rounded-xl flex items-center justify-center" :class="stat.bg">
@@ -631,9 +635,12 @@
 
             <!-- ============ CLIENTS VIEW ============ -->
             <div x-show="route === 'clients'" class="view-enter space-y-5 max-w-7xl">
-                <div class="flex items-center justify-between">
-                    <p class="text-[14px] text-slate-500">Manage client organizations and their contacts.</p>
-                    <button @click="openClientModal()" class="inline-flex items-center gap-2 text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl shadow-glow hover:shadow-xl hover:shadow-brand-600/30 transition-all duration-200">
+                <div class="flex items-end justify-between">
+                    <div>
+                        <h1 class="text-[26px] font-bold text-slate-900 tracking-tight">Clients</h1>
+                        <p class="text-[14px] text-slate-500 mt-1.5">Manage client organizations and their contacts.</p>
+                    </div>
+                    <button @click="openClientModal()" class="btn-primary inline-flex items-center gap-2 text-[13px] font-medium text-white px-4 py-2.5 rounded-xl transition-all">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
                         New Client
                     </button>
@@ -693,11 +700,14 @@
 
             <!-- ============ PROJECTS VIEW ============ -->
             <div x-show="route === 'projects'" class="view-enter space-y-5 max-w-7xl">
-                <div class="flex items-center justify-between">
+                <div class="flex items-end justify-between">
+                    <div>
+                        <h1 class="text-[26px] font-bold text-slate-900 tracking-tight">Projects</h1>
+                        <p class="text-[14px] text-slate-500 mt-1.5">Manage projects and GitHub repositories.</p>
+                    </div>
                     <div class="flex items-center gap-3">
-                        <p class="text-[14px] text-slate-500">Manage projects and GitHub repositories.</p>
                         <div class="relative">
-                            <select x-model="projectFilter" @change="loadProjects()" class="appearance-none text-[12px] font-medium border border-slate-200 rounded-xl pl-3 pr-8 py-2 bg-white text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-500/20 cursor-pointer">
+                            <select x-model="projectFilter" @change="loadProjects()" class="appearance-none text-[12px] font-medium border border-slate-200/60 rounded-xl pl-3 pr-8 py-2 bg-white text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-500/20 cursor-pointer">
                                 <option value="">All Clients</option>
                                 <template x-for="c in clients" :key="c.id">
                                     <option :value="c.id" x-text="c.name"></option>
@@ -722,7 +732,7 @@
                         </div>
                     </template>
                     <template x-for="p in projects" :key="p.id">
-                        <div @click="openProject(p)" class="relative bg-white rounded-2xl border border-slate-200/60 p-5 card-lift hover:shadow-card-hover overflow-hidden group cursor-pointer">
+                        <div @click="openProject(p)" class="relative bg-white rounded-2xl border border-slate-200/60 p-5 card-lift hover:border border-slate-200/60-hover overflow-hidden group cursor-pointer">
                             <div class="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-10 bg-gradient-to-br from-brand-400 to-violet-500 group-hover:opacity-20 transition-opacity"></div>
                             <div class="relative flex items-start justify-between mb-4">
                                 <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center shadow-glow">
@@ -835,7 +845,10 @@
 
                                             <!-- Roadmap bars + milestones -->
                                             <template x-if="!p._roadmaps">
-                                                <div class="text-[11px] text-slate-300 px-4 py-3">Loading...</div>
+                                                <div class="px-4 py-3 space-y-2">
+                                                    <div class="skeleton h-7 w-3/4 rounded-lg"></div>
+                                                    <div class="skeleton h-7 w-1/2 rounded-lg"></div>
+                                                </div>
                                             </template>
                                             <template x-if="p._roadmaps && p._roadmaps.length === 0">
                                                 <div class="text-[11px] text-slate-300 px-4 py-3">No roadmap</div>
@@ -985,10 +998,10 @@
                     <h3 class="text-[14px] font-semibold text-slate-800 mb-4">Team Management</h3>
                     <!-- Create user -->
                     <div class="grid grid-cols-4 gap-2 mb-4">
-                        <input x-model="userForm.name" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Full name">
-                        <input x-model="userForm.email" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Email">
-                        <input x-model="userForm.password" type="password" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Password">
-                        <select x-model="userForm.system_role" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                        <input x-model="userForm.name" class="input-premium text-[13px]" placeholder="Full name">
+                        <input x-model="userForm.email" class="input-premium text-[13px]" placeholder="Email">
+                        <input x-model="userForm.password" type="password" class="input-premium text-[13px]" placeholder="Password">
+                        <select x-model="userForm.system_role" class="text-[13px] border border-slate-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
                             <option value="member">Team Member</option>
                             <option value="project_manager">Project Manager</option>
                             <option value="account_manager">Account Manager</option>
@@ -1032,13 +1045,13 @@
                 <div class="bg-white rounded-2xl border border-slate-200/60 p-6">
                     <h3 class="text-[14px] font-semibold text-slate-800 mb-4">Assign Account Manager to Client</h3>
                     <div class="grid grid-cols-2 gap-2">
-                        <select x-model="amForm.client_id" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                        <select x-model="amForm.client_id" class="text-[13px] border border-slate-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
                             <option value="">Select client...</option>
                             <template x-for="c in clients" :key="c.id">
                                 <option :value="c.id" x-text="c.name"></option>
                             </template>
                         </select>
-                        <select x-model="amForm.user_id" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                        <select x-model="amForm.user_id" class="text-[13px] border border-slate-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
                             <option value="">Select user...</option>
                             <template x-for="u in users" :key="u.id">
                                 <option :value="u.id" x-text="u.name"></option>
@@ -1051,13 +1064,13 @@
                 <div class="bg-white rounded-2xl border border-slate-200/60 p-6">
                     <h3 class="text-[14px] font-semibold text-slate-800 mb-4">Assign Project Manager to Project</h3>
                     <div class="grid grid-cols-2 gap-2">
-                        <select x-model="pmForm.project_id" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                        <select x-model="pmForm.project_id" class="text-[13px] border border-slate-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
                             <option value="">Select project...</option>
                             <template x-for="p in projects" :key="p.id">
                                 <option :value="p.id" x-text="p.name"></option>
                             </template>
                         </select>
-                        <select x-model="pmForm.user_id" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                        <select x-model="pmForm.user_id" class="text-[13px] border border-slate-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
                             <option value="">Select user...</option>
                             <template x-for="u in users" :key="u.id">
                                 <option :value="u.id" x-text="u.name"></option>
@@ -1070,19 +1083,19 @@
                 <div class="bg-white rounded-2xl border border-slate-200/60 p-6">
                     <h3 class="text-[14px] font-semibold text-slate-800 mb-4">Assign RACI Role to User</h3>
                     <div class="grid grid-cols-3 gap-2">
-                        <select x-model="assignmentForm.user_id" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                        <select x-model="assignmentForm.user_id" class="text-[13px] border border-slate-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
                             <option value="">Select user...</option>
                             <template x-for="u in users" :key="u.id">
                                 <option :value="u.id" x-text="u.name"></option>
                             </template>
                         </select>
-                        <select x-model="assignmentForm.role_id" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                        <select x-model="assignmentForm.role_id" class="text-[13px] border border-slate-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
                             <option value="">Select role...</option>
                             <template x-for="r in roles" :key="r.id">
                                 <option :value="r.id" x-text="r.name"></option>
                             </template>
                         </select>
-                        <select x-model="assignmentForm.project_id" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                        <select x-model="assignmentForm.project_id" class="text-[13px] border border-slate-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
                             <option value="">Select project...</option>
                             <template x-for="p in projects" :key="p.id">
                                 <option :value="p.id" x-text="p.name"></option>
@@ -1101,13 +1114,20 @@
 
                 <!-- Project header -->
                 <div class="flex items-start gap-4 mb-6">
-                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center text-white text-xl font-bold shadow-glow" x-text="selectedProject?.name?.charAt(0)"></div>
-                    <div class="flex-1">
-                        <h1 class="text-[24px] font-bold text-slate-900 tracking-tight" x-text="selectedProject?.name"></h1>
-                        <div class="flex items-center gap-3 mt-1">
-                            <span class="text-[13px] text-slate-500 font-medium" x-text="selectedProject?.status"></span>
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center text-white text-xl font-bold shadow-glow flex-shrink-0" x-text="selectedProject?.name?.charAt(0)"></div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-3">
+                            <h1 class="text-[24px] font-bold text-slate-900 tracking-tight" x-text="selectedProject?.name"></h1>
+                            <span class="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg"
+                                  :class="selectedProject?.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'">
+                                <span class="w-1.5 h-1.5 rounded-full" :class="selectedProject?.status === 'Active' ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+                                <span x-text="selectedProject?.status"></span>
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-3 mt-1.5">
+                            <span class="text-[12px] text-slate-500 font-medium" x-text="getClientName(selectedProject?.client_id)"></span>
                             <template x-if="selectedProject?.github_repo">
-                                <a :href="'https://github.com/' + selectedProject.github_repo" target="_blank" class="inline-flex items-center gap-1 text-[12px] text-slate-400 hover:text-slate-700 transition-colors">
+                                <a :href="'https://github.com/' + selectedProject.github_repo" target="_blank" class="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-700 transition-colors">
                                     <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
                                     <span x-text="selectedProject.github_repo"></span>
                                 </a>
@@ -1327,17 +1347,17 @@
                 <!-- Vision tab -->
                 <div x-show="projectTab==='vision'" class="max-w-3xl">
                     <template x-if="!vision">
-                        <div class="bg-white rounded-2xl shadow-card p-5">
+                        <div class="bg-white rounded-2xl border border-slate-200/60 p-5">
                             <h3 class="text-[13px] font-semibold text-slate-800 mb-3">Create Vision</h3>
                             <div class="space-y-3">
-                                <textarea x-model="visionForm.statement" rows="3" class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all" placeholder="e.g., Become the leading cloud platform for Saudi universities by 2030"></textarea>
-                                <textarea x-model="visionForm.strategic_objectives" rows="4" class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all" placeholder="1. Objective one&#10;2. Objective two"></textarea>
+                                <textarea x-model="visionForm.statement" rows="3" class="input-premium w-full text-[14px]" placeholder="e.g., Become the leading cloud platform for Saudi universities by 2030"></textarea>
+                                <textarea x-model="visionForm.strategic_objectives" rows="4" class="input-premium w-full text-[14px]" placeholder="1. Objective one&#10;2. Objective two"></textarea>
                                 <button @click="saveVision()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Vision</button>
                             </div>
                         </div>
                     </template>
                     <template x-if="vision">
-                        <div class="bg-white rounded-2xl shadow-card p-5">
+                        <div class="bg-white rounded-2xl border border-slate-200/60 p-5">
                             <div class="flex justify-between items-start mb-3">
                                 <h3 class="text-[13px] font-semibold text-slate-800">Vision Statement</h3>
                                 <button @click="vision = null" class="text-[12px] text-brand-600 hover:text-brand-700">Edit</button>
@@ -1351,29 +1371,55 @@
 
                 <!-- KPIs tab -->
                 <div x-show="projectTab==='kpis'" class="max-w-3xl">
-                    <div class="bg-white rounded-2xl shadow-card p-5 mb-4">
-                        <h3 class="text-[13px] font-semibold text-slate-800 mb-3">Add KPI</h3>
-                        <div class="grid grid-cols-5 gap-2">
-                            <input x-model="kpiForm.name" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="KPI name">
-                            <input x-model="kpiForm.target_value" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Target">
-                            <input x-model="kpiForm.current_value" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Current">
-                            <input x-model="kpiForm.unit" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Unit (e.g., %)">
-                            <input x-model="kpiForm.category" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Category">
+                    <div class="bg-white rounded-2xl border border-slate-200/60 p-5 mb-4">
+                        <h3 class="text-[13px] font-semibold text-slate-800 mb-1">Add KPI</h3>
+                        <p class="text-[11px] text-slate-400 mb-4">Define measurable targets linked to your vision objectives.</p>
+                        <div class="grid grid-cols-2 gap-3 mb-3">
+                            <div>
+                                <label class="block text-[11px] font-medium text-slate-500 mb-1.5">KPI Name</label>
+                                <input x-model="kpiForm.name" class="input-premium text-[13px] w-full" placeholder="e.g., Service Uptime">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-medium text-slate-500 mb-1.5">Category</label>
+                                <input x-model="kpiForm.category" class="input-premium text-[13px] w-full" placeholder="e.g., Availability">
+                            </div>
                         </div>
-                        <input x-model="kpiForm.vision_objective" class="w-full text-[13px] border border-slate-200 rounded-xl px-3 py-2 mt-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Linked vision objective (e.g., 'Achieve 99.9% uptime')">
-                        <button @click="saveKPI()" class="mt-2 text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Add KPI</button>
+                        <div class="grid grid-cols-3 gap-3 mb-3">
+                            <div>
+                                <label class="block text-[11px] font-medium text-slate-500 mb-1.5">Target Value</label>
+                                <input x-model="kpiForm.target_value" class="input-premium text-[13px] w-full" placeholder="99.9">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-medium text-slate-500 mb-1.5">Current Value</label>
+                                <input x-model="kpiForm.current_value" class="input-premium text-[13px] w-full" placeholder="99.5">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-medium text-slate-500 mb-1.5">Unit</label>
+                                <input x-model="kpiForm.unit" class="input-premium text-[13px] w-full" placeholder="%">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="block text-[11px] font-medium text-slate-500 mb-1.5">Linked Vision Objective</label>
+                            <input x-model="kpiForm.vision_objective" class="input-premium w-full text-[13px]" placeholder="e.g., 'Achieve 99.9% uptime'">
+                        </div>
+                        <button @click="saveKPI()" class="btn-primary text-[13px] font-medium text-white px-4 py-2 rounded-xl transition-all">Add KPI</button>
                     </div>
                     <template x-if="kpis.length === 0">
-                        <div class="bg-white rounded-2xl shadow-card p-8 text-center text-[13px] text-slate-400">No KPIs yet. Add one above.</div>
+                        <div class="bg-white rounded-2xl border border-slate-200/60 p-10 text-center">
+    <div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-brand-50 flex items-center justify-center">
+        <svg class="w-6 h-6 text-brand-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+    </div>
+    <p class="text-[13px] text-slate-400 mb-1">No KPIs defined yet</p>
+    <p class="text-[11px] text-slate-300">Add a KPI above to start tracking progress</p>
+</div>
                     </template>
-                    <div class="bg-white rounded-2xl shadow-card overflow-hidden">
+                    <div class="bg-white rounded-2xl border border-slate-200/60 overflow-hidden">
                         <table class="w-full">
                             <thead>
                                 <tr class="border-b border-slate-100 text-[11px] text-slate-400 uppercase tracking-wider">
                                     <th class="text-left py-3 px-4 font-semibold">KPI</th>
-                                    <th class="text-left py-3 px-4 font-semibold">Target</th>
-                                    <th class="text-left py-3 px-4 font-semibold">Current</th>
-                                    <th class="text-left py-3 px-4 font-semibold">Unit</th>
+                                    <th class="text-left py-3 px-4 font-semibold">Progress</th>
+                                    <th class="text-left py-3 px-4 font-semibold">Current / Target</th>
                                     <th class="text-left py-3 px-4 font-semibold">Category</th>
                                     <th></th>
                                 </tr>
@@ -1381,11 +1427,32 @@
                             <tbody>
                                 <template x-for="kpi in kpis" :key="kpi.id">
                                     <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                                        <td class="py-3 px-4 text-[13px] font-medium text-slate-800" x-text="kpi.name"></td>
-                                        <td class="py-3 px-4 text-[13px] text-slate-600" x-text="kpi.target_value"></td>
-                                        <td class="py-3 px-4 text-[13px] text-slate-600" x-text="kpi.current_value"></td>
-                                        <td class="py-3 px-4 text-[13px] text-slate-400" x-text="kpi.unit"></td>
-                                        <td class="py-3 px-4 text-[13px] text-slate-400" x-text="kpi.category"></td>
+                                        <td class="py-3.5 px-4">
+                                            <div class="text-[13px] font-medium text-slate-800" x-text="kpi.name"></div>
+                                            <div class="text-[10px] text-slate-400 mt-0.5" x-text="kpi.vision_objective || 'No vision link'"></div>
+                                        </td>
+                                        <td class="py-3.5 px-4">
+                                            <div class="flex items-center gap-2">
+                                                <div class="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                                    <div class="h-full rounded-full transition-all duration-500"
+                                                         :class="kpiProgress(kpi) >= 80 ? 'bg-emerald-400' : kpiProgress(kpi) >= 50 ? 'bg-amber-400' : 'bg-rose-400'"
+                                                         :style="'width: ' + kpiProgress(kpi) + '%'"></div>
+                                                </div>
+                                                <span class="text-[11px] font-bold tabular-nums"
+                                                      :class="kpiProgress(kpi) >= 80 ? 'text-emerald-600' : kpiProgress(kpi) >= 50 ? 'text-amber-600' : 'text-rose-600'"
+                                                      x-text="kpiProgress(kpi) + '%'"></span>
+                                            </div>
+                                        </td>
+                                        <td class="py-3.5 px-4">
+                                            <div class="text-[13px] tabular-nums">
+                                                <span class="font-semibold text-slate-700" x-text="kpi.current_value || '—'"></span>
+                                                <span class="text-slate-300"> / </span>
+                                                <span class="text-slate-500" x-text="(kpi.target_value || '—') + ' ' + (kpi.unit || '')"></span>
+                                            </div>
+                                        </td>
+                                        <td class="py-3.5 px-4">
+                                            <span class="text-[11px] font-medium px-2 py-1 rounded-md bg-slate-50 text-slate-500" x-text="kpi.category || '—'"></span>
+                                        </td>
                                         <td class="py-3 px-4 text-right"><button @click="deleteKPI(kpi.id)" class="text-[12px] text-rose-400 hover:text-rose-600">Delete</button></td>
                                     </tr>
                                 </template>
@@ -1552,19 +1619,19 @@
     <!-- Backlog tab -->
     <div x-show="projectTab==='backlog'" class="max-w-4xl">
         <!-- Add backlog item form -->
-        <div class="bg-white rounded-2xl shadow-card p-5 mb-4">
+        <div class="bg-white rounded-2xl border border-slate-200/60 p-5 mb-4">
             <h3 class="text-[13px] font-semibold text-slate-800 mb-3">Add Backlog Item</h3>
             <div class="space-y-2">
-                <input x-model="backlogForm.title" class="w-full text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Item title (e.g., User authentication module)">
-                <textarea x-model="backlogForm.description" rows="2" class="w-full text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Description..."></textarea>
+                <input x-model="backlogForm.title" class="w-full input-premium text-[13px]" placeholder="Item title (e.g., User authentication module)">
+                <textarea x-model="backlogForm.description" rows="2" class="w-full input-premium text-[13px]" placeholder="Description..."></textarea>
                 <div class="flex items-center gap-3">
-                    <select x-model="backlogForm.priority" class="text-[12px] border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                    <select x-model="backlogForm.priority" class="input-premium text-[12px] bg-white">
                         <option value="Low">Low</option>
                         <option value="Medium">Medium</option>
                         <option value="High">High</option>
                         <option value="Critical">Critical</option>
                     </select>
-                    <select x-model="backlogForm.kpi_id" class="text-[12px] border border-slate-200 rounded-xl px-3 py-2 bg-white flex-1 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                    <select x-model="backlogForm.kpi_id" class="text-[12px] border border-slate-200/60 rounded-xl px-3 py-2 bg-white flex-1 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
                         <option value="">Link to KPI (optional)...</option>
                         <template x-for="kpi in kpis" :key="kpi.id">
                             <option :value="kpi.id" x-text="kpi.name"></option>
@@ -1590,10 +1657,16 @@
 
         <!-- Backlog items -->
         <template x-if="backlogItems.length === 0">
-            <div class="bg-white rounded-2xl shadow-card p-8 text-center text-[13px] text-slate-400">No backlog items yet. Add one above.</div>
+            <div class="bg-white rounded-2xl border border-slate-200/60 p-10 text-center">
+    <div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-amber-50 flex items-center justify-center">
+        <svg class="w-6 h-6 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+    </div>
+    <p class="text-[13px] text-slate-400 mb-1">No backlog items yet</p>
+    <p class="text-[11px] text-slate-300">Add items above to plan your work</p>
+</div>
         </template>
         <template x-for="item in backlogItems" :key="item.id">
-            <div class="bg-white rounded-2xl shadow-card p-5 mb-3">
+            <div class="bg-white rounded-2xl border border-slate-200/60 p-5 mb-3">
                 <div class="flex items-start justify-between mb-3">
                     <div class="flex-1">
                         <div class="flex items-center gap-2 mb-1">
@@ -1638,7 +1711,7 @@
             <h3 class="text-[13px] font-semibold text-slate-800 mb-3">Create from Template</h3>
             <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <template x-for="tpl in formTemplates" :key="tpl.id">
-                    <button @click="createForm(tpl.id)" class="text-left bg-white rounded-2xl border border-slate-200/60 p-4 card-lift hover:shadow-card-hover transition-all group">
+                    <button @click="createForm(tpl.id)" class="text-left bg-white rounded-2xl border border-slate-200/60 p-4 card-lift hover:border border-slate-200/60-hover transition-all group">
                         <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-50 to-violet-50 flex items-center justify-center mb-3 ring-1 ring-brand-100/50 group-hover:from-brand-100 group-hover:to-violet-100 transition-colors">
                             <svg class="w-4.5 h-4.5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                         </div>
@@ -1652,11 +1725,17 @@
         <!-- Existing forms -->
         <h3 class="text-[13px] font-semibold text-slate-800 mb-3">Project Forms</h3>
         <template x-if="projectForms.length === 0">
-            <div class="bg-white rounded-2xl shadow-card p-8 text-center text-[13px] text-slate-400">No forms yet. Create one from a template above.</div>
+            <div class="bg-white rounded-2xl border border-slate-200/60 p-10 text-center">
+    <div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-violet-50 flex items-center justify-center">
+        <svg class="w-6 h-6 text-violet-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+    </div>
+    <p class="text-[13px] text-slate-400 mb-1">No forms yet</p>
+    <p class="text-[11px] text-slate-300">Create one from a template above</p>
+</div>
         </template>
         <div class="space-y-2">
             <template x-for="form in projectForms" :key="form.id">
-                <div @click="openForm(form)" class="bg-white rounded-2xl border border-slate-200/60 p-4 card-lift hover:shadow-card-hover transition-all cursor-pointer flex items-center justify-between">
+                <div @click="openForm(form)" class="bg-white rounded-2xl border border-slate-200/60 p-4 card-lift hover:border border-slate-200/60-hover transition-all cursor-pointer flex items-center justify-between">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-50 to-violet-50 flex items-center justify-center ring-1 ring-brand-100/50">
                             <svg class="w-5 h-5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
@@ -1725,15 +1804,15 @@
         </div>
 
         <!-- Create release form -->
-        <div class="bg-white rounded-2xl shadow-card p-5 mb-4">
+        <div class="bg-white rounded-2xl border border-slate-200/60 p-5 mb-4">
             <h3 class="text-[13px] font-semibold text-slate-800 mb-3">Plan New Release</h3>
             <div class="grid grid-cols-4 gap-3">
-                <input x-model="releaseForm.version" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Version (e.g., 1.2.0)">
-                <input x-model="releaseForm.name" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 col-span-2" placeholder="Release name">
-                <input x-model="releaseForm.target_date" type="date" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400">
+                <input x-model="releaseForm.version" class="input-premium text-[13px]" placeholder="Version (e.g., 1.2.0)">
+                <input x-model="releaseForm.name" class="input-premium text-[13px] col-span-2" placeholder="Release name">
+                <input x-model="releaseForm.target_date" type="date" class="input-premium text-[13px]">
             </div>
-            <textarea x-model="releaseForm.description" rows="2" class="w-full text-[13px] border border-slate-200 rounded-xl px-3 py-2 mt-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Release description..."></textarea>
-            <select x-model="releaseForm.milestone_id" class="w-full text-[13px] border border-slate-200 rounded-xl px-3 py-2 mt-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+            <textarea x-model="releaseForm.description" rows="2" class="input-premium w-full text-[13px] mt-2" placeholder="Release description..."></textarea>
+            <select x-model="releaseForm.milestone_id" class="w-full text-[13px] border border-slate-200/60 rounded-xl px-3 py-2 mt-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
                 <option value="">Link to milestone (optional)...</option>
                 <template x-for="rm in roadmaps" :key="rm.id">
                     <template x-for="ms in (rm.milestones || [])" :key="ms.id">
@@ -1746,11 +1825,17 @@
 
         <!-- Releases list -->
         <template x-if="projectReleases.length === 0">
-            <div class="bg-white rounded-2xl shadow-card p-8 text-center text-[13px] text-slate-400">No releases yet. Plan one above.</div>
+            <div class="bg-white rounded-2xl border border-slate-200/60 p-10 text-center">
+    <div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-emerald-50 flex items-center justify-center">
+        <svg class="w-6 h-6 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+    </div>
+    <p class="text-[13px] text-slate-400 mb-1">No releases yet</p>
+    <p class="text-[11px] text-slate-300">Plan one above to track your V-cycle</p>
+</div>
         </template>
         <div class="space-y-3">
             <template x-for="rel in projectReleases" :key="rel.id">
-                <div @click="openRelease(rel)" class="bg-white rounded-2xl border border-slate-200/60 p-4 card-lift hover:shadow-card-hover transition-all cursor-pointer"
+                <div @click="openRelease(rel)" class="bg-white rounded-2xl border border-slate-200/60 p-4 card-lift hover:border border-slate-200/60-hover transition-all cursor-pointer"
                      :class="selectedRelease?.id === rel.id ? 'ring-2 ring-brand-400/50' : ''">
                     <div class="flex items-center justify-between mb-2">
                         <div class="flex items-center gap-3">
@@ -1943,7 +2028,7 @@
                     <!-- Add from backlog -->
                     <div class="mt-3">
                         <select @change="if($event.target.value) { addBacklogToRelease(selectedRelease.id, parseInt($event.target.value)); $event.target.value=''; }"
-                                class="w-full text-[12px] border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                                class="w-full input-premium text-[12px] bg-white">
                             <option value="">+ Add backlog item to release...</option>
                             <template x-for="item in backlogItems" :key="item.id">
                                 <option :value="item.id" x-text="item.title"></option>
@@ -2015,19 +2100,19 @@
     <!-- Stakeholders tab -->
     <div x-show="projectTab==='stakeholders'" class="max-w-4xl">
         <!-- Add stakeholder form -->
-        <div class="bg-white rounded-2xl shadow-card p-5 mb-4">
+        <div class="bg-white rounded-2xl border border-slate-200/60 p-5 mb-4">
             <h3 class="text-[13px] font-semibold text-slate-800 mb-3">Add Stakeholder</h3>
             <div class="grid grid-cols-3 gap-3">
-                <input x-model="stakeholderForm.name" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Full name *">
-                <input x-model="stakeholderForm.email" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Email">
-                <input x-model="stakeholderForm.phone" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Phone">
-                <input x-model="stakeholderForm.company" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Company (e.g., OPEX, NITC)">
-                <select x-model="stakeholderForm.role_name" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                <input x-model="stakeholderForm.name" class="input-premium text-[13px]" placeholder="Full name *">
+                <input x-model="stakeholderForm.email" class="input-premium text-[13px]" placeholder="Email">
+                <input x-model="stakeholderForm.phone" class="input-premium text-[13px]" placeholder="Phone">
+                <input x-model="stakeholderForm.company" class="input-premium text-[13px]" placeholder="Company (e.g., OPEX, NITC)">
+                <select x-model="stakeholderForm.role_name" class="text-[13px] border border-slate-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
                     <template x-for="role in raciRoles" :key="role">
                         <option :value="role" x-text="role"></option>
                     </template>
                 </select>
-                <select x-model="stakeholderForm.raci_type" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                <select x-model="stakeholderForm.raci_type" class="text-[13px] border border-slate-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
                     <option value="R">R — Responsible</option>
                     <option value="A">A — Accountable</option>
                     <option value="C">C — Consulted</option>
@@ -2047,9 +2132,15 @@
 
         <!-- Stakeholder list -->
         <template x-if="projectStakeholders.length === 0">
-            <div class="bg-white rounded-2xl shadow-card p-8 text-center text-[13px] text-slate-400">No stakeholders yet. Add one above.</div>
+            <div class="bg-white rounded-2xl border border-slate-200/60 p-10 text-center">
+    <div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-rose-50 flex items-center justify-center">
+        <svg class="w-6 h-6 text-rose-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+    </div>
+    <p class="text-[13px] text-slate-400 mb-1">No stakeholders yet</p>
+    <p class="text-[11px] text-slate-300">Add stakeholders above to define your RACI matrix</p>
+</div>
         </template>
-        <div class="bg-white rounded-2xl shadow-card overflow-hidden">
+        <div class="bg-white rounded-2xl border border-slate-200/60 overflow-hidden">
             <table class="w-full">
                 <thead>
                     <tr class="border-b border-slate-100 text-[11px] text-slate-400 uppercase tracking-wider">
@@ -2109,13 +2200,13 @@
                                :value="selectedForm?.data?.[field.name] || ''"
                                @input="selectedForm.data[field.name] = $event.target.value"
                                :disabled="!formEditMode || selectedForm.status !== 'Draft'"
-                               class="w-full text-[13px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all disabled:bg-slate-50 disabled:text-slate-400">
+                               class="input-premium w-full text-[13px] disabled:bg-slate-50 disabled:text-slate-400">
                         <!-- Textarea -->
                         <textarea x-show="field.type === 'textarea'" rows="3"
                                   :value="selectedForm?.data?.[field.name] || ''"
                                   @input="selectedForm.data[field.name] = $event.target.value"
                                   :disabled="!formEditMode || selectedForm.status !== 'Draft'"
-                                  class="w-full text-[13px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all disabled:bg-slate-50 disabled:text-slate-400"></textarea>
+                                  class="input-premium w-full text-[13px] disabled:bg-slate-50 disabled:text-slate-400"></textarea>
                         <!-- Boolean -->
                         <div x-show="field.type === 'boolean'" class="flex items-center gap-2">
                             <input type="checkbox" :checked="selectedForm?.data?.[field.name] || false"
@@ -2129,7 +2220,7 @@
                                 :value="selectedForm?.data?.[field.name] || ''"
                                 @change="selectedForm.data[field.name] = $event.target.value"
                                 :disabled="!formEditMode || selectedForm.status !== 'Draft'"
-                                class="w-full text-[13px] border border-slate-200 rounded-xl px-3.5 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all disabled:bg-slate-50 disabled:text-slate-400">
+                                class="input-premium w-full text-[13px] bg-white disabled:bg-slate-50 disabled:text-slate-400">
                             <option value="">Select...</option>
                             <template x-for="opt in field.options" :key="opt">
                                 <option :value="opt" x-text="opt"></option>
@@ -2154,13 +2245,13 @@
     <!-- ==================== APPROVALS TAB ==================== -->
     <div x-show="projectTab==='approvals'" class="max-w-4xl">
         <!-- Create approval form -->
-        <div class="bg-white rounded-2xl shadow-card p-5 mb-4">
+        <div class="bg-white rounded-2xl border border-slate-200/60 p-5 mb-4">
             <h3 class="text-[13px] font-semibold text-slate-800 mb-3">New Approval Request</h3>
             <div class="space-y-2">
-                <input x-model="approvalForm.title" class="w-full text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Approval title (e.g., Release v1.2.0 Approval)">
-                <textarea x-model="approvalForm.description" rows="2" class="w-full text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Description..."></textarea>
+                <input x-model="approvalForm.title" class="w-full input-premium text-[13px]" placeholder="Approval title (e.g., Release v1.2.0 Approval)">
+                <textarea x-model="approvalForm.description" rows="2" class="w-full input-premium text-[13px]" placeholder="Description..."></textarea>
                 <div class="flex items-center gap-3">
-                    <select x-model="approvalForm.request_type" class="text-[12px] border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                    <select x-model="approvalForm.request_type" class="input-premium text-[12px] bg-white">
                         <option value="release">Release</option>
                         <option value="hotfix">Hotfix</option>
                         <option value="rollback">Rollback</option>
@@ -2174,7 +2265,7 @@
                     <template x-for="(step, idx) in approvalForm.steps" :key="idx">
                         <div class="flex items-center gap-2 mb-1.5">
                             <div class="w-6 h-6 rounded-lg bg-brand-50 text-brand-600 text-[11px] font-bold flex items-center justify-center flex-shrink-0" x-text="idx + 1"></div>
-                            <select x-model="step.role_name" class="flex-1 text-[12px] border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                            <select x-model="step.role_name" class="flex-1 text-[12px] border border-slate-200/60 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
                                 <option value="">Select role...</option>
                                 <template x-for="role in raciRoles" :key="role">
                                     <option :value="role" x-text="role"></option>
@@ -2191,11 +2282,17 @@
 
         <!-- Existing approval requests -->
         <template x-if="projectApprovals.length === 0">
-            <div class="bg-white rounded-2xl shadow-card p-8 text-center text-[13px] text-slate-400">No approval requests yet. Create one above.</div>
+            <div class="bg-white rounded-2xl border border-slate-200/60 p-10 text-center">
+    <div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-amber-50 flex items-center justify-center">
+        <svg class="w-6 h-6 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+    </div>
+    <p class="text-[13px] text-slate-400 mb-1">No approval requests yet</p>
+    <p class="text-[11px] text-slate-300">Create an approval above to start the review chain</p>
+</div>
         </template>
         <div class="space-y-2">
             <template x-for="approval in projectApprovals" :key="approval.id">
-                <div @click="openApproval(approval)" class="bg-white rounded-2xl border border-slate-200/60 p-4 card-lift hover:shadow-card-hover transition-all cursor-pointer">
+                <div @click="openApproval(approval)" class="bg-white rounded-2xl border border-slate-200/60 p-4 card-lift hover:border border-slate-200/60-hover transition-all cursor-pointer">
                     <div class="flex items-center justify-between">
                         <div class="flex-1">
                             <div class="flex items-center gap-2">
@@ -2298,27 +2395,27 @@
                 <div>
                     <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Name *</label>
                     <input x-model="editingClient.name" type="text" required
-                           class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
+                           class="input-premium w-full text-[14px]"
                            placeholder="e.g., NITC / PNU">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Contact Name</label>
                         <input x-model="editingClient.contact_name" type="text"
-                               class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
+                               class="input-premium w-full text-[14px]"
                                placeholder="Aldaana Almuqrin">
                     </div>
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Email</label>
                         <input x-model="editingClient.contact_email" type="email"
-                               class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
+                               class="input-premium w-full text-[14px]"
                                placeholder="contact@org.com">
                     </div>
                 </div>
                 <div>
                     <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Description</label>
                     <textarea x-model="editingClient.description" rows="3"
-                              class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all resize-none"
+                              class="input-premium w-full text-[14px] resize-none"
                               placeholder="Brief description of the client..."></textarea>
                 </div>
                 <div class="flex justify-end gap-2 pt-3">
@@ -2348,13 +2445,13 @@
                 <div>
                     <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Name *</label>
                     <input x-model="editingProject.name" type="text" required
-                           class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
+                           class="input-premium w-full text-[14px]"
                            placeholder="e.g., PNU Cloud">
                 </div>
                 <div>
                     <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Client *</label>
                     <select x-model="editingProject.client_id" required
-                            class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all">
+                            class="input-premium w-full text-[14px] bg-white">
                         <option value="">Select a client...</option>
                         <template x-for="c in clients" :key="c.id">
                             <option :value="c.id" x-text="c.name"></option>
@@ -2365,7 +2462,7 @@
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Status</label>
                         <select x-model="editingProject.status"
-                                class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all">
+                                class="input-premium w-full text-[14px] bg-white">
                             <option value="Active">Active</option>
                             <option value="On Hold">On Hold</option>
                             <option value="Completed">Completed</option>
@@ -2374,14 +2471,14 @@
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">GitHub Repo</label>
                         <input x-model="editingProject.github_repo" type="text"
-                               class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono text-[13px]"
+                               class="input-premium w-full text-[14px] font-mono text-[13px]"
                                placeholder="org/repo">
                     </div>
                 </div>
                 <div>
                     <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Description</label>
                     <textarea x-model="editingProject.description" rows="3"
-                              class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all resize-none"
+                              class="input-premium w-full text-[14px] resize-none"
                               placeholder="Brief description..."></textarea>
                 </div>
                 <div class="flex justify-end gap-2 pt-3">

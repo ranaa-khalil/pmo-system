@@ -8,6 +8,13 @@ class BacklogItemBase(BaseModel):
     description: Optional[str] = None
     priority: str = "Medium"
     kpi_id: Optional[int] = None
+    epic: Optional[str] = None
+    item_type: Optional[str] = None
+    primary_actor: Optional[str] = None
+    story_points: Optional[int] = None
+    target_release: Optional[str] = None
+    acceptance_criteria: Optional[str] = None
+    dependencies: Optional[str] = None
 
 
 class BacklogItemCreate(BacklogItemBase):
@@ -22,6 +29,13 @@ class BacklogItemUpdate(BaseModel):
     priority: Optional[str] = None
     assigned_to: Optional[int] = None
     kpi_id: Optional[int] = None
+    epic: Optional[str] = None
+    item_type: Optional[str] = None
+    primary_actor: Optional[str] = None
+    story_points: Optional[int] = None
+    target_release: Optional[str] = None
+    acceptance_criteria: Optional[str] = None
+    dependencies: Optional[str] = None
 
 
 class BacklogItemResponse(BacklogItemBase):

@@ -24,7 +24,7 @@
                         // Accent — cyan/teal for secondary actions
                         accent: {
                             50: '#ecfeff', 100: '#cffafe', 200: '#a5f3fc',
-                            300: '#67e8f9', 400: '#22d3ee', 500: '#06b6d4',
+                            300: '#67e8f9', 400: '#22d3ee', 500: '#7c3aed',
                             600: '#0891b2', 700: '#0e7490', 800: '#155e75',
                         },
                         ink: {
@@ -42,7 +42,7 @@
                         'lift': '0 16px 48px -12px rgba(0,0,0,0.14), 0 4px 16px -4px rgba(0,0,0,0.06)',
                         'modal': '0 40px 100px -20px rgba(0,0,0,0.25), 0 16px 48px -8px rgba(0,0,0,0.16)',
                         'glow': '0 0 32px -4px rgba(99,102,241,0.35), 0 8px 32px -8px rgba(99,102,241,0.25)',
-                        'glow-accent': '0 0 32px -4px rgba(6,182,212,0.3), 0 8px 32px -8px rgba(6,182,212,0.2)',
+                        'glow-accent': '0 0 32px -4px rgba(124,58,237,0.3), 0 8px 32px -8px rgba(124,58,237,0.2)',
                         'inner-soft': 'inset 0 1px 2px 0 rgba(0,0,0,0.03)',
                     },
                     borderRadius: {
@@ -83,19 +83,19 @@
 
         /* Sidebar nav active — 3-color gradient with glow */
         .nav-active {
-            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 40%, #06b6d4 100%);
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 40%, #7c3aed 100%);
             box-shadow: 0 4px 20px -4px rgba(79,70,229,0.5), inset 0 1px 0 rgba(255,255,255,0.15);
         }
 
         /* Gradient text */
-        .gradient-text { background: linear-gradient(135deg, #4f46e5, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .gradient-text { background: linear-gradient(135deg, #4f46e5, #7c3aed); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 
         /* Mesh background — multi-color layered */
         .mesh-bg {
             background-color: #fafbfc;
             background-image:
                 radial-gradient(at 0% 0%, rgba(99,102,241,0.04) 0px, transparent 50%),
-                radial-gradient(at 100% 0%, rgba(6,182,212,0.03) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(124,58,237,0.025) 0px, transparent 50%),
                 radial-gradient(at 50% 100%, rgba(124,58,237,0.025) 0px, transparent 50%);
         }
 
@@ -105,7 +105,7 @@
 
         /* Premium button — 3-color gradient */
         .btn-primary {
-            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 45%, #06b6d4 100%);
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 45%, #7c3aed 100%);
             box-shadow: 0 4px 16px -2px rgba(79,70,229,0.35), inset 0 1px 0 rgba(255,255,255,0.15);
             transition: all 0.2s cubic-bezier(0.16,1,0.3,1);
         }
@@ -121,7 +121,7 @@
 
         /* Tab indicator */
         .tab-active { position: relative; }
-        .tab-active::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, #4f46e5, #06b6d4); border-radius: 2px 2px 0 0; }
+        .tab-active::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, #4f46e5, #7c3aed); border-radius: 2px 2px 0 0; }
 
         /* Pulse dot */
         @keyframes pulseDot { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
@@ -148,13 +148,13 @@
         /* Aurora background for login */
         .aurora-bg { background: #08080f; position: relative; overflow: hidden; }
         .aurora-bg::before { content: ''; position: absolute; top: -40%; left: -20%; width: 80%; height: 100%; background: radial-gradient(ellipse at center, rgba(99,102,241,0.3) 0%, transparent 60%); filter: blur(80px); animation: aurora1 15s ease-in-out infinite alternate; }
-        .aurora-bg::after { content: ''; position: absolute; top: -20%; right: -20%; width: 70%; height: 100%; background: radial-gradient(ellipse at center, rgba(6,182,212,0.2) 0%, transparent 60%); filter: blur(80px); animation: aurora2 18s ease-in-out infinite alternate; }
+        .aurora-bg::after { content: ''; position: absolute; top: -20%; right: -20%; width: 70%; height: 100%; background: radial-gradient(ellipse at center, rgba(124,58,237,0.2) 0%, transparent 60%); filter: blur(80px); animation: aurora2 18s ease-in-out infinite alternate; }
         @keyframes aurora1 { from { transform: translate(0,0) rotate(0deg); } to { transform: translate(10%,5%) rotate(5deg); } }
         @keyframes aurora2 { from { transform: translate(0,0) rotate(0deg); } to { transform: translate(-5%,8%) rotate(-3deg); } }
 
         /* Gradient border card */
         .gradient-border { position: relative; background: white; border-radius: 1rem; }
-        .gradient-border::before { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px; background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(6,182,212,0.1)); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+        .gradient-border::before { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px; background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(124,58,237,0.1)); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
 
         /* Surface card — subtle gradient surface */
         .surface { background: linear-gradient(180deg, #ffffff 0%, #fcfcfd 100%); }
@@ -168,50 +168,50 @@
 
 <!-- ==================== LOGIN SCREEN — Premium Split-Screen ==================== -->
 <div x-show="!isLoggedIn" x-cloak class="fixed inset-0 z-50 flex">
-    <!-- Left: Aurora showcase panel -->
-    <div class="hidden lg:flex lg:w-[45%] aurora-bg relative flex-col justify-between p-12">
+    <!-- Left: Showcase panel — light gradient background -->
+    <div class="hidden lg:flex lg:w-[45%] relative flex-col justify-between p-12 bg-gradient-to-br from-brand-50 via-white to-violet-50">
         <!-- Floating shapes -->
-        <div class="absolute top-1/3 right-10 w-72 h-72 rounded-full bg-gradient-to-br from-brand-500/10 to-accent-500/10 blur-3xl pointer-events-none"></div>
-        <div class="absolute bottom-20 left-10 w-60 h-60 rounded-full bg-gradient-to-br from-accent-500/8 to-brand-500/8 blur-3xl pointer-events-none"></div>
+        <div class="absolute top-1/3 right-10 w-72 h-72 rounded-full bg-gradient-to-br from-brand-500/10 to-violet-500/10 blur-3xl pointer-events-none"></div>
+        <div class="absolute bottom-20 left-10 w-60 h-60 rounded-full bg-gradient-to-br from-violet-500/8 to-brand-500/8 blur-3xl pointer-events-none"></div>
 
         <!-- Logo -->
         <div class="relative flex items-center gap-3">
-            <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-500 to-accent-500 flex items-center justify-center shadow-glow">
+            <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center shadow-glow">
                 <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/></svg>
             </div>
             <div>
-                <div class="text-white font-bold text-[16px] tracking-tight">PMO System</div>
+                <div class="text-slate-900 font-bold text-[16px] tracking-tight">PMO System</div>
                 <div class="text-slate-400 text-[10px] font-medium tracking-[0.2em] uppercase">OPEX</div>
             </div>
         </div>
 
         <!-- Hero text -->
         <div class="relative max-w-md">
-            <h1 class="text-white text-[36px] font-bold leading-[1.15] tracking-tight">
+            <h1 class="text-slate-900 text-[36px] font-bold leading-[1.15] tracking-tight">
                 Project<br>
-                <span class="bg-gradient-to-r from-brand-300 to-accent-300 bg-clip-text text-transparent">Management</span><br>
+                <span class="bg-gradient-to-r from-brand-500 to-violet-600 bg-clip-text text-transparent">Management</span><br>
                 Office
             </h1>
-            <p class="text-slate-400 text-[15px] mt-4 leading-relaxed font-light">
+            <p class="text-slate-500 text-[15px] mt-4 leading-relaxed font-light">
                 V-cycle release management, traceability chains, hierarchical RBAC, and real-time project health — all in one workspace.
             </p>
             <!-- Feature bullets -->
             <div class="flex flex-wrap gap-4 mt-6">
-                <div class="flex items-center gap-2 text-[12px] text-slate-300">
-                    <div class="w-5 h-5 rounded-lg bg-brand-500/20 flex items-center justify-center">
-                        <svg class="w-3 h-3 text-brand-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                <div class="flex items-center gap-2 text-[12px] text-slate-600">
+                    <div class="w-5 h-5 rounded-lg bg-brand-500/15 flex items-center justify-center">
+                        <svg class="w-3 h-3 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                     </div>
                     V-Cycle Tracking
                 </div>
-                <div class="flex items-center gap-2 text-[12px] text-slate-300">
-                    <div class="w-5 h-5 rounded-lg bg-accent-500/20 flex items-center justify-center">
-                        <svg class="w-3 h-3 text-accent-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                <div class="flex items-center gap-2 text-[12px] text-slate-600">
+                    <div class="w-5 h-5 rounded-lg bg-violet-500/15 flex items-center justify-center">
+                        <svg class="w-3 h-3 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                     </div>
                     Gantt Timeline
                 </div>
-                <div class="flex items-center gap-2 text-[12px] text-slate-300">
-                    <div class="w-5 h-5 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                        <svg class="w-3 h-3 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                <div class="flex items-center gap-2 text-[12px] text-slate-600">
+                    <div class="w-5 h-5 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+                        <svg class="w-3 h-3 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                     </div>
                     RBAC Hierarchy
                 </div>
@@ -219,15 +219,15 @@
         </div>
 
         <!-- Footer -->
-        <div class="relative text-slate-600 text-[11px] font-medium tracking-wide">© 2026 OPEX · Project Management Office</div>
+        <div class="relative text-slate-400 text-[11px] font-medium tracking-wide">© 2026 OPEX · Project Management Office</div>
     </div>
 
     <!-- Right: Login form -->
-    <div class="flex-1 flex items-center justify-center bg-slate-50 px-6">
+    <div class="flex-1 flex items-center justify-center bg-white px-6">
         <div class="relative w-full max-w-[380px]">
             <!-- Mobile logo (hidden on desktop) -->
             <div class="lg:hidden text-center mb-8">
-                <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-brand-500 to-accent-500 flex items-center justify-center shadow-glow">
+                <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center shadow-glow">
                     <svg class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/></svg>
                 </div>
                 <h1 class="text-[20px] font-bold text-slate-900 tracking-tight">PMO System</h1>
@@ -293,12 +293,12 @@
         <!-- Decorative gradient glow — top brand→accent -->
         <div class="absolute top-0 left-0 right-0 h-48 bg-gradient-to-b from-brand-600/12 via-accent-500/4 to-transparent pointer-events-none"></div>
         <!-- Bottom glow — accent -->
-        <div class="absolute bottom-0 left-0 w-52 h-52 bg-gradient-to-tr from-accent-600/8 to-transparent pointer-events-none blur-3xl"></div>
+        <div class="absolute bottom-0 left-0 w-52 h-52 bg-gradient-to-tr from-violet-600/8 to-transparent pointer-events-none blur-3xl"></div>
 
         <!-- Logo -->
         <div class="relative h-16 flex items-center px-5 border-b border-white/[0.05]">
             <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-accent-500 flex items-center justify-center shadow-glow">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center shadow-glow">
                     <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/>
                     </svg>
@@ -484,7 +484,7 @@
                                     <div @click="openProject({id: pp.id, name: pp.name, client_id: null})" class="p-3 rounded-xl hover:bg-slate-50 transition-colors group cursor-pointer">
                                         <div class="flex items-center justify-between mb-2">
                                             <div class="flex items-center gap-3 min-w-0">
-                                                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-50 to-accent-50 flex items-center justify-center ring-1 ring-brand-100/50 flex-shrink-0">
+                                                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-50 to-violet-50 flex items-center justify-center ring-1 ring-brand-100/50 flex-shrink-0">
                                                     <span class="text-[13px] font-bold text-brand-600" x-text="pp.name.charAt(0)"></span>
                                                 </div>
                                                 <div class="min-w-0">
@@ -509,7 +509,7 @@
                                         <div class="flex items-center gap-2">
                                             <div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
                                                 <div class="h-full rounded-full transition-all duration-500"
-                                                     :class="pp.progress_pct >= 75 ? 'bg-gradient-to-r from-emerald-400 to-teal-400' : pp.progress_pct >= 40 ? 'bg-gradient-to-r from-brand-400 to-accent-400' : 'bg-gradient-to-r from-amber-400 to-orange-400'"
+                                                     :class="pp.progress_pct >= 75 ? 'bg-gradient-to-r from-emerald-400 to-teal-400' : pp.progress_pct >= 40 ? 'bg-gradient-to-r from-brand-400 to-violet-400' : 'bg-gradient-to-r from-amber-400 to-orange-400'"
                                                      :style="'width: ' + pp.progress_pct + '%'"></div>
                                             </div>
                                             <span class="text-[11px] font-bold tabular-nums" :class="pp.progress_pct >= 75 ? 'text-emerald-600' : pp.progress_pct >= 40 ? 'text-brand-600' : 'text-amber-600'" x-text="pp.progress_pct + '%'"></span>
@@ -525,7 +525,7 @@
                         <!-- Upcoming Milestones -->
                         <div class="surface rounded-2xl border border-slate-200/60 p-5">
                             <h2 class="text-[14px] font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                                <svg class="w-4 h-4 text-accent-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                <svg class="w-4 h-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                                 Upcoming Milestones
                             </h2>
                             <template x-if="!dashStats?.upcoming_milestones || dashStats.upcoming_milestones.length === 0">
@@ -578,7 +578,7 @@
                     <h2 class="text-[14px] font-semibold text-slate-800 mb-4">KPI Progress</h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <template x-for="kpi in (dashStats?.kpi_progress || [])" :key="kpi.id">
-                            <div class="p-3 rounded-xl bg-gradient-to-br from-slate-50 to-accent-50/20 border border-slate-100">
+                            <div class="p-3 rounded-xl bg-gradient-to-br from-slate-50 to-brand-50/20 border border-slate-100">
                                 <div class="flex items-center justify-between mb-2">
                                     <div class="text-[12px] font-medium text-slate-700 truncate" x-text="kpi.name"></div>
                                     <span class="text-[10px] text-slate-400" x-text="kpi.project_name"></span>
@@ -700,9 +700,9 @@
                     </template>
                     <template x-for="p in projects" :key="p.id">
                         <div @click="openProject(p)" class="relative surface rounded-2xl border border-slate-200/60 p-5 card-lift overflow-hidden group cursor-pointer">
-                            <div class="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-10 bg-gradient-to-br from-brand-400 to-accent-500 group-hover:opacity-20 transition-opacity"></div>
+                            <div class="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-10 bg-gradient-to-br from-brand-400 to-violet-500 group-hover:opacity-20 transition-opacity"></div>
                             <div class="relative flex items-start justify-between mb-4">
-                                <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-500 to-accent-500 flex items-center justify-center shadow-glow">
+                                <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center shadow-glow">
                                     <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/></svg>
                                 </div>
                                 <span class="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg"
@@ -793,7 +793,7 @@
                                     <div class="flex border-b border-slate-50 hover:bg-slate-50/30 transition-colors group">
                                         <!-- Project label -->
                                         <div class="w-[240px] flex-shrink-0 px-5 py-4 border-r border-slate-100 flex items-center gap-3 cursor-pointer" @click="openProject(p)">
-                                            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-50 to-accent-50 flex items-center justify-center ring-1 ring-brand-100/40 flex-shrink-0">
+                                            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-50 to-violet-50 flex items-center justify-center ring-1 ring-brand-100/40 flex-shrink-0">
                                                 <span class="text-[12px] font-bold text-brand-600" x-text="p.name.charAt(0)"></span>
                                             </div>
                                             <div class="min-w-0">
@@ -826,7 +826,7 @@
                                                     <!-- Roadmap bar -->
                                                     <div class="absolute h-7 rounded-lg overflow-hidden cursor-pointer transition-all hover:shadow-md group/bar"
                                                          :style="'left: ' + (roadmapLeftPx(rm) * timelineZoom) + 'px; width: ' + Math.max(roadmapWidthPx(rm) * timelineZoom, 40) + 'px'"
-                                                         :class="rmIdx % 2 === 0 ? 'bg-gradient-to-r from-brand-500 to-accent-500' : 'bg-gradient-to-r from-accent-500 to-brand-500'"
+                                                         :class="rmIdx % 2 === 0 ? 'bg-gradient-to-r from-brand-500 to-violet-600' : 'bg-gradient-to-r from-violet-500 to-purple-500'"
                                                          @click="openProject(p)">
                                                         <div class="absolute inset-0 bg-black/0 group-hover/bar:bg-black/10 transition-colors"></div>
                                                         <div class="relative h-full flex items-center px-3">
@@ -882,7 +882,7 @@
                         <span class="text-[11px] text-slate-500">Completed</span>
                     </div>
                     <div class="flex items-center gap-1.5">
-                        <div class="w-4 h-2 rounded-sm bg-gradient-to-r from-brand-500 to-accent-500"></div>
+                        <div class="w-4 h-2 rounded-sm bg-gradient-to-r from-brand-500 to-violet-600"></div>
                         <span class="text-[11px] text-slate-500">Roadmap</span>
                     </div>
                     <div class="flex items-center gap-1.5">
@@ -981,7 +981,7 @@
                         <template x-for="u in users" :key="u.id">
                             <div class="flex items-center justify-between bg-slate-50 rounded-xl p-3">
                                 <div class="flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-accent-500 text-white text-[11px] font-bold flex items-center justify-center" x-text="u.name.charAt(0)"></div>
+                                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-violet-600 text-white text-[11px] font-bold flex items-center justify-center" x-text="u.name.charAt(0)"></div>
                                     <div>
                                         <div class="text-[13px] font-medium text-slate-800 flex items-center gap-2">
                                             <span x-text="u.name"></span>
@@ -1081,7 +1081,7 @@
 
                 <!-- Project header -->
                 <div class="flex items-start gap-4 mb-6">
-                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-accent-500 flex items-center justify-center text-white text-xl font-bold shadow-glow flex-shrink-0" x-text="selectedProject?.name?.charAt(0)"></div>
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center text-white text-xl font-bold shadow-glow flex-shrink-0" x-text="selectedProject?.name?.charAt(0)"></div>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-3">
                             <h1 class="text-[26px] font-bold text-slate-900 tracking-tight" x-text="selectedProject?.name"></h1>
@@ -1119,7 +1119,7 @@
                 <!-- Overview tab — Connected Traceability Dashboard -->
                 <div x-show="projectTab==='overview'" class="max-w-5xl space-y-4">
                     <!-- Vision banner -->
-                    <div class="bg-gradient-to-br from-brand-500 to-accent-500 rounded-2xl p-5 text-white shadow-glow">
+                    <div class="bg-gradient-to-br from-brand-500 to-violet-600 rounded-2xl p-5 text-white shadow-glow">
                         <div class="flex items-center gap-2 mb-1">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                             <span class="text-[11px] font-semibold uppercase tracking-wider opacity-80">Vision</span>
@@ -1222,14 +1222,14 @@
                                     <div class="bg-gradient-to-br from-slate-50 to-brand-50/10 rounded-xl p-4 border border-slate-100">
                                         <!-- Roadmap title -->
                                         <div class="flex items-center gap-2 mb-3">
-                                            <div class="w-6 h-6 rounded-lg bg-accent-50 text-accent-600 text-[10px] font-bold flex items-center justify-center">R</div>
+                                            <div class="w-6 h-6 rounded-lg bg-violet-50 text-violet-600 text-[10px] font-bold flex items-center justify-center">R</div>
                                             <div class="text-[13px] font-medium text-slate-800" x-text="rm.title"></div>
                                             <span class="text-[10px] text-slate-400 ml-auto" x-text="(rm.start_date || '') + ' → ' + (rm.end_date || '')"></span>
                                         </div>
                                         <!-- Milestone horizontal track -->
                                         <div class="relative h-16 ml-2">
                                             <!-- Track line -->
-                                            <div class="absolute left-0 right-0 top-1/2 h-0.5 bg-gradient-to-r from-brand-200 via-accent-200 to-brand-200 rounded-full"></div>
+                                            <div class="absolute left-0 right-0 top-1/2 h-0.5 bg-gradient-to-r from-brand-200 via-violet-200 to-brand-200 rounded-full"></div>
                                             <!-- Milestones on the track -->
                                             <template x-for="(ms, msIdx) in rm.milestones" :key="ms.id">
                                                 <div class="absolute top-1/2 -translate-y-1/2 group/ms"
@@ -1478,7 +1478,7 @@
                                     <!-- Roadmap bar -->
                                     <div class="absolute h-8 rounded-lg overflow-hidden cursor-default group/bar"
                                          :style="'left: ' + (projectRoadmapLeftPx(rm) * timelineZoom) + 'px; width: ' + Math.max(projectRoadmapWidthPx(rm) * timelineZoom, 60) + 'px'"
-                                         :class="rmIdx % 2 === 0 ? 'bg-gradient-to-r from-brand-500 to-accent-500' : 'bg-gradient-to-r from-accent-500 to-brand-500'">
+                                         :class="rmIdx % 2 === 0 ? 'bg-gradient-to-r from-brand-500 to-violet-600' : 'bg-gradient-to-r from-violet-500 to-purple-500'">
                                         <div class="relative h-full flex items-center px-3">
                                             <span class="text-[10px] font-semibold text-white truncate" x-text="rm.title"></span>
                                         </div>
@@ -1679,7 +1679,7 @@
             <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <template x-for="tpl in formTemplates" :key="tpl.id">
                     <button @click="createForm(tpl.id)" class="text-left surface rounded-2xl border border-slate-200/60 p-4 card-lift transition-all group">
-                        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-50 to-accent-50 flex items-center justify-center mb-3 ring-1 ring-brand-100/50 group-hover:from-brand-100 group-hover:to-violet-100 transition-colors">
+                        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-50 to-violet-50 flex items-center justify-center mb-3 ring-1 ring-brand-100/50 group-hover:from-brand-100 group-hover:to-violet-100 transition-colors">
                             <svg class="w-4.5 h-4.5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                         </div>
                         <div class="text-[13px] font-semibold text-slate-800" x-text="tpl.name"></div>
@@ -1693,8 +1693,8 @@
         <h3 class="text-[13px] font-semibold text-slate-800 mb-3">Project Forms</h3>
         <template x-if="projectForms.length === 0">
             <div class="surface rounded-2xl border border-slate-200/60 p-10 text-center">
-    <div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-accent-50 flex items-center justify-center">
-        <svg class="w-6 h-6 text-accent-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+    <div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-violet-50 flex items-center justify-center">
+        <svg class="w-6 h-6 text-violet-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
     </div>
     <p class="text-[13px] text-slate-400 mb-1">No forms yet</p>
     <p class="text-[11px] text-slate-300">Create one from a template above</p>
@@ -1704,7 +1704,7 @@
             <template x-for="form in projectForms" :key="form.id">
                 <div @click="openForm(form)" class="surface rounded-2xl border border-slate-200/60 p-4 card-lift transition-all cursor-pointer flex items-center justify-between">
                     <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-50 to-accent-50 flex items-center justify-center ring-1 ring-brand-100/50">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-50 to-violet-50 flex items-center justify-center ring-1 ring-brand-100/50">
                             <svg class="w-5 h-5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                         </div>
                         <div>
@@ -1734,7 +1734,7 @@
                     {name:'Planning',color:'brand',icon:'📋'},
                     {name:'In Progress',color:'blue',icon:'⚙️'},
                     {name:'Testing',color:'amber',icon:'🔬'},
-                    {name:'UAT',color:'accent',icon:'✅'},
+                    {name:'UAT',color:'violet',icon:'✅'},
                     {name:'Pre-Release',color:'orange',icon:'📦'},
                     {name:'Released',color:'emerald',icon:'🚀'},
                     {name:'Post-Release',color:'teal',icon:'📊'}
@@ -1743,7 +1743,7 @@
                         <div class="flex flex-col items-center gap-1 min-w-[60px]">
                             <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-[18px] transition-all"
                                  :class="selectedRelease && selectedRelease.v_cycle_index >= 0 && idx <= selectedRelease.v_cycle_index
-                                     ? 'bg-gradient-to-br from-brand-500 to-accent-500 text-white shadow-md scale-105'
+                                     ? 'bg-gradient-to-br from-brand-500 to-violet-600 text-white shadow-md scale-105'
                                      : 'bg-slate-50 text-slate-300'">
                                 <span x-text="phase.icon"></span>
                             </div>
@@ -1763,7 +1763,7 @@
                     <div class="text-[11px] text-slate-500">Current phase:</div>
                     <span class="text-[12px] font-semibold text-brand-600" x-text="selectedRelease?.status"></span>
                     <div class="flex-1 bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                        <div class="h-full bg-gradient-to-r from-brand-500 to-accent-500 rounded-full transition-all duration-500" :style="'width:' + (selectedRelease?.v_cycle_progress || 0) + '%'"></div>
+                        <div class="h-full bg-gradient-to-r from-brand-500 to-violet-600 rounded-full transition-all duration-500" :style="'width:' + (selectedRelease?.v_cycle_progress || 0) + '%'"></div>
                     </div>
                     <span class="text-[11px] font-bold text-slate-600" x-text="(selectedRelease?.v_cycle_progress || 0) + '%'"></span>
                 </div>
@@ -1806,7 +1806,7 @@
                      :class="selectedRelease?.id === rel.id ? 'ring-2 ring-brand-400/50' : ''">
                     <div class="flex items-center justify-between mb-2">
                         <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-50 to-accent-50 flex items-center justify-center ring-1 ring-brand-100/50">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-50 to-violet-50 flex items-center justify-center ring-1 ring-brand-100/50">
                                 <svg class="w-5 h-5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
                             </div>
                             <div>
@@ -1829,7 +1829,7 @@
                     <div class="flex items-center gap-1.5">
                         <template x-for="(phase, idx) in ['Planning','In Progress','Testing','UAT','Pre-Release','Released','Post-Release']" :key="phase">
                             <div class="flex-1 h-1.5 rounded-full transition-colors"
-                                 :class="getReleasePhaseIndex(rel.status) >= idx ? 'bg-gradient-to-r from-brand-400 to-accent-400' : 'bg-slate-100'"></div>
+                                 :class="getReleasePhaseIndex(rel.status) >= idx ? 'bg-gradient-to-r from-brand-400 to-violet-400' : 'bg-slate-100'"></div>
                         </template>
                     </div>
                 </div>
@@ -1879,7 +1879,7 @@
                             <div class="flex items-center gap-1 flex-1">
                                 <div class="flex flex-col items-center gap-1 flex-1">
                                     <div class="w-9 h-9 rounded-xl flex items-center justify-center text-[10px] font-bold transition-all"
-                                         :class="idx === selectedRelease?.v_cycle_index ? 'bg-gradient-to-br from-brand-500 to-accent-500 text-white shadow-md scale-110' :
+                                         :class="idx === selectedRelease?.v_cycle_index ? 'bg-gradient-to-br from-brand-500 to-violet-600 text-white shadow-md scale-110' :
                                                    idx < selectedRelease?.v_cycle_index ? 'bg-brand-100 text-brand-600' :
                                                    'bg-slate-100 text-slate-300'"
                                          x-text="idx + 1"></div>
@@ -1944,7 +1944,7 @@
                             📝 Generate Release Notes
                         </button>
                         <template x-if="selectedRelease?.status === 'UAT'">
-                            <button @click="projectTab='forms'; closeRelease()" class="text-[12px] font-medium px-3 py-2 rounded-xl bg-accent-50 text-accent-600 hover:bg-violet-100 transition-colors">
+                            <button @click="projectTab='forms'; closeRelease()" class="text-[12px] font-medium px-3 py-2 rounded-xl bg-violet-50 text-violet-600 hover:bg-violet-100 transition-colors">
                                 ✅ Create UAT Sign-off Form
                             </button>
                         </template>
@@ -2050,7 +2050,7 @@
                         <button @click="generateNotes(selectedRelease.id)" class="text-[12px] font-medium text-brand-600 hover:text-brand-700">📝 Generate</button>
                     </div>
                     <template x-if="selectedRelease?.release_notes">
-                        <pre class="text-[12px] text-slate-600 bg-gradient-to-br from-slate-50 to-accent-50/20 rounded-xl p-4 whitespace-pre-wrap font-mono border border-slate-100" x-text="selectedRelease.release_notes"></pre>
+                        <pre class="text-[12px] text-slate-600 bg-gradient-to-br from-slate-50 to-brand-50/20 rounded-xl p-4 whitespace-pre-wrap font-mono border border-slate-100" x-text="selectedRelease.release_notes"></pre>
                     </template>
                     <template x-if="!selectedRelease?.release_notes">
                         <div class="text-[12px] text-slate-400 bg-slate-50 rounded-xl p-4 text-center">No release notes yet. Click "Generate" to auto-create from backlog items.</div>
@@ -2387,7 +2387,7 @@
                 </div>
                 <div class="flex justify-end gap-2 pt-3">
                     <button type="button" @click="clientModalOpen = false" class="text-[13px] font-medium text-slate-600 px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-colors">Cancel</button>
-                    <button type="submit" class="text-[13px] font-medium text-white bg-gradient-to-br from-brand-500 to-accent-500 px-5 py-2.5 rounded-xl shadow-glow hover:shadow-xl hover:shadow-brand-600/25 transition-all">Save Client</button>
+                    <button type="submit" class="text-[13px] font-medium text-white bg-gradient-to-br from-brand-500 to-violet-600 px-5 py-2.5 rounded-xl shadow-glow hover:shadow-xl hover:shadow-brand-600/25 transition-all">Save Client</button>
                 </div>
             </form>
         </div>
@@ -2450,7 +2450,7 @@
                 </div>
                 <div class="flex justify-end gap-2 pt-3">
                     <button type="button" @click="projectModalOpen = false" class="text-[13px] font-medium text-slate-600 px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-colors">Cancel</button>
-                    <button type="submit" class="text-[13px] font-medium text-white bg-gradient-to-br from-brand-500 to-accent-500 px-5 py-2.5 rounded-xl shadow-glow hover:shadow-xl hover:shadow-brand-600/25 transition-all">Save Project</button>
+                    <button type="submit" class="text-[13px] font-medium text-white bg-gradient-to-br from-brand-500 to-violet-600 px-5 py-2.5 rounded-xl shadow-glow hover:shadow-xl hover:shadow-brand-600/25 transition-all">Save Project</button>
                 </div>
             </form>
         </div>
@@ -2584,7 +2584,7 @@ function pmoApp() {
                 'bg-gradient-to-br from-blue-400 to-indigo-500',
                 'bg-gradient-to-br from-emerald-400 to-teal-500',
                 'bg-gradient-to-br from-amber-400 to-orange-500',
-                'bg-gradient-to-br from-accent-400 to-brand-500',
+                'bg-gradient-to-br from-violet-400 to-purple-500',
                 'bg-gradient-to-br from-cyan-400 to-blue-500',
             ];
             const hash = name.charCodeAt(0) % colors.length;
@@ -2646,7 +2646,7 @@ function pmoApp() {
                 const phases = Object.keys(ds.phase_distribution || {});
                 const counts = Object.values(ds.phase_distribution || {});
                 const phaseColors = phases.map((p, i) => {
-                    const palette = ['#6366f1', '#8b5cf6', '#a855f7', '#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
+                    const palette = ['#6366f1', '#8b5cf6', '#a855f7', '#3b82f6', '#7c3aed', '#10b981', '#f59e0b', '#ef4444'];
                     return palette[i % palette.length];
                 });
                 this.chartInstances.phase = new Chart(phaseEl, {
@@ -2667,7 +2667,7 @@ function pmoApp() {
             if (releaseEl) {
                 const rLabels = Object.keys(ds.release_status_distribution || {});
                 const rValues = Object.values(ds.release_status_distribution || {});
-                const rColors = { 'Planning': '#6366f1', 'In Progress': '#8b5cf6', 'Testing': '#a855f7', 'UAT': '#3b82f6', 'Pre-Release': '#06b6d4', 'Released': '#10b981', 'Post-Release': '#f59e0b', 'Cancelled': '#ef4444' };
+                const rColors = { 'Planning': '#6366f1', 'In Progress': '#8b5cf6', 'Testing': '#a855f7', 'UAT': '#3b82f6', 'Pre-Release': '#7c3aed', 'Released': '#10b981', 'Post-Release': '#f59e0b', 'Cancelled': '#ef4444' };
                 const colors = rLabels.map(l => rColors[l] || '#94a3b8');
                 if (!rLabels.length) { rLabels.push('No releases'); rValues.push(1); colors.push('#e2e8f0'); }
                 this.chartInstances.release = new Chart(releaseEl, {
@@ -3424,7 +3424,7 @@ function pmoApp() {
                 'Planning': 'bg-slate-100 text-slate-600',
                 'In Progress': 'bg-blue-50 text-blue-700',
                 'Testing': 'bg-amber-50 text-amber-700',
-                'UAT': 'bg-accent-50 text-accent-700',
+                'UAT': 'bg-violet-50 text-violet-700',
                 'Pre-Release': 'bg-orange-50 text-orange-700',
                 'Released': 'bg-emerald-50 text-emerald-700',
                 'Post-Release': 'bg-teal-50 text-teal-700',

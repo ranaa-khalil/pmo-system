@@ -177,32 +177,114 @@ def seed():
         kpi_response_id = db.query(KPI).filter(KPI.name == "Incident Response Time", KPI.project_id == pnu.id).first().id
         kpi_self_id = db.query(KPI).filter(KPI.name == "Self-Service Adoption", KPI.project_id == pnu.id).first().id
 
-        items = [
-            BacklogItem(project_id=pnu.id, title="User authentication module",
-                        description="SSO integration with AD, role-based access control",
-                        priority="High", current_phase="Development", status="In Progress",
-                        kpi_id=kpi_uptime_id),
-            BacklogItem(project_id=pnu.id, title="Dashboard analytics",
-                        description="Real-time metrics dashboard with SLA tracking",
-                        priority="Medium", current_phase="Design", status="In Progress",
-                        kpi_id=kpi_response_id),
-            BacklogItem(project_id=pnu.id, title="Multi-tenant infrastructure",
-                        description="Kubernetes namespaces, network policies, resource quotas",
-                        priority="Critical", current_phase="Requirements", status="Draft",
-                        kpi_id=kpi_uptime_id),
-            BacklogItem(project_id=pnu.id, title="Self-service portal",
-                        description="User-facing portal for requesting resources and services",
-                        priority="High", current_phase="Requirements", status="Draft",
-                        kpi_id=kpi_self_id),
-            BacklogItem(project_id=pnu.id, title="Automated alerting system",
-                        description="PagerDuty integration, escalation policies, runbook automation",
-                        priority="High", current_phase="Design", status="In Progress",
-                        kpi_id=kpi_response_id),
+        # Map Excel statuses to model phase + status
+        def map_status(excel_status):
+            """Map Excel status to (current_phase, status)."""
+            mapping = {
+                "Done": ("Retrospective", "Done"),
+                "In UAT": ("UAT", "In Progress"),
+                "Ready for Release": ("Pre-Release", "In Progress"),
+                "In QA": ("Testing", "In Progress"),
+                "In Progress": ("Development", "In Progress"),
+                "Planned": ("Requirements", "Draft"),
+                "Backlog": ("Requirements", "Draft"),
+                "Backlog (unscheduled)": ("Requirements", "Draft"),
+                "Blocked": ("Development", "Blocked"),
+            }
+            return mapping.get(excel_status, ("Requirements", "Draft"))
+
+        def map_priority(excel_priority):
+            """Map Excel priority (Must/Should/Could) to model priority."""
+            return {"Must": "Critical", "Should": "High", "Could": "Medium"}.get(excel_priority, "Medium")
+
+        # 12 backlog items from Master Backlog (09_Master_Backlog_Automated.xlsx)
+        master_items = [
+            {"epic": "Catalog & PIM", "title": "Bilingual (AR/EN) service catalog search",
+             "item_type": "Feature", "actor": "End Customer", "priority": "Must", "pts": 5,
+             "status": "Done", "release": "2026-07",
+             "criteria": "Users can search the catalog in Arabic and English; results respect locale.",
+             "deps": "—", "kpi": kpi_self_id},
+            {"epic": "RBAC & Identity", "title": "Multi-tenant role management with granular permissions",
+             "item_type": "Feature", "actor": "Platform Admin", "priority": "Must", "pts": 8,
+             "status": "In UAT", "release": "2026-08",
+             "criteria": "Admins define roles/permissions per tenant; changes audited.",
+             "deps": "Audit & Compliance", "kpi": kpi_uptime_id},
+            {"epic": "Platform / Core", "title": "Enforce MFA for admin logins",
+             "item_type": "Feature", "actor": "Platform Admin", "priority": "Must", "pts": 5,
+             "status": "In UAT", "release": "2026-08",
+             "criteria": "All admin logins require MFA; enrolment flow provided.",
+             "deps": "RBAC & Identity", "kpi": kpi_uptime_id},
+            {"epic": "Audit & Compliance", "title": "Immutable audit trail for admin actions",
+             "item_type": "Feature", "actor": "Auditor", "priority": "Must", "pts": 5,
+             "status": "Ready for Release", "release": "2026-08",
+             "criteria": "Every admin action is logged immutably with actor, time, before/after.",
+             "deps": "—", "kpi": kpi_uptime_id},
+            {"epic": "Notifications", "title": "Verify push notification delivery on web client",
+             "item_type": "Bug", "actor": "End Customer", "priority": "Should", "pts": 3,
+             "status": "In QA", "release": "2026-08",
+             "criteria": "Push notifications must deliver reliably on the web client.",
+             "deps": "—", "kpi": kpi_response_id},
+            {"epic": "Billing & Invoicing", "title": "Generate customer invoices with applied margin",
+             "item_type": "Feature", "actor": "Finance Admin", "priority": "Must", "pts": 13,
+             "status": "In Progress", "release": "2026-09",
+             "criteria": "System generates customer invoices applying the configured margin.",
+             "deps": "Payments", "kpi": kpi_self_id},
+            {"epic": "Payments", "title": "Integrate payment gateway (card + local methods)",
+             "item_type": "Feature", "actor": "End Customer", "priority": "Must", "pts": 13,
+             "status": "Planned", "release": "2026-09",
+             "criteria": "Checkout supports card and local payment methods via gateway.",
+             "deps": "Billing & Invoicing", "kpi": kpi_self_id},
+            {"epic": "Commerce / Cart & Checkout", "title": "Cart-to-checkout transaction flow",
+             "item_type": "Feature", "actor": "End Customer", "priority": "Must", "pts": 8,
+             "status": "In Progress", "release": "2026-09",
+             "criteria": "End customer can add to cart and complete a checkout transaction.",
+             "deps": "Payments", "kpi": kpi_self_id},
+            {"epic": "Marketplace / Storefront", "title": "Vendor product listing & storefront",
+             "item_type": "Feature", "actor": "Vendor", "priority": "Should", "pts": 8,
+             "status": "Backlog", "release": "2026-10",
+             "criteria": "Vendors publish listings to a branded storefront.",
+             "deps": "Vendor Self-Service Portal", "kpi": kpi_self_id},
+            {"epic": "Reseller / Channel", "title": "N-tier reseller hierarchy & pricing",
+             "item_type": "Feature", "actor": "Reseller Admin", "priority": "Should", "pts": 13,
+             "status": "Backlog", "release": "2026-11",
+             "criteria": "Support multi-level reseller hierarchy with per-tier pricing.",
+             "deps": "Billing & Invoicing", "kpi": kpi_self_id},
+            {"epic": "Cloud Resource Intelligence", "title": "Multi-cloud usage aggregation dashboard",
+             "item_type": "Enhancement", "actor": "Platform Admin", "priority": "Should", "pts": 5,
+             "status": "Done", "release": "2026-07",
+             "criteria": "Aggregate usage across providers into a single dashboard.",
+             "deps": "—", "kpi": kpi_response_id},
+            {"epic": "Provisioning & Orchestration", "title": "Enable write actions on provisioning connector (currently read-only)",
+             "item_type": "Feature", "actor": "Platform Admin", "priority": "Could", "pts": 13,
+             "status": "Blocked", "release": "Backlog (unscheduled)",
+             "criteria": "Move connector from read-only to supported write/provisioning actions.",
+             "deps": "Connector API (external)", "kpi": kpi_uptime_id},
         ]
+
+        items = []
+        for mi in master_items:
+            phase, status = map_status(mi["status"])
+            items.append(BacklogItem(
+                project_id=pnu.id,
+                title=mi["title"],
+                description=mi["criteria"],
+                epic=mi["epic"],
+                item_type=mi["item_type"],
+                primary_actor=mi["actor"],
+                story_points=mi["pts"],
+                target_release=mi["release"],
+                acceptance_criteria=mi["criteria"],
+                dependencies=mi["deps"],
+                priority=map_priority(mi["priority"]),
+                current_phase=phase,
+                status=status,
+                kpi_id=mi["kpi"],
+            ))
+
         for item in items:
             db.add(item)
         db.commit()
-        print(f"✅ Created {len(items)} backlog items linked to KPIs")
+        print(f"✅ Created {len(items)} backlog items from Master Backlog (09_Master_Backlog_Automated.xlsx)")
 
     # --- Release (linked to milestone) ---
     existing_release = db.query(Release).filter(Release.project_id == pnu.id).first()
@@ -230,7 +312,7 @@ def seed():
     print("   Email:    rana@opex.com.sa")
     print("   Password: Pmo@2026")
     print("\n📊 Traceability chain:")
-    print("   Vision → 3 KPIs → 3 Milestones → 1 Release → 5 Backlog Items")
+    print("   Vision → 3 KPIs → 3 Milestones → 1 Release → 12 Backlog Items")
 
 
 if __name__ == "__main__":

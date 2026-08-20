@@ -36,6 +36,14 @@ class BacklogItem(Base):
     current_phase = Column(String(50), default="Requirements", nullable=False)
     status = Column(String(50), default="Draft", nullable=False)
     priority = Column(String(50), default="Medium", nullable=False)
+    # Extended fields from Master Backlog
+    epic = Column(String(200), nullable=True)
+    item_type = Column(String(50), nullable=True)  # Feature, Bug, Enhancement, etc.
+    primary_actor = Column(String(100), nullable=True)  # End Customer, Platform Admin, etc.
+    story_points = Column(Integer, nullable=True)
+    target_release = Column(String(50), nullable=True)  # e.g. "2026-08"
+    acceptance_criteria = Column(Text, nullable=True)
+    dependencies = Column(Text, nullable=True)
     github_issue_number = Column(Integer, nullable=True)
     assigned_to = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     kpi_id = Column(Integer, ForeignKey("kpis.id", ondelete="SET NULL"), nullable=True)

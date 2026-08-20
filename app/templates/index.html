@@ -555,6 +555,49 @@
                 </div>
             </div>
 
+            <!-- ============ ROADMAPS VIEW ============ -->
+            <div x-show="route === 'roadmap'" class="view-enter space-y-4 max-w-5xl">
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Roadmaps</h1>
+                    <p class="text-sm text-slate-500 mt-1">Timeline view across all projects.</p>
+                </div>
+                <template x-if="projects.length === 0">
+                    <div class="bg-white rounded-2xl border border-slate-200/80 p-8 text-center text-[13px] text-slate-400">No projects yet. Create a project first.</div>
+                </template>
+                <template x-for="p in projects" :key="p.id">
+                    <div class="bg-white rounded-2xl border border-slate-200/80 p-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-[14px] font-semibold text-slate-800" x-text="p.name"></h3>
+                            <button @click="openProject(p)" class="text-[12px] font-medium text-brand-600 hover:text-brand-700">Open project →</button>
+                        </div>
+                        <template x-if="!p._roadmaps">
+                            <div class="text-[13px] text-slate-400">Loading...</div>
+                        </template>
+                        <template x-if="p._roadmaps && p._roadmaps.length === 0">
+                            <div class="text-[13px] text-slate-400">No roadmaps for this project.</div>
+                        </template>
+                        <template x-for="rm in (p._roadmaps || [])" :key="rm.id">
+                            <div class="border-l-2 border-violet-300 pl-4 mb-3">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <div class="text-[13px] font-medium text-slate-700" x-text="rm.title"></div>
+                                    <span class="text-[10px] text-slate-400" x-text="(rm.start_date || '') + ' → ' + (rm.end_date || '')"></span>
+                                </div>
+                                <template x-for="ms in (rm.milestones || [])" :key="ms.id">
+                                    <div class="flex items-center gap-2 mb-1.5 ml-2">
+                                        <div class="w-2 h-2 rounded-full" :class="{'bg-emerald-400': ms.status === 'On Track', 'bg-rose-400': ms.status === 'At Risk', 'bg-slate-300': ms.status === 'Completed'}"></div>
+                                        <div class="text-[12px] text-slate-600 flex-1" x-text="ms.title"></div>
+                                        <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-md"
+                                              :class="{'bg-emerald-50 text-emerald-600': ms.status === 'On Track', 'bg-rose-50 text-rose-600': ms.status === 'At Risk', 'bg-slate-100 text-slate-500': ms.status === 'Completed'}"
+                                              x-text="ms.status"></span>
+                                        <span class="text-[10px] text-slate-400" x-text="ms.target_date || ''"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+
             <!-- ============ SETTINGS VIEW ============ -->
             <div x-show="route === 'settings'" class="view-enter space-y-6 max-w-2xl">
                 <div>
@@ -1924,9 +1967,16 @@ function pmoApp() {
         },
 
         navigate(route) {
-            // Roadmaps are per-project — redirect to projects list
-            if (route === 'roadmap') { this.route = 'projects'; return; }
             this.route = route;
+            if (route === 'roadmap') { this.loadAllRoadmaps(); }
+        },
+
+        async loadAllRoadmaps() {
+            for (const p of this.projects) {
+                try {
+                    p._roadmaps = await this.api('GET', `/projects/${p.id}/roadmaps`);
+                } catch { p._roadmaps = []; }
+            }
         },
 
         // ===== Project detail =====

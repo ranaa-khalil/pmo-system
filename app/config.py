@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     app_name: str = "PMO System"
     debug: bool = True
 
+    # GitHub integration (optional — set PMO_GITHUB_TOKEN to enable sync)
+    github_token: str = ""
+
     model_config = {"env_file": ".env", "env_prefix": "PMO_"}
 
 

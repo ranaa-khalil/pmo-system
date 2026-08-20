@@ -724,6 +724,7 @@
         <button @click="projectTab='vision'" :class="projectTab==='vision' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Vision</button>
         <button @click="projectTab='kpis'" :class="projectTab==='kpis' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">KPIs</button>
         <button @click="projectTab='roadmap'" :class="projectTab==='roadmap' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Roadmap</button>
+        <button @click="projectTab='backlog'" :class="projectTab==='backlog' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Backlog</button>
     </div>
 
     <!-- Overview tab -->
@@ -884,6 +885,82 @@
             </div>
         </template>
     </div>
+
+    <!-- Backlog tab -->
+    <div x-show="projectTab==='backlog'" class="max-w-4xl">
+        <!-- Add backlog item form -->
+        <div class="bg-white rounded-2xl shadow-card p-5 mb-4">
+            <h3 class="text-[13px] font-semibold text-slate-800 mb-3">Add Backlog Item</h3>
+            <div class="space-y-2">
+                <input x-model="backlogForm.title" class="w-full text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Item title (e.g., User authentication module)">
+                <textarea x-model="backlogForm.description" rows="2" class="w-full text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Description..."></textarea>
+                <div class="flex items-center gap-3">
+                    <select x-model="backlogForm.priority" class="text-[12px] border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                        <option value="Critical">Critical</option>
+                    </select>
+                    <button @click="saveBacklogItem()" class="text-[13px] font-medium text-white bg-gradient-to-br from-brand-500 to-violet-600 px-4 py-2 rounded-xl shadow-md hover:shadow-lg transition-all">Add Item</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Phase legend -->
+        <div class="flex flex-wrap gap-1 mb-4 text-[10px]">
+            <template x-for="(phase, idx) in phases" :key="phase">
+                <div class="flex items-center gap-1">
+                    <div class="w-5 h-5 rounded-md flex items-center justify-center font-bold"
+                         :class="idx === 0 ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-400'"
+                         x-text="idx + 1"></div>
+                    <span class="text-slate-400" x-text="phase"></span>
+                    <span x-show="idx < phases.length - 1" class="text-slate-300 mx-0.5">→</span>
+                </div>
+            </template>
+        </div>
+
+        <!-- Backlog items -->
+        <template x-if="backlogItems.length === 0">
+            <div class="bg-white rounded-2xl shadow-card p-8 text-center text-[13px] text-slate-400">No backlog items yet. Add one above.</div>
+        </template>
+        <template x-for="item in backlogItems" :key="item.id">
+            <div class="bg-white rounded-2xl shadow-card p-5 mb-3">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                            <h4 class="text-[14px] font-semibold text-slate-800" x-text="item.title"></h4>
+                            <span class="text-[10px] font-medium px-2 py-0.5 rounded-md" :class="priorityColor(item.priority)" x-text="item.priority"></span>
+                            <template x-if="item.github_issue_number">
+                                <a :href="'https://github.com/' + (selectedProject?.github_repo || '') + '/issues/' + item.github_issue_number" target="_blank"
+                                   class="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">
+                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                                    #<span x-text="item.github_issue_number"></span>
+                                </a>
+                            </template>
+                        </div>
+                        <p class="text-[12px] text-slate-500" x-text="item.description || ''"></p>
+                    </div>
+                    <div class="flex items-center gap-2 ml-4">
+                        <button @click="advanceBacklogItem(item.id)" class="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-2 py-1 rounded-lg hover:bg-brand-50 transition-colors">Advance →</button>
+                        <button @click="deleteBacklogItem(item.id)" class="text-[11px] text-rose-400 hover:text-rose-600 px-1">✕</button>
+                    </div>
+                </div>
+                <!-- Phase progress bar -->
+                <div class="flex items-center gap-1">
+                    <template x-for="(phase, idx) in phases" :key="phase">
+                        <div class="flex-1 flex items-center gap-1">
+                            <div class="flex-1 h-1.5 rounded-full transition-all"
+                                 :class="idx <= phaseIndex(item.current_phase) ? 'bg-brand-500' : 'bg-slate-100'"></div>
+                        </div>
+                    </template>
+                </div>
+                <div class="flex justify-between mt-1.5">
+                    <span class="text-[10px] font-medium text-brand-600" x-text="item.current_phase"></span>
+                    <span class="text-[10px] text-slate-400" x-text="item.status"></span>
+                </div>
+            </div>
+        </template>
+    </div>
 </div>
 
 <!-- ==================== TOAST ==================== -->
@@ -936,6 +1013,11 @@ function pmoApp() {
         roadmapForm: { title: '', start_date: '', end_date: '' },
         milestoneForm: { title: '', target_date: '', status: 'On Track' },
         activeRoadmapId: null,
+
+        // ===== Backlog state =====
+        backlogItems: [],
+        backlogForm: { title: '', description: '', priority: 'Medium' },
+        phases: ['Requirements', 'Design', 'Development', 'Testing', 'UAT', 'Pre-Release', 'Release', 'Post-Release', 'Retrospective'],
 
         navItems: [
             { id: 'dashboard', label: 'Dashboard', group: 'workspace', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>' },
@@ -1068,7 +1150,7 @@ function pmoApp() {
             this.selectedProject = project;
             this.route = 'project-detail';
             this.projectTab = 'overview';
-            await Promise.all([this.loadVision(), this.loadKPIs(), this.loadRoadmaps()]);
+            await Promise.all([this.loadVision(), this.loadKPIs(), this.loadRoadmaps(), this.loadBacklog()]);
         },
 
         backToProjects() {
@@ -1205,6 +1287,62 @@ function pmoApp() {
                 'Delayed': 'bg-rose-50 text-rose-700',
                 'Completed': 'bg-slate-100 text-slate-600',
             }[status] || 'bg-slate-100 text-slate-600';
+        },
+
+        // ===== Backlog =====
+        async loadBacklog() {
+            try {
+                this.backlogItems = await this.api('GET', `/projects/${this.selectedProject.id}/backlog`);
+            } catch {
+                this.backlogItems = [];
+            }
+        },
+
+        async saveBacklogItem() {
+            try {
+                await this.api('POST', `/projects/${this.selectedProject.id}/backlog`, {
+                    project_id: this.selectedProject.id,
+                    ...this.backlogForm,
+                });
+                this.backlogForm = { title: '', description: '', priority: 'Medium' };
+                await this.loadBacklog();
+                this.showToast('Backlog item added', 'success');
+            } catch (e) {
+                this.showToast(e.message, 'error');
+            }
+        },
+
+        async advanceBacklogItem(id) {
+            try {
+                await this.api('POST', `/backlog/${id}/advance`);
+                await this.loadBacklog();
+                this.showToast('Phase advanced', 'success');
+            } catch (e) {
+                this.showToast(e.message, 'error');
+            }
+        },
+
+        async deleteBacklogItem(id) {
+            try {
+                await this.api('DELETE', `/backlog/${id}`);
+                await this.loadBacklog();
+                this.showToast('Item deleted', 'success');
+            } catch (e) {
+                this.showToast(e.message, 'error');
+            }
+        },
+
+        phaseIndex(phase) {
+            return this.phases.indexOf(phase);
+        },
+
+        priorityColor(priority) {
+            return {
+                'Critical': 'bg-rose-50 text-rose-700',
+                'High': 'bg-amber-50 text-amber-700',
+                'Medium': 'bg-blue-50 text-blue-700',
+                'Low': 'bg-slate-100 text-slate-600',
+            }[priority] || 'bg-slate-100 text-slate-600';
         },
 
         async loadClients() {

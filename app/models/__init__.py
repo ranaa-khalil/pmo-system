@@ -10,9 +10,10 @@ from app.models.project_vision import ProjectVision
 from app.models.kpi import KPI
 from app.models.roadmap import Roadmap
 from app.models.milestone import Milestone
+from app.models.backlog_item import BacklogItem
 
 __all__ = [
     "Client", "Project", "User", "Role", "RoleAssignment",
     "Permission", "RolePermission",
-    "ProjectVision", "KPI", "Roadmap", "Milestone",
+    "ProjectVision", "KPI", "Roadmap", "Milestone", "BacklogItem",
 ]

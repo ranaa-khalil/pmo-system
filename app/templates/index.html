@@ -584,7 +584,7 @@
 <div x-show="clientModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
     <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm overlay-enter" @click="clientModalOpen = false"></div>
     <div class="flex min-h-full items-center justify-center p-4">
-        <div class="bg-white rounded-3xl shadow-modal w-full max-w-md modal-enter overflow-hidden" @click.outside="clientModalOpen = false">
+        <div class="bg-white rounded-3xl shadow-modal w-full max-w-md modal-enter overflow-hidden">
             <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
                 <div>
                     <h2 class="text-[16px] font-bold text-slate-900 tracking-tight" x-text="editingClient.id ? 'Edit Client' : 'New Client'"></h2>
@@ -634,7 +634,7 @@
 <div x-show="projectModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
     <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm overlay-enter" @click="projectModalOpen = false"></div>
     <div class="flex min-h-full items-center justify-center p-4">
-        <div class="bg-white rounded-3xl shadow-modal w-full max-w-md modal-enter overflow-hidden" @click.outside="projectModalOpen = false">
+        <div class="bg-white rounded-3xl shadow-modal w-full max-w-md modal-enter overflow-hidden">
             <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
                 <div>
                     <h2 class="text-[16px] font-bold text-slate-900 tracking-tight" x-text="editingProject.id ? 'Edit Project' : 'New Project'"></h2>

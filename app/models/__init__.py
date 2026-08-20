@@ -11,9 +11,11 @@ from app.models.kpi import KPI
 from app.models.roadmap import Roadmap
 from app.models.milestone import Milestone
 from app.models.backlog_item import BacklogItem
+from app.models.form_template import FormTemplate, FormInstance
 
 __all__ = [
     "Client", "Project", "User", "Role", "RoleAssignment",
     "Permission", "RolePermission",
     "ProjectVision", "KPI", "Roadmap", "Milestone", "BacklogItem",
+    "FormTemplate", "FormInstance",
 ]

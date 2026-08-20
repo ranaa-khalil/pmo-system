@@ -725,6 +725,7 @@
         <button @click="projectTab='kpis'" :class="projectTab==='kpis' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">KPIs</button>
         <button @click="projectTab='roadmap'" :class="projectTab==='roadmap' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Roadmap</button>
         <button @click="projectTab='backlog'" :class="projectTab==='backlog' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Backlog</button>
+        <button @click="projectTab='forms'" :class="projectTab==='forms' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Forms</button>
     </div>
 
     <!-- Overview tab -->
@@ -961,6 +962,121 @@
             </div>
         </template>
     </div>
+
+    <!-- Forms tab -->
+    <div x-show="projectTab==='forms'" class="max-w-4xl">
+        <!-- Template gallery -->
+        <div class="mb-5">
+            <h3 class="text-[13px] font-semibold text-slate-800 mb-3">Create from Template</h3>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <template x-for="tpl in formTemplates" :key="tpl.id">
+                    <button @click="createForm(tpl.id)" class="text-left bg-white rounded-2xl border border-slate-200/80 p-4 card-lift hover:shadow-card-hover transition-all group">
+                        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-50 to-violet-50 flex items-center justify-center mb-3 ring-1 ring-brand-100/50 group-hover:from-brand-100 group-hover:to-violet-100 transition-colors">
+                            <svg class="w-4.5 h-4.5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        </div>
+                        <div class="text-[13px] font-semibold text-slate-800" x-text="tpl.name"></div>
+                        <div class="text-[11px] text-slate-400 mt-0.5 line-clamp-2" x-text="tpl.description || ''"></div>
+                    </button>
+                </template>
+            </div>
+        </div>
+
+        <!-- Existing forms -->
+        <h3 class="text-[13px] font-semibold text-slate-800 mb-3">Project Forms</h3>
+        <template x-if="projectForms.length === 0">
+            <div class="bg-white rounded-2xl shadow-card p-8 text-center text-[13px] text-slate-400">No forms yet. Create one from a template above.</div>
+        </template>
+        <div class="space-y-2">
+            <template x-for="form in projectForms" :key="form.id">
+                <div @click="openForm(form)" class="bg-white rounded-2xl border border-slate-200/80 p-4 card-lift hover:shadow-card-hover transition-all cursor-pointer flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-50 to-violet-50 flex items-center justify-center ring-1 ring-brand-100/50">
+                            <svg class="w-5 h-5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        </div>
+                        <div>
+                            <div class="text-[13px] font-semibold text-slate-800" x-text="form.template?.name || 'Form'"></div>
+                            <div class="text-[11px] text-slate-400" x-text="form.template?.form_type || ''"></div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[11px] font-medium px-2.5 py-1 rounded-lg" :class="formStatusColor(form.status)" x-text="form.status"></span>
+                        <svg class="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Form detail modal -->
+    <div x-show="selectedForm" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" @keydown.escape.window="closeForm()">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="closeForm()"></div>
+        <div class="relative bg-white rounded-3xl shadow-modal w-full max-w-2xl max-h-[85vh] overflow-y-auto modal-enter">
+            <div class="sticky top-0 bg-white/95 backdrop-blur border-b border-slate-100 px-6 py-4 flex items-center justify-between rounded-t-3xl z-10">
+                <div>
+                    <h3 class="text-[15px] font-bold text-slate-900" x-text="selectedForm?.template?.name || 'Form'"></h3>
+                    <div class="flex items-center gap-2 mt-0.5">
+                        <span class="text-[11px] text-slate-400" x-text="selectedForm?.template?.form_type || ''"></span>
+                        <span class="text-[11px] font-medium px-2 py-0.5 rounded-md" :class="formStatusColor(selectedForm?.status)" x-text="selectedForm?.status"></span>
+                    </div>
+                </div>
+                <button @click="closeForm()" class="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <template x-for="field in (selectedForm?.template?.field_schema || [])" :key="field.name">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                            <span x-text="field.label"></span>
+                            <span x-show="field.required" class="text-rose-400">*</span>
+                        </label>
+                        <!-- Text -->
+                        <input x-show="field.type === 'text' || field.type === 'number' || field.type === 'date' || field.type === 'datetime'"
+                               :type="field.type === 'datetime' ? 'datetime-local' : field.type"
+                               :value="selectedForm?.data?.[field.name] || ''"
+                               @input="selectedForm.data[field.name] = $event.target.value"
+                               :disabled="!formEditMode || selectedForm.status !== 'Draft'"
+                               class="w-full text-[13px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all disabled:bg-slate-50 disabled:text-slate-400">
+                        <!-- Textarea -->
+                        <textarea x-show="field.type === 'textarea'" rows="3"
+                                  :value="selectedForm?.data?.[field.name] || ''"
+                                  @input="selectedForm.data[field.name] = $event.target.value"
+                                  :disabled="!formEditMode || selectedForm.status !== 'Draft'"
+                                  class="w-full text-[13px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all disabled:bg-slate-50 disabled:text-slate-400"></textarea>
+                        <!-- Boolean -->
+                        <div x-show="field.type === 'boolean'" class="flex items-center gap-2">
+                            <input type="checkbox" :checked="selectedForm?.data?.[field.name] || false"
+                                   @change="selectedForm.data[field.name] = $event.target.checked"
+                                   :disabled="!formEditMode || selectedForm.status !== 'Draft'"
+                                   class="w-4 h-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500/20">
+                            <span class="text-[12px] text-slate-500">Yes</span>
+                        </div>
+                        <!-- Select -->
+                        <select x-show="field.type === 'select'"
+                                :value="selectedForm?.data?.[field.name] || ''"
+                                @change="selectedForm.data[field.name] = $event.target.value"
+                                :disabled="!formEditMode || selectedForm.status !== 'Draft'"
+                                class="w-full text-[13px] border border-slate-200 rounded-xl px-3.5 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all disabled:bg-slate-50 disabled:text-slate-400">
+                            <option value="">Select...</option>
+                            <template x-for="opt in field.options" :key="opt">
+                                <option :value="opt" x-text="opt"></option>
+                            </template>
+                        </select>
+                    </div>
+                </template>
+            </div>
+            <div class="sticky bottom-0 bg-white/95 backdrop-blur border-t border-slate-100 px-6 py-4 flex items-center justify-between rounded-b-3xl">
+                <div class="flex gap-2">
+                    <button x-show="selectedForm?.status === 'Draft' && !formEditMode" @click="formEditMode = true" class="text-[13px] font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 px-4 py-2 rounded-xl transition-all">Edit</button>
+                    <button x-show="formEditMode" @click="saveFormData()" class="text-[13px] font-medium text-white bg-gradient-to-br from-brand-500 to-violet-600 px-4 py-2 rounded-xl shadow-md hover:shadow-lg transition-all">Save</button>
+                    <button x-show="formEditMode" @click="formEditMode = false" class="text-[13px] text-slate-500 hover:text-slate-800 px-4 py-2">Cancel</button>
+                    <button x-show="selectedForm?.status === 'Draft'" @click="submitForm()" class="text-[13px] font-medium text-white bg-gradient-to-br from-blue-500 to-cyan-600 px-4 py-2 rounded-xl shadow-md hover:shadow-lg transition-all">Submit</button>
+                    <button x-show="selectedForm?.status === 'Submitted'" @click="approveForm()" class="text-[13px] font-medium text-white bg-gradient-to-br from-emerald-500 to-teal-600 px-4 py-2 rounded-xl shadow-md hover:shadow-lg transition-all">Approve</button>
+                </div>
+                <button @click="deleteForm(selectedForm?.id)" class="text-[12px] text-rose-500 hover:text-rose-700">Delete</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- ==================== TOAST ==================== -->
@@ -1018,6 +1134,12 @@ function pmoApp() {
         backlogItems: [],
         backlogForm: { title: '', description: '', priority: 'Medium' },
         phases: ['Requirements', 'Design', 'Development', 'Testing', 'UAT', 'Pre-Release', 'Release', 'Post-Release', 'Retrospective'],
+
+        // ===== Forms state =====
+        formTemplates: [],
+        projectForms: [],
+        selectedForm: null,
+        formEditMode: false,
 
         navItems: [
             { id: 'dashboard', label: 'Dashboard', group: 'workspace', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>' },
@@ -1150,7 +1272,7 @@ function pmoApp() {
             this.selectedProject = project;
             this.route = 'project-detail';
             this.projectTab = 'overview';
-            await Promise.all([this.loadVision(), this.loadKPIs(), this.loadRoadmaps(), this.loadBacklog()]);
+            await Promise.all([this.loadVision(), this.loadKPIs(), this.loadRoadmaps(), this.loadBacklog(), this.loadForms()]);
         },
 
         backToProjects() {
@@ -1343,6 +1465,92 @@ function pmoApp() {
                 'Medium': 'bg-blue-50 text-blue-700',
                 'Low': 'bg-slate-100 text-slate-600',
             }[priority] || 'bg-slate-100 text-slate-600';
+        },
+
+        // ===== Forms =====
+        async loadForms() {
+            try {
+                this.formTemplates = await this.api('GET', '/forms/templates');
+                this.projectForms = await this.api('GET', `/projects/${this.selectedProject.id}/forms`);
+            } catch {
+                this.formTemplates = [];
+                this.projectForms = [];
+            }
+        },
+
+        async createForm(templateId) {
+            try {
+                await this.api('POST', `/projects/${this.selectedProject.id}/forms`, {
+                    template_id: templateId,
+                    project_id: this.selectedProject.id,
+                });
+                await this.loadForms();
+                this.showToast('Form created', 'success');
+            } catch (e) {
+                this.showToast(e.message, 'error');
+            }
+        },
+
+        async openForm(form) {
+            this.selectedForm = await this.api('GET', `/forms/${form.id}`);
+            this.formEditMode = false;
+        },
+
+        closeForm() {
+            this.selectedForm = null;
+            this.formEditMode = false;
+        },
+
+        async saveFormData() {
+            try {
+                this.selectedForm = await this.api('PUT', `/forms/${this.selectedForm.id}`, {
+                    data: this.selectedForm.data,
+                });
+                this.formEditMode = false;
+                this.showToast('Form saved', 'success');
+            } catch (e) {
+                this.showToast(e.message, 'error');
+            }
+        },
+
+        async submitForm() {
+            try {
+                this.selectedForm = await this.api('POST', `/forms/${this.selectedForm.id}/submit`);
+                await this.loadForms();
+                this.showToast('Form submitted', 'success');
+            } catch (e) {
+                this.showToast(e.message, 'error');
+            }
+        },
+
+        async approveForm() {
+            try {
+                this.selectedForm = await this.api('POST', `/forms/${this.selectedForm.id}/approve`);
+                await this.loadForms();
+                this.showToast('Form approved', 'success');
+            } catch (e) {
+                this.showToast(e.message, 'error');
+            }
+        },
+
+        async deleteForm(id) {
+            try {
+                await this.api('DELETE', `/forms/${id}`);
+                this.selectedForm = null;
+                await this.loadForms();
+                this.showToast('Form deleted', 'success');
+            } catch (e) {
+                this.showToast(e.message, 'error');
+            }
+        },
+
+        formStatusColor(status) {
+            return {
+                'Draft': 'bg-slate-100 text-slate-600',
+                'Submitted': 'bg-blue-50 text-blue-700',
+                'Approved': 'bg-emerald-50 text-emerald-700',
+                'Rejected': 'bg-rose-50 text-rose-700',
+            }[status] || 'bg-slate-100 text-slate-600';
         },
 
         async loadClients() {

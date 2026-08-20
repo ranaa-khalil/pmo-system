@@ -348,7 +348,7 @@
                             </template>
                             <div class="space-y-1">
                                 <template x-for="project in projects.slice(0, 5)" :key="project.id">
-                                    <div class="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors group">
+                                    <div @click="openProject(project)" class="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors group cursor-pointer">
                                         <div class="flex items-center gap-3 min-w-0">
                                             <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-50 to-violet-50 flex items-center justify-center ring-1 ring-brand-100/50 flex-shrink-0">
                                                 <svg class="w-4.5 h-4.5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/></svg>
@@ -522,7 +522,7 @@
                         </div>
                     </template>
                     <template x-for="p in projects" :key="p.id">
-                        <div class="relative bg-white rounded-2xl border border-slate-200/80 p-5 card-lift hover:shadow-card-hover overflow-hidden group">
+                        <div @click="openProject(p)" class="relative bg-white rounded-2xl border border-slate-200/80 p-5 card-lift hover:shadow-card-hover overflow-hidden group cursor-pointer">
                             <div class="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-10 bg-gradient-to-br from-brand-400 to-violet-500 group-hover:opacity-20 transition-opacity"></div>
                             <div class="relative flex items-start justify-between mb-4">
                                 <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center shadow-lg shadow-brand-600/20">
@@ -693,6 +693,199 @@
     </div>
 </div>
 
+<!-- ==================== PROJECT DETAIL VIEW ==================== -->
+<div x-show="route === 'project-detail' && selectedProject" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="mb-6">
+    <!-- Back button -->
+    <button @click="backToProjects()" class="flex items-center gap-2 text-[13px] text-slate-500 hover:text-slate-800 mb-4 transition-colors">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+        Back to Projects
+    </button>
+
+    <!-- Project header -->
+    <div class="flex items-start gap-4 mb-6">
+        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-brand-600/20" x-text="selectedProject?.name?.charAt(0)"></div>
+        <div class="flex-1">
+            <h1 class="text-2xl font-bold text-slate-900 tracking-tight" x-text="selectedProject?.name"></h1>
+            <div class="flex items-center gap-3 mt-1">
+                <span class="text-[13px] text-slate-500" x-text="selectedProject?.status"></span>
+                <template x-if="selectedProject?.github_repo">
+                    <a :href="'https://github.com/' + selectedProject.github_repo" target="_blank" class="inline-flex items-center gap-1 text-[12px] text-slate-400 hover:text-slate-700 transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                        <span x-text="selectedProject.github_repo"></span>
+                    </a>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex gap-1 border-b border-slate-200 mb-6">
+        <button @click="projectTab='overview'" :class="projectTab==='overview' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Overview</button>
+        <button @click="projectTab='vision'" :class="projectTab==='vision' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Vision</button>
+        <button @click="projectTab='kpis'" :class="projectTab==='kpis' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">KPIs</button>
+        <button @click="projectTab='roadmap'" :class="projectTab==='roadmap' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Roadmap</button>
+    </div>
+
+    <!-- Overview tab -->
+    <div x-show="projectTab==='overview'" class="grid grid-cols-2 gap-4">
+        <div class="bg-white rounded-2xl shadow-card p-6">
+            <h3 class="text-[14px] font-semibold text-slate-800 mb-3">Project Information</h3>
+            <dl class="space-y-2 text-[13px]">
+                <div class="flex justify-between"><dt class="text-slate-500">Status</dt><dd class="font-medium" x-text="selectedProject?.status || '—'"></dd></div>
+                <div class="flex justify-between"><dt class="text-slate-500">Start Date</dt><dd class="font-medium" x-text="selectedProject?.start_date || '—'"></dd></div>
+                <div class="flex justify-between"><dt class="text-slate-500">GitHub Repo</dt><dd class="font-medium" x-text="selectedProject?.github_repo || '—'"></dd></div>
+                <div class="flex justify-between"><dt class="text-slate-500">Description</dt><dd class="font-medium text-right max-w-[200px]" x-text="selectedProject?.description || '—'"></dd></div>
+            </dl>
+        </div>
+        <div class="bg-white rounded-2xl shadow-card p-6">
+            <h3 class="text-[14px] font-semibold text-slate-800 mb-3">Quick Stats</h3>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="text-center p-3 rounded-xl bg-brand-50"><div class="text-xl font-bold text-brand-600" x-text="kpis.length"></div><div class="text-[11px] text-slate-500 mt-0.5">KPIs</div></div>
+                <div class="text-center p-3 rounded-xl bg-emerald-50"><div class="text-xl font-bold text-emerald-600" x-text="roadmaps.length"></div><div class="text-[11px] text-slate-500 mt-0.5">Roadmaps</div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vision tab -->
+    <div x-show="projectTab==='vision'" class="max-w-2xl">
+        <template x-if="vision && !visionForm.statement">
+            <div class="bg-white rounded-2xl shadow-card p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <h3 class="text-[14px] font-semibold text-slate-800">Project Vision</h3>
+                    <button @click="editVision()" class="text-[12px] text-brand-600 hover:text-brand-700">Edit</button>
+                </div>
+                <p class="text-[14px] text-slate-700 leading-relaxed mb-4" x-text="vision.statement"></p>
+                <template x-if="vision.strategic_objectives">
+                    <div>
+                        <h4 class="text-[12px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Strategic Objectives</h4>
+                        <pre class="text-[13px] text-slate-600 whitespace-pre-wrap font-sans" x-text="vision.strategic_objectives"></pre>
+                    </div>
+                </template>
+            </div>
+        </template>
+        <template x-if="!vision || visionForm.statement">
+            <div class="bg-white rounded-2xl shadow-card p-6">
+                <h3 class="text-[14px] font-semibold text-slate-800 mb-4" x-text="vision ? 'Edit Vision' : 'Create Vision'"></h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Vision Statement</label>
+                        <textarea x-model="visionForm.statement" rows="3" class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all" placeholder="e.g., Become the leading cloud platform for Saudi universities by 2030"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Strategic Objectives</label>
+                        <textarea x-model="visionForm.strategic_objectives" rows="4" class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all" placeholder="1. Objective one&#10;2. Objective two"></textarea>
+                    </div>
+                    <div class="flex gap-2">
+                        <button @click="saveVision()" class="text-[13px] font-medium text-white bg-gradient-to-br from-brand-500 to-violet-600 px-4 py-2 rounded-xl shadow-md shadow-brand-600/20 hover:shadow-lg transition-all">Save Vision</button>
+                        <button x-show="vision" @click="visionForm={statement:'',strategic_objectives:''}" class="text-[13px] text-slate-500 hover:text-slate-800 px-4 py-2">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- KPIs tab -->
+    <div x-show="projectTab==='kpis'" class="max-w-3xl">
+        <!-- Add KPI form -->
+        <div class="bg-white rounded-2xl shadow-card p-5 mb-4">
+            <h3 class="text-[13px] font-semibold text-slate-800 mb-3">Add KPI</h3>
+            <div class="grid grid-cols-3 gap-3">
+                <input x-model="kpiForm.name" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="KPI name">
+                <input x-model="kpiForm.target_value" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Target">
+                <input x-model="kpiForm.current_value" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Current">
+            </div>
+            <div class="grid grid-cols-3 gap-3 mt-2">
+                <input x-model="kpiForm.unit" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Unit (e.g., %)">
+                <input x-model="kpiForm.category" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Category (e.g., SLA)">
+                <button @click="saveKpi()" class="text-[13px] font-medium text-white bg-gradient-to-br from-brand-500 to-violet-600 px-4 py-2 rounded-xl shadow-md hover:shadow-lg transition-all">Add</button>
+            </div>
+        </div>
+        <!-- KPI list -->
+        <div class="bg-white rounded-2xl shadow-card overflow-hidden">
+            <template x-if="kpis.length === 0">
+                <div class="p-8 text-center text-[13px] text-slate-400">No KPIs yet. Add one above.</div>
+            </template>
+            <table x-show="kpis.length > 0" class="w-full">
+                <thead>
+                    <tr class="border-b border-slate-100 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                        <th class="text-left px-5 py-3">Name</th>
+                        <th class="text-left px-5 py-3">Target</th>
+                        <th class="text-left px-5 py-3">Current</th>
+                        <th class="text-left px-5 py-3">Unit</th>
+                        <th class="text-left px-5 py-3">Category</th>
+                        <th class="px-5 py-3"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="kpi in kpis" :key="kpi.id">
+                        <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                            <td class="px-5 py-3 text-[13px] font-medium text-slate-800" x-text="kpi.name"></td>
+                            <td class="px-5 py-3 text-[13px] text-slate-600" x-text="kpi.target_value || '—'"></td>
+                            <td class="px-5 py-3 text-[13px] text-slate-600" x-text="kpi.current_value || '—'"></td>
+                            <td class="px-5 py-3 text-[13px] text-slate-500" x-text="kpi.unit || '—'"></td>
+                            <td class="px-5 py-3"><span class="text-[11px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-600" x-text="kpi.category || '—'"></span></td>
+                            <td class="px-5 py-3"><button @click="deleteKpi(kpi.id)" class="text-[12px] text-rose-500 hover:text-rose-700">Delete</button></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Roadmap tab -->
+    <div x-show="projectTab==='roadmap'" class="max-w-3xl">
+        <!-- Add roadmap form -->
+        <div class="bg-white rounded-2xl shadow-card p-5 mb-4">
+            <h3 class="text-[13px] font-semibold text-slate-800 mb-3">Add Roadmap</h3>
+            <div class="grid grid-cols-4 gap-3">
+                <input x-model="roadmapForm.title" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 col-span-2" placeholder="Roadmap title (e.g., 2026 Plan)">
+                <input x-model="roadmapForm.start_date" type="date" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400">
+                <input x-model="roadmapForm.end_date" type="date" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400">
+            </div>
+            <button @click="saveRoadmap()" class="mt-2 text-[13px] font-medium text-white bg-gradient-to-br from-brand-500 to-violet-600 px-4 py-2 rounded-xl shadow-md hover:shadow-lg transition-all">Create Roadmap</button>
+        </div>
+        <!-- Roadmap list -->
+        <template x-if="roadmaps.length === 0">
+            <div class="bg-white rounded-2xl shadow-card p-8 text-center text-[13px] text-slate-400">No roadmaps yet. Create one above.</div>
+        </template>
+        <template x-for="rm in roadmaps" :key="rm.id">
+            <div class="bg-white rounded-2xl shadow-card p-5 mb-4">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h3 class="text-[14px] font-semibold text-slate-800" x-text="rm.title"></h3>
+                        <p class="text-[11px] text-slate-400 mt-0.5"><span x-text="rm.start_date || '—'"></span> → <span x-text="rm.end_date || '—'"></span></p>
+                    </div>
+                    <button @click="deleteRoadmap(rm.id)" class="text-[12px] text-rose-500 hover:text-rose-700">Delete</button>
+                </div>
+                <!-- Milestones -->
+                <div class="space-y-2">
+                    <template x-for="ms in rm.milestones" :key="ms.id">
+                        <div class="flex items-center gap-3 pl-4 border-l-2 border-brand-200">
+                            <div class="w-2 h-2 rounded-full bg-brand-400 flex-shrink-0"></div>
+                            <div class="flex-1 flex items-center justify-between py-1.5">
+                                <div>
+                                    <span class="text-[13px] font-medium text-slate-800" x-text="ms.title"></span>
+                                    <span class="text-[11px] text-slate-400 ml-2" x-text="ms.target_date || ''"></span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[11px] font-medium px-2 py-0.5 rounded-md" :class="milestoneStatusColor(ms.status)" x-text="ms.status"></span>
+                                    <button @click="deleteMilestone(ms.id)" class="text-[11px] text-rose-400 hover:text-rose-600">✕</button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    <!-- Add milestone inline -->
+                    <div class="flex items-center gap-2 pl-4 border-l-2 border-slate-100 mt-2">
+                        <input x-model="milestoneForm.title" @keydown.enter="saveMilestone(rm.id); activeRoadmapId=null" class="flex-1 text-[12px] border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="New milestone...">
+                        <input x-model="milestoneForm.target_date" type="date" class="text-[12px] border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400">
+                        <button @click="saveMilestone(rm.id)" class="text-[12px] font-medium text-brand-600 hover:text-brand-700">+ Add</button>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+</div>
+
 <!-- ==================== TOAST ==================== -->
 <div x-show="toast.show" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0 translate-y-2" class="fixed bottom-6 right-6 z-[60]">
     <div class="flex items-center gap-3 px-4 py-3 rounded-2xl shadow-modal"
@@ -731,6 +924,18 @@ function pmoApp() {
         editingProject: {},
         toast: { show: false, message: '', type: 'success' },
         currentTime: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+
+        // ===== Project detail state =====
+        selectedProject: null,
+        projectTab: 'overview',
+        vision: null,
+        kpis: [],
+        roadmaps: [],
+        visionForm: { statement: '', strategic_objectives: '' },
+        kpiForm: { name: '', target_value: '', current_value: '', unit: '', category: '' },
+        roadmapForm: { title: '', start_date: '', end_date: '' },
+        milestoneForm: { title: '', target_date: '', status: 'On Track' },
+        activeRoadmapId: null,
 
         navItems: [
             { id: 'dashboard', label: 'Dashboard', group: 'workspace', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>' },
@@ -857,6 +1062,150 @@ function pmoApp() {
         },
 
         navigate(route) { this.route = route; },
+
+        // ===== Project detail =====
+        async openProject(project) {
+            this.selectedProject = project;
+            this.route = 'project-detail';
+            this.projectTab = 'overview';
+            await Promise.all([this.loadVision(), this.loadKPIs(), this.loadRoadmaps()]);
+        },
+
+        backToProjects() {
+            this.selectedProject = null;
+            this.route = 'projects';
+        },
+
+        async loadVision() {
+            try {
+                this.vision = await this.api('GET', `/projects/${this.selectedProject.id}/vision`);
+            } catch {
+                this.vision = null;
+            }
+        },
+
+        async saveVision() {
+            try {
+                if (this.vision) {
+                    await this.api('PUT', `/projects/${this.selectedProject.id}/vision`, this.visionForm);
+                    this.vision = await this.api('GET', `/projects/${this.selectedProject.id}/vision`);
+                } else {
+                    await this.api('POST', `/projects/${this.selectedProject.id}/vision`, {
+                        project_id: this.selectedProject.id,
+                        ...this.visionForm,
+                    });
+                    this.vision = await this.api('GET', `/projects/${this.selectedProject.id}/vision`);
+                }
+                this.visionForm = { statement: '', strategic_objectives: '' };
+                this.showToast('Vision saved', 'success');
+            } catch (e) {
+                this.showToast(e.message, 'error');
+            }
+        },
+
+        editVision() {
+            this.visionForm = {
+                statement: this.vision.statement || '',
+                strategic_objectives: this.vision.strategic_objectives || '',
+            };
+        },
+
+        async loadKPIs() {
+            try {
+                this.kpis = await this.api('GET', `/projects/${this.selectedProject.id}/kpis`);
+            } catch {
+                this.kpis = [];
+            }
+        },
+
+        async saveKpi() {
+            try {
+                await this.api('POST', `/projects/${this.selectedProject.id}/kpis`, {
+                    project_id: this.selectedProject.id,
+                    ...this.kpiForm,
+                });
+                this.kpiForm = { name: '', target_value: '', current_value: '', unit: '', category: '' };
+                await this.loadKPIs();
+                this.showToast('KPI added', 'success');
+            } catch (e) {
+                this.showToast(e.message, 'error');
+            }
+        },
+
+        async deleteKpi(id) {
+            try {
+                await this.api('DELETE', `/kpis/${id}`);
+                await this.loadKPIs();
+                this.showToast('KPI deleted', 'success');
+            } catch (e) {
+                this.showToast(e.message, 'error');
+            }
+        },
+
+        async loadRoadmaps() {
+            try {
+                this.roadmaps = await this.api('GET', `/projects/${this.selectedProject.id}/roadmaps`);
+            } catch {
+                this.roadmaps = [];
+            }
+        },
+
+        async saveRoadmap() {
+            try {
+                await this.api('POST', `/projects/${this.selectedProject.id}/roadmaps`, {
+                    project_id: this.selectedProject.id,
+                    ...this.roadmapForm,
+                });
+                this.roadmapForm = { title: '', start_date: '', end_date: '' };
+                await this.loadRoadmaps();
+                this.showToast('Roadmap created', 'success');
+            } catch (e) {
+                this.showToast(e.message, 'error');
+            }
+        },
+
+        async deleteRoadmap(id) {
+            try {
+                await this.api('DELETE', `/roadmaps/${id}`);
+                await this.loadRoadmaps();
+                this.showToast('Roadmap deleted', 'success');
+            } catch (e) {
+                this.showToast(e.message, 'error');
+            }
+        },
+
+        async saveMilestone(roadmapId) {
+            try {
+                await this.api('POST', `/roadmaps/${roadmapId}/milestones`, {
+                    roadmap_id: roadmapId,
+                    ...this.milestoneForm,
+                });
+                this.milestoneForm = { title: '', target_date: '', status: 'On Track' };
+                await this.loadRoadmaps();
+                this.showToast('Milestone added', 'success');
+            } catch (e) {
+                this.showToast(e.message, 'error');
+            }
+        },
+
+        async deleteMilestone(id) {
+            try {
+                await this.api('DELETE', `/milestones/${id}`);
+                await this.loadRoadmaps();
+                this.showToast('Milestone deleted', 'success');
+            } catch (e) {
+                this.showToast(e.message, 'error');
+            }
+        },
+
+        milestoneStatusColor(status) {
+            return {
+                'On Track': 'bg-emerald-50 text-emerald-700',
+                'At Risk': 'bg-amber-50 text-amber-700',
+                'Delayed': 'bg-rose-50 text-rose-700',
+                'Completed': 'bg-slate-100 text-slate-600',
+            }[status] || 'bg-slate-100 text-slate-600';
+        },
 
         async loadClients() {
             try { this.clients = await this.api('GET', '/clients'); }

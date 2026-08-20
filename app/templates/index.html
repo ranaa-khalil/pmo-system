@@ -235,9 +235,6 @@
                    class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200">
                     <span x-html="item.icon" class="w-[18px] h-[18px] flex-shrink-0 transition-transform group-hover:scale-110"></span>
                     <span x-text="item.label"></span>
-                    <template x-if="item.comingSoon">
-                        <span class="ml-auto text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-slate-800 text-slate-500">SOON</span>
-                    </template>
                 </a>
             </template>
         </nav>
@@ -558,283 +555,186 @@
                 </div>
             </div>
 
-            <!-- ============ PLACEHOLDER VIEWS ============ -->
-            <div x-show="route === 'roadmap' || route === 'settings'" class="view-enter">
-                <div class="bg-white rounded-2xl border border-slate-200/80 p-16 text-center max-w-md mx-auto mt-12">
-                    <div class="w-16 h-16 rounded-3xl bg-gradient-to-br from-brand-50 to-violet-50 flex items-center justify-center mx-auto mb-5 ring-1 ring-brand-100/50">
-                        <svg class="w-8 h-8 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                            <template x-if="route === 'roadmap'"><path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></template>
-                            <template x-if="route === 'settings'"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></template>
-                        </svg>
+            <!-- ============ SETTINGS VIEW ============ -->
+            <div x-show="route === 'settings'" class="view-enter space-y-6 max-w-2xl">
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Settings</h1>
+                    <p class="text-sm text-slate-500 mt-1">Manage your account and system configuration.</p>
+                </div>
+                <!-- Account card -->
+                <div class="bg-white rounded-2xl border border-slate-200/80 p-6">
+                    <h3 class="text-[14px] font-semibold text-slate-800 mb-4">Account</h3>
+                    <div class="flex items-center gap-4 mb-5">
+                        <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-lg font-bold" :class="avatarColor(currentUser?.full_name || 'U')" x-text="currentUser?.full_name?.charAt(0) || 'U'"></div>
+                        <div>
+                            <div class="text-[14px] font-semibold text-slate-800" x-text="currentUser?.full_name || 'User'"></div>
+                            <div class="text-[12px] text-slate-400" x-text="currentUser?.email || ''"></div>
+                        </div>
                     </div>
-                    <h2 class="text-lg font-bold text-slate-800 tracking-tight mb-1" x-text="route === 'roadmap' ? 'Project Roadmaps' : 'Settings'"></h2>
-                    <p class="text-[13px] text-slate-400 mb-5" x-text="route === 'roadmap' ? 'Visual roadmaps with timelines will appear here in Phase 3.' : 'RBAC, GitHub integration, and system settings will appear here.'"></p>
-                    <div class="inline-flex items-center gap-2 text-[11px] font-semibold text-brand-600 bg-brand-50 px-3 py-1.5 rounded-lg">
-                        <span class="w-1.5 h-1.5 bg-brand-500 rounded-full pulse-dot"></span>
-                        <span x-text="route === 'roadmap' ? 'Coming in Phase 3' : 'Coming in Phase 2'"></span>
+                    <div class="grid grid-cols-2 gap-4 text-[13px]">
+                        <div class="bg-slate-50 rounded-xl p-3">
+                            <div class="text-[11px] text-slate-400 uppercase tracking-wider">User ID</div>
+                            <div class="font-medium text-slate-700 mt-0.5" x-text="currentUser?.id || '—'"></div>
+                        </div>
+                        <div class="bg-slate-50 rounded-xl p-3">
+                            <div class="text-[11px] text-slate-400 uppercase tracking-wider">Status</div>
+                            <div class="font-medium text-emerald-600 mt-0.5">Active</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- System info card -->
+                <div class="bg-white rounded-2xl border border-slate-200/80 p-6">
+                    <h3 class="text-[14px] font-semibold text-slate-800 mb-4">System</h3>
+                    <div class="space-y-2 text-[13px]">
+                        <div class="flex justify-between py-2 border-b border-slate-50">
+                            <span class="text-slate-400">Version</span>
+                            <span class="font-medium text-slate-700">1.0.0</span>
+                        </div>
+                        <div class="flex justify-between py-2 border-b border-slate-50">
+                            <span class="text-slate-400">API Docs</span>
+                            <a href="/docs" target="_blank" class="font-medium text-brand-600 hover:text-brand-700">Swagger UI →</a>
+                        </div>
+                        <div class="flex justify-between py-2 border-b border-slate-50">
+                            <span class="text-slate-400">Models</span>
+                            <span class="font-medium text-slate-700">16</span>
+                        </div>
+                        <div class="flex justify-between py-2 border-b border-slate-50">
+                            <span class="text-slate-400">Tests</span>
+                            <span class="font-medium text-slate-700">146 passing</span>
+                        </div>
+                        <div class="flex justify-between py-2">
+                            <span class="text-slate-400">GitHub Sync</span>
+                            <span class="font-medium text-slate-700">Optional (set PMO_GITHUB_TOKEN)</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-        </main>
-    </div>
-</div>
-
-<!-- ==================== CLIENT MODAL ==================== -->
-<div x-show="clientModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
-    <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm overlay-enter" @click="clientModalOpen = false"></div>
-    <div class="flex min-h-full items-center justify-center p-4 relative">
-        <div class="bg-white rounded-3xl shadow-modal w-full max-w-md modal-enter overflow-hidden">
-            <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                    <h2 class="text-[16px] font-bold text-slate-900 tracking-tight" x-text="editingClient.id ? 'Edit Client' : 'New Client'"></h2>
-                    <p class="text-[12px] text-slate-400 mt-0.5" x-text="editingClient.id ? 'Update client information' : 'Add a new client organization'"></p>
-                </div>
-                <button @click="clientModalOpen = false" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            <!-- ============ PROJECT DETAIL VIEW ============ -->
+            <div x-show="route === 'project-detail' && selectedProject" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="mb-6">
+                <!-- Back button -->
+                <button @click="backToProjects()" class="flex items-center gap-2 text-[13px] text-slate-500 hover:text-slate-800 mb-4 transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    Back to Projects
                 </button>
-            </div>
-            <form @submit.prevent="saveClient()" class="px-6 py-5 space-y-4">
-                <div>
-                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Name *</label>
-                    <input x-model="editingClient.name" type="text" required
-                           class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
-                           placeholder="e.g., NITC / PNU">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Contact Name</label>
-                        <input x-model="editingClient.contact_name" type="text"
-                               class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
-                               placeholder="Aldaana Almuqrin">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Email</label>
-                        <input x-model="editingClient.contact_email" type="email"
-                               class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
-                               placeholder="contact@org.com">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Description</label>
-                    <textarea x-model="editingClient.description" rows="3"
-                              class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all resize-none"
-                              placeholder="Brief description of the client..."></textarea>
-                </div>
-                <div class="flex justify-end gap-2 pt-3">
-                    <button type="button" @click="clientModalOpen = false" class="text-[13px] font-medium text-slate-600 px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-colors">Cancel</button>
-                    <button type="submit" class="text-[13px] font-medium text-white bg-gradient-to-br from-brand-500 to-violet-600 px-5 py-2.5 rounded-xl shadow-lg shadow-brand-600/20 hover:shadow-xl hover:shadow-brand-600/30 transition-all">Save Client</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 
-<!-- ==================== PROJECT MODAL ==================== -->
-<div x-show="projectModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
-    <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm overlay-enter" @click="projectModalOpen = false"></div>
-    <div class="flex min-h-full items-center justify-center p-4 relative">
-        <div class="bg-white rounded-3xl shadow-modal w-full max-w-md modal-enter overflow-hidden">
-            <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                    <h2 class="text-[16px] font-bold text-slate-900 tracking-tight" x-text="editingProject.id ? 'Edit Project' : 'New Project'"></h2>
-                    <p class="text-[12px] text-slate-400 mt-0.5" x-text="editingProject.id ? 'Update project information' : 'Create a new project for a client'"></p>
-                </div>
-                <button @click="projectModalOpen = false" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
-            </div>
-            <form @submit.prevent="saveProject()" class="px-6 py-5 space-y-4">
-                <div>
-                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Name *</label>
-                    <input x-model="editingProject.name" type="text" required
-                           class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
-                           placeholder="e.g., PNU Cloud">
-                </div>
-                <div>
-                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Client *</label>
-                    <select x-model="editingProject.client_id" required
-                            class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all">
-                        <option value="">Select a client...</option>
-                        <template x-for="c in clients" :key="c.id">
-                            <option :value="c.id" x-text="c.name"></option>
-                        </template>
-                    </select>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Status</label>
-                        <select x-model="editingProject.status"
-                                class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all">
-                            <option value="Active">Active</option>
-                            <option value="On Hold">On Hold</option>
-                            <option value="Completed">Completed</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">GitHub Repo</label>
-                        <input x-model="editingProject.github_repo" type="text"
-                               class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono text-[13px]"
-                               placeholder="org/repo">
+                <!-- Project header -->
+                <div class="flex items-start gap-4 mb-6">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-brand-600/20" x-text="selectedProject?.name?.charAt(0)"></div>
+                    <div class="flex-1">
+                        <h1 class="text-2xl font-bold text-slate-900 tracking-tight" x-text="selectedProject?.name"></h1>
+                        <div class="flex items-center gap-3 mt-1">
+                            <span class="text-[13px] text-slate-500" x-text="selectedProject?.status"></span>
+                            <template x-if="selectedProject?.github_repo">
+                                <a :href="'https://github.com/' + selectedProject.github_repo" target="_blank" class="inline-flex items-center gap-1 text-[12px] text-slate-400 hover:text-slate-700 transition-colors">
+                                    <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                                    <span x-text="selectedProject.github_repo"></span>
+                                </a>
+                            </template>
+                        </div>
                     </div>
                 </div>
-                <div>
-                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Description</label>
-                    <textarea x-model="editingProject.description" rows="3"
-                              class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all resize-none"
-                              placeholder="Brief description..."></textarea>
+
+                <!-- Tabs -->
+                <div class="flex gap-1 border-b border-slate-200 mb-6">
+                    <button @click="projectTab='overview'" :class="projectTab==='overview' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Overview</button>
+                    <button @click="projectTab='vision'" :class="projectTab==='vision' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Vision</button>
+                    <button @click="projectTab='kpis'" :class="projectTab==='kpis' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">KPIs</button>
+                    <button @click="projectTab='roadmap'" :class="projectTab==='roadmap' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Roadmap</button>
+                    <button @click="projectTab='backlog'" :class="projectTab==='backlog' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Backlog</button>
+                    <button @click="projectTab='forms'" :class="projectTab==='forms' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Forms</button>
+                    <button @click="projectTab='approvals'" :class="projectTab==='approvals' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Approvals</button>
                 </div>
-                <div class="flex justify-end gap-2 pt-3">
-                    <button type="button" @click="projectModalOpen = false" class="text-[13px] font-medium text-slate-600 px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-colors">Cancel</button>
-                    <button type="submit" class="text-[13px] font-medium text-white bg-gradient-to-br from-brand-500 to-violet-600 px-5 py-2.5 rounded-xl shadow-lg shadow-brand-600/20 hover:shadow-xl hover:shadow-brand-600/30 transition-all">Save Project</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 
-<!-- ==================== PROJECT DETAIL VIEW ==================== -->
-<div x-show="route === 'project-detail' && selectedProject" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="mb-6">
-    <!-- Back button -->
-    <button @click="backToProjects()" class="flex items-center gap-2 text-[13px] text-slate-500 hover:text-slate-800 mb-4 transition-colors">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-        Back to Projects
-    </button>
-
-    <!-- Project header -->
-    <div class="flex items-start gap-4 mb-6">
-        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-brand-600/20" x-text="selectedProject?.name?.charAt(0)"></div>
-        <div class="flex-1">
-            <h1 class="text-2xl font-bold text-slate-900 tracking-tight" x-text="selectedProject?.name"></h1>
-            <div class="flex items-center gap-3 mt-1">
-                <span class="text-[13px] text-slate-500" x-text="selectedProject?.status"></span>
-                <template x-if="selectedProject?.github_repo">
-                    <a :href="'https://github.com/' + selectedProject.github_repo" target="_blank" class="inline-flex items-center gap-1 text-[12px] text-slate-400 hover:text-slate-700 transition-colors">
-                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-                        <span x-text="selectedProject.github_repo"></span>
-                    </a>
-                </template>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tabs -->
-    <div class="flex gap-1 border-b border-slate-200 mb-6">
-        <button @click="projectTab='overview'" :class="projectTab==='overview' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Overview</button>
-        <button @click="projectTab='vision'" :class="projectTab==='vision' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Vision</button>
-        <button @click="projectTab='kpis'" :class="projectTab==='kpis' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">KPIs</button>
-        <button @click="projectTab='roadmap'" :class="projectTab==='roadmap' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Roadmap</button>
-        <button @click="projectTab='backlog'" :class="projectTab==='backlog' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Backlog</button>
-        <button @click="projectTab='forms'" :class="projectTab==='forms' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Forms</button>
-        <button @click="projectTab='approvals'" :class="projectTab==='approvals' ? 'text-brand-600 border-b-2 border-brand-500' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors">Approvals</button>
-    </div>
-
-    <!-- Overview tab -->
-    <div x-show="projectTab==='overview'" class="grid grid-cols-2 gap-4">
-        <div class="bg-white rounded-2xl shadow-card p-6">
-            <h3 class="text-[14px] font-semibold text-slate-800 mb-3">Project Information</h3>
-            <dl class="space-y-2 text-[13px]">
-                <div class="flex justify-between"><dt class="text-slate-500">Status</dt><dd class="font-medium" x-text="selectedProject?.status || '—'"></dd></div>
-                <div class="flex justify-between"><dt class="text-slate-500">Start Date</dt><dd class="font-medium" x-text="selectedProject?.start_date || '—'"></dd></div>
-                <div class="flex justify-between"><dt class="text-slate-500">GitHub Repo</dt><dd class="font-medium" x-text="selectedProject?.github_repo || '—'"></dd></div>
-                <div class="flex justify-between"><dt class="text-slate-500">Description</dt><dd class="font-medium text-right max-w-[200px]" x-text="selectedProject?.description || '—'"></dd></div>
-            </dl>
-        </div>
-        <div class="bg-white rounded-2xl shadow-card p-6">
-            <h3 class="text-[14px] font-semibold text-slate-800 mb-3">Quick Stats</h3>
-            <div class="grid grid-cols-2 gap-3">
-                <div class="text-center p-3 rounded-xl bg-brand-50"><div class="text-xl font-bold text-brand-600" x-text="kpis.length"></div><div class="text-[11px] text-slate-500 mt-0.5">KPIs</div></div>
-                <div class="text-center p-3 rounded-xl bg-emerald-50"><div class="text-xl font-bold text-emerald-600" x-text="roadmaps.length"></div><div class="text-[11px] text-slate-500 mt-0.5">Roadmaps</div></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Vision tab -->
-    <div x-show="projectTab==='vision'" class="max-w-2xl">
-        <template x-if="vision && !visionForm.statement">
-            <div class="bg-white rounded-2xl shadow-card p-6">
-                <div class="flex justify-between items-start mb-4">
-                    <h3 class="text-[14px] font-semibold text-slate-800">Project Vision</h3>
-                    <button @click="editVision()" class="text-[12px] text-brand-600 hover:text-brand-700">Edit</button>
-                </div>
-                <p class="text-[14px] text-slate-700 leading-relaxed mb-4" x-text="vision.statement"></p>
-                <template x-if="vision.strategic_objectives">
-                    <div>
-                        <h4 class="text-[12px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Strategic Objectives</h4>
-                        <pre class="text-[13px] text-slate-600 whitespace-pre-wrap font-sans" x-text="vision.strategic_objectives"></pre>
+                <!-- Overview tab -->
+                <div x-show="projectTab==='overview'" class="max-w-3xl">
+                    <div class="grid grid-cols-3 gap-4 mb-5">
+                        <div class="bg-white rounded-2xl border border-slate-200/80 p-4">
+                            <div class="text-[11px] text-slate-400 uppercase tracking-wider">KPIs</div>
+                            <div class="text-2xl font-bold text-slate-900 mt-1" x-text="kpis.length"></div>
+                        </div>
+                        <div class="bg-white rounded-2xl border border-slate-200/80 p-4">
+                            <div class="text-[11px] text-slate-400 uppercase tracking-wider">Backlog</div>
+                            <div class="text-2xl font-bold text-slate-900 mt-1" x-text="backlogItems.length"></div>
+                        </div>
+                        <div class="bg-white rounded-2xl border border-slate-200/80 p-4">
+                            <div class="text-[11px] text-slate-400 uppercase tracking-wider">Roadmaps</div>
+                            <div class="text-2xl font-bold text-slate-900 mt-1" x-text="roadmaps.length"></div>
+                        </div>
                     </div>
-                </template>
-            </div>
-        </template>
-        <template x-if="!vision || visionForm.statement">
-            <div class="bg-white rounded-2xl shadow-card p-6">
-                <h3 class="text-[14px] font-semibold text-slate-800 mb-4" x-text="vision ? 'Edit Vision' : 'Create Vision'"></h3>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Vision Statement</label>
-                        <textarea x-model="visionForm.statement" rows="3" class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all" placeholder="e.g., Become the leading cloud platform for Saudi universities by 2030"></textarea>
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Strategic Objectives</label>
-                        <textarea x-model="visionForm.strategic_objectives" rows="4" class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all" placeholder="1. Objective one&#10;2. Objective two"></textarea>
-                    </div>
-                    <div class="flex gap-2">
-                        <button @click="saveVision()" class="text-[13px] font-medium text-white bg-gradient-to-br from-brand-500 to-violet-600 px-4 py-2 rounded-xl shadow-md shadow-brand-600/20 hover:shadow-lg transition-all">Save Vision</button>
-                        <button x-show="vision" @click="visionForm={statement:'',strategic_objectives:''}" class="text-[13px] text-slate-500 hover:text-slate-800 px-4 py-2">Cancel</button>
+                    <div class="bg-white rounded-2xl border border-slate-200/80 p-5">
+                        <h3 class="text-[13px] font-semibold text-slate-800 mb-2">Description</h3>
+                        <p class="text-[13px] text-slate-500" x-text="selectedProject?.description || 'No description yet.'"></p>
                     </div>
                 </div>
-            </div>
-        </template>
-    </div>
 
-    <!-- KPIs tab -->
-    <div x-show="projectTab==='kpis'" class="max-w-3xl">
-        <!-- Add KPI form -->
-        <div class="bg-white rounded-2xl shadow-card p-5 mb-4">
-            <h3 class="text-[13px] font-semibold text-slate-800 mb-3">Add KPI</h3>
-            <div class="grid grid-cols-3 gap-3">
-                <input x-model="kpiForm.name" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="KPI name">
-                <input x-model="kpiForm.target_value" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Target">
-                <input x-model="kpiForm.current_value" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Current">
-            </div>
-            <div class="grid grid-cols-3 gap-3 mt-2">
-                <input x-model="kpiForm.unit" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Unit (e.g., %)">
-                <input x-model="kpiForm.category" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Category (e.g., SLA)">
-                <button @click="saveKpi()" class="text-[13px] font-medium text-white bg-gradient-to-br from-brand-500 to-violet-600 px-4 py-2 rounded-xl shadow-md hover:shadow-lg transition-all">Add</button>
-            </div>
-        </div>
-        <!-- KPI list -->
-        <div class="bg-white rounded-2xl shadow-card overflow-hidden">
-            <template x-if="kpis.length === 0">
-                <div class="p-8 text-center text-[13px] text-slate-400">No KPIs yet. Add one above.</div>
-            </template>
-            <table x-show="kpis.length > 0" class="w-full">
-                <thead>
-                    <tr class="border-b border-slate-100 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                        <th class="text-left px-5 py-3">Name</th>
-                        <th class="text-left px-5 py-3">Target</th>
-                        <th class="text-left px-5 py-3">Current</th>
-                        <th class="text-left px-5 py-3">Unit</th>
-                        <th class="text-left px-5 py-3">Category</th>
-                        <th class="px-5 py-3"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template x-for="kpi in kpis" :key="kpi.id">
-                        <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                            <td class="px-5 py-3 text-[13px] font-medium text-slate-800" x-text="kpi.name"></td>
-                            <td class="px-5 py-3 text-[13px] text-slate-600" x-text="kpi.target_value || '—'"></td>
-                            <td class="px-5 py-3 text-[13px] text-slate-600" x-text="kpi.current_value || '—'"></td>
-                            <td class="px-5 py-3 text-[13px] text-slate-500" x-text="kpi.unit || '—'"></td>
-                            <td class="px-5 py-3"><span class="text-[11px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-600" x-text="kpi.category || '—'"></span></td>
-                            <td class="px-5 py-3"><button @click="deleteKpi(kpi.id)" class="text-[12px] text-rose-500 hover:text-rose-700">Delete</button></td>
-                        </tr>
+                <!-- Vision tab -->
+                <div x-show="projectTab==='vision'" class="max-w-3xl">
+                    <template x-if="!vision">
+                        <div class="bg-white rounded-2xl shadow-card p-5">
+                            <h3 class="text-[13px] font-semibold text-slate-800 mb-3">Create Vision</h3>
+                            <div class="space-y-3">
+                                <textarea x-model="visionForm.statement" rows="3" class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all" placeholder="e.g., Become the leading cloud platform for Saudi universities by 2030"></textarea>
+                                <textarea x-model="visionForm.strategic_objectives" rows="4" class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all" placeholder="1. Objective one&#10;2. Objective two"></textarea>
+                                <button @click="saveVision()" class="text-[13px] font-medium text-white bg-gradient-to-br from-brand-500 to-violet-600 px-4 py-2 rounded-xl shadow-md hover:shadow-lg transition-all">Save Vision</button>
+                            </div>
+                        </div>
                     </template>
-                </tbody>
-            </table>
-        </div>
-    </div>
+                    <template x-if="vision">
+                        <div class="bg-white rounded-2xl shadow-card p-5">
+                            <div class="flex justify-between items-start mb-3">
+                                <h3 class="text-[13px] font-semibold text-slate-800">Vision Statement</h3>
+                                <button @click="vision = null" class="text-[12px] text-brand-600 hover:text-brand-700">Edit</button>
+                            </div>
+                            <p class="text-[14px] text-slate-700 mb-4" x-text="vision.statement"></p>
+                            <h4 class="text-[12px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Strategic Objectives</h4>
+                            <p class="text-[13px] text-slate-600 whitespace-pre-line" x-text="vision.strategic_objectives"></p>
+                        </div>
+                    </template>
+                </div>
 
+                <!-- KPIs tab -->
+                <div x-show="projectTab==='kpis'" class="max-w-3xl">
+                    <div class="bg-white rounded-2xl shadow-card p-5 mb-4">
+                        <h3 class="text-[13px] font-semibold text-slate-800 mb-3">Add KPI</h3>
+                        <div class="grid grid-cols-5 gap-2">
+                            <input x-model="kpiForm.name" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="KPI name">
+                            <input x-model="kpiForm.target_value" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Target">
+                            <input x-model="kpiForm.current_value" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Current">
+                            <input x-model="kpiForm.unit" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Unit (e.g., %)">
+                            <input x-model="kpiForm.category" class="text-[13px] border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400" placeholder="Category (e.g., SLA)">
+                        </div>
+                        <button @click="saveKPI()" class="mt-2 text-[13px] font-medium text-white bg-gradient-to-br from-brand-500 to-violet-600 px-4 py-2 rounded-xl shadow-md hover:shadow-lg transition-all">Add KPI</button>
+                    </div>
+                    <template x-if="kpis.length === 0">
+                        <div class="bg-white rounded-2xl shadow-card p-8 text-center text-[13px] text-slate-400">No KPIs yet. Add one above.</div>
+                    </template>
+                    <div class="bg-white rounded-2xl shadow-card overflow-hidden">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b border-slate-100 text-[11px] text-slate-400 uppercase tracking-wider">
+                                    <th class="text-left py-3 px-4 font-semibold">KPI</th>
+                                    <th class="text-left py-3 px-4 font-semibold">Target</th>
+                                    <th class="text-left py-3 px-4 font-semibold">Current</th>
+                                    <th class="text-left py-3 px-4 font-semibold">Unit</th>
+                                    <th class="text-left py-3 px-4 font-semibold">Category</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="kpi in kpis" :key="kpi.id">
+                                    <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                                        <td class="py-3 px-4 text-[13px] font-medium text-slate-800" x-text="kpi.name"></td>
+                                        <td class="py-3 px-4 text-[13px] text-slate-600" x-text="kpi.target_value"></td>
+                                        <td class="py-3 px-4 text-[13px] text-slate-600" x-text="kpi.current_value"></td>
+                                        <td class="py-3 px-4 text-[13px] text-slate-400" x-text="kpi.unit"></td>
+                                        <td class="py-3 px-4 text-[13px] text-slate-400" x-text="kpi.category"></td>
+                                        <td class="py-3 px-4 text-right"><button @click="deleteKPI(kpi.id)" class="text-[12px] text-rose-400 hover:text-rose-600">Delete</button></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
     <!-- Roadmap tab -->
     <div x-show="projectTab==='roadmap'" class="max-w-3xl">
         <!-- Add roadmap form -->
@@ -1203,6 +1103,124 @@
         </div>
     </div>
 </div>
+</div>
+
+        </main>
+    </div>
+</div>
+
+<!-- ==================== CLIENT MODAL ==================== -->
+<div x-show="clientModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+    <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm overlay-enter" @click="clientModalOpen = false"></div>
+    <div class="flex min-h-full items-center justify-center p-4 relative">
+        <div class="bg-white rounded-3xl shadow-modal w-full max-w-md modal-enter overflow-hidden">
+            <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                    <h2 class="text-[16px] font-bold text-slate-900 tracking-tight" x-text="editingClient.id ? 'Edit Client' : 'New Client'"></h2>
+                    <p class="text-[12px] text-slate-400 mt-0.5" x-text="editingClient.id ? 'Update client information' : 'Add a new client organization'"></p>
+                </div>
+                <button @click="clientModalOpen = false" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <form @submit.prevent="saveClient()" class="px-6 py-5 space-y-4">
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Name *</label>
+                    <input x-model="editingClient.name" type="text" required
+                           class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
+                           placeholder="e.g., NITC / PNU">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Contact Name</label>
+                        <input x-model="editingClient.contact_name" type="text"
+                               class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
+                               placeholder="Aldaana Almuqrin">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Email</label>
+                        <input x-model="editingClient.contact_email" type="email"
+                               class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
+                               placeholder="contact@org.com">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Description</label>
+                    <textarea x-model="editingClient.description" rows="3"
+                              class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all resize-none"
+                              placeholder="Brief description of the client..."></textarea>
+                </div>
+                <div class="flex justify-end gap-2 pt-3">
+                    <button type="button" @click="clientModalOpen = false" class="text-[13px] font-medium text-slate-600 px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-colors">Cancel</button>
+                    <button type="submit" class="text-[13px] font-medium text-white bg-gradient-to-br from-brand-500 to-violet-600 px-5 py-2.5 rounded-xl shadow-lg shadow-brand-600/20 hover:shadow-xl hover:shadow-brand-600/30 transition-all">Save Client</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== PROJECT MODAL ==================== -->
+<div x-show="projectModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+    <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm overlay-enter" @click="projectModalOpen = false"></div>
+    <div class="flex min-h-full items-center justify-center p-4 relative">
+        <div class="bg-white rounded-3xl shadow-modal w-full max-w-md modal-enter overflow-hidden">
+            <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                    <h2 class="text-[16px] font-bold text-slate-900 tracking-tight" x-text="editingProject.id ? 'Edit Project' : 'New Project'"></h2>
+                    <p class="text-[12px] text-slate-400 mt-0.5" x-text="editingProject.id ? 'Update project information' : 'Create a new project for a client'"></p>
+                </div>
+                <button @click="projectModalOpen = false" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <form @submit.prevent="saveProject()" class="px-6 py-5 space-y-4">
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Name *</label>
+                    <input x-model="editingProject.name" type="text" required
+                           class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all"
+                           placeholder="e.g., PNU Cloud">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Client *</label>
+                    <select x-model="editingProject.client_id" required
+                            class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all">
+                        <option value="">Select a client...</option>
+                        <template x-for="c in clients" :key="c.id">
+                            <option :value="c.id" x-text="c.name"></option>
+                        </template>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Status</label>
+                        <select x-model="editingProject.status"
+                                class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all">
+                            <option value="Active">Active</option>
+                            <option value="On Hold">On Hold</option>
+                            <option value="Completed">Completed</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">GitHub Repo</label>
+                        <input x-model="editingProject.github_repo" type="text"
+                               class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all font-mono text-[13px]"
+                               placeholder="org/repo">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Description</label>
+                    <textarea x-model="editingProject.description" rows="3"
+                              class="w-full text-[14px] border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all resize-none"
+                              placeholder="Brief description..."></textarea>
+                </div>
+                <div class="flex justify-end gap-2 pt-3">
+                    <button type="button" @click="projectModalOpen = false" class="text-[13px] font-medium text-slate-600 px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-colors">Cancel</button>
+                    <button type="submit" class="text-[13px] font-medium text-white bg-gradient-to-br from-brand-500 to-violet-600 px-5 py-2.5 rounded-xl shadow-lg shadow-brand-600/20 hover:shadow-xl hover:shadow-brand-600/30 transition-all">Save Project</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <!-- ==================== TOAST ==================== -->
 <div x-show="toast.show" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0 translate-y-2" class="fixed bottom-6 right-6 z-[60]">
@@ -1279,8 +1297,8 @@ function pmoApp() {
             { id: 'dashboard', label: 'Dashboard', group: 'workspace', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>' },
             { id: 'clients', label: 'Clients', group: 'workspace', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>' },
             { id: 'projects', label: 'Projects', group: 'workspace', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/></svg>' },
-            { id: 'roadmap', label: 'Roadmaps', group: 'planning', comingSoon: true, icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>' },
-            { id: 'settings', label: 'Settings', group: 'planning', comingSoon: true, icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>' },
+            { id: 'roadmap', label: 'Roadmaps', group: 'planning', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>' },
+            { id: 'settings', label: 'Settings', group: 'planning', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>' },
         ],
 
         get pageTitle() {
@@ -1408,7 +1426,11 @@ function pmoApp() {
             this.route = 'dashboard';
         },
 
-        navigate(route) { this.route = route; },
+        navigate(route) {
+            // Roadmaps are per-project — redirect to projects list
+            if (route === 'roadmap') { this.route = 'projects'; return; }
+            this.route = route;
+        },
 
         // ===== Project detail =====
         async openProject(project) {

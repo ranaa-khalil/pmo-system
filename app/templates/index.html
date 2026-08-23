@@ -1642,42 +1642,79 @@
 
     <!-- Backlog tab -->
     <div x-show="projectTab==='backlog'" class="max-w-6xl">
-        <!-- Add backlog item form -->
-        <div class="surface rounded-2xl border border-slate-200/60 p-5 mb-4">
-            <h3 class="text-[13px] font-semibold text-slate-800 mb-3">Add Backlog Item</h3>
-            <div class="space-y-3">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <input x-model="backlogForm.title" class="input-premium text-[13px]" placeholder="Feature / Story title…">
-                    <input x-model="backlogForm.epic" class="input-premium text-[13px]" placeholder="Epic (e.g., RBAC & Identity)">
+        <!-- Form: Epic / Feature toggle -->
+        <div id="backlog-form" class="surface rounded-2xl border border-slate-200/60 p-5 mb-4">
+            <!-- Mode toggle -->
+            <div class="flex items-center gap-2 mb-4">
+                <div class="inline-flex rounded-xl bg-slate-100 p-1">
+                    <button @click="backlogFormMode='feature'" :class="backlogFormMode==='feature' ? 'bg-white text-brand-600 shadow-sm' : 'text-slate-500'" class="px-4 py-1.5 rounded-lg text-[12px] font-semibold transition-all">Feature / Story</button>
+                    <button @click="backlogFormMode='epic'" :class="backlogFormMode==='epic' ? 'bg-white text-violet-600 shadow-sm' : 'text-slate-500'" class="px-4 py-1.5 rounded-lg text-[12px] font-semibold transition-all">Epic</button>
                 </div>
-                <textarea x-model="backlogForm.description" rows="2" class="w-full input-premium text-[13px]" placeholder="Details / Acceptance Criteria…"></textarea>
-                <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
-                    <select x-model="backlogForm.item_type" class="input-premium text-[12px] bg-white">
-                        <option value="Feature">Feature</option>
-                        <option value="Bug">Bug</option>
-                        <option value="Enhancement">Enhancement</option>
-                    </select>
-                    <input x-model="backlogForm.primary_actor" class="input-premium text-[12px]" placeholder="Primary Actor">
-                    <select x-model="backlogForm.priority" class="input-premium text-[12px] bg-white">
-                        <option value="Critical">Critical</option>
-                        <option value="High">High</option>
-                        <option value="Medium">Medium</option>
-                        <option value="Low">Low</option>
-                    </select>
-                    <input x-model="backlogForm.story_points" type="number" min="1" class="input-premium text-[12px]" placeholder="Est. (pts)">
-                    <input x-model="backlogForm.target_release" class="input-premium text-[12px]" placeholder="Target Release (e.g., 2026-09)">
-                </div>
-                <div class="flex items-center gap-3">
-                    <input x-model="backlogForm.dependencies" class="input-premium text-[12px] flex-1" placeholder="Dependencies / Notes (e.g., RBAC & Identity)">
-                    <select x-model="backlogForm.kpi_id" class="text-[12px] border border-slate-200/60 rounded-xl px-3 py-2 bg-white flex-1 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-                        <option value="">Link to KPI (optional)…</option>
-                        <template x-for="kpi in kpis" :key="kpi.id">
-                            <option :value="kpi.id" x-text="kpi.name"></option>
-                        </template>
-                    </select>
-                    <button @click="saveBacklogItem()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all whitespace-nowrap">Add Item</button>
-                </div>
+                <span class="text-[11px] text-slate-400" x-text="backlogFormMode === 'epic' ? 'Create a grouping epic, then add features under it' : 'Add a feature or story — optionally link to an epic'"></span>
             </div>
+
+            <!-- Epic form -->
+            <template x-if="backlogFormMode === 'epic'">
+                <div class="space-y-3">
+                    <input x-model="epicForm.name" class="input-premium text-[13px]" placeholder="Epic name (e.g., RBAC & Identity)">
+                    <textarea x-model="epicForm.description" rows="2" class="w-full input-premium text-[13px]" placeholder="Epic description (optional)…"></textarea>
+                    <div class="flex items-center gap-2">
+                        <button @click="saveBacklogItem(false)" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Epic</button>
+                        <button @click="saveBacklogItem(true)" class="text-[13px] font-medium text-brand-600 border border-brand-200 hover:bg-brand-50 px-4 py-2 rounded-xl transition-all">Save & New</button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Feature / Story form -->
+            <template x-if="backlogFormMode === 'feature'">
+                <div class="space-y-3">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <input x-model="backlogForm.title" class="input-premium text-[13px]" placeholder="Feature / Story title…">
+                        <div class="flex items-center gap-2">
+                            <select x-model="backlogForm.epic" class="input-premium text-[12px] bg-white flex-1">
+                                <option value="">— No epic —</option>
+                                <template x-for="ep in epicOptions" :key="ep">
+                                    <option :value="ep" x-text="ep"></option>
+                                </template>
+                            </select>
+                            <input x-model="backlogForm.epic" list="epic-list" class="input-premium text-[12px] flex-1" placeholder="or type new epic…">
+                            <datalist id="epic-list">
+                                <template x-for="ep in epicOptions" :key="ep">
+                                    <option :value="ep"></option>
+                                </template>
+                            </datalist>
+                        </div>
+                    </div>
+                    <textarea x-model="backlogForm.description" rows="2" class="w-full input-premium text-[13px]" placeholder="Details / Acceptance Criteria…"></textarea>
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+                        <select x-model="backlogForm.item_type" class="input-premium text-[12px] bg-white">
+                            <option value="Feature">Feature</option>
+                            <option value="Bug">Bug</option>
+                            <option value="Enhancement">Enhancement</option>
+                        </select>
+                        <input x-model="backlogForm.primary_actor" class="input-premium text-[12px]" placeholder="Primary Actor">
+                        <select x-model="backlogForm.priority" class="input-premium text-[12px] bg-white">
+                            <option value="Critical">Critical</option>
+                            <option value="High">High</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Low">Low</option>
+                        </select>
+                        <input x-model="backlogForm.story_points" type="number" min="1" class="input-premium text-[12px]" placeholder="Est. (pts)">
+                        <input x-model="backlogForm.target_release" class="input-premium text-[12px]" placeholder="Target Release">
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <input x-model="backlogForm.dependencies" class="input-premium text-[12px] flex-1" placeholder="Dependencies / Notes">
+                        <select x-model="backlogForm.kpi_id" class="text-[12px] border border-slate-200/60 rounded-xl px-3 py-2 bg-white flex-1 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                            <option value="">Link to KPI (optional)…</option>
+                            <template x-for="kpi in kpis" :key="kpi.id">
+                                <option :value="kpi.id" x-text="kpi.name"></option>
+                            </template>
+                        </select>
+                        <button @click="saveBacklogItem(false)" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all whitespace-nowrap">Save</button>
+                        <button @click="saveBacklogItem(true)" class="text-[13px] font-medium text-brand-600 border border-brand-200 hover:bg-brand-50 px-4 py-2 rounded-xl transition-all whitespace-nowrap">Save & New</button>
+                    </div>
+                </div>
+            </template>
         </div>
 
         <!-- Phase legend -->
@@ -1693,97 +1730,105 @@
             </template>
         </div>
 
-        <!-- Backlog items -->
+        <!-- Backlog items grouped by epic -->
         <template x-if="backlogItems.length === 0">
             <div class="surface rounded-2xl border border-slate-200/60 p-10 text-center">
                 <div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-amber-50 flex items-center justify-center">
                     <svg class="w-6 h-6 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
                 </div>
                 <p class="text-[13px] text-slate-400 mb-1">No backlog items yet</p>
-                <p class="text-[11px] text-slate-300">Add items above to plan your work</p>
+                <p class="text-[11px] text-slate-300">Start by adding an epic or a feature above</p>
             </div>
         </template>
 
-        <!-- Backlog table header -->
         <template x-if="backlogItems.length > 0">
-            <div class="surface rounded-2xl border border-slate-200/60 overflow-hidden">
-                <!-- Column headers -->
-                <div class="grid grid-cols-12 gap-2 px-4 py-2.5 border-b border-slate-100 bg-slate-50/50 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                    <div class="col-span-4">Feature / Story</div>
-                    <div class="col-span-1">Epic</div>
-                    <div class="col-span-1">Type</div>
-                    <div class="col-span-1">Actor</div>
-                    <div class="col-span-1">Priority</div>
-                    <div class="col-span-1">Pts</div>
-                    <div class="col-span-1">Target Rel.</div>
-                    <div class="col-span-1">Status</div>
-                    <div class="col-span-1 text-right">Phase</div>
-                </div>
-                <!-- Backlog item rows -->
-                <div class="divide-y divide-slate-50">
-                    <template x-for="item in backlogItems" :key="item.id">
-                        <div class="grid grid-cols-12 gap-2 px-4 py-3 hover:bg-slate-50/50 transition-colors group">
-                            <!-- Feature / Story + description + dependencies -->
-                            <div class="col-span-4 min-w-0">
-                                <div class="flex items-center gap-2">
-                                    <h4 class="text-[13px] font-semibold text-slate-800 truncate" x-text="item.title"></h4>
-                                    <template x-if="item.github_issue_number">
-                                        <a :href="'https://github.com/' + (selectedProject?.github_repo || '') + '/issues/' + item.github_issue_number" target="_blank"
-                                           class="inline-flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors flex-shrink-0">
-                                            <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-                                            <span x-text="'#' + item.github_issue_number"></span>
-                                        </a>
-                                    </template>
-                                </div>
-                                <p class="text-[11px] text-slate-400 truncate mt-0.5" x-text="item.description || item.acceptance_criteria || ''"></p>
-                                <template x-if="item.dependencies && item.dependencies !== '—'">
-                                    <div class="flex items-center gap-1 mt-1">
-                                        <svg class="w-3 h-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
-                                        <span class="text-[9px] text-slate-400" x-text="item.dependencies"></span>
-                                    </div>
+            <div class="space-y-3">
+                <template x-for="group in backlogByEpic" :key="group.epic">
+                    <div class="surface rounded-2xl border border-slate-200/60 overflow-hidden">
+                        <!-- Epic header -->
+                        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100"
+                             :class="group.epic === 'Uncategorized' ? 'bg-slate-50/50' : 'bg-gradient-to-r from-violet-50/60 to-brand-50/40'">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <button @click="toggleEpic(group.epic)" class="text-slate-400 hover:text-slate-700 flex-shrink-0">
+                                    <svg class="w-4 h-4 transition-transform" :class="collapsedEpics.includes(group.epic) ? '' : 'rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                                </button>
+                                <template x-if="group.epicItem">
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-violet-100 text-violet-700 flex-shrink-0">EPIC</span>
+                                </template>
+                                <template x-if="group.epic === 'Uncategorized'">
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-200 text-slate-500 flex-shrink-0">UNG</span>
+                                </template>
+                                <h3 class="text-[14px] font-semibold truncate" :class="group.epic === 'Uncategorized' ? 'text-slate-500' : 'text-violet-700'" x-text="group.epic"></h3>
+                                <template x-if="group.epicItem && group.epicItem.description">
+                                    <span class="text-[11px] text-slate-400 truncate hidden md:block" x-text="group.epicItem.description"></span>
+                                </template>
+                                <span class="text-[10px] text-slate-400 flex-shrink-0" x-text="group.items.length + ' item' + (group.items.length !== 1 ? 's' : '')"></span>
+                            </div>
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                                <button @click="addFeatureToEpic(group.epic === 'Uncategorized' ? '' : group.epic)" class="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-2 py-1 rounded-lg hover:bg-brand-50 transition-colors flex items-center gap-1">
+                                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                                    Add Feature
+                                </button>
+                                <template x-if="group.epicItem">
+                                    <button @click="deleteBacklogItem(group.epicItem.id)" class="text-[10px] text-slate-300 hover:text-rose-500 px-1 transition-colors">✕</button>
                                 </template>
                             </div>
-                            <!-- Epic -->
-                            <div class="col-span-1 min-w-0">
-                                <span class="text-[10px] font-medium px-2 py-0.5 rounded-md bg-violet-50 text-violet-600 inline-block truncate max-w-full" x-text="item.epic || '—'"></span>
-                            </div>
-                            <!-- Type -->
-                            <div class="col-span-1 min-w-0">
-                                <span class="text-[10px] font-medium px-1.5 py-0.5 rounded inline-block"
-                                      :class="{'bg-blue-50 text-blue-600': item.item_type === 'Feature', 'bg-rose-50 text-rose-600': item.item_type === 'Bug', 'bg-amber-50 text-amber-600': item.item_type === 'Enhancement'}"
-                                      x-text="item.item_type || '—'"></span>
-                            </div>
-                            <!-- Primary Actor -->
-                            <div class="col-span-1 min-w-0">
-                                <span class="text-[10px] text-slate-500 truncate block" x-text="item.primary_actor || '—'"></span>
-                            </div>
-                            <!-- Priority -->
-                            <div class="col-span-1 min-w-0">
-                                <span class="text-[10px] font-medium px-2 py-0.5 rounded-md inline-block" :class="priorityColor(item.priority)" x-text="item.priority"></span>
-                            </div>
-                            <!-- Story Points -->
-                            <div class="col-span-1 min-w-0">
-                                <span class="text-[12px] font-bold tabular-nums text-slate-600" x-text="item.story_points != null ? item.story_points : '—'"></span>
-                            </div>
-                            <!-- Target Release -->
-                            <div class="col-span-1 min-w-0">
-                                <span class="text-[10px] text-slate-500 font-mono" x-text="item.target_release || '—'"></span>
-                            </div>
-                            <!-- Status -->
-                            <div class="col-span-1 min-w-0">
-                                <span class="text-[10px] font-medium"
-                                      :class="{'text-emerald-600': item.status === 'Done', 'text-brand-600': item.status === 'In Progress', 'text-rose-500': item.status === 'Blocked', 'text-slate-400': item.status === 'Draft'}"
-                                      x-text="item.status"></span>
-                            </div>
-                            <!-- Phase + actions -->
-                            <div class="col-span-1 flex items-center justify-end gap-1 min-w-0">
-                                <span class="text-[10px] font-medium text-brand-600 truncate" x-text="item.current_phase"></span>
-                                <button @click="advanceBacklogItem(item.id)" class="opacity-0 group-hover:opacity-100 text-[10px] font-medium text-brand-600 hover:text-brand-700 px-1 rounded transition-all whitespace-nowrap">→</button>
-                                <button @click="deleteBacklogItem(item.id)" class="opacity-0 group-hover:opacity-100 text-[10px] text-rose-400 hover:text-rose-600 px-1 transition-all">✕</button>
-                            </div>
                         </div>
-                    </template>
-                </div>
+                        <!-- Items under this epic -->
+                        <template x-if="!collapsedEpics.includes(group.epic)">
+                            <div>
+                                <!-- Column headers -->
+                                <div class="grid grid-cols-12 gap-2 px-4 py-2 border-b border-slate-50 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                                    <div class="col-span-4">Feature / Story</div>
+                                    <div class="col-span-1">Type</div>
+                                    <div class="col-span-1">Actor</div>
+                                    <div class="col-span-1">Priority</div>
+                                    <div class="col-span-1">Pts</div>
+                                    <div class="col-span-1">Target Rel.</div>
+                                    <div class="col-span-1">Status</div>
+                                    <div class="col-span-2 text-right">Phase</div>
+                                </div>
+                                <div class="divide-y divide-slate-50">
+                                    <template x-for="item in group.items" :key="item.id">
+                                        <div class="grid grid-cols-12 gap-2 px-4 py-3 hover:bg-slate-50/50 transition-colors group">
+                                            <div class="col-span-4 min-w-0">
+                                                <div class="flex items-center gap-2">
+                                                    <h4 class="text-[13px] font-semibold text-slate-800 truncate" x-text="item.title"></h4>
+                                                    <template x-if="item.github_issue_number">
+                                                        <a :href="'https://github.com/' + (selectedProject?.github_repo || '') + '/issues/' + item.github_issue_number" target="_blank" class="inline-flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors flex-shrink-0">
+                                                            <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                                                            <span x-text="'#' + item.github_issue_number"></span>
+                                                        </a>
+                                                    </template>
+                                                </div>
+                                                <p class="text-[11px] text-slate-400 truncate mt-0.5" x-text="item.description || item.acceptance_criteria || ''"></p>
+                                                <template x-if="item.dependencies && item.dependencies !== '—'">
+                                                    <div class="flex items-center gap-1 mt-1">
+                                                        <svg class="w-3 h-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                                                        <span class="text-[9px] text-slate-400" x-text="item.dependencies"></span>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                            <div class="col-span-1 min-w-0">
+                                                <span class="text-[10px] font-medium px-1.5 py-0.5 rounded inline-block" :class="{'bg-blue-50 text-blue-600': item.item_type === 'Feature', 'bg-rose-50 text-rose-600': item.item_type === 'Bug', 'bg-amber-50 text-amber-600': item.item_type === 'Enhancement'}" x-text="item.item_type || '—'"></span>
+                                            </div>
+                                            <div class="col-span-1 min-w-0"><span class="text-[10px] text-slate-500 truncate block" x-text="item.primary_actor || '—'"></span></div>
+                                            <div class="col-span-1 min-w-0"><span class="text-[10px] font-medium px-2 py-0.5 rounded-md inline-block" :class="priorityColor(item.priority)" x-text="item.priority"></span></div>
+                                            <div class="col-span-1 min-w-0"><span class="text-[12px] font-bold tabular-nums text-slate-600" x-text="item.story_points != null ? item.story_points : '—'"></span></div>
+                                            <div class="col-span-1 min-w-0"><span class="text-[10px] text-slate-500 font-mono" x-text="item.target_release || '—'"></span></div>
+                                            <div class="col-span-1 min-w-0"><span class="text-[10px] font-medium" :class="{'text-emerald-600': item.status === 'Done', 'text-brand-600': item.status === 'In Progress', 'text-rose-500': item.status === 'Blocked', 'text-slate-400': item.status === 'Draft'}" x-text="item.status"></span></div>
+                                            <div class="col-span-2 flex items-center justify-end gap-1 min-w-0">
+                                                <span class="text-[10px] font-medium text-brand-600 truncate" x-text="item.current_phase"></span>
+                                                <button @click="advanceBacklogItem(item.id)" class="opacity-0 group-hover:opacity-100 text-[10px] font-medium text-brand-600 hover:text-brand-700 px-1 rounded transition-all whitespace-nowrap">→</button>
+                                                <button @click="deleteBacklogItem(item.id)" class="opacity-0 group-hover:opacity-100 text-[10px] text-rose-400 hover:text-rose-600 px-1 transition-all">✕</button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
             </div>
         </template>
     </div>
@@ -2655,7 +2700,10 @@ function pmoApp() {
 
         // ===== Backlog state =====
         backlogItems: [],
+        backlogFormMode: 'feature',  // 'feature' or 'epic'
+        collapsedEpics: [],
         backlogForm: { title: '', description: '', priority: 'Medium', kpi_id: '', epic: '', item_type: 'Feature', primary_actor: '', story_points: null, target_release: '', dependencies: '' },
+        epicForm: { name: '', description: '' },
         phases: ['Requirements', 'Design', 'Development', 'Testing', 'UAT', 'Pre-Release', 'Release', 'Post-Release', 'Retrospective'],
 
         // ===== Forms state =====
@@ -2721,6 +2769,41 @@ function pmoApp() {
                 { label: 'Backlog Items', value: ds.backlog_items ?? 0, icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>', bg: 'bg-amber-50', color: 'text-amber-600', glow: 'bg-amber-300' },
                 { label: 'Pending Approvals', value: ds.pending_approvals ?? 0, icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>', bg: 'bg-rose-50', color: 'text-rose-600', glow: 'bg-rose-300' },
             ];
+        },
+
+        // ===== Backlog computed: epic list + grouped items =====
+        get epicOptions() {
+            const epics = new Set();
+            for (const item of this.backlogItems) {
+                if (item.epic && item.epic !== '—') epics.add(item.epic);
+            }
+            return Array.from(epics).sort();
+        },
+
+        get backlogByEpic() {
+            // Separate epics from features
+            const epicItems = this.backlogItems.filter(i => i.item_type === 'Epic');
+            const featureItems = this.backlogItems.filter(i => i.item_type !== 'Epic');
+            const groups = {};
+
+            // First, create groups from existing epic items
+            for (const e of epicItems) {
+                groups[e.epic || e.title] = { epicItem: e, items: [] };
+            }
+            // Group features by their epic field
+            for (const item of featureItems) {
+                const epicName = item.epic && item.epic !== '—' ? item.epic : 'Uncategorized';
+                if (!groups[epicName]) groups[epicName] = { epicItem: null, items: [] };
+                groups[epicName].items.push(item);
+            }
+            // Return as array, with Uncategorized last
+            const entries = Object.entries(groups).map(([epic, data]) => ({ epic, ...data }));
+            entries.sort((a, b) => {
+                if (a.epic === 'Uncategorized') return 1;
+                if (b.epic === 'Uncategorized') return -1;
+                return a.epic.localeCompare(b.epic);
+            });
+            return entries;
         },
 
         // Avatar colors based on name
@@ -3235,17 +3318,75 @@ function pmoApp() {
             }
         },
 
-        async saveBacklogItem() {
+        async saveBacklogItem(saveAndNew = false) {
             try {
-                await this.api('POST', `/projects/${this.selectedProject.id}/backlog`, {
-                    project_id: this.selectedProject.id,
-                    ...this.backlogForm,
-                });
-                this.backlogForm = { title: '', description: '', priority: 'Medium', kpi_id: '', epic: '', item_type: 'Feature', primary_actor: '', story_points: null, target_release: '', dependencies: '' };
-                await this.loadBacklog();
-                this.showToast('Backlog item added', 'success');
+                if (this.backlogFormMode === 'epic') {
+                    // Create an epic as a BacklogItem with item_type='Epic'
+                    const epicName = this.epicForm.name.trim();
+                    if (!epicName) { this.showToast('Epic name is required', 'error'); return; }
+                    await this.api('POST', `/projects/${this.selectedProject.id}/backlog`, {
+                        project_id: this.selectedProject.id,
+                        title: epicName,
+                        description: this.epicForm.description || '',
+                        item_type: 'Epic',
+                        epic: epicName,
+                        priority: 'Medium',
+                        current_phase: 'Requirements',
+                        status: 'Draft',
+                    });
+                    this.epicForm = { name: '', description: '' };
+                    await this.loadBacklog();
+                    if (saveAndNew) {
+                        this.showToast('Epic saved — add another', 'success');
+                    } else {
+                        this.backlogFormMode = 'feature';
+                        this.showToast('Epic added', 'success');
+                    }
+                } else {
+                    // Feature / Story mode
+                    await this.api('POST', `/projects/${this.selectedProject.id}/backlog`, {
+                        project_id: this.selectedProject.id,
+                        ...this.backlogForm,
+                    });
+                    const savedEpic = this.backlogForm.epic;
+                    await this.loadBacklog();
+                    if (saveAndNew) {
+                        // Keep epic + actor for rapid entry, clear the rest
+                        this.backlogForm = {
+                            title: '', description: '', priority: this.backlogForm.priority,
+                            kpi_id: this.backlogForm.kpi_id, epic: savedEpic,
+                            item_type: this.backlogForm.item_type, primary_actor: this.backlogForm.primary_actor,
+                            story_points: null, target_release: this.backlogForm.target_release,
+                            dependencies: '',
+                        };
+                        this.showToast('Item saved — add another', 'success');
+                    } else {
+                        this.backlogForm = { title: '', description: '', priority: 'Medium', kpi_id: '', epic: '', item_type: 'Feature', primary_actor: '', story_points: null, target_release: '', dependencies: '' };
+                        this.showToast('Backlog item added', 'success');
+                    }
+                }
             } catch (e) {
                 this.showToast(e.message, 'error');
+            }
+        },
+
+        addFeatureToEpic(epicName) {
+            this.backlogFormMode = 'feature';
+            this.backlogForm.epic = epicName;
+            this.backlogForm.item_type = 'Feature';
+            // Scroll to form
+            this.$nextTick(() => {
+                const form = document.getElementById('backlog-form');
+                if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+        },
+
+        toggleEpic(epicName) {
+            const idx = this.collapsedEpics.indexOf(epicName);
+            if (idx >= 0) {
+                this.collapsedEpics.splice(idx, 1);
+            } else {
+                this.collapsedEpics.push(epicName);
             }
         },
 

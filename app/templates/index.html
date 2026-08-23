@@ -2892,13 +2892,6 @@ function pmoApp() {
                 return;
             }
             const ds = this.dashStats;
-            console.log('[PMO] renderCharts called. dashStats:', ds.phase_distribution, ds.release_status_distribution, ds.priority_distribution);
-
-            // Check canvases exist
-            const phaseEl = document.getElementById('chartBacklogPhase');
-            const releaseEl = document.getElementById('chartReleaseCycle');
-            const prioEl = document.getElementById('chartPriority');
-            console.log('[PMO] Canvas elements found:', { phase: !!phaseEl, release: !!releaseEl, priority: !!prioEl });
 
             // Common Chart.js defaults
             Chart.defaults.font.family = "'Inter', sans-serif";
@@ -2907,6 +2900,7 @@ function pmoApp() {
 
             // 1. Backlog by Phase — horizontal bar
             const phaseEl = document.getElementById('chartBacklogPhase');
+            console.log('[PMO] chartBacklogPhase:', !!phaseEl, ds.phase_distribution);
             if (phaseEl) {
                 const phases = Object.keys(ds.phase_distribution || {});
                 const counts = Object.values(ds.phase_distribution || {});

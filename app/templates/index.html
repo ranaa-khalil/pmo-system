@@ -390,13 +390,19 @@
                 <!-- Hero section -->
                 <div class="flex items-end justify-between">
                     <div>
-                        <h1 class="text-[28px] font-bold text-slate-900 tracking-tight">Welcome back, <span class="gradient-text" x-text="currentUser?.full_name || 'User'"></span></h1>
+                        <h1 class="text-[28px] font-bold text-slate-900 tracking-tight">Welcome back, <span class="gradient-text" x-text="currentUser?.name || 'User'"></span></h1>
                         <p class="text-[14px] text-slate-500 mt-1.5">Here's what's happening across your projects today.</p>
                     </div>
-                    <button @click="navigate('projects')" class="btn-primary inline-flex items-center gap-2 text-[13px] font-medium text-white px-4 py-2.5 rounded-xl transition-all">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-                        New Project
-                    </button>
+                    <div class="flex items-center gap-3">
+                        <button @click="loadDashboard()" class="inline-flex items-center gap-2 text-[13px] font-medium text-slate-600 px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-all" :disabled="dashLoading">
+                            <svg class="w-4 h-4" :class="dashLoading ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+                            Refresh
+                        </button>
+                        <button @click="navigate('projects')" class="btn-primary inline-flex items-center gap-2 text-[13px] font-medium text-white px-4 py-2.5 rounded-xl transition-all">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                            New Project
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Stats cards -->
@@ -416,7 +422,7 @@
                                 </template>
                             </div>
                             <div class="relative">
-                                <div class="text-[28px] font-bold text-slate-900 tracking-tight tabular-nums" x-text="stat.value ?? '—'"></div>
+                                <div class="text-[28px] font-bold text-slate-900 tracking-tight tabular-nums" x-text="dashLoading ? '—' : (stat.value ?? '—')"></div>
                                 <div class="text-[12px] text-slate-500 font-medium mt-0.5" x-text="stat.label"></div>
                             </div>
                         </div>
@@ -432,7 +438,29 @@
                             <span class="text-[11px] text-slate-400" x-text="(dashStats?.backlog_items || 0) + ' items'"></span>
                         </div>
                         <div class="relative h-[200px]">
-                            <canvas id="chartBacklogPhase"></canvas>
+                            <!-- Loading state -->
+                            <template x-if="dashLoading">
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <div class="flex flex-col items-center gap-2 text-slate-400">
+                                        <div class="w-6 h-6 border-2 border-brand-200 border-t-brand-500 rounded-full animate-spin"></div>
+                                        <span class="text-[11px]">Loading…</span>
+                                    </div>
+                                </div>
+                            </template>
+                            <!-- Error state -->
+                            <template x-if="!dashLoading && !dashStats">
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <div class="flex flex-col items-center gap-2 text-slate-400">
+                                        <svg class="w-7 h-7 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c.251.023.501.05.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"/></svg>
+                                        <span class="text-[11px]">Unable to load chart</span>
+                                        <button @click="loadDashboard()" class="text-[11px] text-brand-600 font-medium hover:text-brand-700">Retry</button>
+                                    </div>
+                                </div>
+                            </template>
+                            <!-- Chart canvas -->
+                            <template x-if="!dashLoading && dashStats">
+                                <canvas id="chartBacklogPhase"></canvas>
+                            </template>
                         </div>
                     </div>
 
@@ -443,7 +471,22 @@
                             <span class="text-[11px] text-slate-400" x-text="(dashStats?.releases || 0) + ' releases'"></span>
                         </div>
                         <div class="relative h-[200px] flex items-center justify-center">
-                            <canvas id="chartReleaseCycle"></canvas>
+                            <template x-if="dashLoading">
+                                <div class="flex flex-col items-center gap-2 text-slate-400">
+                                    <div class="w-6 h-6 border-2 border-brand-200 border-t-brand-500 rounded-full animate-spin"></div>
+                                    <span class="text-[11px]">Loading…</span>
+                                </div>
+                            </template>
+                            <template x-if="!dashLoading && !dashStats">
+                                <div class="flex flex-col items-center gap-2 text-slate-400">
+                                    <svg class="w-7 h-7 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c.251.023.501.05.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"/></svg>
+                                    <span class="text-[11px]">Unable to load chart</span>
+                                    <button @click="loadDashboard()" class="text-[11px] text-brand-600 font-medium hover:text-brand-700">Retry</button>
+                                </div>
+                            </template>
+                            <template x-if="!dashLoading && dashStats">
+                                <canvas id="chartReleaseCycle"></canvas>
+                            </template>
                         </div>
                     </div>
 
@@ -454,7 +497,22 @@
                             <span class="text-[11px] text-slate-400">by priority</span>
                         </div>
                         <div class="relative h-[200px] flex items-center justify-center">
-                            <canvas id="chartPriority"></canvas>
+                            <template x-if="dashLoading">
+                                <div class="flex flex-col items-center gap-2 text-slate-400">
+                                    <div class="w-6 h-6 border-2 border-brand-200 border-t-brand-500 rounded-full animate-spin"></div>
+                                    <span class="text-[11px]">Loading…</span>
+                                </div>
+                            </template>
+                            <template x-if="!dashLoading && !dashStats">
+                                <div class="flex flex-col items-center gap-2 text-slate-400">
+                                    <svg class="w-7 h-7 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c.251.023.501.05.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"/></svg>
+                                    <span class="text-[11px]">Unable to load chart</span>
+                                    <button @click="loadDashboard()" class="text-[11px] text-brand-600 font-medium hover:text-brand-700">Retry</button>
+                                </div>
+                            </template>
+                            <template x-if="!dashLoading && dashStats">
+                                <canvas id="chartPriority"></canvas>
+                            </template>
                         </div>
                     </div>
                 </div>
@@ -2577,6 +2635,8 @@ function pmoApp() {
 
         // ===== Dashboard stats =====
         dashStats: null,
+        dashLoading: false,
+        dashError: null,
 
         // ===== Timeline state =====
         timelineZoom: 1,
@@ -2640,11 +2700,19 @@ function pmoApp() {
         },
 
         async loadDashboard() {
+            this.dashLoading = true;
+            this.dashError = null;
             try {
                 this.dashStats = await this.api('GET', '/dashboard');
-                this.$nextTick(() => this.renderCharts());
-            } catch {
+                this.dashLoading = false;
+                // Double nextTick: first tick removes the loading/error template,
+                // second tick ensures the canvas is in the DOM before Chart.js initializes
+                this.$nextTick(() => this.$nextTick(() => this.renderCharts()));
+            } catch (e) {
                 this.dashStats = null;
+                this.dashLoading = false;
+                this.dashError = e?.message || 'Failed to load dashboard data';
+                console.error('Dashboard load error:', e);
             }
         },
 
@@ -2659,6 +2727,10 @@ function pmoApp() {
         renderCharts() {
             this.destroyCharts();
             if (!this.dashStats) return;
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js is not loaded — charts will not render');
+                return;
+            }
             const ds = this.dashStats;
 
             // Common Chart.js defaults
@@ -2939,7 +3011,7 @@ function pmoApp() {
             if (this.route === 'dashboard' && route !== 'dashboard') { this.destroyCharts(); }
             this.route = route;
             if (route === 'roadmap') { this.loadAllRoadmaps(); }
-            if (route === 'dashboard') { this.$nextTick(() => this.renderCharts()); }
+            if (route === 'dashboard') { this.$nextTick(() => this.$nextTick(() => this.renderCharts())); }
         },
 
         async loadAllRoadmaps() {

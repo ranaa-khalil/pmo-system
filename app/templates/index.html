@@ -449,77 +449,154 @@
                     </template>
                 </div>
 
-                <!-- Charts row: 3 charts -->
+                <!-- Charts row: 3 charts (pure CSS/HTML — no Chart.js dependency) -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                    <!-- Backlog Phase Distribution (bar chart) -->
+                    <!-- Backlog Phase Distribution (CSS bar chart) -->
                     <div class="surface rounded-2xl border border-slate-200/60 p-5">
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-[14px] font-semibold text-slate-800">Backlog by Phase</h2>
                             <span class="text-[11px] text-slate-400" x-text="(dashStats?.backlog_items || 0) + ' items'"></span>
                         </div>
-                        <div class="relative h-[200px]">
-                            <!-- Canvas always in DOM -->
-                            <canvas id="chartBacklogPhase"></canvas>
-                            <!-- Loading overlay -->
-                            <div x-show="dashLoading" class="absolute inset-0 flex items-center justify-center bg-white/90 z-10">
-                                <div class="flex flex-col items-center gap-2 text-slate-400">
-                                    <div class="w-6 h-6 border-2 border-brand-200 border-t-brand-500 rounded-full animate-spin"></div>
-                                    <span class="text-[11px]">Loading…</span>
+                        <!-- Loading -->
+                        <div x-show="dashLoading" class="h-[200px] flex items-center justify-center">
+                            <div class="w-6 h-6 border-2 border-brand-200 border-t-brand-500 rounded-full animate-spin"></div>
+                        </div>
+                        <!-- Error -->
+                        <div x-show="!dashLoading && !dashStats" class="h-[200px] flex flex-col items-center justify-center gap-2 text-slate-400">
+                            <span class="text-[11px]">Unable to load chart</span>
+                            <button @click="loadDashboard()" class="text-[11px] text-brand-600 font-medium hover:text-brand-700">Retry</button>
+                        </div>
+                        <!-- CSS Bar Chart -->
+                        <div x-show="!dashLoading && dashStats" class="h-[200px] overflow-y-auto space-y-1.5 pr-2">
+                            <template x-for="(count, phase) in (dashStats?.phase_distribution || {})" :key="phase">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] text-slate-500 w-20 truncate text-right" x-text="phase"></span>
+                                    <div class="flex-1 bg-slate-100 rounded-full h-5 overflow-hidden">
+                                        <div class="h-full rounded-full transition-all duration-500"
+                                             :style="`width: ${Math.round(count / Math.max(...Object.values(dashStats?.phase_distribution || {a:1})) * 100)}%`"
+                                             :class="{
+                                                'bg-gradient-to-r from-indigo-500 to-violet-500': ['Requirements','Design'].includes(phase),
+                                                'bg-gradient-to-r from-violet-500 to-purple-500': ['Development','Testing'].includes(phase),
+                                                'bg-gradient-to-r from-blue-500 to-indigo-500': ['UAT','Pre-Release'].includes(phase),
+                                                'bg-gradient-to-r from-emerald-500 to-teal-500': ['Release','Released','Post-Release'].includes(phase),
+                                                'bg-gradient-to-r from-amber-500 to-orange-500': phase === 'Retrospective',
+                                                'bg-slate-400': !['Requirements','Design','Development','Testing','UAT','Pre-Release','Release','Released','Post-Release','Retrospective'].includes(phase)
+                                             }"></div>
+                                    </div>
+                                    <span class="text-[10px] font-semibold text-slate-600 w-6" x-text="count"></span>
                                 </div>
-                            </div>
-                            <!-- Error overlay -->
-                            <div x-show="!dashLoading && !dashStats" class="absolute inset-0 flex items-center justify-center bg-white z-10">
-                                <div class="flex flex-col items-center gap-2 text-slate-400">
-                                    <span class="text-[11px]">Unable to load chart</span>
-                                    <button @click="loadDashboard()" class="text-[11px] text-brand-600 font-medium hover:text-brand-700">Retry</button>
-                                </div>
-                            </div>
+                            </template>
                         </div>
                     </div>
 
-                    <!-- Release V-Cycle (doughnut) -->
+                    <!-- Release V-Cycle (CSS doughnut via conic-gradient) -->
                     <div class="surface rounded-2xl border border-slate-200/60 p-5">
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-[14px] font-semibold text-slate-800">Release Cycle</h2>
                             <span class="text-[11px] text-slate-400" x-text="(dashStats?.releases || 0) + ' releases'"></span>
                         </div>
-                        <div class="relative h-[200px]">
-                            <canvas id="chartReleaseCycle"></canvas>
-                            <div x-show="dashLoading" class="absolute inset-0 flex items-center justify-center bg-white/90 z-10">
-                                <div class="flex flex-col items-center gap-2 text-slate-400">
-                                    <div class="w-6 h-6 border-2 border-brand-200 border-t-brand-500 rounded-full animate-spin"></div>
-                                    <span class="text-[11px]">Loading…</span>
+                        <div x-show="dashLoading" class="h-[200px] flex items-center justify-center">
+                            <div class="w-6 h-6 border-2 border-brand-200 border-t-brand-500 rounded-full animate-spin"></div>
+                        </div>
+                        <div x-show="!dashLoading && !dashStats" class="h-[200px] flex flex-col items-center justify-center gap-2 text-slate-400">
+                            <span class="text-[11px]">Unable to load chart</span>
+                            <button @click="loadDashboard()" class="text-[11px] text-brand-600 font-medium hover:text-brand-700">Retry</button>
+                        </div>
+                        <div x-show="!dashLoading && dashStats" class="h-[200px] flex flex-col items-center justify-center">
+                            <template x-if="dashStats?.release_status_distribution">
+                                <div class="flex items-center gap-3">
+                                    <div class="relative w-[110px] h-[110px] rounded-full"
+                                         :style="(() => {
+                                             const data = dashStats.release_status_distribution;
+                                             const total = Object.values(data).reduce((a,b) => a+b, 0) || 1;
+                                             const colors = { 'Planning': '#6366f1', 'In Progress': '#8b5cf6', 'Testing': '#a855f7', 'UAT': '#3b82f6', 'Pre-Release': '#7c3aed', 'Released': '#10b981', 'Post-Release': '#f59e0b', 'Cancelled': '#ef4444' };
+                                             let acc = 0;
+                                             const segments = Object.entries(data).map(([label, val]) => {
+                                                 const pct = val / total * 100;
+                                                 const seg = `${colors[label] || '#94a3b8'} ${acc}% ${acc + pct}%`;
+                                                 acc += pct;
+                                                 return seg;
+                                             });
+                                             return `background: conic-gradient(${segments.join(', ')})`;
+                                         })()">
+                                        <div class="absolute inset-[18px] bg-white rounded-full flex items-center justify-center">
+                                            <span class="text-[20px] font-bold text-slate-700" x-text="dashStats?.releases || 0"></span>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-1">
+                                        <template x-for="(count, status) in (dashStats?.release_status_distribution || {})" :key="status">
+                                            <div class="flex items-center gap-1.5">
+                                                <div class="w-2 h-2 rounded-full"
+                                                     :class="{
+                                                        'bg-indigo-500': status === 'Planning',
+                                                        'bg-violet-500': status === 'In Progress',
+                                                        'bg-purple-500': status === 'Testing',
+                                                        'bg-blue-500': status === 'UAT',
+                                                        'bg-violet-700': status === 'Pre-Release',
+                                                        'bg-emerald-500': status === 'Released',
+                                                        'bg-amber-500': status === 'Post-Release',
+                                                        'bg-red-500': status === 'Cancelled',
+                                                        'bg-slate-400': !['Planning','In Progress','Testing','UAT','Pre-Release','Released','Post-Release','Cancelled'].includes(status)
+                                                     }"></div>
+                                                <span class="text-[9px] text-slate-600" x-text="status + ' (' + count + ')'"></span>
+                                            </div>
+                                        </template>
+                                    </div>
                                 </div>
-                            </div>
-                            <div x-show="!dashLoading && !dashStats" class="absolute inset-0 flex items-center justify-center bg-white z-10">
-                                <div class="flex flex-col items-center gap-2 text-slate-400">
-                                    <span class="text-[11px]">Unable to load chart</span>
-                                    <button @click="loadDashboard()" class="text-[11px] text-brand-600 font-medium hover:text-brand-700">Retry</button>
-                                </div>
-                            </div>
+                            </template>
                         </div>
                     </div>
 
-                    <!-- Backlog Priority (doughnut) -->
+                    <!-- Backlog Priority (CSS doughnut via conic-gradient) -->
                     <div class="surface rounded-2xl border border-slate-200/60 p-5">
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-[14px] font-semibold text-slate-800">Priority Mix</h2>
                             <span class="text-[11px] text-slate-400">by priority</span>
                         </div>
-                        <div class="relative h-[200px]">
-                            <canvas id="chartPriority"></canvas>
-                            <div x-show="dashLoading" class="absolute inset-0 flex items-center justify-center bg-white/90 z-10">
-                                <div class="flex flex-col items-center gap-2 text-slate-400">
-                                    <div class="w-6 h-6 border-2 border-brand-200 border-t-brand-500 rounded-full animate-spin"></div>
-                                    <span class="text-[11px]">Loading…</span>
+                        <div x-show="dashLoading" class="h-[200px] flex items-center justify-center">
+                            <div class="w-6 h-6 border-2 border-brand-200 border-t-brand-500 rounded-full animate-spin"></div>
+                        </div>
+                        <div x-show="!dashLoading && !dashStats" class="h-[200px] flex flex-col items-center justify-center gap-2 text-slate-400">
+                            <span class="text-[11px]">Unable to load chart</span>
+                            <button @click="loadDashboard()" class="text-[11px] text-brand-600 font-medium hover:text-brand-700">Retry</button>
+                        </div>
+                        <div x-show="!dashLoading && dashStats" class="h-[200px] flex flex-col items-center justify-center">
+                            <template x-if="dashStats?.priority_distribution">
+                                <div class="flex items-center gap-3">
+                                    <div class="relative w-[110px] h-[110px] rounded-full"
+                                         :style="(() => {
+                                             const data = dashStats.priority_distribution;
+                                             const total = Object.values(data).reduce((a,b) => a+b, 0) || 1;
+                                             const colors = { 'Critical': '#ef4444', 'High': '#f59e0b', 'Medium': '#6366f1', 'Low': '#94a3b8' };
+                                             let acc = 0;
+                                             const segments = Object.entries(data).map(([label, val]) => {
+                                                 const pct = val / total * 100;
+                                                 const seg = `${colors[label] || '#94a3b8'} ${acc}% ${acc + pct}%`;
+                                                 acc += pct;
+                                                 return seg;
+                                             });
+                                             return `background: conic-gradient(${segments.join(', ')})`;
+                                         })()">
+                                        <div class="absolute inset-[18px] bg-white rounded-full flex items-center justify-center">
+                                            <span class="text-[20px] font-bold text-slate-700" x-text="dashStats?.backlog_items || 0"></span>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-1">
+                                        <template x-for="(count, priority) in (dashStats?.priority_distribution || {})" :key="priority">
+                                            <div class="flex items-center gap-1.5">
+                                                <div class="w-2 h-2 rounded-full"
+                                                     :class="{
+                                                        'bg-red-500': priority === 'Critical',
+                                                        'bg-amber-500': priority === 'High',
+                                                        'bg-indigo-500': priority === 'Medium',
+                                                        'bg-slate-400': priority === 'Low'
+                                                     }"></div>
+                                                <span class="text-[9px] text-slate-600" x-text="priority + ' (' + count + ')'"></span>
+                                            </div>
+                                        </template>
+                                    </div>
                                 </div>
-                            </div>
-                            <div x-show="!dashLoading && !dashStats" class="absolute inset-0 flex items-center justify-center bg-white z-10">
-                                <div class="flex flex-col items-center gap-2 text-slate-400">
-                                    <span class="text-[11px]">Unable to load chart</span>
-                                    <button @click="loadDashboard()" class="text-[11px] text-brand-600 font-medium hover:text-brand-700">Retry</button>
-                                </div>
-                            </div>
+                            </template>
                         </div>
                     </div>
                 </div>
@@ -2762,6 +2839,7 @@ function pmoApp() {
         dashStats: null,
         dashLoading: false,
         dashError: null,
+        dashChartError: null,
 
         // ===== Timeline state =====
         timelineZoom: 1,
@@ -2889,9 +2967,11 @@ function pmoApp() {
             if (!this.dashStats) { console.log('[PMO] renderCharts: no dashStats, skipping'); return; }
             if (typeof Chart === 'undefined') {
                 console.error('[PMO] Chart.js is not loaded — charts will not render');
+                this.dashChartError = 'Chart.js library not loaded';
                 return;
             }
             const ds = this.dashStats;
+            this.dashChartError = null;
 
             // Common Chart.js defaults
             Chart.defaults.font.family = "'Inter', sans-serif";
@@ -2899,66 +2979,86 @@ function pmoApp() {
             Chart.defaults.color = '#94a3b8';
 
             // 1. Backlog by Phase — horizontal bar
-            const phaseEl = document.getElementById('chartBacklogPhase');
-            console.log('[PMO] chartBacklogPhase:', !!phaseEl, ds.phase_distribution);
-            if (phaseEl) {
-                const phases = Object.keys(ds.phase_distribution || {});
-                const counts = Object.values(ds.phase_distribution || {});
-                const phaseColors = phases.map((p, i) => {
-                    const palette = ['#6366f1', '#8b5cf6', '#a855f7', '#3b82f6', '#7c3aed', '#10b981', '#f59e0b', '#ef4444'];
-                    return palette[i % palette.length];
-                });
-                this.chartInstances.phase = new Chart(phaseEl, {
-                    type: 'bar',
-                    data: { labels: phases.length ? phases : ['No data'], datasets: [{ data: counts.length ? counts : [0], backgroundColor: phaseColors, borderRadius: 6, barThickness: 18 }] },
-                    options: {
-                        indexAxis: 'y',
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1e293b', padding: 8, cornerRadius: 8, titleFont: { size: 11 }, bodyFont: { size: 11 } } },
-                        scales: { x: { display: false, beginAtZero: true }, y: { grid: { display: false }, ticks: { font: { size: 10 } } } },
-                    },
-                });
+            try {
+                const phaseEl = document.getElementById('chartBacklogPhase');
+                console.log('[PMO] chartBacklogPhase element:', phaseEl, 'size:', phaseEl ? `${phaseEl.offsetWidth}x${phaseEl.offsetHeight}` : 'N/A');
+                if (phaseEl) {
+                    const phases = Object.keys(ds.phase_distribution || {});
+                    const counts = Object.values(ds.phase_distribution || {});
+                    const phaseColors = phases.map((p, i) => {
+                        const palette = ['#6366f1', '#8b5cf6', '#a855f7', '#3b82f6', '#7c3aed', '#10b981', '#f59e0b', '#ef4444'];
+                        return palette[i % palette.length];
+                    });
+                    this.chartInstances.phase = new Chart(phaseEl, {
+                        type: 'bar',
+                        data: { labels: phases.length ? phases : ['No data'], datasets: [{ data: counts.length ? counts : [0], backgroundColor: phaseColors, borderRadius: 6, barThickness: 18 }] },
+                        options: {
+                            indexAxis: 'y',
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1e293b', padding: 8, cornerRadius: 8, titleFont: { size: 11 }, bodyFont: { size: 11 } } },
+                            scales: { x: { display: false, beginAtZero: true }, y: { grid: { display: false }, ticks: { font: { size: 10 } } } },
+                        },
+                    });
+                    console.log('[PMO] Backlog chart created:', !!this.chartInstances.phase);
+                }
+            } catch (e) {
+                console.error('[PMO] Backlog chart error:', e);
+                this.dashChartError = `Bar chart: ${e.message}`;
             }
 
             // 2. Release Cycle — doughnut
-            const releaseEl = document.getElementById('chartReleaseCycle');
-            if (releaseEl) {
-                const rLabels = Object.keys(ds.release_status_distribution || {});
-                const rValues = Object.values(ds.release_status_distribution || {});
-                const rColors = { 'Planning': '#6366f1', 'In Progress': '#8b5cf6', 'Testing': '#a855f7', 'UAT': '#3b82f6', 'Pre-Release': '#7c3aed', 'Released': '#10b981', 'Post-Release': '#f59e0b', 'Cancelled': '#ef4444' };
-                const colors = rLabels.map(l => rColors[l] || '#94a3b8');
-                if (!rLabels.length) { rLabels.push('No releases'); rValues.push(1); colors.push('#e2e8f0'); }
-                this.chartInstances.release = new Chart(releaseEl, {
-                    type: 'doughnut',
-                    data: { labels: rLabels, datasets: [{ data: rValues, backgroundColor: colors, borderWidth: 0, hoverOffset: 6 }] },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        cutout: '65%',
-                        plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, boxHeight: 8, padding: 8, font: { size: 9 } } }, tooltip: { backgroundColor: '#1e293b', padding: 8, cornerRadius: 8 } },
-                    },
-                });
+            try {
+                const releaseEl = document.getElementById('chartReleaseCycle');
+                console.log('[PMO] chartReleaseCycle element:', releaseEl, 'size:', releaseEl ? `${releaseEl.offsetWidth}x${releaseEl.offsetHeight}` : 'N/A');
+                if (releaseEl) {
+                    const rLabels = Object.keys(ds.release_status_distribution || {});
+                    const rValues = Object.values(ds.release_status_distribution || {});
+                    const rColors = { 'Planning': '#6366f1', 'In Progress': '#8b5cf6', 'Testing': '#a855f7', 'UAT': '#3b82f6', 'Pre-Release': '#7c3aed', 'Released': '#10b981', 'Post-Release': '#f59e0b', 'Cancelled': '#ef4444' };
+                    const colors = rLabels.map(l => rColors[l] || '#94a3b8');
+                    if (!rLabels.length) { rLabels.push('No releases'); rValues.push(1); colors.push('#e2e8f0'); }
+                    this.chartInstances.release = new Chart(releaseEl, {
+                        type: 'doughnut',
+                        data: { labels: rLabels, datasets: [{ data: rValues, backgroundColor: colors, borderWidth: 0, hoverOffset: 6 }] },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            cutout: '65%',
+                            plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, boxHeight: 8, padding: 8, font: { size: 9 } } }, tooltip: { backgroundColor: '#1e293b', padding: 8, cornerRadius: 8 } },
+                        },
+                    });
+                    console.log('[PMO] Release chart created:', !!this.chartInstances.release);
+                }
+            } catch (e) {
+                console.error('[PMO] Release chart error:', e);
+                this.dashChartError = `Doughnut: ${e.message}`;
             }
 
             // 3. Priority Mix — doughnut
-            const prioEl = document.getElementById('chartPriority');
-            if (prioEl) {
-                const pLabels = Object.keys(ds.priority_distribution || {});
-                const pValues = Object.values(ds.priority_distribution || {});
-                const prioColors = { 'Critical': '#ef4444', 'High': '#f59e0b', 'Medium': '#6366f1', 'Low': '#94a3b8' };
-                const pColors = pLabels.map(l => prioColors[l] || '#94a3b8');
-                if (!pLabels.length) { pLabels.push('No items'); pValues.push(1); pColors.push('#e2e8f0'); }
-                this.chartInstances.priority = new Chart(prioEl, {
-                    type: 'doughnut',
-                    data: { labels: pLabels, datasets: [{ data: pValues, backgroundColor: pColors, borderWidth: 0, hoverOffset: 6 }] },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        cutout: '65%',
-                        plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, boxHeight: 8, padding: 8, font: { size: 9 } } }, tooltip: { backgroundColor: '#1e293b', padding: 8, cornerRadius: 8 } },
-                    },
-                });
+            try {
+                const prioEl = document.getElementById('chartPriority');
+                console.log('[PMO] chartPriority element:', prioEl, 'size:', prioEl ? `${prioEl.offsetWidth}x${prioEl.offsetHeight}` : 'N/A');
+                if (prioEl) {
+                    const pLabels = Object.keys(ds.priority_distribution || {});
+                    const pValues = Object.values(ds.priority_distribution || {});
+                    const prioColors = { 'Critical': '#ef4444', 'High': '#f59e0b', 'Medium': '#6366f1', 'Low': '#94a3b8' };
+                    const pColors = pLabels.map(l => prioColors[l] || '#94a3b8');
+                    if (!pLabels.length) { pLabels.push('No items'); pValues.push(1); pColors.push('#e2e8f0'); }
+                    this.chartInstances.priority = new Chart(prioEl, {
+                        type: 'doughnut',
+                        data: { labels: pLabels, datasets: [{ data: pValues, backgroundColor: pColors, borderWidth: 0, hoverOffset: 6 }] },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            cutout: '65%',
+                            plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, boxHeight: 8, padding: 8, font: { size: 9 } } }, tooltip: { backgroundColor: '#1e293b', padding: 8, cornerRadius: 8 } },
+                        },
+                    });
+                    console.log('[PMO] Priority chart created:', !!this.chartInstances.priority);
+                }
+            } catch (e) {
+                console.error('[PMO] Priority chart error:', e);
+                this.dashChartError = `Priority: ${e.message}`;
             }
         },
 

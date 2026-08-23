@@ -1,6 +1,8 @@
 """FastAPI application entry point."""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from app.config import settings
 from app.database import Base, engine
 from app.routers import clients, projects, auth, planning, backlog, forms, approvals, dashboard, stakeholders, releases
@@ -15,6 +17,11 @@ app = FastAPI(
     description="Project Management Office system for OPEX",
     version="0.1.0",
 )
+
+# Serve static files (JS/CSS) locally — no CDN dependency
+static_path = Path(__file__).parent / "static"
+if static_path.exists():
+    app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
 # CORS — allow the frontend and AI agents to call the API
 app.add_middleware(

@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PMO System — OPEX</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/static/tailwind.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;600;700;800;900&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="/static/chart.umd.min.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -2666,7 +2666,17 @@
 </div>
 
 <!-- ==================== ALPINE.JS ==================== -->
-<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<script src="/static/alpine.min.js" defer></script>
+<!-- Fallback: if Alpine.js doesn't load within 3s, show the page anyway -->
+<script>
+    setTimeout(function() {
+        if (typeof Alpine === 'undefined') {
+            console.error('[PMO] Alpine.js failed to load from CDN — removing x-cloak');
+            document.body.removeAttribute('x-cloak');
+            document.body.style.display = '';
+        }
+    }, 3000);
+</script>
 <script>
 function pmoApp() {
     return {

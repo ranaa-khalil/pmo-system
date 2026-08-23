@@ -135,7 +135,7 @@ def get_dashboard_stats(
     pending = db.query(ApprovalRequest).filter(ApprovalRequest.status == "Pending").limit(5).all()
     pending_data = []
     for a in pending:
-        steps = db.query(ApprovalStep).filter(ApprovalStep.approval_request_id == a.id).order_by(ApprovalStep.step_order).all()
+        steps = db.query(ApprovalStep).filter(ApprovalStep.request_id == a.id).order_by(ApprovalStep.step_order).all()
         p = db.query(Project).filter(Project.id == a.project_id).first()
         pending_data.append({
             "id": a.id,

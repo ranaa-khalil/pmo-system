@@ -405,6 +405,26 @@
                     </div>
                 </div>
 
+                <!-- Session expired / error banner -->
+                <template x-if="dashError">
+                    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3">
+                        <svg class="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z"/></svg>
+                        <div class="flex-1">
+                            <p class="text-[13px] font-medium text-amber-800" x-text="dashError"></p>
+                            <p class="text-[11px] text-amber-600 mt-0.5">If this persists, try logging out and back in.</p>
+                        </div>
+                        <button @click="loadDashboard()" class="text-[12px] font-medium text-amber-700 border border-amber-300 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-colors">Retry</button>
+                    </div>
+                </template>
+
+                <!-- Loading indicator -->
+                <template x-if="dashLoading && !dashStats">
+                    <div class="bg-brand-50 border border-brand-100 rounded-2xl p-4 flex items-center gap-3">
+                        <svg class="w-5 h-5 text-brand-500 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+                        <p class="text-[13px] font-medium text-brand-700">Loading dashboard data…</p>
+                    </div>
+                </template>
+
                 <!-- Stats cards -->
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <template x-for="stat in stats" :key="stat.label">
@@ -3092,6 +3112,15 @@ function pmoApp() {
             }
             if (body) opts.body = JSON.stringify(body);
             const res = await fetch('/api' + url, opts);
+            if (res.status === 401) {
+                // Session expired — clear token and redirect to login
+                localStorage.removeItem('pmo_token');
+                this.authToken = null;
+                this.currentUser = null;
+                this.isLoggedIn = false;
+                this.loginError = 'Your session has expired. Please log in again.';
+                throw new Error('Session expired — please log in again');
+            }
             if (res.status === 204) return null;
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'API error');

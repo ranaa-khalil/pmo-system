@@ -15,5 +15,3 @@ services:
         generateValue: true
       - key: PMO_DEBUG
         value: "false"
-      - key: PYTHON_VERSION
-        value: "3.12.0"

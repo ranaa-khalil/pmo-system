@@ -409,8 +409,10 @@
                 <!-- Hero section -->
                 <div class="flex items-end justify-between">
                     <div>
-                        <h1 class="text-[32px] font-bold text-ink-900 tracking-tight">Welcome back, <span class="text-brand-600" x-text="currentUser?.name || 'User'"></span></h1>
-                        <p class="text-[15px] text-ink-500 mt-2">Here's what's happening across your projects today.</p>
+                        <h1 class="text-[32px] font-bold text-ink-900 tracking-tight">
+                            <span x-text="greetingPrefix()"></span>, <span class="text-brand-600" x-text="currentUser?.name?.split(' ')[0] || 'there'"></span>
+                        </h1>
+                        <p class="text-[15px] text-ink-500 mt-2" x-text="greetingMessage()"></p>
                     </div>
                     <div class="flex items-center gap-3">
                         <button @click="loadDashboard()" class="inline-flex items-center gap-2 text-[13px] font-medium text-ink-700 px-4 py-2.5 rounded-[10px] border border-black/[0.08] hover:bg-ink-100 transition-all" :disabled="dashLoading">
@@ -5085,6 +5087,44 @@ function pmoApp() {
             setInterval(() => {
                 this.currentTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
             }, 60000);
+        },
+
+        // ===== Greeting methods =====
+        greetingPrefix() {
+            const h = new Date().getHours();
+            if (h < 12) return 'Good morning';
+            if (h < 17) return 'Good afternoon';
+            if (h < 21) return 'Good evening';
+            return 'Working late';
+        },
+
+        greetingMessage() {
+            const h = new Date().getHours();
+            const msgs = {
+                morning: [
+                    "Fresh day, fresh wins — let's make it count.",
+                    "Every release brings you closer to the vision. Let's move.",
+                    "Your projects are waiting. Let's ship something great today.",
+                ],
+                afternoon: [
+                    "Halfway through — keep the momentum going.",
+                    "Approvals are moving, releases are rolling. Stay on track.",
+                    "The best releases happen when you stay focused. Keep going.",
+                ],
+                evening: [
+                    "Wrapping up strong — review what moved today.",
+                    "End the day with clarity. Check your pending approvals.",
+                ],
+                late: [
+                    "Burning the midnight oil — don't forget to rest too.",
+                ],
+            };
+            let pool;
+            if (h < 12) pool = msgs.morning;
+            else if (h < 17) pool = msgs.afternoon;
+            else if (h < 21) pool = msgs.evening;
+            else pool = msgs.late;
+            return pool[Math.floor(Math.random() * pool.length)];
         },
 
         async loadDashboard() {

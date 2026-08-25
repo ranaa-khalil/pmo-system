@@ -52,7 +52,7 @@ def _extract_json(raw: str) -> Optional[dict]:
     return None
 
 
-def _call_llm(system_prompt: str, user_prompt: str, max_tokens: int = 1500) -> str:
+def _call_llm(system_prompt: str, user_prompt: str, max_tokens: int = 1500, json_mode: bool = False) -> str:
     """Call the LLM API and return the response text."""
     if not is_ai_configured():
         raise ValueError("AI is not configured. Set the API key in Settings.")
@@ -70,8 +70,10 @@ def _call_llm(system_prompt: str, user_prompt: str, max_tokens: int = 1500) -> s
         "max_tokens": max_tokens,
         "temperature": 0.7,
     }
+    if json_mode:
+        payload["response_format"] = {"type": "json_object"}
 
-    with httpx.Client(timeout=60.0) as client:
+    with httpx.Client(timeout=120.0) as client:
         resp = client.post(
             f"{settings.ai_base_url}/chat/completions",
             headers=headers,
@@ -108,7 +110,7 @@ def suggest_vision_improvements(
         '  "suggested_objectives": ["3-5 strategic objectives that align with the vision"]\n'
         '}'
     )
-    raw = _call_llm(system, user)
+    raw = _call_llm(system, user, json_mode=True)
     parsed = _extract_json(raw)
     if parsed:
         return parsed
@@ -141,19 +143,37 @@ def suggest_features(
         f"Existing Epics:\n{epics_text}\n\n"
         f"Existing Features (first 20):\n{features_text}\n\n"
         f"User Personas:\n{personas_text}\n\n"
-        "Based on the project context, suggest NEW epics and features that don't duplicate existing ones. "
+        "Based on the project context, suggest 2-3 NEW epics and 3-5 NEW features that don't duplicate existing ones. Keep descriptions concise.\n\n"
+        "Each EPIC must include ALL of these fields:\n"
+        '- title: Short epic name (e.g. "RBAC & Identity Management")\n'
+        '- description: 2-3 sentence description of the epic scope\n'
+        '- rationale: Why this epic matters to the project\n'
+        '- priority: High, Medium, or Low\n'
+        '- primary_actor: Which persona benefits most\n'
+        '- story_points: Estimated complexity (1,2,3,5,8,13)\n'
+        '- acceptance_criteria: 3-5 testable bullet points (as one string with newlines)\n\n'
+        "Each FEATURE must include ALL of these fields:\n"
+        '- title: Feature title (e.g. "Role-based access control on project resources")\n'
+        '- epic: The epic name it belongs to (must match one of the suggested epics or existing ones)\n'
+        '- description: 2-3 sentence description of what it does\n'
+        '- priority: High, Medium, or Low\n'
+        '- primary_actor: Which persona benefits\n'
+        '- story_points: Estimated complexity (1,2,3,5,8,13)\n'
+        '- acceptance_criteria: 3-5 testable bullet points (as one string with newlines)\n'
+        '- item_type: "Feature", "Enhancement", or "Bug"\n'
+        '- rationale: Why this feature is needed\n\n'
         "Respond as JSON:\n"
         '{\n'
         '  "suggested_epics": [\n'
-        '    {"name": "Epic name", "description": "1-2 sentence description", "rationale": "Why this epic matters"}\n'
+        '    {"title":"...","description":"...","rationale":"...","priority":"...","primary_actor":"...","story_points":N,"acceptance_criteria":"..."}\n'
         '  ],\n'
         '  "suggested_features": [\n'
-        '    {"title": "Feature title", "epic": "Which epic it belongs to", "description": "1-2 sentence description", "priority": "High/Medium/Low", "primary_actor": "Which persona benefits", "rationale": "Why this feature"}\n'
+        '    {"title":"...","epic":"...","description":"...","priority":"...","primary_actor":"...","story_points":N,"acceptance_criteria":"...","item_type":"...","rationale":"..."}\n'
         '  ],\n'
         '  "summary": "Brief overall assessment of what the project needs next"\n'
         '}'
     )
-    raw = _call_llm(system, user, max_tokens=2500)
+    raw = _call_llm(system, user, max_tokens=6000, json_mode=True)
     parsed = _extract_json(raw)
     if parsed:
         return parsed

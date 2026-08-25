@@ -1,4 +1,5 @@
 """AI router — LLM-powered suggestions for vision, features, and field filling."""
+import os
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -14,7 +15,6 @@ from app.services.ai import (
     is_ai_configured, suggest_vision_improvements,
     suggest_features, fill_field,
 )
-import os
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -59,7 +59,6 @@ def update_ai_config(
     """Update AI configuration (super_admin only)."""
     if current_user.system_role != "super_admin":
         raise HTTPException(403, "Only super admins can configure AI settings.")
-    # Update env vars and settings at runtime
     if req.api_key:
         os.environ["PMO_AI_API_KEY"] = req.api_key
         settings.ai_api_key = req.api_key
@@ -80,7 +79,7 @@ def ai_suggest_vision(
 ):
     """Suggest improvements to a project's vision statement."""
     if not is_ai_configured():
-        raise HTTPException(400, "AI is not configured. Set the API key in Settings or .env (PMO_AI_API_KEY).")
+        raise HTTPException(400, "AI is not configured. Set the API key in Settings.")
 
     project = db.query(Project).filter(Project.id == req.project_id).first()
     if not project:
@@ -88,12 +87,15 @@ def ai_suggest_vision(
 
     vision = db.query(ProjectVision).filter(ProjectVision.project_id == req.project_id).first()
 
-    return suggest_vision_improvements(
-        project_name=project.name,
-        project_description=project.description or "",
-        current_vision=vision.statement if vision else "",
-        objectives=vision.strategic_objectives if vision else "",
-    )
+    try:
+        return suggest_vision_improvements(
+            project_name=project.name,
+            project_description=project.description or "",
+            current_vision=vision.statement if vision else "",
+            objectives=vision.strategic_objectives if vision else "",
+        )
+    except Exception as e:
+        raise HTTPException(502, f"AI request failed: {str(e)}")
 
 
 @router.post("/suggest-features")
@@ -104,7 +106,7 @@ def ai_suggest_features(
 ):
     """Suggest epics and features for a project."""
     if not is_ai_configured():
-        raise HTTPException(400, "AI is not configured. Set the API key in Settings or .env (PMO_AI_API_KEY).")
+        raise HTTPException(400, "AI is not configured. Set the API key in Settings.")
 
     project = db.query(Project).filter(Project.id == req.project_id).first()
     if not project:
@@ -119,14 +121,17 @@ def ai_suggest_features(
     personas = db.query(UserPersona).filter(UserPersona.project_id == req.project_id).all()
     persona_list = [{"name": p.name, "role": p.role or ""} for p in personas]
 
-    return suggest_features(
-        project_name=project.name,
-        project_description=project.description or "",
-        vision=vision.statement if vision else "",
-        existing_epics=existing_epics,
-        existing_features=existing_features,
-        personas=persona_list,
-    )
+    try:
+        return suggest_features(
+            project_name=project.name,
+            project_description=project.description or "",
+            vision=vision.statement if vision else "",
+            existing_epics=existing_epics,
+            existing_features=existing_features,
+            personas=persona_list,
+        )
+    except Exception as e:
+        raise HTTPException(502, f"AI request failed: {str(e)}")
 
 
 @router.post("/fill-field")
@@ -137,7 +142,7 @@ def ai_fill_field(
 ):
     """Fill an empty field on a backlog item using AI."""
     if not is_ai_configured():
-        raise HTTPException(400, "AI is not configured. Set the API key in Settings or .env (PMO_AI_API_KEY).")
+        raise HTTPException(400, "AI is not configured. Set the API key in Settings.")
 
     item = db.query(BacklogItem).filter(BacklogItem.id == req.item_id).first()
     if not item:
@@ -152,12 +157,15 @@ def ai_fill_field(
         "primary_actor": "The primary user persona who benefits from this feature",
     }
 
-    return fill_field(
-        item_title=item.title,
-        item_type=item.item_type or "Feature",
-        field_name=req.field_name,
-        field_context=field_labels.get(req.field_name, req.field_context),
-        project_name=project.name if project else "",
-        vision=vision.statement if vision else "",
-        existing_description=item.description or "",
-    )
+    try:
+        return fill_field(
+            item_title=item.title,
+            item_type=item.item_type or "Feature",
+            field_name=req.field_name,
+            field_context=field_labels.get(req.field_name, req.field_context),
+            project_name=project.name if project else "",
+            vision=vision.statement if vision else "",
+            existing_description=item.description or "",
+        )
+    except Exception as e:
+        raise HTTPException(502, f"AI request failed: {str(e)}")

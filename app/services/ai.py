@@ -4,13 +4,52 @@ Works with any OpenAI-compatible API (OpenAI, Azure, Ollama, LM Studio, etc.).
 Configure via Settings: AI API Key, Base URL, Model.
 """
 import json
+import re
 import httpx
 from app.config import settings
+
+
+from typing import Optional
 
 
 def is_ai_configured() -> bool:
     """Check if AI is configured (API key set)."""
     return bool(settings.ai_api_key)
+
+
+def _extract_json(raw: str) -> Optional[dict]:
+    """Try every strategy to extract valid JSON from an LLM response."""
+    # 1. Direct parse
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+
+    # 2. Strip markdown code fences (```json ... ``` or ``` ... ```)
+    fence_match = re.search(r'```(?:json)?\s*\n?([\s\S]*?)\n?```', raw)
+    if fence_match:
+        try:
+            return json.loads(fence_match.group(1))
+        except json.JSONDecodeError:
+            pass
+
+    # 3. Find the outermost { ... } block
+    brace_match = re.search(r'\{[\s\S]*\}', raw)
+    if brace_match:
+        candidate = brace_match.group()
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            # 4. Try fixing common issues: trailing commas, single quotes
+            cleaned = candidate
+            cleaned = re.sub(r',\s*}', '}', cleaned)  # trailing comma before }
+            cleaned = re.sub(r',\s*]', ']', cleaned)  # trailing comma before ]
+            try:
+                return json.loads(cleaned)
+            except json.JSONDecodeError:
+                pass
+
+    return None
 
 
 def _call_llm(system_prompt: str, user_prompt: str, max_tokens: int = 1500) -> str:
@@ -53,7 +92,8 @@ def suggest_vision_improvements(
     system = (
         "You are a senior Product Manager and Business Analyst. "
         "You help refine project vision statements to be clear, inspiring, and actionable. "
-        "Always respond in valid JSON format."
+        "You MUST respond with ONLY valid JSON. No markdown, no code fences, no commentary. "
+        "Just the JSON object."
     )
     user = (
         f"Project: {project_name}\n"
@@ -69,16 +109,10 @@ def suggest_vision_improvements(
         '}'
     )
     raw = _call_llm(system, user)
-    # Try to parse JSON, fallback to raw text
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        # Try extracting JSON from markdown code blocks
-        import re
-        match = re.search(r'\{[\s\S]*\}', raw)
-        if match:
-            return json.loads(match.group())
-        return {"improved_vision": raw, "strengths": [], "improvements": [], "suggested_objectives": []}
+    parsed = _extract_json(raw)
+    if parsed:
+        return parsed
+    return {"improved_vision": raw, "strengths": [], "improvements": [], "suggested_objectives": []}
 
 
 def suggest_features(
@@ -93,7 +127,8 @@ def suggest_features(
     system = (
         "You are a senior Product Manager. You help break down project visions into "
         "epics and features. You understand user personas and create features that "
-        "serve their needs. Always respond in valid JSON format."
+        "serve their needs. You MUST respond with ONLY valid JSON. No markdown, no code fences, "
+        "no commentary. Just the JSON object."
     )
     epics_text = "\n".join(f"- {e}" for e in existing_epics) or "None yet"
     features_text = "\n".join(f"- {f}" for f in existing_features[:20]) or "None yet"
@@ -119,14 +154,10 @@ def suggest_features(
         '}'
     )
     raw = _call_llm(system, user, max_tokens=2500)
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        import re
-        match = re.search(r'\{[\s\S]*\}', raw)
-        if match:
-            return json.loads(match.group())
-        return {"suggested_epics": [], "suggested_features": [], "summary": raw}
+    parsed = _extract_json(raw)
+    if parsed:
+        return parsed
+    return {"suggested_epics": [], "suggested_features": [], "summary": raw}
 
 
 def fill_field(
@@ -141,7 +172,8 @@ def fill_field(
     """Fill an empty field on a backlog item using AI."""
     system = (
         "You are a senior Business Analyst. You help write clear, professional "
-        "requirements documentation. Always respond in valid JSON format."
+        "requirements documentation. You MUST respond with ONLY valid JSON. No markdown, "
+        "no code fences, no commentary. Just the JSON object."
     )
     user = (
         f"Project: {project_name}\n"
@@ -158,11 +190,7 @@ def fill_field(
         '}'
     )
     raw = _call_llm(system, user, max_tokens=800)
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        import re
-        match = re.search(r'\{[\s\S]*\}', raw)
-        if match:
-            return json.loads(match.group())
-        return {field_name: raw, "explanation": ""}
+    parsed = _extract_json(raw)
+    if parsed:
+        return parsed
+    return {field_name: raw, "explanation": ""}

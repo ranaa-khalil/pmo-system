@@ -36,14 +36,38 @@ CANCELLED = "Cancelled"
 # auto-created and routed to the RACI role that GATE-KEEPS phase X.
 # The release cannot advance until that role approves.
 #
-# Mapping: current_phase → (gate_keeper_role, gate_description)
+# Mapping: current_phase → (gate_keeper_role, gate_description, checklist_items)
 PHASE_GATE_ROLES = {
-    "Planning":     ("Product Owner",    "Approve requirements are complete and ready for development"),
-    "In Progress":  ("Tech Lead",        "Approve code completion and readiness for testing"),
-    "Testing":      ("QA Lead",          "Approve SIT results and readiness for UAT"),
-    "UAT":          ("Product Manager",  "Approve UAT passed and readiness for release"),
-    "Pre-Release":  ("DevOps Lead",      "Approve deployment checklist and go-live"),
-    "Released":     ("DevOps Lead",      "Confirm deployment success and begin monitoring"),
+    "Planning":     ("Product Owner",   "Approve requirements are complete and ready for development",
+                     ["Requirements reviewed and signed off",
+                      "Backlog items selected for this release",
+                      "Scope and priority agreed with stakeholders"]),
+    "In Progress":  ("Tech Lead",       "Approve code completion and readiness for testing",
+                     ["All features developed and code-reviewed",
+                      "Unit tests passing",
+                      "Technical debt logged and accepted",
+                      "Branch merged to release branch"]),
+    "Testing":      ("QA Lead",         "Approve SIT results and readiness for UAT",
+                     ["System Integration Testing complete",
+                      "All critical defects resolved",
+                      "Regression tests passing",
+                      "Test report generated"]),
+    "UAT":          ("Product Manager", "Approve UAT passed and readiness for release",
+                     ["UAT scenarios executed by business users",
+                      "All must-fix defects resolved",
+                      "Business sign-off obtained",
+                      "No critical/severe open defects"]),
+    "Pre-Release":  ("DevOps Lead",     "Approve deployment checklist and go-live",
+                     ["Release notes generated and reviewed",
+                      "Deployment runbook ready",
+                      "Rollback plan prepared",
+                      "DB migrations tested in staging",
+                      "Monitoring and alerts configured"]),
+    "Released":     ("DevOps Lead",     "Confirm deployment success and begin monitoring",
+                     ["Deployment to production successful",
+                      "Smoke tests passed in production",
+                      "Stakeholders notified",
+                      "Post-release monitoring active"]),
 }
 
 
@@ -69,8 +93,9 @@ def _sync_release_items_to_phase(db: Session, release: Release, phase: str):
 
     db.commit()
 
-    # Auto-generate forms based on the new phase
-    _auto_generate_form_for_phase(db, release, phase)
+    # Note: Sign-offs are handled by the approval system (PHASE_GATE_ROLES),
+    # not by forms. Each phase gate auto-creates an approval request for the
+    # accountable RACI role. No manual form creation needed.
 
 
 # Mapping: release phase → (form_type, form_name)
@@ -262,16 +287,23 @@ def get_release(
     for ar in approval_requests:
         steps = db.query(ApprovalStep).filter(ApprovalStep.request_id == ar.id).order_by(ApprovalStep.step_order).all()
         current_step = None
+        approver_name = None
+        decided_at = None
         for s in steps:
             if s.status == "Pending":
                 current_step = {"role_name": s.role_name, "step_order": s.step_order, "id": s.id}
-                break
+            if s.status == "Approved" and s.approver_id:
+                approver_user = db.query(User).filter(User.id == s.approver_id).first()
+                approver_name = approver_user.name if approver_user else s.role_name
+                decided_at = str(s.decided_at) if s.decided_at else None
         approval_data = {
             "id": ar.id, "title": ar.title, "status": ar.status,
             "target_phase": ar.target_phase,
             "total_steps": len(steps),
             "approved_steps": len([s for s in steps if s.status == "Approved"]),
             "current_step": current_step,
+            "approver_name": approver_name,
+            "decided_at": decided_at,
         }
         approvals.append(approval_data)
         if ar.status == "Pending" and not pending_approval:
@@ -313,6 +345,15 @@ def get_release(
         "forms": forms,
         "approvals": approvals,
         "v_cycle": [{"phase": p, "description": d, "color": c} for p, d, c in V_CYCLE],
+        "phase_gates": [
+            {
+                "phase": phase,
+                "role": info[0],
+                "description": info[1],
+                "checklist": info[2],
+            }
+            for phase, info in PHASE_GATE_ROLES.items()
+        ],
         "pending_approval": pending_approval,
     }
 
@@ -437,11 +478,11 @@ def advance_phase(
         db.refresh(release)
         return {"id": release.id, "status": release.status, "message": f"Advanced to {next_phase}"}
 
-    gate_role, gate_desc = gate_info
+    gate_role, gate_desc, gate_checklist = gate_info
     approval = ApprovalRequest(
         project_id=release.project_id,
         title=f"Release {release.version}: {release.status} → {next_phase}",
-        description=gate_desc,
+        description=gate_desc + "\n\nChecklist:\n" + "\n".join(f"☐ {item}" for item in gate_checklist),
         request_type="release",
         requested_by=current_user.id,
         release_id=release_id,
@@ -487,11 +528,11 @@ def _create_phase_approval(db: Session, release: Release, current_user: User):
         return None
     next_phase = V_CYCLE[current_idx + 1][0]
 
-    gate_role, gate_desc = gate_info
+    gate_role, gate_desc, gate_checklist = gate_info
     approval = ApprovalRequest(
         project_id=release.project_id,
         title=f"Release {release.version}: {release.status} → {next_phase}",
-        description=gate_desc,
+        description=gate_desc + "\n\nChecklist:\n" + "\n".join(f"☐ {item}" for item in gate_checklist),
         request_type="release",
         requested_by=current_user.id,
         release_id=release.id,

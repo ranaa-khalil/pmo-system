@@ -727,7 +727,7 @@
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <div class="text-[16px] font-bold tabular-nums" :class="kpiProgressPct(kpi) >= 75 ? 'text-emerald-600' : kpiProgressPct(kpi) >= 50 ? 'text-brand-600' : 'text-rose-600'">
-                                        <span x-text="kpi.current_value || '?'"></span><span class="text-slate-300 text-[12px]"> / </span><span x-text="(kpi.target_value || '?') + ' ' + (kpi.unit || '')" class="text-[12px] text-slate-500"></span>
+                                        <span x-text="kpiDisplayValue(kpi, 'current_value')"></span><span class="text-slate-300 text-[12px]"> / </span><span x-text="kpiDisplayValue(kpi, 'target_value')" class="text-[12px] text-slate-500"></span>
                                     </div>
                                 </div>
                                 <div class="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -2053,9 +2053,9 @@
                                             <div class="flex items-center gap-2">
                                                 <div class="text-right">
                                                     <div class="text-[12px] font-semibold text-slate-700">
-                                                        <span x-text="kpi.current_value || '?'"></span>
+                                                        <span x-text="kpiDisplayValue(kpi, 'current_value')"></span>
                                                         <span class="text-slate-400">/ </span>
-                                                        <span x-text="kpi.target_value + ' ' + (kpi.unit || '')"></span>
+                                                        <span x-text="kpiDisplayValue(kpi, 'target_value')"></span>
                                                     </div>
                                                     <div class="w-20 h-1.5 bg-slate-100 rounded-full mt-0.5 overflow-hidden">
                                                         <div class="h-full rounded-full transition-all duration-500"
@@ -2308,9 +2308,9 @@
                                         </td>
                                         <td class="py-3.5 px-4">
                                             <div class="text-[13px] tabular-nums">
-                                                <span class="font-semibold text-slate-700" x-text="kpi.current_value || '—'"></span>
+                                                <span class="font-semibold text-slate-700" x-text="kpiDisplayValue(kpi, 'current_value')"></span>
                                                 <span class="text-slate-300"> / </span>
-                                                <span class="text-slate-500" x-text="(kpi.target_value || '—') + ' ' + (kpi.unit || '')"></span>
+                                                <span class="text-slate-500" x-text="kpiDisplayValue(kpi, 'target_value')"></span>
                                             </div>
                                         </td>
                                         <td class="py-3.5 px-4">
@@ -3375,8 +3375,8 @@
                                  :style="'width: ' + kpiProgress(selectedKPI) + '%'"></div>
                         </div>
                         <div class="flex items-center justify-between text-[12px]">
-                            <span class="text-slate-500">Current: <span class="font-bold text-slate-700" x-text="selectedKPI.current_value + ' ' + (selectedKPI.unit || '')"></span></span>
-                            <span class="text-slate-500">Target: <span class="font-bold text-slate-700" x-text="selectedKPI.target_value + ' ' + (selectedKPI.unit || '')"></span></span>
+                            <span class="text-slate-500">Current: <span class="font-bold text-slate-700" x-text="kpiDisplayValue(selectedKPI, 'current_value')"></span></span>
+                            <span class="text-slate-500">Target: <span class="font-bold text-slate-700" x-text="kpiDisplayValue(selectedKPI, 'target_value')"></span></span>
                         </div>
                     </div>
 
@@ -5940,6 +5940,15 @@ function pmoApp() {
                 if (isNaN(target) || isNaN(current) || target === 0) return 0;
                 return Math.min(100, Math.round((current / target) * 100));
             } catch { return 0; }
+        },
+
+        kpiDisplayValue(kpi, field) {
+            // Returns "20%" if unit is %, or "50 users" if unit is users
+            const val = kpi[field];
+            if (!val) return '—';
+            const unit = kpi.unit || '';
+            if (unit === '%') return val + '%';
+            return val + (unit ? ' ' + unit : '');
         },
 
         async saveRelease() {

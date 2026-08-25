@@ -164,7 +164,9 @@
         .stat-glow::before { content: ''; position: absolute; top: -50%; right: -20%; width: 60%; height: 200%; background: radial-gradient(ellipse, var(--glow-color, rgba(99,102,241,0.08)) 0%, transparent 70%); pointer-events: none; }
     </style>
 </head>
-<body class="h-full bg-slate-50 font-sans text-slate-700" x-data="pmoApp()" x-init="init()" x-cloak>
+<body class="h-full bg-slate-50 font-sans text-slate-700" x-data="pmoApp()" x-init="init()" x-cloak
+      @quick-add-task.window="quickAddTask($event.detail.title)"
+      @open-full-task-modal.window="openTaskModal()">
 
 <!-- ==================== LOGIN SCREEN — Premium Split-Screen ==================== -->
 <div x-show="!isLoggedIn" x-cloak class="fixed inset-0 z-50 flex">
@@ -1281,7 +1283,7 @@
 
                                 <!-- Actions -->
                                 <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button @click="editTask(task)" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600" title="Edit">
+                                    <button @click="openTaskModal(task)" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600" title="Edit">
                                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                     </button>
                                     <button @click="deleteTask(task.id)" class="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-500" title="Delete">
@@ -4475,6 +4477,97 @@
     </div>
 </div>
 
+<!-- ==================== FLOATING ACTION BUTTON (Quick Add Task) ==================== -->
+<div x-data="{
+    pos: { x: window.innerWidth - 80, y: window.innerHeight - 120 },
+    dragging: false,
+    moved: false,
+    startX: 0, startY: 0,
+    offsetX: 0, offsetY: 0,
+    showPopup: false,
+    quickTitle: '',
+    init() {
+        try {
+            const saved = JSON.parse(localStorage.getItem('fab_pos'));
+            if (saved) this.pos = saved;
+        } catch {}
+    },
+    startDrag(e) {
+        const touch = e.touches ? e.touches[0] : e;
+        this.dragging = true;
+        this.moved = false;
+        this.startX = touch.clientX;
+        this.startY = touch.clientY;
+        this.offsetX = touch.clientX - this.pos.x;
+        this.offsetY = touch.clientY - this.pos.y;
+    },
+    onDrag(e) {
+        if (!this.dragging) return;
+        e.preventDefault();
+        const touch = e.touches ? e.touches[0] : e;
+        const nx = touch.clientX - this.offsetX;
+        const ny = touch.clientY - this.offsetY;
+        if (Math.abs(touch.clientX - this.startX) > 4 || Math.abs(touch.clientY - this.startY) > 4) this.moved = true;
+        this.pos.x = Math.max(8, Math.min(window.innerWidth - 56, nx));
+        this.pos.y = Math.max(8, Math.min(window.innerHeight - 56, ny));
+    },
+    endDrag() {
+        this.dragging = false;
+        if (!this.moved) {
+            this.showPopup = !this.showPopup;
+        }
+        try { localStorage.setItem('fab_pos', JSON.stringify(this.pos)); } catch {}
+    },
+    submitQuick() {
+        if (!this.quickTitle.trim()) return;
+        this.$dispatch('quick-add-task', { title: this.quickTitle });
+        this.quickTitle = '';
+        this.showPopup = false;
+    }
+}"
+@mousemove.window="onDrag($event)"
+@mouseup.window="endDrag()"
+@touchmove.window="onDrag($event)"
+@touchend.window="endDrag()"
+class="fixed z-40 select-none"
+:style="'left:' + pos.x + 'px; top:' + pos.y + 'px;'"
+x-init="init()">
+    <!-- Quick Add Popup -->
+    <div x-show="showPopup" x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 scale-90"
+         x-transition:enter-end="opacity-100 scale-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-90"
+         class="absolute bottom-16 right-0 w-72 surface rounded-2xl shadow-modal border border-slate-200/60 p-3"
+         @click.away="showPopup = false">
+        <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">Quick Add Task</div>
+        <form @submit.prevent="submitQuick()">
+            <input x-model="quickTitle" type="text" placeholder="What needs to be done?"
+                   class="w-full px-3 py-2 rounded-xl border border-slate-200 text-[13px] focus:ring-2 focus:ring-brand-400 focus:border-brand-400 outline-none transition-all"
+                   @keydown.escape="showPopup = false">
+            <button type="submit" class="mt-2 w-full px-4 py-2 rounded-xl bg-gradient-to-br from-brand-500 to-violet-600 text-white text-[13px] font-semibold hover:shadow-md transition-shadow flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                Add Task
+            </button>
+        </form>
+        <button @click="showPopup = false; $dispatch('open-full-task-modal')"
+                class="w-full mt-2 text-[11px] font-medium text-brand-600 hover:text-brand-700 px-2 py-1.5 rounded-lg hover:bg-brand-50 transition-colors text-left">
+            More options →
+        </button>
+    </div>
+
+    <!-- FAB Button -->
+    <button @mousedown="startDrag($event)"
+            @touchstart="startDrag($event)"
+            class="w-12 h-12 rounded-full bg-gradient-to-br from-brand-500 to-violet-600 text-white shadow-lg shadow-brand-500/30 flex items-center justify-center hover:shadow-xl hover:shadow-brand-500/40 hover:scale-105 transition-all cursor-grab active:cursor-grabbing"
+            :class="dragging ? 'scale-110 shadow-xl' : ''"
+            title="Quick Add Task (drag to move)">
+        <svg class="w-6 h-6 transition-transform" :class="showPopup ? 'rotate-45' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+    </button>
+</div>
+
 <!-- ==================== TASK MODAL ==================== -->
 <div x-show="showTaskModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
     <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm overlay-enter" @click="closeTaskModal()"></div>
@@ -5563,6 +5656,14 @@ function pmoApp() {
                 this.taskForm = { title: '', description: '', project_id: null, milestone_id: null, due_date: '', priority: 'Medium', status: 'Pending', reminder_days: 3 };
             }
             this.showTaskModal = true;
+        },
+        async quickAddTask(title) {
+            try {
+                await this.api('POST', '/tasks', { title, priority: 'Medium', status: 'Pending', reminder_days: 3 });
+                this.showToast('Task added: ' + title);
+                await this.loadTasks();
+                this.refreshTaskSummary();
+            } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
         },
         closeTaskModal() {
             this.showTaskModal = false;

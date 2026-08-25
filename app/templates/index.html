@@ -1027,7 +1027,7 @@
                         <div :style="'width: ' + (timelineTotalWidth + 260) + 'px; min-width: 100%'">
                             <!-- Header: project label column + time axis -->
                             <div class="flex sticky top-0 z-20 bg-white border-b border-slate-100">
-                                <div class="w-[240px] flex-shrink-0 px-5 py-3 border-r border-slate-100">
+                                <div class="w-[240px] flex-shrink-0 px-5 py-3 border-r border-slate-100 sticky left-0 z-30 bg-white">
                                     <div class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em]">Projects</div>
                                 </div>
                                 <!-- Month columns header -->
@@ -1055,7 +1055,7 @@
                                 <template x-for="p in projects" :key="p.id">
                                     <div class="flex border-b border-slate-50 hover:bg-slate-50/30 transition-colors group">
                                         <!-- Project label -->
-                                        <div class="w-[240px] flex-shrink-0 px-5 py-4 border-r border-slate-100 flex items-center gap-3 cursor-pointer" @click="openProject(p)">
+                                        <div class="w-[240px] flex-shrink-0 px-5 py-4 border-r border-slate-100 flex items-center gap-3 cursor-pointer sticky left-0 z-20 bg-white group-hover:bg-slate-50/80" @click="openProject(p)">
                                             <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-50 to-violet-50 flex items-center justify-center ring-1 ring-brand-100/40 flex-shrink-0">
                                                 <span class="text-[12px] font-bold text-brand-600" x-text="p.name.charAt(0)"></span>
                                             </div>
@@ -1498,6 +1498,10 @@
                         <a href="#doc-tasks" class="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 transition-colors">9. My Tasks</a>
                         <a href="#doc-planning" class="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 transition-colors">10. Planning</a>
                     </div>
+                    <div class="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2 text-[11px] text-slate-500">
+                        <svg class="w-3.5 h-3.5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                        <span>Testing Guide has been moved to the <strong class="text-slate-700">Obsidian Vault</strong> — search for "PMO System — Testing Guide"</span>
+                    </div>
                 </div>
 
                 <!-- 1. Overview -->
@@ -1742,307 +1746,7 @@
                 </div>
             </div>
 
-            <!-- ============ TESTING GUIDE VIEW ============ -->
-            <div x-show="route === 'testing'" class="view-enter space-y-6 max-w-5xl">
-                <div>
-                    <h1 class="text-[28px] font-bold text-slate-900 tracking-tight">Testing Guide</h1>
-                    <p class="text-[14px] text-slate-500 mt-1.5">Step-by-step walkthrough to test the entire PMO System. Follow in order.</p>
-                </div>
-
-                <!-- Test Accounts -->
-                <div class="surface rounded-2xl border border-violet-200/60 p-5 bg-violet-50/30">
-                    <h3 class="text-[13px] font-semibold text-slate-800 mb-2">🔑 Test Accounts</h3>
-                    <p class="text-[11px] text-slate-500 mb-3">All accounts use the same password: <code class="px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 text-[11px] font-mono">Pmo@2026</code></p>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div class="p-2 rounded-lg bg-white border border-slate-200/60"><div class="text-[11px] font-mono text-slate-700">rana@opex.com.sa</div><div class="text-[10px] text-slate-400">Rana Khalil — super_admin</div></div>
-                        <div class="p-2 rounded-lg bg-white border border-slate-200/60"><div class="text-[11px] font-mono text-slate-700">ahmed@opex.com.sa</div><div class="text-[10px] text-slate-400">Ahmed Eldosoukey — member</div></div>
-                        <div class="p-2 rounded-lg bg-white border border-slate-200/60"><div class="text-[11px] font-mono text-slate-700">khalid@opex.com.sa</div><div class="text-[10px] text-slate-400">Khalid Al-Harbi — member</div></div>
-                        <div class="p-2 rounded-lg bg-white border border-slate-200/60"><div class="text-[11px] font-mono text-slate-700">fatima@opex.com.sa</div><div class="text-[10px] text-slate-400">Fatima Al-Zahra — member</div></div>
-                        <div class="p-2 rounded-lg bg-white border border-slate-200/60"><div class="text-[11px] font-mono text-slate-700">omar@opex.com.sa</div><div class="text-[10px] text-slate-400">Omar Al-Shehri — member</div></div>
-                        <div class="p-2 rounded-lg bg-white border border-slate-200/60"><div class="text-[11px] font-mono text-slate-700">nora@opex.com.sa</div><div class="text-[10px] text-slate-400">Nora Al-Qahtani — member</div></div>
-                    </div>
-                </div>
-
-                <!-- Phase 1: Authentication -->
-                <div class="surface rounded-2xl border border-slate-200/60 p-6">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="w-7 h-7 rounded-full bg-brand-500 text-white text-[12px] font-bold flex items-center justify-center">1</span>
-                        <h2 class="text-[16px] font-bold text-slate-900">Authentication &amp; Login</h2>
-                    </div>
-                    <div class="space-y-2">
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Open <code class="px-1 rounded bg-slate-100 text-slate-700 font-mono text-[11px]">http://localhost:8000</code> in your browser</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify the login page appears with email + password fields</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Login with <code class="px-1 rounded bg-slate-100 text-slate-700 font-mono text-[11px]">rana@opex.com.sa</code> / <code class="px-1 rounded bg-slate-100 text-slate-700 font-mono text-[11px]">Pmo@2026</code></div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify you land on the Dashboard with "Welcome back, Rana Khalil"</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify the sidebar shows: Dashboard, Clients, Projects, My Tasks, Roadmaps, Settings</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Try logging in with a wrong password — verify you get an error</div></div>
-                    </div>
-                </div>
-
-                <!-- Phase 2: Dashboard -->
-                <div class="surface rounded-2xl border border-slate-200/60 p-6">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="w-7 h-7 rounded-full bg-brand-500 text-white text-[12px] font-bold flex items-center justify-center">2</span>
-                        <h2 class="text-[16px] font-bold text-slate-900">Dashboard</h2>
-                    </div>
-                    <div class="space-y-2">
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify 4 stat cards: Total Clients, Active Projects, Backlog Items, Pending Approvals</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify the "My Tasks" widget appears (if you have active tasks) showing Pending, Due Soon, and Overdue counts</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "View all →" on the My Tasks widget — verify it navigates to the My Tasks page</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "Refresh" button — verify stats reload</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify the "Live" indicator and current time appear in the top bar</div></div>
-                    </div>
-                </div>
-
-                <!-- Phase 3: Clients -->
-                <div class="surface rounded-2xl border border-slate-200/60 p-6">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="w-7 h-7 rounded-full bg-brand-500 text-white text-[12px] font-bold flex items-center justify-center">3</span>
-                        <h2 class="text-[16px] font-bold text-slate-900">Clients</h2>
-                    </div>
-                    <div class="space-y-2">
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "Clients" in the sidebar — verify the clients table loads</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify seed clients appear (NITC, GO Telecom, TASAMA, PNU)</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "New Client" — fill in name, contact, email, description — click Save</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify the new client appears in the table</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click on a client to edit — change the description — Save — verify it updates</div></div>
-                    </div>
-                </div>
-
-                <!-- Phase 4: Projects -->
-                <div class="surface rounded-2xl border border-slate-200/60 p-6">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="w-7 h-7 rounded-full bg-brand-500 text-white text-[12px] font-bold flex items-center justify-center">4</span>
-                        <h2 class="text-[16px] font-bold text-slate-900">Projects</h2>
-                    </div>
-                    <div class="space-y-2">
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "Projects" in the sidebar — verify project cards appear</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify seed projects: PNU Cloud, CloudGate Platform, GO Telecom Integration, TASAMA Multi-Cloud, PNU Mobile App</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "New Project" — create a project with name, client, description, status</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click on "PNU Cloud" project — verify it opens the project detail page</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify 9 tabs appear: Overview, Vision, KPIs, Roadmap, Backlog, Docs, Approvals, Releases, Stakeholders</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click each tab and verify content loads without errors</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "Back to Projects" — verify you return to the projects list</div></div>
-                    </div>
-                </div>
-
-                <!-- Phase 5: Vision & KPIs -->
-                <div class="surface rounded-2xl border border-slate-200/60 p-6">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="w-7 h-7 rounded-full bg-brand-500 text-white text-[12px] font-bold flex items-center justify-center">5</span>
-                        <h2 class="text-[16px] font-bold text-slate-900">Vision &amp; KPIs</h2>
-                    </div>
-                    <div class="space-y-2">
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Open PNU Cloud → Vision tab — verify vision statement and objectives appear</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "Edit" on the vision — modify the vision statement — Save — verify it updates inline</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Go to KPIs tab — verify KPI cards with target, current, unit, and progress bars</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click on a KPI to view details — then Edit — change the current value — Save</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify the progress bar updates to reflect the new value</div></div>
-                    </div>
-                </div>
-
-                <!-- Phase 6: Backlog -->
-                <div class="surface rounded-2xl border border-slate-200/60 p-6">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="w-7 h-7 rounded-full bg-brand-500 text-white text-[12px] font-bold flex items-center justify-center">6</span>
-                        <h2 class="text-[16px] font-bold text-slate-900">Backlog</h2>
-                    </div>
-                    <div class="space-y-2">
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Open PNU Cloud → Backlog tab — verify items grouped by Epic</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click on an Epic title — verify it expands to show the description</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click on a backlog item — verify the view modal opens with details</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>In the view modal, verify the Phase Progress bar shows 5 indigo segments</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "Edit" — modify the title and description — Save — verify it updates inline in the same modal</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Close the modal. Hover over an item at "Requirements" phase — click the → button to advance it</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Advance an item through: Requirements → Design → Development → Testing</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>At Testing, verify the "↩ Send back to Dev" button appears — click it — verify item goes back to Development</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Advance to Testing again, then click "Pass Testing → Ready for UAT"</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>At "Ready for UAT", verify the advance (→) button is hidden — item must be added to a release to continue</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Test filters: click each Phase filter button — verify only matching items show</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Test the "In Release" filter (amber) and "Released" filter (emerald) — verify they filter by release state, not phase</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "New Item" — create a Feature with title, epic, type, priority, story points — Save</div></div>
-                    </div>
-                </div>
-
-                <!-- Phase 7: Releases -->
-                <div class="surface rounded-2xl border border-slate-200/60 p-6">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="w-7 h-7 rounded-full bg-brand-500 text-white text-[12px] font-bold flex items-center justify-center">7</span>
-                        <h2 class="text-[16px] font-bold text-slate-900">Releases &amp; V-Cycle</h2>
-                    </div>
-                    <div class="space-y-2">
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Open PNU Cloud → Releases tab — verify the V-Cycle phase reference bar appears (7 phases)</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify existing release cards appear (seed releases with SemVer versions like 1.0.0, 1.1.0, 2.0.0)</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "New Release" — verify SemVer auto-suggests the next version</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Create a release (type: Minor, milestone: select one) — Save</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click on a release card — verify the release detail modal opens</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify the V-Cycle progress bar shows the current phase highlighted</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify the "Phase Sign-Offs" section shows 6 gates with checklist items (☑ checked or ☐ unchecked)</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify the pending gate shows "Awaiting sign-off from [name]" and signed gates show "Signed off by [name] on [date]"</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify the "Items" section shows all backlog items linked to this release</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "Generate Release Notes" — verify a DOCX is generated and downloads</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "Advance" on a release at "Planning" — verify it says an approval was created</div></div>
-                    </div>
-                </div>
-
-                <!-- Phase 8: Approvals (role switch) -->
-                <div class="surface rounded-2xl border border-amber-200/60 p-6 bg-amber-50/20">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="w-7 h-7 rounded-full bg-amber-500 text-white text-[12px] font-bold flex items-center justify-center">8</span>
-                        <h2 class="text-[16px] font-bold text-slate-900">Approvals <span class="text-[11px] font-normal text-amber-600 ml-1">⚠ Requires role switching</span></h2>
-                    </div>
-                    <div class="p-3 rounded-xl bg-amber-50 border border-amber-100 mb-3">
-                        <p class="text-[11px] text-amber-700">This phase tests RBAC. You will sign out and sign in as different users to approve phase gates. All test accounts use password <code class="px-1 rounded bg-amber-100 text-amber-800 font-mono">Pmo@2026</code></p>
-                    </div>
-                    <div class="space-y-2">
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Stay logged in as <strong>rana@opex.com.sa</strong> (super_admin)</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Open PNU Cloud → Approvals tab — verify approval requests appear</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify each approval shows: the step role name, the assigned approver name, and Approve/Reject buttons</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "Approve" on a pending approval — verify it shows "Approved" and the release advances</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify a new approval request was auto-created for the next phase gate</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-rose-500 font-bold mt-0.5">⏻</span><div><strong>Sign out</strong> — click your avatar in the sidebar bottom, then "Click to sign out"</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-rose-500 font-bold mt-0.5">⏻</span><div><strong>Sign in as</strong> <code class="px-1 rounded bg-slate-100 text-slate-700 font-mono text-[11px]">ahmed@opex.com.sa</code> / <code class="px-1 rounded bg-slate-100 text-slate-700 font-mono text-[11px]">Pmo@2026</code> (member, PM of GO Telecom Integration)</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Open GO Telecom Integration project → Approvals tab</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify Ahmed can see and approve requests for his project</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Try opening PNU Cloud project — verify access is limited (member role, not assigned to this project)</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-rose-500 font-bold mt-0.5">⏻</span><div><strong>Sign out</strong> and <strong>sign back in as</strong> <code class="px-1 rounded bg-slate-100 text-slate-700 font-mono text-[11px]">rana@opex.com.sa</code> / <code class="px-1 rounded bg-slate-100 text-slate-700 font-mono text-[11px]">Pmo@2026</code></div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Open PNU Cloud → Releases tab → click on a release → click "Advance" to trigger the next gate</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Go to Approvals tab — verify the new approval shows the correct gate-keeper role name (e.g., "Tech Lead" for the In Progress gate)</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "Reject" on an approval — verify the release does NOT advance and the rejection is recorded</div></div>
-                    </div>
-                </div>
-
-                <!-- Phase 9: Docs & PDFs -->
-                <div class="surface rounded-2xl border border-slate-200/60 p-6">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="w-7 h-7 rounded-full bg-brand-500 text-white text-[12px] font-bold flex items-center justify-center">9</span>
-                        <h2 class="text-[16px] font-bold text-slate-900">Docs &amp; PDFs</h2>
-                    </div>
-                    <div class="space-y-2">
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Open PNU Cloud → Docs tab — verify a list of releases appears</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Each release shows: version, status, date, and two buttons (View, Download)</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "View" (violet) — verify a modal opens with the PDF rendered inline</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify the PDF shows: release info, phase gate table, checklists, items</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "Download" in the modal header — verify the PDF downloads</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Close the modal. Click "Download" (indigo) on a release — verify the PDF downloads directly</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Open a release detail modal → click "📄 Sign-off PDF" — verify the PDF viewer opens</div></div>
-                    </div>
-                </div>
-
-                <!-- Phase 10: My Tasks -->
-                <div class="surface rounded-2xl border border-slate-200/60 p-6">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="w-7 h-7 rounded-full bg-brand-500 text-white text-[12px] font-bold flex items-center justify-center">10</span>
-                        <h2 class="text-[16px] font-bold text-slate-900">My Tasks</h2>
-                    </div>
-                    <div class="space-y-2">
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "My Tasks" in the sidebar — verify the task list loads</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify filter buttons appear: All, Today, Pending, In Progress, Overdue, Completed</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "New Task" — set title, due date = today, priority = High — Save</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click the "Today" filter — verify the task you just created appears (this was a bug — now fixed)</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "All" filter — verify all tasks appear</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click the checkbox on a task — verify it changes to "Completed" status</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "Completed" filter — verify completed tasks appear</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click on a task to edit — change the due date — Save — verify it updates</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Navigate to Dashboard — verify the My Tasks widget shows updated counts</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Navigate to Clients page — verify NO tasks widget appears (only on Dashboard and My Tasks)</div></div>
-                    </div>
-                </div>
-
-                <!-- Phase 11: Roadmaps -->
-                <div class="surface rounded-2xl border border-slate-200/60 p-6">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="w-7 h-7 rounded-full bg-brand-500 text-white text-[12px] font-bold flex items-center justify-center">11</span>
-                        <h2 class="text-[16px] font-bold text-slate-900">Roadmaps &amp; Milestones</h2>
-                    </div>
-                    <div class="space-y-2">
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "Roadmaps" in the sidebar — verify the Gantt timeline appears</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify milestones from multiple projects appear on the timeline</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify the "today" vertical line is visible</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Open a project → Roadmap tab — verify milestones appear with target dates and progress</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click on a milestone — verify the view modal opens with details and linked tasks</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "Edit" — change the progress percentage — Save — verify it updates</div></div>
-                    </div>
-                </div>
-
-                <!-- Phase 12: Stakeholders -->
-                <div class="surface rounded-2xl border border-slate-200/60 p-6">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="w-7 h-7 rounded-full bg-brand-500 text-white text-[12px] font-bold flex items-center justify-center">12</span>
-                        <h2 class="text-[16px] font-bold text-slate-900">Stakeholders &amp; RACI</h2>
-                    </div>
-                    <div class="space-y-2">
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Open PNU Cloud → Stakeholders tab — verify the RACI role list appears</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify 12 RACI roles are shown with descriptions</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify assigned users appear next to each role</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "Assign Role" — select a user and a role — Save — verify the assignment appears</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify the search autocomplete works when typing a user name</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Remove a role assignment — verify it disappears</div></div>
-                    </div>
-                </div>
-
-                <!-- Phase 13: Settings & RBAC -->
-                <div class="surface rounded-2xl border border-slate-200/60 p-6">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="w-7 h-7 rounded-full bg-brand-500 text-white text-[12px] font-bold flex items-center justify-center">13</span>
-                        <h2 class="text-[16px] font-bold text-slate-900">Settings &amp; RBAC Verification</h2>
-                    </div>
-                    <div class="space-y-2">
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "Settings" in the sidebar — verify account info appears</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify user management section appears (super_admin only)</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify all 6 test users appear in the user list</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-rose-500 font-bold mt-0.5">⏻</span><div><strong>Sign out</strong> and <strong>sign in as</strong> <code class="px-1 rounded bg-slate-100 text-slate-700 font-mono text-[11px]">ahmed@opex.com.sa</code> / <code class="px-1 rounded bg-slate-100 text-slate-700 font-mono text-[11px]">Pmo@2026</code> (member)</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Go to Settings — verify user management section is NOT visible (member cannot manage users)</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Go to Clients — verify Ahmed can see all clients but can only edit his assigned projects</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-rose-500 font-bold mt-0.5">⏻</span><div><strong>Sign out</strong> and <strong>sign back in as</strong> <code class="px-1 rounded bg-slate-100 text-slate-700 font-mono text-[11px]">rana@opex.com.sa</code> / <code class="px-1 rounded bg-slate-100 text-slate-700 font-mono text-[11px]">Pmo@2026</code></div></div>
-                    </div>
-                </div>
-
-                <!-- Phase 14: Full Release Cycle -->
-                <div class="surface rounded-2xl border border-emerald-200/60 p-6 bg-emerald-50/20">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="w-7 h-7 rounded-full bg-emerald-500 text-white text-[12px] font-bold flex items-center justify-center">14</span>
-                        <h2 class="text-[16px] font-bold text-slate-900">Full Release Cycle <span class="text-[11px] font-normal text-emerald-600 ml-1">End-to-end test</span></h2>
-                    </div>
-                    <div class="space-y-2">
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>As <strong>rana@opex.com.sa</strong>: Open PNU Cloud → Backlog — create 2 new items, advance both to "Ready for UAT"</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Go to Releases — create a new release (v1.2.0 or similar)</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>In the release detail, add the 2 items to the release (set their target_release to this version)</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Click "Advance" — verify approval request created for Product Owner (Planning gate)</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Go to Approvals — approve the Planning gate — verify release advances to "In Progress"</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify all linked items' phases auto-synced to "In Progress"</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Advance again — approve the Tech Lead gate (In Progress) — verify release moves to "Testing"</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Advance — approve the QA Lead gate (Testing) — verify release moves to "UAT"</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Verify items now show all-green item-level progress bars (they're in a release-level phase)</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Go to Backlog — click "In Release" filter — verify the 2 items appear</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Continue advancing: UAT → Pre-Release → Released → Post-Release (approve each gate)</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>After "Released": go to Backlog — click "Released" filter — verify the 2 items appear</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Go to Docs tab — click "View" on the release — verify the PDF shows all gates as "Signed Off" with approver names and dates</div></div>
-                        <div class="flex items-start gap-2 text-[12px] text-slate-600"><span class="text-emerald-500 font-bold mt-0.5">☐</span><div>Generate Release Notes (DOCX) — verify the document downloads with all sections filled</div></div>
-                    </div>
-                </div>
-
-                <!-- Summary -->
-                <div class="surface rounded-2xl border border-slate-200/60 p-5">
-                    <h3 class="text-[13px] font-semibold text-slate-800 mb-2">✅ Test Completion Checklist</h3>
-                    <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-500">
-                        <div>☐ Authentication</div>
-                        <div>☐ Dashboard</div>
-                        <div>☐ Clients CRUD</div>
-                        <div>☐ Projects CRUD</div>
-                        <div>☐ Vision &amp; KPIs</div>
-                        <div>☐ Backlog &amp; Phases</div>
-                        <div>☐ Releases &amp; V-Cycle</div>
-                        <div>☐ Approvals (RBAC)</div>
-                        <div>☐ Docs &amp; PDFs</div>
-                        <div>☐ My Tasks</div>
-                        <div>☐ Roadmaps</div>
-                        <div>☐ Stakeholders</div>
-                        <div>☐ Settings &amp; RBAC</div>
-                        <div>☐ Full Release Cycle</div>
-                    </div>
-                </div>
-            </div>
+            <!-- ============ TESTING GUIDE VIEW (removed — see Obsidian vault) ============ -->
 
             <div x-show="route === 'project-detail' && selectedProject" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="mb-6">
                 <!-- Back button -->
@@ -5133,12 +4837,11 @@ function pmoApp() {
             { id: 'tasks', label: 'My Tasks', group: 'workspace', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>' },
             { id: 'roadmap', label: 'Roadmaps', group: 'planning', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>' },
             { id: 'docs', label: 'Documentation', group: 'planning', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>' },
-            { id: 'testing', label: 'Testing Guide', group: 'planning', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>' },
             { id: 'settings', label: 'Settings', group: 'planning', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>' },
         ],
 
         get pageTitle() {
-            return { dashboard: 'Dashboard', clients: 'Clients', 'client-detail': 'Client Detail', projects: 'Projects', 'project-detail': 'Project Detail', tasks: 'My Tasks', roadmap: 'Roadmaps', docs: 'Documentation', testing: 'Testing Guide', settings: 'Settings' }[this.route] || '';
+            return { dashboard: 'Dashboard', clients: 'Clients', 'client-detail': 'Client Detail', projects: 'Projects', 'project-detail': 'Project Detail', tasks: 'My Tasks', roadmap: 'Roadmaps', docs: 'Documentation', settings: 'Settings' }[this.route] || '';
         },
         get stats() {
             const ds = this.dashStats || {};

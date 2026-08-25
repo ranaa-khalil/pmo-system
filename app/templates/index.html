@@ -1720,9 +1720,9 @@
                             </thead>
                             <tbody>
                                 <template x-for="kpi in kpis" :key="kpi.id">
-                                    <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                                    <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors cursor-pointer" @click="viewKPI(kpi.id)">
                                         <td class="py-3.5 px-4">
-                                            <div class="text-[13px] font-medium text-slate-800" x-text="kpi.name"></div>
+                                            <div class="text-[13px] font-medium text-slate-800 hover:text-brand-600 transition-colors" x-text="kpi.name"></div>
                                             <div class="text-[10px] text-slate-400 mt-0.5" x-text="kpi.vision_objective || 'No vision link'"></div>
                                         </td>
                                         <td class="py-3.5 px-4">
@@ -1747,10 +1747,8 @@
                                         <td class="py-3.5 px-4">
                                             <span class="text-[11px] font-medium px-2 py-1 rounded-md bg-slate-50 text-slate-500" x-text="kpi.category || '—'"></span>
                                         </td>
-                                        <td class="py-3 px-4 text-right whitespace-nowrap">
-                                            <button @click="viewKPI(kpi.id)" class="text-[11px] text-brand-500 hover:text-brand-700 mr-2">👁 View</button>
-                                            <button @click="editKPI(kpi)" class="text-[11px] text-slate-400 hover:text-brand-600 mr-2">✎ Edit</button>
-                                            <button @click="deleteKPI(kpi.id)" class="text-[11px] text-rose-400 hover:text-rose-600">✕</button>
+                                        <td class="py-3 px-4 text-right">
+                                            <button @click.stop="deleteKPI(kpi.id)" class="text-[11px] text-slate-300 hover:text-rose-500">✕</button>
                                         </td>
                                     </tr>
                                 </template>
@@ -1888,21 +1886,19 @@
                 <!-- Milestones as premium cards -->
                 <div class="space-y-2">
                     <template x-for="ms in rm.milestones" :key="ms.id">
-                        <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-50/60 hover:bg-slate-50 transition-colors group">
+                        <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-50/60 hover:bg-slate-50 hover:border-brand-200 border border-transparent transition-all group cursor-pointer" @click="viewMilestone(ms.id)">
                             <!-- Diamond marker -->
                             <div class="w-3 h-3 rotate-45 rounded-sm border-2 border-white shadow-sm flex-shrink-0"
                                  :class="{'bg-emerald-400': ms.status === 'On Track', 'bg-rose-400': ms.status === 'At Risk', 'bg-slate-300': ms.status === 'Completed'}"></div>
                             <div class="flex-1 min-w-0">
-                                <div class="text-[13px] font-medium text-slate-800 truncate" x-text="ms.title"></div>
+                                <div class="text-[13px] font-medium text-slate-800 truncate group-hover:text-brand-600 transition-colors" x-text="ms.title"></div>
                                 <div class="text-[10px] text-slate-400 mt-0.5" x-text="ms.description || ''"></div>
                             </div>
                             <span class="text-[10px] text-slate-400 font-medium tabular-nums" x-text="ms.target_date || 'TBD'"></span>
                             <span class="text-[10px] font-semibold px-2 py-1 rounded-md"
                                   :class="{'bg-emerald-50 text-emerald-600': ms.status === 'On Track', 'bg-rose-50 text-rose-600': ms.status === 'At Risk', 'bg-slate-100 text-slate-500': ms.status === 'Completed'}"
                                   x-text="ms.status"></span>
-                            <button @click="viewMilestone(ms.id)" class="text-[11px] text-brand-500 hover:text-brand-700 opacity-0 group-hover:opacity-100 transition-opacity">👁</button>
-                            <button @click="editMilestone(ms)" class="text-[11px] text-slate-400 hover:text-brand-600 opacity-0 group-hover:opacity-100 transition-opacity">✎</button>
-                            <button @click="deleteMilestone(ms.id)" class="text-[11px] text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+                            <button @click.stop="deleteMilestone(ms.id)" class="text-[11px] text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
                         </div>
                     </template>
                     <!-- Add/edit milestone inline -->
@@ -2163,7 +2159,7 @@
                                             <div class="col-span-1 min-w-0"><span class="text-[10px] font-medium" :class="{'text-emerald-600': item.status === 'Done', 'text-brand-600': item.status === 'In Progress', 'text-rose-500': item.status === 'Blocked', 'text-slate-400': item.status === 'Draft'}" x-text="item.status"></span></div>
                                             <div class="col-span-2 flex items-center justify-end gap-1 min-w-0">
                                                 <span class="text-[10px] font-medium text-brand-600 truncate" x-text="item.current_phase"></span>
-                                                <button @click="viewBacklogItem(item)" class="opacity-0 group-hover:opacity-100 text-[10px] text-slate-400 hover:text-brand-600 px-1 rounded transition-all" title="View details">👁</button>
+                                                
                                                 <button @click="advanceBacklogItem(item.id)" class="opacity-0 group-hover:opacity-100 text-[10px] font-medium text-brand-600 hover:text-brand-700 px-1 rounded transition-all whitespace-nowrap">→</button>
                                                 <button @click="deleteBacklogItem(item.id)" class="opacity-0 group-hover:opacity-100 text-[10px] text-rose-400 hover:text-rose-600 px-1 transition-all">✕</button>
                                             </div>
@@ -2459,13 +2455,42 @@
             </div>
 
             <!-- Footer -->
-            <div class="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-3 flex items-center justify-between">
-                <button @click="viewingBacklogItem = null" class="text-[12px] text-slate-500 hover:text-slate-700">Close</button>
-                <div class="flex items-center gap-2">
-                    <button @click="editBacklogItem(viewingBacklogItem)" class="text-[12px] font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-all">✏ Edit</button>
-                    <button @click="advanceBacklogItem(viewingBacklogItem.id); viewingBacklogItem = null;" class="text-[12px] font-medium text-white btn-primary px-3 py-1.5 rounded-lg transition-all">Advance Phase →</button>
+            <!-- EDIT MODE -->
+            <template x-if="backlogEditMode">
+                <div class="border-t border-slate-100 px-6 py-4 space-y-3">
+                    <h4 class="text-[14px] font-bold text-brand-600">✎ Edit Backlog Item</h4>
+                    <input x-model="backlogEditForm.title" class="input-premium text-[13px] w-full" placeholder="Title">
+                    <textarea x-model="backlogEditForm.description" rows="2" class="input-premium text-[13px] w-full" placeholder="Description"></textarea>
+                    <textarea x-model="backlogEditForm.acceptance_criteria" rows="2" class="input-premium text-[13px] w-full" placeholder="Acceptance criteria"></textarea>
+                    <div class="grid grid-cols-3 gap-3">
+                        <select x-model="backlogEditForm.priority" class="input-premium text-[12px]">
+                            <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
+                        </select>
+                        <select x-model="backlogEditForm.item_type" class="input-premium text-[12px]">
+                            <option>Feature</option><option>Enhancement</option><option>Bug</option><option>Story</option><option>Task</option>
+                        </select>
+                        <input x-model="backlogEditForm.story_points" type="number" class="input-premium text-[12px]" placeholder="Story points">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <input x-model="backlogEditForm.primary_actor" class="input-premium text-[12px]" placeholder="Primary actor">
+                        <input x-model="backlogEditForm.target_release" class="input-premium text-[12px]" placeholder="Target release">
+                    </div>
+                    <div class="flex gap-2 pt-2">
+                        <button @click="saveBacklogEdit()" class="flex-1 text-[12px] font-medium text-white btn-primary px-3 py-2 rounded-lg transition-all">Save Changes</button>
+                        <button @click="backlogEditMode = false" class="text-[12px] font-medium text-slate-500 border border-slate-200 hover:bg-slate-50 px-3 py-2 rounded-lg transition-all">Cancel</button>
+                    </div>
                 </div>
-            </div>
+            </template>
+            <!-- VIEW MODE FOOTER -->
+            <template x-if="!backlogEditMode">
+                <div class="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-3 flex items-center justify-between">
+                    <button @click="viewingBacklogItem = null" class="text-[12px] text-slate-500 hover:text-slate-700">Close</button>
+                    <div class="flex items-center gap-2">
+                        <button @click="editBacklogItem(viewingBacklogItem)" class="text-[12px] font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-all">✏ Edit</button>
+                        <button @click="advanceBacklogItem(viewingBacklogItem.id); viewingBacklogItem = null;" class="text-[12px] font-medium text-white btn-primary px-3 py-1.5 rounded-lg transition-all">Advance Phase →</button>
+                    </div>
+                </div>
+            </template>
         </div>
     </div>
 
@@ -2475,6 +2500,9 @@
         <div class="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto" x-show="selectedMilestone" x-transition>
             <template x-if="selectedMilestone">
                 <div class="p-6">
+                    <!-- VIEW MODE -->
+                    <template x-if="!milestoneEditMode">
+                    <div>
                     <div class="flex items-start justify-between mb-4">
                         <div>
                             <div class="flex items-center gap-2 mb-1">
@@ -2566,7 +2594,47 @@
                     </div>
 
                     <!-- Edit button -->
-                    <button @click="editMilestoneFromView()" class="w-full text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-all">✎ Edit Milestone</button>
+                    <button @click="startMilestoneEdit()" class="w-full text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-all">✎ Edit Milestone</button>
+                    </div>
+                    </template>
+
+                    <!-- EDIT MODE (inline in same modal) -->
+                    <template x-if="milestoneEditMode">
+                    <div>
+                    <div class="flex items-start justify-between mb-4">
+                        <h3 class="text-[16px] font-bold text-brand-600">✎ Edit Milestone</h3>
+                        <button @click="selectedMilestone = null" class="text-slate-300 hover:text-slate-500 text-[18px]">✕</button>
+                    </div>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-[11px] font-medium text-slate-500 mb-1.5">Title</label>
+                            <input x-model="milestoneForm.title" class="input-premium text-[13px] w-full">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-medium text-slate-500 mb-1.5">Description</label>
+                            <textarea x-model="milestoneForm.description" rows="2" class="input-premium text-[13px] w-full"></textarea>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[11px] font-medium text-slate-500 mb-1.5">Target Date</label>
+                                <input x-model="milestoneForm.target_date" type="date" class="input-premium text-[13px] w-full">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-medium text-slate-500 mb-1.5">Status</label>
+                                <select x-model="milestoneForm.status" class="input-premium text-[13px] w-full">
+                                    <option value="On Track">On Track</option>
+                                    <option value="At Risk">At Risk</option>
+                                    <option value="Completed">Completed</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex gap-2 pt-2">
+                            <button @click="saveMilestoneEdit()" class="flex-1 text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-all">Save Changes</button>
+                            <button @click="milestoneEditMode = false" class="text-[13px] font-medium text-slate-500 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-xl transition-all">Cancel</button>
+                        </div>
+                    </div>
+                    </div>
+                    </template>
                 </div>
             </template>
         </div>
@@ -2578,6 +2646,9 @@
         <div class="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto" x-show="selectedKPI" x-transition>
             <template x-if="selectedKPI">
                 <div class="p-6">
+                    <!-- VIEW MODE -->
+                    <template x-if="!kpiEditMode">
+                    <div>
                     <div class="flex items-start justify-between mb-4">
                         <div>
                             <h3 class="text-[16px] font-bold text-slate-800" x-text="selectedKPI.name"></h3>
@@ -2661,7 +2732,53 @@
                     </div>
 
                     <!-- Edit button -->
-                    <button @click="editKPIFromView()" class="w-full text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-all">✎ Edit KPI</button>
+                    <button @click="startKPIEdit()" class="w-full text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-all">✎ Edit KPI</button>
+                    </div>
+                    </template>
+
+                    <!-- EDIT MODE (inline in same modal) -->
+                    <template x-if="kpiEditMode">
+                    <div>
+                    <div class="flex items-start justify-between mb-4">
+                        <h3 class="text-[16px] font-bold text-brand-600">✎ Edit KPI</h3>
+                        <button @click="selectedKPI = null" class="text-slate-300 hover:text-slate-500 text-[18px]">✕</button>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[11px] font-medium text-slate-500 mb-1.5">KPI Name</label>
+                                <input x-model="kpiForm.name" class="input-premium text-[13px] w-full">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-medium text-slate-500 mb-1.5">Category</label>
+                                <input x-model="kpiForm.category" class="input-premium text-[13px] w-full">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-[11px] font-medium text-slate-500 mb-1.5">Target Value</label>
+                                <input x-model="kpiForm.target_value" class="input-premium text-[13px] w-full">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-medium text-slate-500 mb-1.5">Current Value</label>
+                                <input x-model="kpiForm.current_value" class="input-premium text-[13px] w-full">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-medium text-slate-500 mb-1.5">Unit</label>
+                                <input x-model="kpiForm.unit" class="input-premium text-[13px] w-full">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-medium text-slate-500 mb-1.5">Linked Vision Objective</label>
+                            <input x-model="kpiForm.vision_objective" class="input-premium text-[13px] w-full">
+                        </div>
+                        <div class="flex gap-2 pt-2">
+                            <button @click="saveKPIEdit()" class="flex-1 text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-all">Save Changes</button>
+                            <button @click="kpiEditMode = false" class="text-[13px] font-medium text-slate-500 border border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-xl transition-all">Cancel</button>
+                        </div>
+                    </div>
+                    </div>
+                    </template>
                 </div>
             </template>
         </div>
@@ -3703,6 +3820,10 @@ function pmoApp() {
         selectedKPI: null,
         editingMilestoneId: null,
         editingKPIId: null,
+        milestoneEditMode: false,
+        kpiEditMode: false,
+        backlogEditMode: false,
+        backlogEditForm: {},
 
         // ===== Roles state =====
         roles: [],
@@ -4461,53 +4582,54 @@ function pmoApp() {
         },
 
         async viewMilestone(id) {
+            this.milestoneEditMode = false;
             try {
                 this.selectedMilestone = await this.api('GET', `/milestones/${id}/detail`);
             } catch (e) { this.showToast(e.message, 'error'); }
         },
 
-        editMilestone(ms) {
-            this.editingMilestoneId = ms.id;
-            this.milestoneForm = { title: ms.title, target_date: ms.target_date || '', status: ms.status || 'On Track', description: ms.description || '' };
-            // Find the roadmap this milestone belongs to and scroll to it
-            this.$nextTick(() => {
-                const input = document.querySelector('input[placeholder="New milestone title..."]');
-                if (input) { input.focus(); input.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-            });
-        },
-
-        editMilestoneFromView() {
+        startMilestoneEdit() {
             if (!this.selectedMilestone) return;
             const ms = this.selectedMilestone;
-            this.selectedMilestone = null;
-            this.editMilestone({
-                id: ms.id, title: ms.title, target_date: ms.target_date, status: ms.status, description: ms.description
-            });
+            this.milestoneForm = { title: ms.title, target_date: ms.target_date || '', status: ms.status || 'On Track', description: ms.description || '' };
+            this.milestoneEditMode = true;
+        },
+
+        async saveMilestoneEdit() {
+            if (!this.selectedMilestone || !this.milestoneForm.title.trim()) return;
+            try {
+                await this.api('PUT', `/milestones/${this.selectedMilestone.id}`, this.milestoneForm);
+                // Reload the detail
+                this.selectedMilestone = await this.api('GET', `/milestones/${this.selectedMilestone.id}/detail`);
+                this.milestoneEditMode = false;
+                await this.loadRoadmaps();
+                this.showToast('Milestone updated', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
         },
 
         async viewKPI(id) {
+            this.kpiEditMode = false;
             try {
                 this.selectedKPI = await this.api('GET', `/kpis/${id}/detail`);
             } catch (e) { this.showToast(e.message, 'error'); }
         },
 
-        editKPI(kpi) {
-            this.editingKPIId = kpi.id;
-            this.kpiForm = { name: kpi.name, category: kpi.category || '', target_value: kpi.target_value || '', current_value: kpi.current_value || '', unit: kpi.unit || '', vision_objective: kpi.vision_objective || '' };
-            this.$nextTick(() => {
-                const input = document.querySelector('input[placeholder="e.g., Service Uptime"]');
-                if (input) { input.focus(); input.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-            });
-        },
-
-        editKPIFromView() {
+        startKPIEdit() {
             if (!this.selectedKPI) return;
             const k = this.selectedKPI;
-            this.selectedKPI = null;
-            this.editKPI({
-                id: k.id, name: k.name, category: k.category, target_value: k.target_value,
-                current_value: k.current_value, unit: k.unit, vision_objective: k.vision_objective
-            });
+            this.kpiForm = { name: k.name, category: k.category || '', target_value: k.target_value || '', current_value: k.current_value || '', unit: k.unit || '', vision_objective: k.vision_objective || '' };
+            this.kpiEditMode = true;
+        },
+
+        async saveKPIEdit() {
+            if (!this.selectedKPI || !this.kpiForm.name.trim()) return;
+            try {
+                await this.api('PUT', `/kpis/${this.selectedKPI.id}`, this.kpiForm);
+                this.selectedKPI = await this.api('GET', `/kpis/${this.selectedKPI.id}/detail`);
+                this.kpiEditMode = false;
+                await this.loadKPIs();
+                this.showToast('KPI updated', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
         },
 
         milestoneStatusColor(status) {

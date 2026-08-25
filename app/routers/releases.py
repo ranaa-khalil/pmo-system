@@ -148,7 +148,7 @@ def get_release(
     for fi in form_instances:
         forms.append({
             "id": fi.id, "template_id": fi.template_id,
-            "status": fi.status, "submitted_by": fi.submitted_by,
+            "status": fi.status, "created_by": fi.created_by,
         })
 
     # Approvals (for this project, type=release, linked to THIS release)

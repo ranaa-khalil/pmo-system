@@ -1,15 +1,19 @@
 """FastAPI application entry point."""
+import os
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from app.config import settings
-from app.database import Base, engine
+from app.database import Base, engine, SessionLocal
 from app.routers import clients, projects, auth, planning, backlog, forms, approvals, dashboard, stakeholders, releases, user_tasks
 from app.frontend import router as frontend_router
 import app.models  # noqa: F401 — register all models
 
-# Create tables on startup (for dev; use Alembic migrations in prod)
+logger = logging.getLogger("app.main")
+
+# Create tables on startup
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -26,7 +30,7 @@ if static_path.exists():
 # CORS — allow the frontend and AI agents to call the API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -47,6 +51,25 @@ app.include_router(user_tasks.router)
 
 # Register frontend UI
 app.include_router(frontend_router)
+
+
+@app.on_event("startup")
+def auto_seed_on_startup():
+    """Auto-seed the database on first run / each deploy on ephemeral filesystems."""
+    from app.models.user import User
+    db = SessionLocal()
+    try:
+        if db.query(User).count() == 0:
+            logger.info("No users found — running seed...")
+            from app.seed import seed
+            seed()
+            logger.info("Seed complete.")
+        else:
+            logger.info("Database already has data — skipping seed.")
+    except Exception as e:
+        logger.error(f"Auto-seed error: {e}")
+    finally:
+        db.close()
 
 
 @app.get("/health")

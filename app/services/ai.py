@@ -127,51 +127,48 @@ def suggest_features(
 ) -> dict:
     """Suggest epics and features for a project based on context."""
     system = (
-        "You are a senior Product Manager. You help break down project visions into "
-        "epics and features. You understand user personas and create features that "
-        "serve their needs. You MUST respond with ONLY valid JSON. No markdown, no code fences, "
-        "no commentary. Just the JSON object."
+        "You are a senior Product Manager who deeply understands the project domain. "
+        "You suggest epics and features that fill REAL gaps — not generic boilerplate. "
+        "Every suggestion must be specific to THIS project's vision, personas, and existing scope. "
+        "Do NOT suggest anything that duplicates or slightly rephrases existing items. "
+        "You MUST respond with ONLY valid JSON. No markdown, no code fences, no commentary."
     )
-    epics_text = "\n".join(f"- {e}" for e in existing_epics) or "None yet"
-    features_text = "\n".join(f"- {f}" for f in existing_features[:20]) or "None yet"
-    personas_text = "\n".join(f"- {p['name']}: {p.get('role','')}" for p in personas) or "None defined"
+    epics_text = "\n".join(f"  {i+1}. {e}" for i, e in enumerate(existing_epics)) or "  None yet"
+    features_text = "\n".join(f"  {i+1}. {f}" for i, f in enumerate(existing_features[:30])) or "  None yet"
+    personas_text = "\n".join(f"  - {p['name']} ({p.get('role','')})" for p in personas) or "  None defined"
 
     user = (
         f"Project: {project_name}\n"
         f"Description: {project_description or 'N/A'}\n"
         f"Vision: {vision or 'N/A'}\n\n"
-        f"Existing Epics:\n{epics_text}\n\n"
-        f"Existing Features (first 20):\n{features_text}\n\n"
+        f"Existing Epics ({len(existing_epics)}):\n{epics_text}\n\n"
+        f"Existing Features ({len(existing_features)}):\n{features_text}\n\n"
         f"User Personas:\n{personas_text}\n\n"
-        "Based on the project context, suggest 2-3 NEW epics and 3-5 NEW features that don't duplicate existing ones. Keep descriptions concise.\n\n"
-        "Each EPIC must include ALL of these fields:\n"
-        '- title: Short epic name (e.g. "RBAC & Identity Management")\n'
-        '- description: 2-3 sentence description of the epic scope\n'
-        '- rationale: Why this epic matters to the project\n'
-        '- priority: High, Medium, or Low\n'
-        '- primary_actor: Which persona benefits most\n'
-        '- story_points: Estimated complexity (1,2,3,5,8,13)\n'
-        '- acceptance_criteria: 3-5 testable bullet points (as one string with newlines)\n\n'
-        "Each FEATURE must include ALL of these fields:\n"
-        '- title: Feature title (e.g. "Role-based access control on project resources")\n'
-        '- epic: The epic name it belongs to (must match one of the suggested epics or existing ones)\n'
-        '- description: 2-3 sentence description of what it does\n'
-        '- priority: High, Medium, or Low\n'
-        '- primary_actor: Which persona benefits\n'
-        '- story_points: Estimated complexity (1,2,3,5,8,13)\n'
-        '- acceptance_criteria: 3-5 testable bullet points (as one string with newlines)\n'
-        '- item_type: "Feature", "Enhancement", or "Bug"\n'
-        '- rationale: Why this feature is needed\n\n'
+        "Analyze the gaps in this project. What critical capabilities are MISSING? "
+        "Suggest 2-3 NEW epics and 3-5 NEW features that are specific to this project's domain and vision. "
+        "Each suggestion must be concrete, actionable, and non-duplicative.\n\n"
+        "Each EPIC must include ALL fields:\n"
+        '  "title": Short epic name\n'
+        '  "description": 2-3 sentences\n'
+        '  "rationale": Why this epic is critical NOW\n'
+        '  "priority": "Critical" | "High" | "Medium" | "Low"\n'
+        '  "primary_actor": Persona name from the list above\n'
+        '  "story_points": Integer (1,2,3,5,8,13,21)\n'
+        '  "acceptance_criteria": 3-5 testable bullets separated by \\n\n'
+        '  "target_release": Suggested release month (e.g. "2026-10")\n\n'
+        "Each FEATURE must include ALL fields:\n"
+        '  "title": Specific feature title\n'
+        '  "epic": Must match a suggested or existing epic name\n'
+        '  "description": 2-3 sentences of what it does\n'
+        '  "item_type": "Feature" | "Enhancement" | "Bug"\n'
+        '  "priority": "Critical" | "High" | "Medium" | "Low"\n'
+        '  "primary_actor": Persona name from the list above\n'
+        '  "story_points": Integer (1,2,3,5,8,13)\n'
+        '  "acceptance_criteria": 3-5 testable bullets separated by \\n\n'
+        '  "target_release": Suggested release month (e.g. "2026-10")\n'
+        '  "rationale": Why this feature is needed\n\n'
         "Respond as JSON:\n"
-        '{\n'
-        '  "suggested_epics": [\n'
-        '    {"title":"...","description":"...","rationale":"...","priority":"...","primary_actor":"...","story_points":N,"acceptance_criteria":"..."}\n'
-        '  ],\n'
-        '  "suggested_features": [\n'
-        '    {"title":"...","epic":"...","description":"...","priority":"...","primary_actor":"...","story_points":N,"acceptance_criteria":"...","item_type":"...","rationale":"..."}\n'
-        '  ],\n'
-        '  "summary": "Brief overall assessment of what the project needs next"\n'
-        '}'
+        '{"suggested_epics":[{...}],"suggested_features":[{...}],"summary":"2-3 sentence assessment"}'
     )
     raw = _call_llm(system, user, max_tokens=6000, json_mode=True)
     parsed = _extract_json(raw)

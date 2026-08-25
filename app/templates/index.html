@@ -3048,18 +3048,18 @@
                     <div class="space-y-2">
                         <template x-for="gate in (selectedRelease?.phase_gates || [])" :key="gate.phase">
                             <div class="rounded-xl border p-3"
-                                 :class="getReleasePhaseIndex(selectedRelease?.status) >= getReleasePhaseIndex(gate.phase) ? 'bg-emerald-50/50 border-emerald-200' : getReleasePhaseIndex(selectedRelease?.status) === getReleasePhaseIndex(gate.phase) - 1 ? 'bg-amber-50/50 border-amber-200' : 'bg-slate-50 border-slate-100'">
+                                 :class="getReleasePhaseIndex(selectedRelease?.status) > getReleasePhaseIndex(gate.phase) ? 'bg-emerald-50/50 border-emerald-200' : getReleasePhaseIndex(selectedRelease?.status) === getReleasePhaseIndex(gate.phase) ? 'bg-amber-50/50 border-amber-200' : 'bg-slate-50 border-slate-100'">
                                 <div class="flex items-center justify-between mb-2">
                                     <div class="flex items-center gap-2">
-                                        <span class="text-[14px]" x-text="getReleasePhaseIndex(selectedRelease?.status) >= getReleasePhaseIndex(gate.phase) ? '✅' : getReleasePhaseIndex(selectedRelease?.status) === getReleasePhaseIndex(gate.phase) - 1 ? '⏳' : '🔒'"></span>
+                                        <span class="text-[14px]" x-text="getReleasePhaseIndex(selectedRelease?.status) > getReleasePhaseIndex(gate.phase) ? '✅' : getReleasePhaseIndex(selectedRelease?.status) === getReleasePhaseIndex(gate.phase) ? '⏳' : '🔒'"></span>
                                         <div>
                                             <div class="text-[12px] font-semibold text-slate-700" x-text="gate.phase + ' Gate'"></div>
                                             <div class="text-[10px] text-slate-400" x-text="gate.role + ' — ' + gate.description"></div>
                                         </div>
                                     </div>
                                     <span class="text-[10px] font-medium px-2 py-0.5 rounded-md"
-                                          :class="getReleasePhaseIndex(selectedRelease?.status) >= getReleasePhaseIndex(gate.phase) ? 'bg-emerald-100 text-emerald-700' : getReleasePhaseIndex(selectedRelease?.status) === getReleasePhaseIndex(gate.phase) - 1 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-400'"
-                                          x-text="getReleasePhaseIndex(selectedRelease?.status) >= getReleasePhaseIndex(gate.phase) ? 'Signed off' : getReleasePhaseIndex(selectedRelease?.status) === getReleasePhaseIndex(gate.phase) - 1 ? 'Pending' : 'Upcoming'"></span>
+                                          :class="getReleasePhaseIndex(selectedRelease?.status) > getReleasePhaseIndex(gate.phase) ? 'bg-emerald-100 text-emerald-700' : getReleasePhaseIndex(selectedRelease?.status) === getReleasePhaseIndex(gate.phase) ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-400'"
+                                          x-text="getReleasePhaseIndex(selectedRelease?.status) > getReleasePhaseIndex(gate.phase) ? 'Signed off' : getReleasePhaseIndex(selectedRelease?.status) === getReleasePhaseIndex(gate.phase) ? 'Pending' : 'Upcoming'"></span>
                                 </div>
                                 <!-- Checklist items -->
                                 <div class="ml-6 space-y-0.5" x-show="gate.checklist && gate.checklist.length > 0">
@@ -3070,8 +3070,8 @@
                                         </div>
                                     </template>
                                 </div>
-                                <!-- Show approver name if signed off -->
-                                <template x-if="getReleasePhaseIndex(selectedRelease?.status) >= getReleasePhaseIndex(gate.phase)">
+                                <!-- Show approver name if signed off (release moved past this gate) -->
+                                <template x-if="getReleasePhaseIndex(selectedRelease?.status) > getReleasePhaseIndex(gate.phase)">
                                     <div class="ml-6 mt-1.5 text-[10px] text-emerald-600 font-medium">
                                         <template x-for="apv in (selectedRelease?.approvals || [])" :key="apv.id">
                                             <span x-show="apv.target_phase === gate.phase && apv.status === 'Approved'">
@@ -3081,15 +3081,15 @@
                                         </template>
                                     </div>
                                 </template>
-                                <!-- Show who needs to sign off (pending gate) -->
-                                <template x-if="getReleasePhaseIndex(selectedRelease?.status) === getReleasePhaseIndex(gate.phase) - 1">
+                                <!-- Show who needs to sign off (release is currently at this gate) -->
+                                <template x-if="getReleasePhaseIndex(selectedRelease?.status) === getReleasePhaseIndex(gate.phase)">
                                     <div class="ml-6 mt-1.5 text-[10px] text-amber-600 font-medium">
                                         <template x-for="apv in (selectedRelease?.approvals || [])" :key="apv.id">
-                                            <span x-show="apv.target_phase === gate.phase && apv.status === 'Pending'">
+                                            <span x-show="apv.status === 'Pending'">
                                                 Awaiting sign-off from <span x-text="apv.approver_name || gate.role"></span>
                                             </span>
                                         </template>
-                                        <template x-if="!selectedRelease?.approvals || !selectedRelease.approvals.some(a => a.target_phase === gate.phase && a.status === 'Pending')">
+                                        <template x-if="!selectedRelease?.approvals || !selectedRelease.approvals.some(a => a.status === 'Pending')">
                                             <span>Awaiting sign-off from <span x-text="gate.role"></span></span>
                                         </template>
                                     </div>

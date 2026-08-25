@@ -96,9 +96,9 @@ def _compute_phase_gates(release, items, v_cycle_index):
     current_idx = v_cycle_index
 
     def phase_reached(phase_name):
-        """True if the release has reached or passed the given phase."""
+        """True if the release has passed this gate (moved beyond this phase)."""
         idx = release_phases.index(phase_name) if phase_name in release_phases else -1
-        return current_idx >= idx
+        return current_idx > idx
 
     gates = []
     for phase, (role, desc, checklist) in PHASE_GATE_ROLES.items():
@@ -200,7 +200,7 @@ def _is_checklist_item_satisfied(item_text, phase, gate_reached, has_items,
 
 
 def phase_reached(release, phase_name):
-    """Check if the release has reached or passed the given phase."""
+    """Check if the release has passed the given phase (moved beyond it)."""
     release_phases = [p for p, _, _ in V_CYCLE]
     current_idx = -1
     for i, (p, _, _) in enumerate(V_CYCLE):
@@ -208,7 +208,7 @@ def phase_reached(release, phase_name):
             current_idx = i
             break
     target_idx = release_phases.index(phase_name) if phase_name in release_phases else -1
-    return current_idx >= target_idx
+    return current_idx > target_idx
 
 
 def _sync_release_items_to_phase(db: Session, release: Release, phase: str):

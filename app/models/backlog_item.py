@@ -6,17 +6,25 @@ from app.database import Base
 
 
 # The 9 phases of the release process, in order
-PHASES = [
+# Phases that individual backlog items go through (item-level)
+ITEM_PHASES = [
     "Requirements",
     "Design",
     "Development",
     "Testing",
+]
+
+# Phases that happen at the release level (after items are bundled)
+RELEASE_PHASES = [
     "UAT",
     "Pre-Release",
     "Release",
     "Post-Release",
     "Retrospective",
 ]
+
+# Full 9-phase process (for reference / display)
+PHASES = ITEM_PHASES + RELEASE_PHASES
 
 # Valid statuses for a backlog item
 STATUSES = ["Draft", "In Progress", "Blocked", "Done", "Cancelled"]

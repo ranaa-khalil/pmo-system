@@ -45,6 +45,34 @@ PHASE_GATE_ROLES = {
 }
 
 
+def _sync_release_items_to_phase(db: Session, release: Release, phase: str):
+    """When a release advances, update all linked backlog items to reflect
+    the release-level phase (UAT, Pre-Release, Release, Post-Release, Retrospective).
+
+    Mapping:
+      UAT           → item.current_phase = 'UAT',         status stays as-is
+      Pre-Release   → item.current_phase = 'Pre-Release',  status stays as-is
+      Release       → item.current_phase = 'Release',      status = 'Done'
+      Post-Release  → item.current_phase = 'Post-Release',  status = 'Done'
+      Retrospective → item.current_phase = 'Retrospective',  status = 'Done'
+    """
+    from app.models.release import ReleaseItem
+    from app.models.backlog_item import BacklogItem
+
+    items = db.query(BacklogItem).join(
+        ReleaseItem, ReleaseItem.backlog_item_id == BacklogItem.id
+    ).filter(ReleaseItem.release_id == release.id).all()
+
+    new_status = "Done" if phase in ("Release", "Post-Release", "Retrospective") else None
+
+    for item in items:
+        item.current_phase = phase
+        if new_status:
+            item.status = new_status
+
+    db.commit()
+
+
 @router.post("/projects/{project_id}/releases", response_model=ReleaseResponse, status_code=201)
 def create_release(
     project_id: int,
@@ -271,6 +299,7 @@ def advance_phase(
             release.status = next_phase
             if next_phase == "Released":
                 release.release_date = date.today().isoformat()
+            _sync_release_items_to_phase(db, release, next_phase)
             db.commit()
             db.refresh(release)
 
@@ -303,6 +332,7 @@ def advance_phase(
         release.status = next_phase
         if next_phase == "Released":
             release.release_date = date.today().isoformat()
+        _sync_release_items_to_phase(db, release, next_phase)
         db.commit()
         db.refresh(release)
         return {"id": release.id, "status": release.status, "message": f"Advanced to {next_phase}"}

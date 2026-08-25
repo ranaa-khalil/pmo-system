@@ -2183,9 +2183,14 @@
                                             <div class="col-span-1 min-w-0"><span class="text-[10px] text-slate-500 font-mono" x-text="item.target_release || '—'"></span></div>
                                             <div class="col-span-1 min-w-0"><span class="text-[10px] font-medium" :class="{'text-emerald-600': item.status === 'Done', 'text-brand-600': item.status === 'In Progress', 'text-rose-500': item.status === 'Blocked', 'text-slate-400': item.status === 'Draft'}" x-text="item.status"></span></div>
                                             <div class="col-span-2 flex items-center justify-end gap-1 min-w-0">
-                                                <span class="text-[10px] font-medium text-brand-600 truncate" x-text="item.current_phase"></span>
-                                                
-                                                <button @click.stop="advanceBacklogItem(item.id)" class="opacity-0 group-hover:opacity-100 text-[10px] font-medium text-brand-600 hover:text-brand-700 px-1 rounded transition-all whitespace-nowrap">→</button>
+                                                <span class="text-[10px] font-medium truncate" :class="item.current_phase === 'Testing' ? 'text-amber-600' : itemPhases.includes(item.current_phase) ? 'text-brand-600' : 'text-emerald-600'" x-text="item.current_phase"></span>
+                                                <template x-if="item.current_phase === 'Testing'">
+                                                    <span class="text-[8px] font-bold px-1 py-0.5 rounded bg-amber-50 text-amber-600 whitespace-nowrap">READY FOR RELEASE</span>
+                                                </template>
+                                                <template x-if="!itemPhases.includes(item.current_phase)">
+                                                    <span class="text-[8px] font-bold px-1 py-0.5 rounded bg-emerald-50 text-emerald-600 whitespace-nowrap" x-text="'IN ' + item.current_phase.toUpperCase()"></span>
+                                                </template>
+                                                <button @click.stop="advanceBacklogItem(item.id)" class="opacity-0 group-hover:opacity-100 text-[10px] font-medium text-brand-600 hover:text-brand-700 px-1 rounded transition-all whitespace-nowrap" x-show="itemPhases.includes(item.current_phase) && item.current_phase !== 'Testing'">→</button>
                                                 <button @click.stop="deleteBacklogItem(item.id)" class="opacity-0 group-hover:opacity-100 text-[10px] text-rose-400 hover:text-rose-600 px-1 transition-all">✕</button>
                                             </div>
                                         </div>
@@ -2255,24 +2260,42 @@
         <div class="surface rounded-2xl border border-slate-200/60 p-4 mb-4">
             <div class="flex items-center gap-2 mb-2">
                 <h3 class="text-[13px] font-semibold text-slate-800">Release Lifecycle</h3>
-                <span class="text-[10px] text-slate-400">— each release flows through these phases</span>
+                <span class="text-[10px] text-slate-400">— items: Requirements → Testing | releases: UAT → Retrospective</span>
             </div>
             <div class="flex flex-wrap items-center gap-1 text-[10px]">
+                <!-- Item-level phases -->
+                <span class="text-[9px] font-bold uppercase tracking-wider text-brand-600 mr-1">ITEM</span>
                 <template x-for="(phase, idx) in [
-                    {name:'Planning',icon:'📋'},
-                    {name:'In Progress',icon:'⚙️'},
-                    {name:'Testing',icon:'🔬'},
-                    {name:'UAT',icon:'✅'},
-                    {name:'Pre-Release',icon:'📦'},
-                    {name:'Released',icon:'🚀'},
-                    {name:'Post-Release',icon:'📊'}
+                    {name:'Requirements',icon:'📋'},
+                    {name:'Design',icon:'🎨'},
+                    {name:'Development',icon:'⚙️'},
+                    {name:'Testing',icon:'🔬'}
                 ]" :key="phase.name">
                     <div class="flex items-center gap-1">
                         <span class="text-[12px]" x-text="phase.icon"></span>
                         <span class="text-slate-500 font-medium" x-text="phase.name"></span>
-                        <span x-show="idx < 6" class="text-slate-300 mx-0.5">→</span>
+                        <span x-show="idx < 3" class="text-slate-300 mx-0.5">→</span>
                     </div>
                 </template>
+                <span class="text-slate-300 mx-1">|</span>
+                <!-- Release-level phases -->
+                <span class="text-[9px] font-bold uppercase tracking-wider text-emerald-600 mr-1">RELEASE</span>
+                <template x-for="(phase, idx) in [
+                    {name:'UAT',icon:'✅'},
+                    {name:'Pre-Release',icon:'📦'},
+                    {name:'Released',icon:'🚀'},
+                    {name:'Post-Release',icon:'📊'},
+                    {name:'Retrospective',icon:'🔄'}
+                ]" :key="phase.name">
+                    <div class="flex items-center gap-1">
+                        <span class="text-[12px]" x-text="phase.icon"></span>
+                        <span class="text-slate-500 font-medium" x-text="phase.name"></span>
+                        <span x-show="idx < 4" class="text-slate-300 mx-0.5">→</span>
+                    </div>
+                </template>
+            </div>
+            <div class="text-[10px] text-slate-400 mt-2 leading-relaxed">
+                Features and bugs advance through <strong>item phases</strong> (Requirements → Testing). Once in Testing, they are bundled into a release. The release then advances through <strong>release phases</strong> (UAT → Retrospective) as a whole — UAT, deployment, and monitoring happen at the release level, not per-item.
             </div>
         </div>
 
@@ -2415,10 +2438,20 @@
                 <div>
                     <div class="text-[10px] text-slate-400 mb-1.5">Phase Progress</div>
                     <div class="flex items-center gap-0.5">
-                        <template x-for="(phase, idx) in phases" :key="phase">
+                        <template x-for="(phase, idx) in itemPhases" :key="phase">
                             <div class="flex items-center flex-1">
-                                <div class="flex-1 h-1.5 rounded-full" :class="phases.indexOf(viewingBacklogItem?.current_phase) >= idx ? 'bg-brand-500' : 'bg-slate-100'"></div>
+                                <div class="flex-1 h-1.5 rounded-full" :class="itemPhases.indexOf(viewingBacklogItem?.current_phase) >= idx ? 'bg-brand-500' : 'bg-slate-100'"></div>
                                 <span class="text-[8px] text-slate-400 mx-0.5" x-text="idx + 1"></span>
+                            </div>
+                        </template>
+                        <!-- Release phases (shown after Testing, driven by release) -->
+                        <template x-if="viewingBacklogItem && !itemPhases.includes(viewingBacklogItem.current_phase)">
+                            <div class="flex items-center gap-0.5 ml-2 pl-2 border-l border-slate-200">
+                                <template x-for="(phase, idx) in releasePhases" :key="phase">
+                                    <div class="flex items-center flex-1">
+                                        <div class="flex-1 h-1.5 rounded-full" :class="releasePhases.indexOf(viewingBacklogItem?.current_phase) >= idx ? 'bg-emerald-500' : 'bg-slate-100'"></div>
+                                    </div>
+                                </template>
                             </div>
                         </template>
                     </div>
@@ -2526,7 +2559,7 @@
                     <button @click="viewingBacklogItem = null" class="text-[12px] text-slate-500 hover:text-slate-700">Close</button>
                     <div class="flex items-center gap-2">
                         <button @click="editBacklogItem(viewingBacklogItem)" class="text-[12px] font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-all">✏ Edit</button>
-                        <button @click="advanceBacklogItem(viewingBacklogItem.id); viewingBacklogItem = null;" class="text-[12px] font-medium text-white btn-primary px-3 py-1.5 rounded-lg transition-all">Advance Phase →</button>
+                        <button @click="advanceBacklogItem(viewingBacklogItem.id)" class="text-[12px] font-medium text-white btn-primary px-3 py-1.5 rounded-lg transition-all" x-text="itemPhases.includes(viewingBacklogItem?.current_phase) && viewingBacklogItem?.current_phase === 'Testing' ? 'In Testing — add to release →' : 'Advance Phase →'"></button>
                     </div>
                 </div>
             </template>
@@ -3833,7 +3866,12 @@ function pmoApp() {
         depSearchFocused: false,
         filteredDeps: [],  // filtered results for dependency autocomplete
         epicForm: { name: '', description: '' },
+        // Full 9-phase process (for reference)
         phases: ['Requirements', 'Design', 'Development', 'Testing', 'UAT', 'Pre-Release', 'Release', 'Post-Release', 'Retrospective'],
+        // Item-level phases (features/bugs advance through these only)
+        itemPhases: ['Requirements', 'Design', 'Development', 'Testing'],
+        // Release-level phases (the release as a whole goes through these)
+        releasePhases: ['UAT', 'Pre-Release', 'Release', 'Post-Release', 'Retrospective'],
 
         // ===== Forms state =====
         formTemplates: [],

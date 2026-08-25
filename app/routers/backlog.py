@@ -99,31 +99,45 @@ def advance_backlog_phase(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Advance a backlog item to the next phase in the 9-phase process."""
+    """Advance a backlog item to the next item-level phase.
+
+    Items only advance through Requirements → Design → Development → Testing.
+    After Testing, items must be bundled into a release — the release then
+    goes through UAT → Pre-Release → Release → Post-Release → Retrospective.
+    """
+    from app.models.backlog_item import ITEM_PHASES
+
     item = db.query(BacklogItem).filter(BacklogItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Backlog item not found")
 
-    current_idx = PHASES.index(item.current_phase) if item.current_phase in PHASES else 0
-    if current_idx < len(PHASES) - 1:
-        item.current_phase = PHASES[current_idx + 1]
-        if item.status == "Draft":
-            item.status = "In Progress"
+    current_idx = ITEM_PHASES.index(item.current_phase) if item.current_phase in ITEM_PHASES else 0
 
-        # GitHub sync on entering Development
-        if item.current_phase == "Development" and not item.github_issue_number:
-            project = db.query(Project).filter(Project.id == item.project_id).first()
-            if project and project.github_repo:
-                gh = GitHubService(token=settings.github_token or None)
-                issue = gh.create_issue(
-                    repo=project.github_repo,
-                    title=item.title,
-                    body=f"**PMO Backlog Item**\n\n{item.description or ''}\n\n---\nPriority: {item.priority}",
-                    labels=["from-pmo"],
-                )
-                if issue:
-                    item.github_issue_number = issue["number"]
-                gh.close()
+    # Items cannot advance beyond Testing on their own
+    if current_idx >= len(ITEM_PHASES) - 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Item has reached Testing. Add it to a release to continue through UAT, Pre-Release, and Release phases.",
+        )
+
+    item.current_phase = ITEM_PHASES[current_idx + 1]
+    if item.status == "Draft":
+        item.status = "In Progress"
+
+    # GitHub sync on entering Development
+    if item.current_phase == "Development" and not item.github_issue_number:
+        project = db.query(Project).filter(Project.id == item.project_id).first()
+        if project and project.github_repo:
+            gh = GitHubService(token=settings.github_token or None)
+            issue = gh.create_issue(
+                repo=project.github_repo,
+                title=item.title,
+                body=f"**PMO Backlog Item**\n\n{item.description or ''}\n\n---\nPriority: {item.priority}",
+                labels=["from-pmo"],
+            )
+            if issue:
+                item.github_issue_number = issue["number"]
+            gh.close()
 
     db.commit()
     db.refresh(item)

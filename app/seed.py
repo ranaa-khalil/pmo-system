@@ -19,6 +19,8 @@ from app.models.user_task import UserTask
 from app.models.release import Release, ReleaseItem
 from app.models.form_template import FormTemplate, FormInstance
 from app.models.stakeholder import Stakeholder
+from app.models.notification import NotificationPreference
+from app.models.activity_log import ActivityLog
 from app.services.auth import hash_password
 
 
@@ -1079,6 +1081,50 @@ def seed():
     total_forms = db.query(FormInstance).count()
     total_approvals = db.query(ApprovalRequest).count()
     total_users = db.query(User).count()
+
+    # --- Notification Preferences ---
+    for u in db.query(User).all():
+        if not db.query(NotificationPreference).filter(NotificationPreference.user_id == u.id).first():
+            db.add(NotificationPreference(user_id=u.id))
+    db.commit()
+    print(f"✅ Created notification preferences for {db.query(User).count()} users")
+
+    # --- Seed Activity Log Entries ---
+    from datetime import datetime as _dt
+    activity_entries = [
+        ActivityLog(user_id=1, user_name="Rana Khalil", project_id=1,
+                    entity_type="release", entity_id=1, action="created",
+                    summary="Created release v1.0.0 — PNU Cloud Foundation",
+                    created_at=_dt.now() - timedelta(days=30)),
+        ActivityLog(user_id=1, user_name="Rana Khalil", project_id=1,
+                    entity_type="backlog_item", entity_id=1, action="advanced",
+                    summary="Advanced 'User Registration & Authentication' to Development",
+                    created_at=_dt.now() - timedelta(days=25)),
+        ActivityLog(user_id=4, user_name="Fatima Al-Zahra", project_id=1,
+                    entity_type="approval", entity_id=1, action="approved",
+                    summary="Approved: Release v1.0.0 Planning gate (Product Owner)",
+                    created_at=_dt.now() - timedelta(days=20)),
+        ActivityLog(user_id=1, user_name="Rana Khalil", project_id=1,
+                    entity_type="backlog_item", entity_id=5, action="advanced",
+                    summary="Advanced 'Course Catalog API' to Testing",
+                    created_at=_dt.now() - timedelta(days=10)),
+        ActivityLog(user_id=2, user_name="Ahmed Eldosoukey", project_id=3,
+                    entity_type="release", entity_id=3, action="created",
+                    summary="Created release v1.0.0 — GO Telecom Integration",
+                    created_at=_dt.now() - timedelta(days=7)),
+        ActivityLog(user_id=1, user_name="Rana Khalil", project_id=1,
+                    entity_type="task", entity_id=1, action="created",
+                    summary="Created task: Review PNU Cloud architecture",
+                    created_at=_dt.now() - timedelta(days=5)),
+        ActivityLog(user_id=3, user_name="Khalid Al-Harbi", project_id=4,
+                    entity_type="backlog_item", entity_id=20, action="sent_back",
+                    summary="Sent back 'Multi-region failover' from Testing to Development",
+                    created_at=_dt.now() - timedelta(days=3)),
+    ]
+    for entry in activity_entries:
+        db.add(entry)
+    db.commit()
+    print(f"✅ Created {len(activity_entries)} activity log entries")
 
     db.close()
     print(f"\n📊 COMPREHENSIVE SAMPLE DATA SUMMARY:")

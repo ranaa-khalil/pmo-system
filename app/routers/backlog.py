@@ -7,6 +7,7 @@ from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.project import Project
 from app.models.backlog_item import BacklogItem, PHASES
+from app.services.notifications import log_activity, notify_item_sent_back
 from app.schemas.backlog import (
     BacklogItemCreate,
     BacklogItemUpdate,
@@ -141,6 +142,11 @@ def advance_backlog_phase(
 
     db.commit()
     db.refresh(item)
+
+    log_activity(db, current_user.id, current_user.name, item.project_id,
+                 "backlog_item", item.id, "advanced",
+                 f"Advanced '{item.title}' to {item.current_phase}")
+
     return item
 
 
@@ -169,6 +175,11 @@ def send_back_to_development(
     item.status = "In Progress"
     db.commit()
     db.refresh(item)
+
+    log_activity(db, current_user.id, current_user.name, item.project_id,
+                 "backlog_item", item.id, "sent_back",
+                 f"Sent back '{item.title}' from Testing to Development")
+
     return item
 
 

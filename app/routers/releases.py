@@ -13,6 +13,7 @@ from app.models.release import Release, ReleaseItem, RELEASE_STATUSES
 from app.models.milestone import Milestone
 from app.models.form_template import FormInstance, FormTemplate
 from app.models.approval import ApprovalRequest, ApprovalStep
+from app.services.notifications import log_activity
 from app.schemas.release import ReleaseCreate, ReleaseUpdate, ReleaseResponse
 
 router = APIRouter(prefix="/api", tags=["releases"])
@@ -352,6 +353,11 @@ def create_release(
     db.add(db_release)
     db.commit()
     db.refresh(db_release)
+
+    log_activity(db, current_user.id, current_user.name, project_id,
+                 "release", db_release.id, "created",
+                 f"Created release {db_release.version} — {db_release.name}")
+
     return db_release
 
 

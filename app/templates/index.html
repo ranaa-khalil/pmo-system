@@ -340,6 +340,54 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-4">
+                    <!-- Notification Bell -->
+                    <div class="relative" @click.away="notifPanelOpen = false">
+                        <button @click="toggleNotifPanel()" class="relative p-2 rounded-lg hover:bg-ink-100 transition-colors">
+                            <svg class="w-5 h-5 text-ink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                            </svg>
+                            <span x-show="unreadCount > 0" x-cloak
+                                  class="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center"
+                                  x-text="unreadCount > 9 ? '9+' : unreadCount"></span>
+                        </button>
+                        <!-- Notification Dropdown Panel -->
+                        <div x-show="notifPanelOpen" x-cloak
+                             x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="opacity-0 scale-95 -translate-y-2"
+                             x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+                             x-transition:leave="transition ease-in duration-150"
+                             x-transition:leave-start="opacity-100 scale-100"
+                             x-transition:leave-end="opacity-0 scale-95"
+                             class="absolute right-0 top-full mt-2 w-96 bg-white rounded-2xl shadow-xl border border-ink-200/60 overflow-hidden z-50">
+                            <div class="px-4 py-3 border-b border-ink-100 flex items-center justify-between">
+                                <span class="text-[13px] font-semibold text-ink-800">Notifications</span>
+                                <button x-show="unreadCount > 0" @click="markAllNotifsRead()" class="text-[11px] text-brand-600 hover:text-brand-700 font-medium">Mark all read</button>
+                            </div>
+                            <div class="max-h-96 overflow-y-auto">
+                                <template x-if="notifications.length === 0">
+                                    <div class="px-4 py-8 text-center">
+                                        <svg class="w-8 h-8 mx-auto text-ink-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                                        <p class="text-[12px] text-ink-400">No notifications yet</p>
+                                    </div>
+                                </template>
+                                <template x-for="n in notifications" :key="n.id">
+                                    <div @click="markNotifRead(n)" class="px-4 py-3 border-b border-ink-50 hover:bg-ink-50/50 cursor-pointer transition-colors"
+                                         :class="!n.read ? 'bg-brand-50/30' : ''">
+                                        <div class="flex items-start gap-3">
+                                            <div class="w-8 h-8 rounded-lg flex items-center justify-center text-[14px] flex-shrink-0" :class="notifColor(n.type)" x-text="notifIcon(n.type)"></div>
+                                            <div class="flex-1 min-w-0">
+                                                <p class="text-[12px] font-semibold text-ink-800" x-text="n.title"></p>
+                                                <p x-show="n.body" class="text-[11px] text-ink-500 mt-0.5 line-clamp-2" x-text="n.body"></p>
+                                                <p class="text-[10px] text-ink-400 mt-1" x-text="formatTimeAgo(n.created_at)"></p>
+                                            </div>
+                                            <button x-show="!n.read" class="w-2 h-2 rounded-full bg-brand-500 flex-shrink-0 mt-1.5"></button>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50/80 border border-emerald-100/50">
                         <span class="relative flex w-2 h-2">
                             <span class="absolute inline-flex w-full h-full rounded-full bg-emerald-400 opacity-60 animate-ping"></span>
@@ -732,6 +780,30 @@
                             <div class="text-[20px] font-bold" :class="taskSummary.overdue > 0 ? 'text-rose-600' : 'text-ink-700'" x-text="taskSummary.overdue ?? 0"></div>
                             <div class="text-[10px] text-ink-400 uppercase tracking-wide mt-0.5">Overdue</div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Activity Feed -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-5" x-show="route === 'dashboard'">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-[14px] font-semibold text-ink-800">Recent Activity</h2>
+                        <button @click="loadActivity()" class="text-[12px] font-medium text-brand-600 hover:text-brand-700">Refresh</button>
+                    </div>
+                    <template x-if="activityFeed.length === 0">
+                        <p class="text-[12px] text-ink-400 py-4 text-center">No recent activity</p>
+                    </template>
+                    <div class="space-y-1">
+                        <template x-for="a in activityFeed.slice(0, 8)" :key="a.id">
+                            <div class="flex items-start gap-3 py-2 px-2 rounded-lg hover:bg-ink-50/50 transition-colors">
+                                <div class="w-7 h-7 rounded-lg bg-ink-100 flex items-center justify-center text-[12px] flex-shrink-0" :class="activityColor(a.action)" x-text="activityIcon(a.action)"></div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-[12px] text-ink-700" x-text="a.summary"></p>
+                                    <p class="text-[10px] text-ink-400 mt-0.5">
+                                        <span x-text="a.user_name || 'System'"></span> · <span x-text="formatTimeAgo(a.created_at)"></span>
+                                    </p>
+                                </div>
+                            </div>
+                        </template>
                     </div>
                 </div>
 
@@ -1132,10 +1204,16 @@
                         <h1 class="text-[28px] font-bold text-ink-900 tracking-tight">My Tasks</h1>
                         <p class="text-[14px] text-ink-500 mt-1.5">Personal to-dos with due dates and project links.</p>
                     </div>
-                    <button @click="openTaskModal()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 transition-colors shadow-sm">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-                        New Task
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button @click="exportTasks()" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-600 hover:text-brand-600 px-3 py-2 rounded-lg border border-ink-200 hover:bg-ink-50 transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                            Export
+                        </button>
+                        <button @click="openTaskModal()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 transition-colors shadow-sm">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                            New Task
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Summary cards -->
@@ -1784,6 +1862,63 @@
 
                 <!-- Overview tab — Connected Traceability Dashboard -->
                 <div x-show="projectTab==='overview'" class="max-w-5xl space-y-4">
+                    <!-- Project Health Card -->
+                    <div class="surface rounded-2xl border border-ink-200/60 p-5" x-show="projectHealth">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-[14px] font-semibold text-ink-800">Project Health</h3>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[11px] text-ink-400">Score</span>
+                                <span class="text-[20px] font-bold" :class="healthColor(projectHealth?.health_score).split(' ')[0]"
+                                      x-text="projectHealth?.health_score + '%'"></span>
+                                <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full" :class="healthColor(projectHealth?.health_score)"
+                                      x-text="projectHealth?.status"></span>
+                            </div>
+                        </div>
+                        <!-- Health progress bar -->
+                        <div class="w-full h-2 rounded-full bg-ink-100 mb-4 overflow-hidden">
+                            <div class="h-full rounded-full transition-all duration-500" :class="healthBarColor(projectHealth?.health_score)"
+                                 :style="`width: ${projectHealth?.health_score}%`"></div>
+                        </div>
+                        <!-- Health breakdown -->
+                        <div class="grid grid-cols-4 gap-3" x-show="projectHealth">
+                            <div class="text-center p-2.5 rounded-xl bg-ink-50">
+                                <div class="text-[16px] font-bold text-ink-800" x-text="projectHealth?.schedule_score + '%'"></div>
+                                <div class="text-[9px] text-ink-400 uppercase tracking-wide mt-0.5">Schedule</div>
+                            </div>
+                            <div class="text-center p-2.5 rounded-xl bg-ink-50">
+                                <div class="text-[16px] font-bold text-ink-800" x-text="projectHealth?.approval_score + '%'"></div>
+                                <div class="text-[9px] text-ink-400 uppercase tracking-wide mt-0.5">Approvals</div>
+                            </div>
+                            <div class="text-center p-2.5 rounded-xl bg-ink-50">
+                                <div class="text-[16px] font-bold text-ink-800" x-text="projectHealth?.task_score + '%'"></div>
+                                <div class="text-[9px] text-ink-400 uppercase tracking-wide mt-0.5">Tasks</div>
+                            </div>
+                            <div class="text-center p-2.5 rounded-xl bg-ink-50">
+                                <div class="text-[16px] font-bold text-ink-800" x-text="projectHealth?.kpi_score + '%'"></div>
+                                <div class="text-[9px] text-ink-400 uppercase tracking-wide mt-0.5">KPIs</div>
+                            </div>
+                        </div>
+                        <!-- Risk indicators -->
+                        <div class="flex items-center gap-4 mt-3 pt-3 border-t border-ink-100">
+                            <div class="flex items-center gap-1.5" x-show="projectHealth?.pending_approvals > 0">
+                                <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                                <span class="text-[11px] text-ink-600"><span x-text="projectHealth?.pending_approvals"></span> pending approval<span x-show="projectHealth?.pending_approvals > 1">s</span></span>
+                            </div>
+                            <div class="flex items-center gap-1.5" x-show="projectHealth?.overdue_tasks > 0">
+                                <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                                <span class="text-[11px] text-ink-600"><span x-text="projectHealth?.overdue_tasks"></span> overdue task<span x-show="projectHealth?.overdue_tasks > 1">s</span></span>
+                            </div>
+                            <div class="flex items-center gap-1.5" x-show="projectHealth?.kpis_below_target > 0">
+                                <span class="w-2 h-2 rounded-full bg-orange-500"></span>
+                                <span class="text-[11px] text-ink-600"><span x-text="projectHealth?.kpis_below_target"></span> KPI<span x-show="projectHealth?.kpis_below_target > 1">s</span> below target</span>
+                            </div>
+                            <div class="flex items-center gap-1.5" x-show="projectHealth?.pending_approvals === 0 && projectHealth?.overdue_tasks === 0 && projectHealth?.kpis_below_target === 0">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                <span class="text-[11px] text-ink-600">No active risks</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Vision banner -->
                     <div class="bg-brand-600 rounded-2xl p-5 text-white shadow-sm">
                         <div class="flex items-center gap-2 mb-1">
@@ -2015,6 +2150,13 @@
 
                 <!-- KPIs tab -->
                 <div x-show="projectTab==='kpis'" class="max-w-5xl space-y-4">
+                    <!-- Export button -->
+                    <div class="flex justify-end">
+                        <button @click="exportKPIs(selectedProject.id)" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-600 hover:text-brand-600 px-3 py-1.5 rounded-lg border border-ink-200 hover:bg-ink-50 transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                            Export CSV
+                        </button>
+                    </div>
                     <!-- Tab intro -->
                     <div class="surface rounded-2xl border border-ink-200/60 p-4 bg-gradient-to-br from-brand-50/30 to-violet-50/20">
                         <div class="flex items-start gap-3">
@@ -2293,6 +2435,13 @@
 
     <!-- Backlog tab -->
     <div x-show="projectTab==='backlog'" class="max-w-6xl">
+        <!-- Export button -->
+        <div class="flex justify-end mb-2">
+            <button @click="exportBacklog(selectedProject.id)" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-600 hover:text-brand-600 px-3 py-1.5 rounded-lg border border-ink-200 hover:bg-ink-50 transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                Export CSV
+            </button>
+        </div>
         <!-- Form: Epic / Feature toggle -->
         <div id="backlog-form" class="surface rounded-2xl border border-ink-200/60 p-5 mb-4">
             <!-- Mode toggle -->
@@ -4635,6 +4784,13 @@ function pmoApp() {
         toast: { show: false, message: '', type: 'success' },
         currentTime: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
 
+        // ===== Notification state =====
+        notifications: [],
+        unreadCount: 0,
+        notifPanelOpen: false,
+        activityFeed: [],
+        projectHealth: null,
+
         // ===== Project detail state =====
         selectedProject: null,
         selectedClient: null,
@@ -4922,7 +5078,9 @@ function pmoApp() {
                 }
             }
             if (this.isLoggedIn) {
-                await Promise.all([this.loadClients(), this.loadProjects(), this.loadDashboard(), this.loadRoles(), this.loadUsers()]);
+                await Promise.all([this.loadClients(), this.loadProjects(), this.loadDashboard(), this.loadRoles(), this.loadUsers(), this.loadNotifications(), this.loadActivity()]);
+                // Poll notifications every 30 seconds
+                setInterval(() => this.loadNotifications(), 30000);
             }
             setInterval(() => {
                 this.currentTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -4944,6 +5102,140 @@ function pmoApp() {
                 this.dashError = e?.message || 'Failed to load dashboard data';
                 console.error('Dashboard load error:', e);
             }
+        },
+
+        // ===== Notification & Activity methods =====
+        async loadNotifications() {
+            try {
+                const data = await this.api('GET', '/notifications');
+                this.notifications = data.notifications || [];
+                this.unreadCount = data.unread_count || 0;
+            } catch (e) { /* silent fail */ }
+        },
+
+        async loadActivity() {
+            try {
+                this.activityFeed = await this.api('GET', '/activity?limit=15');
+            } catch (e) { /* silent fail */ }
+        },
+
+        toggleNotifPanel() {
+            this.notifPanelOpen = !this.notifPanelOpen;
+        },
+
+        async markNotifRead(notif) {
+            if (notif.read) return;
+            try {
+                await this.api('PUT', `/notifications/${notif.id}/read`);
+                notif.read = true;
+                this.unreadCount = Math.max(0, this.unreadCount - 1);
+            } catch (e) { /* silent fail */ }
+        },
+
+        async markAllNotifsRead() {
+            try {
+                await this.api('PUT', '/notifications/read-all');
+                this.notifications.forEach(n => n.read = true);
+                this.unreadCount = 0;
+            } catch (e) { /* silent fail */ }
+        },
+
+        async deleteNotif(notif) {
+            try {
+                await this.api('DELETE', `/notifications/${notif.id}`);
+                this.notifications = this.notifications.filter(n => n.id !== notif.id);
+                if (!notif.read) this.unreadCount = Math.max(0, this.unreadCount - 1);
+            } catch (e) { /* silent fail */ }
+        },
+
+        notifIcon(type) {
+            const icons = {
+                approval_request: '📋', approval_approved: '✅', approval_rejected: '❌',
+                task_due: '⏰', task_overdue: '⚠️', release_advanced: '🚀',
+                item_sent_back: '↩️', phase_changed: '📊',
+            };
+            return icons[type] || '🔔';
+        },
+
+        notifColor(type) {
+            const colors = {
+                approval_request: 'bg-blue-50 text-blue-600',
+                approval_approved: 'bg-emerald-50 text-emerald-600',
+                approval_rejected: 'bg-rose-50 text-rose-600',
+                task_due: 'bg-amber-50 text-amber-600',
+                task_overdue: 'bg-rose-50 text-rose-600',
+                release_advanced: 'bg-violet-50 text-violet-600',
+                item_sent_back: 'bg-orange-50 text-orange-600',
+            };
+            return colors[type] || 'bg-ink-100 text-ink-600';
+        },
+
+        formatTimeAgo(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diff = Math.floor((now - date) / 1000);
+            if (diff < 60) return 'just now';
+            if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+            if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+            if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        },
+
+        activityIcon(action) {
+            const icons = {
+                created: '✨', updated: '✏️', deleted: '🗑️', advanced: '➡️',
+                approved: '✅', rejected: '❌', assigned: '👤', sent_back: '↩️',
+                signed_off: '📝',
+            };
+            return icons[action] || '•';
+        },
+
+        activityColor(action) {
+            const colors = {
+                created: 'text-emerald-500', updated: 'text-blue-500',
+                deleted: 'text-rose-500', advanced: 'text-violet-500',
+                approved: 'text-emerald-500', rejected: 'text-rose-500',
+                assigned: 'text-amber-500', sent_back: 'text-orange-500',
+            };
+            return colors[action] || 'text-ink-400';
+        },
+
+        async loadProjectHealth(projectId) {
+            try {
+                this.projectHealth = await this.api('GET', `/projects/${projectId}/health`);
+            } catch (e) {
+                this.projectHealth = null;
+            }
+        },
+
+        healthColor(score) {
+            if (score >= 80) return 'text-emerald-600 bg-emerald-50';
+            if (score >= 60) return 'text-amber-600 bg-amber-50';
+            if (score >= 40) return 'text-orange-600 bg-orange-50';
+            return 'text-rose-600 bg-rose-50';
+        },
+
+        healthBarColor(score) {
+            if (score >= 80) return 'bg-emerald-500';
+            if (score >= 60) return 'bg-amber-500';
+            if (score >= 40) return 'bg-orange-500';
+            return 'bg-rose-500';
+        },
+
+        exportBacklog(projectId) {
+            const token = localStorage.getItem('pmo_token');
+            window.open(`/api/export/backlog/${projectId}?token=${token}`, '_blank');
+        },
+
+        exportTasks() {
+            const token = localStorage.getItem('pmo_token');
+            window.open(`/api/export/tasks?token=${token}`, '_blank');
+        },
+
+        exportKPIs(projectId) {
+            const token = localStorage.getItem('pmo_token');
+            window.open(`/api/export/kpis/${projectId}?token=${token}`, '_blank');
         },
 
         // Chart.js instances
@@ -5415,7 +5707,7 @@ function pmoApp() {
             this.route = 'project-detail';
             this.projectTab = 'overview';
             this.initEnvForm();
-            await Promise.all([this.loadVision(), this.loadKPIs(), this.loadRoadmaps(), this.loadBacklog(), this.loadForms(), this.loadApprovals(), this.loadStakeholders(), this.loadReleases(), this.loadTraceability(), this.loadPersonas(), this.loadTestAccounts()]);
+            await Promise.all([this.loadVision(), this.loadKPIs(), this.loadRoadmaps(), this.loadBacklog(), this.loadForms(), this.loadApprovals(), this.loadStakeholders(), this.loadReleases(), this.loadTraceability(), this.loadPersonas(), this.loadTestAccounts(), this.loadProjectHealth(project.id)]);
         },
 
         backToProjects() {

@@ -9,6 +9,7 @@ from app.models.user import User
 from app.models.user_task import UserTask, TASK_STATUSES, TASK_PRIORITIES
 from app.models.project import Project
 from app.models.milestone import Milestone
+from app.services.notifications import log_activity
 from app.schemas.user_task import UserTaskCreate, UserTaskUpdate, UserTaskResponse
 
 router = APIRouter(prefix="/api", tags=["user-tasks"])
@@ -125,6 +126,11 @@ def create_task(
     db.add(db_task)
     db.commit()
     db.refresh(db_task)
+
+    log_activity(db, current_user.id, current_user.name, task.project_id,
+                 "task", db_task.id, "created",
+                 f"Created task: {db_task.title}")
+
     return _enrich(db_task, db)
 
 

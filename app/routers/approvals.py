@@ -7,6 +7,9 @@ from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.project import Project
 from app.models.approval import ApprovalRequest, ApprovalStep
+from app.services.notifications import (
+    notify_approval_created, notify_approval_result, log_activity,
+)
 from app.schemas.approval import (
     ApprovalRequestCreate,
     ApprovalRequestResponse,
@@ -72,7 +75,26 @@ def create_approval_request(
     db.refresh(request)
 
     # Load steps for response (with approver names)
-    return _enrich_steps(db, request)
+    result = _enrich_steps(db, request)
+
+    # Notify the first approver
+    first_step = result.steps[0] if result.steps else None
+    if first_step and first_step.approver_id:
+        release_name = ""
+        if request.release_id:
+            from app.models.release import Release
+            rel = db.query(Release).filter(Release.id == request.release_id).first()
+            release_name = f"{rel.version} — {rel.name}" if rel else ""
+        notify_approval_created(
+            db, request.id, first_step.role_name,
+            first_step.approver_id, project_id, release_name,
+        )
+        log_activity(db, current_user.id, current_user.name, project_id,
+                     "approval", request.id, "created",
+                     f"Created approval request: {request.title}")
+
+    db.commit()
+    return result
 
 
 @router.get("/projects/{project_id}/approvals", response_model=List[ApprovalRequestWithStepsResponse])
@@ -160,6 +182,21 @@ def approve_step(
 
                 # Auto-create the next phase's approval
                 _create_phase_approval(db, release, current_user)
+
+        # Notify the PM (requested_by) that the approval was approved
+        if request.requested_by:
+            release_name = ""
+            if request.release_id:
+                from app.models.release import Release
+                rel = db.query(Release).filter(Release.id == request.release_id).first()
+                release_name = f"{rel.version} — {rel.name}" if rel else ""
+            notify_approval_result(
+                db, True, current_user.name, release_name,
+                step.role_name, request.requested_by, request.project_id,
+            )
+        log_activity(db, current_user.id, current_user.name, request.project_id,
+                     "approval", request.id, "approved",
+                     f"Approved: {request.title} ({step.role_name})")
     else:
         # Advance to next step
         request.current_step = step.step_order + 1
@@ -198,6 +235,21 @@ def reject_step(
 
     # Reject the entire request
     request.status = "Rejected"
+
+    # Notify the PM that the approval was rejected
+    if request.requested_by:
+        release_name = ""
+        if request.release_id:
+            from app.models.release import Release
+            rel = db.query(Release).filter(Release.id == request.release_id).first()
+            release_name = f"{rel.version} — {rel.name}" if rel else ""
+        notify_approval_result(
+            db, False, current_user.name, release_name,
+            step.role_name, request.requested_by, request.project_id,
+        )
+    log_activity(db, current_user.id, current_user.name, request.project_id,
+                 "approval", request.id, "rejected",
+                 f"Rejected: {request.title} ({step.role_name})")
 
     db.commit()
     db.refresh(request)

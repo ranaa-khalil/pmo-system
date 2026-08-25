@@ -18,6 +18,8 @@ from app.models.stakeholder import Stakeholder
 from app.models.release import Release, ReleaseItem
 from app.models.user_persona import UserPersona
 from app.models.project_test_account import ProjectTestAccount
+from app.models.notification import Notification, NotificationPreference
+from app.models.activity_log import ActivityLog
 
 __all__ = [
     "Client", "Project", "User", "Role", "RoleAssignment",
@@ -29,4 +31,6 @@ __all__ = [
     "Stakeholder",
     "Release", "ReleaseItem",
     "UserPersona", "ProjectTestAccount",
+    "Notification", "NotificationPreference",
+    "ActivityLog",
 ]

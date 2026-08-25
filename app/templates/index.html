@@ -2271,7 +2271,7 @@
     <!-- PDF Viewer Modal -->
     <div x-show="pdfViewerUrl" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" @keydown.escape.window="pdfViewerUrl = null">
         <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" @click="pdfViewerUrl = null"></div>
-        <div class="relative surface rounded-3xl shadow-modal w-full max-w-4xl h-[85vh] overflow-hidden modal-enter border border-slate-100 flex flex-col">
+        <div class="relative surface rounded-3xl shadow-modal w-full max-w-4xl h-[85vh] overflow-hidden modal-enter border border-slate-100">
             <div class="flex items-center justify-between px-6 py-3 border-b border-slate-100 bg-white">
                 <h3 class="text-[14px] font-bold text-slate-900">Sign-off Document</h3>
                 <div class="flex items-center gap-2">
@@ -2285,7 +2285,9 @@
                     </button>
                 </div>
             </div>
-            <iframe :src="pdfViewerUrl" class="flex-1 w-full bg-slate-50" frameborder="0"></iframe>
+            <object :data="pdfViewerUrl" type="application/pdf" class="w-full" style="height: calc(85vh - 60px);">
+                <iframe :src="pdfViewerUrl" class="w-full" style="height: calc(85vh - 60px);" frameborder="0"></iframe>
+            </object>
         </div>
     </div>
 

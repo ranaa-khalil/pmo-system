@@ -742,8 +742,8 @@
 
             </div>
 
-                <!-- My Tasks Widget -->
-                <div class="surface rounded-2xl border border-slate-200/60 p-5" x-show="taskSummary && taskSummary.active > 0">
+                <!-- My Tasks Widget — dashboard only -->
+                <div class="surface rounded-2xl border border-slate-200/60 p-5" x-show="route === 'dashboard' && taskSummary && taskSummary.active > 0">
                     <div class="flex items-center justify-between mb-4">
                         <h2 class="text-[14px] font-semibold text-slate-800">My Tasks</h2>
                         <button @click="navigate('tasks')" class="text-[12px] font-medium text-brand-600 hover:text-brand-700">View all →</button>
@@ -4514,7 +4514,11 @@ function pmoApp() {
             return result;
         },
         todayISO() {
-            return new Date().toISOString().slice(0, 10);
+            const d = new Date();
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
         },
         setTodayFilter() {
             const today = this.todayISO();

@@ -1071,7 +1071,7 @@
                 </div>
 
                 <!-- Summary cards -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3" x-data="{}">
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-3" x-data="{}">
                     <div class="surface rounded-xl border border-slate-200/60 p-4">
                         <div class="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Pending</div>
                         <div class="text-[24px] font-bold text-slate-900 mt-1" x-text="taskSummary.pending ?? 0"></div>
@@ -1080,6 +1080,11 @@
                         <div class="text-[11px] font-medium text-slate-500 uppercase tracking-wide">In Progress</div>
                         <div class="text-[24px] font-bold text-blue-600 mt-1" x-text="taskSummary.in_progress ?? 0"></div>
                     </div>
+                    <!-- Due Today — clickable -->
+                    <button @click="setTodayFilter()" class="surface rounded-xl border p-4 text-left transition-all hover:shadow-md" :class="todayTaskCount > 0 ? 'border-indigo-200 ring-2 ring-indigo-200' : 'border-slate-200/60'">
+                        <div class="text-[11px] font-medium uppercase tracking-wide" :class="todayTaskCount > 0 ? 'text-indigo-600' : 'text-slate-500'">Due Today</div>
+                        <div class="text-[24px] font-bold mt-1" :class="todayTaskCount > 0 ? 'text-indigo-600' : 'text-slate-900'" x-text="todayTaskCount"></div>
+                    </button>
                     <div class="surface rounded-xl border border-amber-200/60 p-4" :class="taskSummary.due_soon > 0 ? 'ring-2 ring-amber-200' : ''">
                         <div class="text-[11px] font-medium text-amber-600 uppercase tracking-wide">Due Soon</div>
                         <div class="text-[24px] font-bold text-amber-600 mt-1" x-text="taskSummary.due_soon ?? 0"></div>
@@ -1092,11 +1097,32 @@
 
                 <!-- Filter bar -->
                 <div class="flex items-center gap-2 flex-wrap">
+                    <!-- Status filters -->
                     <button @click="taskFilter = 'all'" :class="taskFilter === 'all' ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors">All</button>
+                    <button @click="setTodayFilter()" :class="taskDateFilter === todayISO() ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors inline-flex items-center gap-1">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        Today
+                    </button>
                     <button @click="taskFilter = 'pending'" :class="taskFilter === 'pending' ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors">Pending</button>
                     <button @click="taskFilter = 'in_progress'" :class="taskFilter === 'in_progress' ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors">In Progress</button>
                     <button @click="taskFilter = 'overdue'" :class="taskFilter === 'overdue' ? 'bg-rose-600 text-white' : 'bg-white text-slate-600 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors">Overdue</button>
                     <button @click="taskFilter = 'completed'" :class="taskFilter === 'completed' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors">Completed</button>
+                    <!-- Divider -->
+                    <div class="w-px h-6 bg-slate-200 mx-1"></div>
+                    <!-- Date picker -->
+                    <div class="inline-flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5">
+                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        <input x-model="taskDateFilter" type="date" class="text-[12px] text-slate-600 border-0 outline-none bg-transparent p-0" style="min-width: 120px;">
+                    </div>
+                    <!-- Clear date button -->
+                    <button x-show="taskDateFilter" @click="taskDateFilter = null" class="px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors inline-flex items-center gap-1">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                        Clear date
+                    </button>
+                    <!-- Active filter indicator -->
+                    <span x-show="taskDateFilter" class="text-[11px] text-slate-400 ml-1">
+                        Showing tasks due: <span class="font-medium text-slate-600" x-text="formatDate(taskDateFilter)"></span>
+                    </span>
                 </div>
 
                 <!-- Task list -->
@@ -3077,6 +3103,7 @@ function pmoApp() {
         tasksLoading: false,
         taskSummary: {},
         taskFilter: 'all',
+        taskDateFilter: null,  // ISO date string or null
         showTaskModal: false,
         editingTask: null,
         taskForm: { title: '', description: '', project_id: null, milestone_id: null, due_date: '', priority: 'Medium', status: 'Pending', reminder_days: 3 },
@@ -3551,12 +3578,30 @@ function pmoApp() {
 
         // ===== Tasks (personal to-dos) =====
         get filteredTasks() {
-            if (this.taskFilter === 'all') return this.tasks;
-            if (this.taskFilter === 'overdue') return this.tasks.filter(t => t.status !== 'Completed' && t.status !== 'Cancelled' && t.due_date && new Date(t.due_date) < new Date());
-            if (this.taskFilter === 'pending') return this.tasks.filter(t => t.status === 'Pending');
-            if (this.taskFilter === 'in_progress') return this.tasks.filter(t => t.status === 'In Progress');
-            if (this.taskFilter === 'completed') return this.tasks.filter(t => t.status === 'Completed');
-            return this.tasks;
+            // Start with status filter
+            let result;
+            if (this.taskFilter === 'all') result = this.tasks;
+            else if (this.taskFilter === 'overdue') result = this.tasks.filter(t => t.status !== 'Completed' && t.status !== 'Cancelled' && t.due_date && new Date(t.due_date) < new Date(new Date().toDateString()));
+            else if (this.taskFilter === 'pending') result = this.tasks.filter(t => t.status === 'Pending');
+            else if (this.taskFilter === 'in_progress') result = this.tasks.filter(t => t.status === 'In Progress');
+            else if (this.taskFilter === 'completed') result = this.tasks.filter(t => t.status === 'Completed');
+            else result = this.tasks;
+            // Apply date filter on top if set
+            if (this.taskDateFilter) {
+                result = result.filter(t => t.due_date && t.due_date.slice(0, 10) === this.taskDateFilter);
+            }
+            return result;
+        },
+        todayISO() {
+            return new Date().toISOString().slice(0, 10);
+        },
+        setTodayFilter() {
+            const today = this.todayISO();
+            this.taskDateFilter = this.taskDateFilter === today ? null : today;
+        },
+        get todayTaskCount() {
+            const today = this.todayISO();
+            return this.tasks.filter(t => t.due_date && t.due_date.slice(0, 10) === today && t.status !== 'Completed' && t.status !== 'Cancelled').length;
         },
         async loadTasks() {
             this.tasksLoading = true;

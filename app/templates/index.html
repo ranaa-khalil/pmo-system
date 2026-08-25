@@ -2656,6 +2656,30 @@
                     </div>
                 </div>
 
+                <!-- Sign-off status -->
+                <div>
+                    <h4 class="text-[12px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Sign-Offs (Auto-tracked)</h4>
+                    <div class="grid grid-cols-2 gap-2">
+                        <template x-for="role in [
+                            {label: 'QA Lead (QA sign-off)', gate: 'Testing', icon: '🔬'},
+                            {label: 'Product Manager (UAT sign-off)', gate: 'UAT', icon: '✅'},
+                            {label: 'Tech Lead (version/tag)', gate: 'In Progress', icon: '⚙️'},
+                            {label: 'DevOps Lead (deployment)', gate: 'Released', icon: '🚀'}
+                        ]" :key="role.label">
+                            <div class="flex items-center gap-2 rounded-xl p-2.5 border"
+                                 :class="getReleasePhaseIndex(selectedRelease?.status) >= getReleasePhaseIndex(role.gate) ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-100'">
+                                <span class="text-[16px]" x-text="role.icon"></span>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-[10px] font-semibold text-slate-700 truncate" x-text="role.label"></div>
+                                    <div class="text-[9px] text-slate-400" x-text="role.gate + ' gate'"></div>
+                                </div>
+                                <span class="text-[14px]" x-text="getReleasePhaseIndex(selectedRelease?.status) >= getReleasePhaseIndex(role.gate) ? '✅' : '⏳'"></span>
+                            </div>
+                        </template>
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-1.5">Sign-offs are auto-captured as the release advances through V-cycle approval gates. Each gate requires the RACI role to approve before the release advances.</p>
+                </div>
+
                 <!-- Release notes -->
                 <div>
                     <div class="flex items-center justify-between mb-2">

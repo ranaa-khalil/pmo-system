@@ -682,15 +682,10 @@ def _build_release_notes(release, project, items, milestone, prev_tag, db):
     L.append("")
     L.append("| Role | Name | Date / Approval |")
     L.append("|---|---|---|")
-    # Try to get actual approver names from approvals
-    signoff_roles = [
-        ("QA Lead (QA sign-off)", None),
-        ("Product Manager (UAT sign-off)", prepared_by or None),
-        ("Tech Lead (version/tag)", None),
-        ("DevOps Lead (deployment)", None),
-    ]
-    for role, name in signoff_roles:
-        L.append(f"| {role} | {name or '—'} | {'—'} |")
+    signoffs = _get_signoffs(release, db)
+    for s in signoffs:
+        status_icon = "✅" if s["status"] == "Approved" else "⏳"
+        L.append(f"| {s['role']} | {s['name']} | {status_icon} {s['date']} |")
     L.append("")
     L.append("---")
     L.append(f"*Document version: Release Notes Template v1.1 · aligned to Release Process v3.4, Versioning & Release Cadence v1.2*")
@@ -747,13 +742,359 @@ def generate_release_notes(
     return {"release_notes": notes, "total_items": len(items), "completed": completed}
 
 
+def _get_signoffs(release, db):
+    """Collect sign-off data from actual approval records for this release.
+
+    Maps the V-cycle phase gate approvals to the 4 sign-off roles in the template:
+    - QA Lead (QA sign-off)        ← Testing gate
+    - Product Manager (UAT sign-off) ← UAT gate
+    - Tech Lead (version/tag)       ← In Progress / Pre-Release gate
+    - DevOps Lead (deployment)      ← Released gate
+    """
+    # Template sign-off roles (in order)
+    signoff_roles = [
+        ("QA Lead (QA sign-off)", "QA Lead"),
+        ("Product Manager (UAT sign-off)", "Product Owner"),
+        ("Tech Lead (version/tag)", "Tech Lead"),
+        ("DevOps Lead (deployment)", "DevOps Lead"),
+    ]
+
+    # Fetch all approval steps for this release
+    approval_requests = db.query(ApprovalRequest).filter(
+        ApprovalRequest.release_id == release.id,
+    ).all()
+
+    # Build a map: role_name → (approver_name, date, status)
+    approval_map = {}
+    for ar in approval_requests:
+        steps = db.query(ApprovalStep).filter(
+            ApprovalStep.request_id == ar.id,
+        ).order_by(ApprovalStep.step_order).all()
+        for s in steps:
+            approver_name = "—"
+            if s.approver_id:
+                u = db.query(User).filter(User.id == s.approver_id).first()
+                if u:
+                    approver_name = u.name
+            # Only record approved steps, prefer the latest
+            if s.status == "Approved":
+                key = s.role_name
+                approval_map[key] = (approver_name, s.decided_at or "—", "Approved")
+
+    # Build the sign-off rows
+    result = []
+    for template_role, gate_role in signoff_roles:
+        if gate_role in approval_map:
+            name, date_str, status = approval_map[gate_role]
+            # Clean up date format
+            if date_str and date_str != "—":
+                # Try to format nicely
+                try:
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                    date_str = dt.strftime("%d-%b-%Y")
+                except (ValueError, TypeError):
+                    pass
+            result.append({"role": template_role, "name": name, "date": date_str, "status": status})
+        else:
+            result.append({"role": template_role, "name": "—", "date": "—", "status": "Pending"})
+
+    return result
+
+
+def _build_docx(release, project, items, prev_tag, db):
+    """Build a DOCX that matches Release_Notes_Template_v1.1.docx exactly."""
+    from docx import Document
+    from docx.shared import Pt, Inches, RGBColor, Cm
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.enum.table import WD_TABLE_ALIGNMENT
+    from docx.oxml.ns import qn
+    from io import BytesIO
+    from datetime import date, datetime
+
+    done_phases = ["Pre-Release", "Release", "Post-Release", "Retrospective"]
+    completed = [i for i in items if i.current_phase in done_phases]
+    in_progress = [i for i in items if i.current_phase not in done_phases]
+
+    # Determine release type
+    ver_parts = release.version.lstrip("v").split(".")
+    release_type = "Minor / Feature"
+    if len(ver_parts) >= 3:
+        try:
+            patch_n = int(ver_parts[2])
+            minor_n = int(ver_parts[1])
+            major_n = int(ver_parts[0])
+            if patch_n > 0:
+                release_type = "Patch / Hotfix"
+            elif minor_n == 0 and major_n > 0:
+                release_type = "Major / Breaking"
+        except (ValueError, IndexError):
+            pass
+
+    # Categorize items
+    new_features = [i for i in completed if i.item_type and i.item_type.lower() in ("feature", "story", "user story")]
+    enhancements = [i for i in completed if i.item_type and i.item_type.lower() in ("enhancement", "improvement", "task")]
+    bug_fixes = [i for i in completed if i.item_type and i.item_type.lower() in ("bug", "defect", "fix")]
+    if not new_features and not enhancements and not bug_fixes:
+        new_features = [i for i in completed if i.priority in ("Critical", "High")]
+        enhancements = [i for i in completed if i.priority == "Medium"]
+        bug_fixes = [i for i in completed if i.priority == "Low"]
+
+    # Prepared by
+    prepared_by = "—"
+    if project.project_manager_id:
+        pm = db.query(User).filter(User.id == project.project_manager_id).first()
+        if pm:
+            prepared_by = pm.name
+
+    today = release.release_date or date.today().isoformat()
+    try:
+        dt = datetime.fromisoformat(today)
+        today_fmt = dt.strftime("%d-%b-%Y")
+    except (ValueError, TypeError):
+        today_fmt = today
+
+    # ── Create document ──────────────────────────────────────────────
+    doc = Document()
+
+    # Set margins
+    for section in doc.sections:
+        section.top_margin = Cm(2)
+        section.bottom_margin = Cm(2)
+        section.left_margin = Cm(2.5)
+        section.right_margin = Cm(2.5)
+
+    # Set default font
+    style = doc.styles['Normal']
+    font = style.font
+    font.name = 'Calibri'
+    font.size = Pt(11)
+
+    def _set_cell_shading(cell, color_hex):
+        """Set cell background color."""
+        shading = cell._element.get_or_add_tcPr()
+        shd = shading.makeelement(qn('w:shd'), {
+            qn('w:val'): 'clear',
+            qn('w:color'): 'auto',
+            qn('w:fill'): color_hex,
+        })
+        shading.append(shd)
+
+    def _set_cell_text(cell, text, bold=False, size=10, color=None, italic=False):
+        """Set cell text with formatting."""
+        cell.text = ""
+        p = cell.paragraphs[0]
+        run = p.add_run(str(text) if text else "")
+        run.bold = bold
+        run.italic = italic
+        run.font.size = Pt(size)
+        run.font.name = 'Calibri'
+        if color:
+            run.font.color.rgb = RGBColor(*color)
+
+    def _add_field_value_table(rows):
+        """Add a 2-column field/value table like the template header."""
+        table = doc.add_table(rows=len(rows), cols=2)
+        table.style = 'Table Grid'
+        table.alignment = WD_TABLE_ALIGNMENT.LEFT
+        for idx, (field, value) in enumerate(rows):
+            _set_cell_text(table.rows[idx].cells[0], field, bold=True, size=10, color=(0x4a, 0x55, 0x68))
+            _set_cell_text(table.rows[idx].cells[1], value, size=10)
+            _set_cell_shading(table.rows[idx].cells[0], 'F3F4F6')
+        # Set column widths
+        for row in table.rows:
+            row.cells[0].width = Cm(5.5)
+            row.cells[1].width = Cm(11)
+        return table
+
+    def _add_data_table(headers, rows, col_widths=None):
+        """Add a data table with styled header row and optional grey example row."""
+        table = doc.add_table(rows=1 + len(rows), cols=len(headers))
+        table.style = 'Table Grid'
+        # Header row
+        for c_idx, h in enumerate(headers):
+            _set_cell_text(table.rows[0].cells[c_idx], h, bold=True, size=9, color=(0xFF, 0xFF, 0xFF))
+            _set_cell_shading(table.rows[0].cells[c_idx], '4F46E5')
+        # Data rows
+        for r_idx, row in enumerate(rows):
+            for c_idx, val in enumerate(row):
+                _set_cell_text(table.rows[r_idx + 1].cells[c_idx], val, size=9)
+        # Column widths
+        if col_widths:
+            for row in table.rows:
+                for c_idx, w in enumerate(col_widths):
+                    if c_idx < len(row.cells):
+                        row.cells[c_idx].width = Cm(w)
+        return table
+
+    # ── Title ────────────────────────────────────────────────────────
+    title = doc.add_paragraph()
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = title.add_run(project.name)
+    run.bold = True
+    run.font.size = Pt(20)
+    run.font.color.rgb = RGBColor(0x4F, 0x46, 0xE5)
+
+    subtitle = doc.add_paragraph()
+    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = subtitle.add_run("Release Notes")
+    run.bold = True
+    run.font.size = Pt(16)
+    run.font.color.rgb = RGBColor(0x6B, 0x72, 0x80)
+
+    doc.add_paragraph("")
+
+    # ── Header metadata table ────────────────────────────────────────
+    header_rows = [
+        ("Product", project.name),
+        ("Release Version", f"v{release.version.lstrip('v')}"),
+        ("Release Type", release_type),
+        ("Release Date", today_fmt),
+        ("Environment", "Production"),
+        ("Git Tag / Image Tag", f"v{release.version.lstrip('v')}"),
+        ("Prepared By (PM)", prepared_by),
+        ("Status", release.status),
+        ("Release Cycle / Train", f"{today[:7]} monthly train"),
+        ("Previous Stable Tag", prev_tag or "—"),
+    ]
+    _add_field_value_table(header_rows)
+
+    doc.add_paragraph("")
+
+    # ── 1. Release Summary ───────────────────────────────────────────
+    doc.add_heading("1. Release Summary", level=2)
+    p = doc.add_paragraph()
+    if release.description:
+        p.add_run(release.description)
+    else:
+        parts = []
+        if new_features: parts.append(f"{len(new_features)} new feature(s)")
+        if enhancements: parts.append(f"{len(enhancements)} enhancement(s)")
+        if bug_fixes: parts.append(f"{len(bug_fixes)} bug fix(es)")
+        if in_progress: parts.append(f"{len(in_progress)} item(s) carried over")
+        summary = ", ".join(parts) if parts else "No items in this release."
+        p.add_run(f"This release delivers {summary}.")
+
+    # ── 2. New Features ──────────────────────────────────────────────
+    doc.add_heading("2. New Features", level=2)
+    doc.add_paragraph("Customer-visible new capabilities. Reference the BRD / story ID.")
+    if new_features:
+        rows = [(str(i.id), i.title, (i.description or "")[:100]) for i in new_features]
+    else:
+        rows = [("—", "No new features in this release", "—")]
+    _add_data_table(["Ref / Story ID", "Feature", "User Impact"], rows, col_widths=[3, 6, 7])
+
+    # ── 3. Enhancements & Improvements ───────────────────────────────
+    doc.add_heading("3. Enhancements & Improvements", level=2)
+    doc.add_paragraph("Changes to existing behaviour — performance, UX, usability.")
+    if enhancements:
+        rows = [(str(i.id), i.title, (i.description or "")[:100]) for i in enhancements]
+    else:
+        rows = [("—", "No enhancements in this release", "—")]
+    _add_data_table(["Ref / Story ID", "Enhancement", "User Impact"], rows, col_widths=[3, 6, 7])
+
+    # ── 4. Bug Fixes ─────────────────────────────────────────────────
+    doc.add_heading("4. Bug Fixes", level=2)
+    doc.add_paragraph("Defects resolved in this release. Severity: Critical / High / Medium / Low.")
+    if bug_fixes:
+        rows = [(str(i.id), i.title, i.priority or "Medium") for i in bug_fixes]
+    else:
+        rows = [("—", "No bug fixes in this release", "—")]
+    _add_data_table(["Ref / Bug ID", "Description", "Severity"], rows, col_widths=[3, 9, 4])
+
+    # ── 5. Hotfixes Included ─────────────────────────────────────────
+    hotfix_items = [i for i in completed if "hotfix" in (i.item_type or "").lower()]
+    doc.add_heading("5. Hotfixes Included", level=2)
+    doc.add_paragraph("Only if this release rolls up prior emergency hotfixes. Otherwise delete this section.")
+    if hotfix_items:
+        rows = [(f"v{release.version.lstrip('v')}", i.title, str(i.id)) for i in hotfix_items]
+        _add_data_table(["Hotfix Tag", "Description", "Original Incident"], rows, col_widths=[3, 8, 5])
+    else:
+        p = doc.add_paragraph()
+        run = p.add_run("No hotfixes rolled up in this release.")
+        run.italic = True
+        run.font.size = Pt(10)
+
+    # ── 6. Breaking Changes & Migration Notes ────────────────────────
+    doc.add_heading("6. Breaking Changes & Migration Notes", level=2)
+    doc.add_paragraph("Anything that requires action from consumers/integrators, config changes, or data migration. State 'None' if not applicable.")
+    breaking = [i for i in completed if "breaking" in (i.item_type or "").lower() or "migration" in (i.description or "").lower()]
+    if breaking:
+        for item in breaking:
+            p = doc.add_paragraph(style='List Bullet')
+            run = p.add_run(f"{item.title}: ")
+            run.bold = True
+            p.add_run(item.description or "")
+    else:
+        doc.add_paragraph("None.")
+
+    # ── 7. Known Issues & Limitations ────────────────────────────────
+    doc.add_heading("7. Known Issues & Limitations", level=2)
+    doc.add_paragraph("Known defects or limitations shipping with this release, with a workaround if one exists.")
+    if in_progress:
+        rows = [(str(i.id), f"{i.title} — {i.current_phase} ({i.status})", "Targeted for next release") for i in in_progress]
+    else:
+        rows = [("—", "No known issues", "—")]
+    _add_data_table(["Ref", "Known Issue", "Workaround / Planned Fix"], rows, col_widths=[2, 8, 6])
+
+    # ── 8. Deployment Details ────────────────────────────────────────
+    doc.add_heading("8. Deployment Details", level=2)
+    doc.add_paragraph("Filled by DevOps at release time. These fields make the release traceable and rollback-ready.")
+    deploy_rows = [
+        ("Git Commit / SHA", "—"),
+        ("Container Image Tag", "—"),
+        ("ArgoCD App / Sync Status", "—"),
+        ("Previous Stable Tag (rollback target)", prev_tag or "—"),
+        ("Config / Secret Changes (Vault)", "None"),
+        ("DB Migrations (reversible?)", "None"),
+        ("Monitoring Dashboards", "Prometheus / Sentry / Uptime"),
+    ]
+    _add_field_value_table(deploy_rows)
+
+    # ── 9. Rollback Reference ────────────────────────────────────────
+    doc.add_heading("9. Rollback Reference", level=2)
+    doc.add_paragraph("Link to the tested rollback script/plan for this release (SHIP repo).")
+    p = doc.add_paragraph()
+    run = p.add_run(f"Rollback runbook to be linked by DevOps at release time. Previous stable tag: {prev_tag or '—'}.")
+    run.italic = True
+
+    # ── 10. Sign-Offs ────────────────────────────────────────────────
+    doc.add_heading("10. Sign-Offs", level=2)
+    doc.add_paragraph("Aligned to the RACI gates. All four must be captured before a Production release is marked Released.")
+
+    signoffs = _get_signoffs(release, db)
+    signoff_rows = [(s["role"], s["name"], s["date"]) for s in signoffs]
+    signoff_table = _add_data_table(["Role", "Name", "Date / Approval"], signoff_rows, col_widths=[6, 5, 5])
+    # Color-code the status column — shade approved rows green, pending rows amber
+    for r_idx, s in enumerate(signoffs):
+        row = signoff_table.rows[r_idx + 1]
+        if s["status"] == "Approved":
+            _set_cell_shading(row.cells[2], 'D1FAE5')  # emerald-100
+        else:
+            _set_cell_shading(row.cells[2], 'FEF3C7')  # amber-100
+
+    # ── Footer ───────────────────────────────────────────────────────
+    doc.add_paragraph("")
+    p = doc.add_paragraph()
+    run = p.add_run("Document version: Release Notes Template v1.1  ·  aligned to Release Process v3.4, Versioning & Release Cadence v1.2")
+    run.italic = True
+    run.font.size = Pt(8)
+    run.font.color.rgb = RGBColor(0x9C, 0xA3, 0xAF)
+
+    # Save to BytesIO
+    buf = BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    return buf
+
+
 @router.get("/releases/{release_id}/download-notes")
 def download_release_notes(
     release_id: int,
     token: str = None,
     db: Session = Depends(get_db),
 ):
-    """Download release notes as a DOCX file matching the template format."""
+    """Download release notes as a DOCX file matching Release_Notes_Template_v1.1.docx."""
     # Authenticate via query param token (for window.open downloads)
     from app.dependencies import get_current_user
     if not token:
@@ -768,75 +1109,27 @@ def download_release_notes(
 
     project = db.query(Project).filter(Project.id == release.project_id).first()
 
-    from docx import Document
-    from docx.shared import Pt, Inches, RGBColor
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from io import BytesIO
+    # Gather items
+    items = []
+    for ri in release.items:
+        bi = db.query(BacklogItem).filter(BacklogItem.id == ri.backlog_item_id).first()
+        if bi:
+            items.append(bi)
 
-    doc = Document()
+    # Find previous stable tag
+    all_releases = db.query(Release).filter(Release.project_id == release.project_id).all()
+    prev_tag = None
+    def parse_version(v):
+        try:
+            parts = v.lstrip("v").split(".")
+            return (int(parts[0]), int(parts[1]) if len(parts) > 1 else 0, int(parts[2]) if len(parts) > 2 else 0)
+        except (ValueError, IndexError):
+            return (0, 0, 0)
+    released = [r for r in all_releases if r.status == "Released" and r.id != release.id]
+    if released:
+        prev_tag = f"v{max(released, key=lambda r: parse_version(r.version)).version.lstrip('v')}"
 
-    # Set default font
-    style = doc.styles['Normal']
-    font = style.font
-    font.name = 'Calibri'
-    font.size = Pt(11)
-
-    # Title
-    title = doc.add_heading(f'{project.name}', level=0)
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    subtitle = doc.add_heading('Release Notes', level=1)
-    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-    # Parse the markdown notes and convert to DOCX
-    lines = release.release_notes.split('\n')
-    i = 0
-    while i < len(lines):
-        line = lines[i].strip()
-
-        # Skip empty lines
-        if not line:
-            i += 1
-            continue
-
-        # Headers
-        if line.startswith('## '):
-            doc.add_heading(line[3:], level=2)
-        elif line.startswith('# '):
-            doc.add_heading(line[2:], level=1)
-        elif line.startswith('---'):
-            doc.add_paragraph('─' * 50)
-        elif line.startswith('|'):
-            # Table — collect all consecutive table lines
-            table_lines = []
-            while i < len(lines) and lines[i].strip().startswith('|'):
-                table_lines.append(lines[i].strip())
-                i += 1
-            # Parse table
-            rows = []
-            for tl in table_lines:
-                cells = [c.strip() for c in tl.split('|')[1:-1]]
-                if not all(c.startswith('---') or c.startswith(':--') for c in cells):
-                    rows.append(cells)
-            if rows:
-                table = doc.add_table(rows=len(rows), cols=len(rows[0]))
-                table.style = 'Light Grid Accent 1'
-                for r_idx, row in enumerate(rows):
-                    for c_idx, cell_text in enumerate(row):
-                        if c_idx < len(table.rows[r_idx].cells):
-                            table.rows[r_idx].cells[c_idx].text = cell_text
-            continue
-        elif line.startswith('_') and line.endswith('_'):
-            p = doc.add_paragraph()
-            run = p.add_run(line.strip('_'))
-            run.italic = True
-        else:
-            doc.add_paragraph(line)
-        i += 1
-
-    # Save to BytesIO
-    buf = BytesIO()
-    doc.save(buf)
-    buf.seek(0)
+    buf = _build_docx(release, project, items, prev_tag, db)
 
     from fastapi.responses import StreamingResponse
     filename = f"Release_Notes_v{release.version.lstrip('v')}_{project.name.replace(' ', '_')}.docx"

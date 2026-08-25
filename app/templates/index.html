@@ -2046,8 +2046,9 @@
             </template>
         </div>
 
-        <!-- Phase legend — click to filter (item-level phases only) -->
-        <div class="flex flex-wrap gap-1.5 mb-4">
+        <!-- Filters — phase filters + release filters -->
+        <div class="flex flex-wrap items-center gap-1.5 mb-4">
+            <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400 mr-1">Phase</span>
             <template x-for="(phase, idx) in itemPhases" :key="phase">
                 <button @click="togglePhaseFilter(phase)"
                         class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all"
@@ -2059,7 +2060,24 @@
                     <span class="text-[9px] opacity-60" x-text="phaseCounts[phase] || 0"></span>
                 </button>
             </template>
-            <button x-show="phaseFilter" @click="phaseFilter = null" class="text-[10px] text-rose-400 hover:text-rose-600 px-2 py-1">✕ Clear filter</button>
+
+            <span class="text-[9px] font-bold uppercase tracking-wider text-emerald-500 mx-2 ml-3">Release</span>
+            <button @click="togglePhaseFilter('In Release')"
+                    class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all"
+                    :class="phaseFilter === 'In Release' ? 'bg-amber-500 text-white shadow-sm' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'">
+                <span class="text-[9px]">📦</span>
+                <span>In Release</span>
+                <span class="text-[9px] opacity-60" x-text="releaseFilterCounts.inRelease"></span>
+            </button>
+            <button @click="togglePhaseFilter('Released')"
+                    class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all"
+                    :class="phaseFilter === 'Released' ? 'bg-emerald-500 text-white shadow-sm' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'">
+                <span class="text-[9px]">🚀</span>
+                <span>Released</span>
+                <span class="text-[9px] opacity-60" x-text="releaseFilterCounts.released"></span>
+            </button>
+
+            <button x-show="phaseFilter" @click="phaseFilter = null" class="text-[10px] text-rose-400 hover:text-rose-600 px-2 py-1">✕ Clear</button>
         </div>
 
         <!-- Backlog items grouped by epic -->
@@ -2478,22 +2496,26 @@
                     <div class="flex items-center gap-0.5">
                         <template x-for="(phase, idx) in itemPhases" :key="phase">
                             <div class="flex items-center flex-1">
-                                <div class="flex-1 h-1.5 rounded-full" :class="itemPhases.indexOf(viewingBacklogItem?.current_phase) >= idx ? 'bg-brand-500' : 'bg-slate-100'"></div>
+                                <div class="flex-1 h-1.5 rounded-full"
+                                     :class="(itemPhases.includes(viewingBacklogItem?.current_phase) ? itemPhases.indexOf(viewingBacklogItem?.current_phase) >= idx : true) ? 'bg-brand-500' : 'bg-slate-100'"></div>
                                 <span class="text-[8px] text-slate-400 mx-0.5" x-text="idx + 1"></span>
                             </div>
                         </template>
-                        <!-- Release phases (shown after Testing, driven by release) -->
+                        <!-- Release phases (shown after item phases, driven by release) -->
                         <template x-if="viewingBacklogItem && !itemPhases.includes(viewingBacklogItem.current_phase)">
                             <div class="flex items-center gap-0.5 ml-2 pl-2 border-l border-slate-200">
                                 <template x-for="(phase, idx) in releasePhases" :key="phase">
                                     <div class="flex items-center flex-1">
-                                        <div class="flex-1 h-1.5 rounded-full" :class="releasePhases.indexOf(viewingBacklogItem?.current_phase) >= idx ? 'bg-emerald-500' : 'bg-slate-100'"></div>
+                                        <div class="flex-1 h-1.5 rounded-full"
+                                             :class="releasePhases.indexOf(viewingBacklogItem?.current_phase) >= idx ? 'bg-emerald-500' : 'bg-slate-100'"></div>
                                     </div>
                                 </template>
                             </div>
                         </template>
                     </div>
-                    <div class="text-[11px] font-medium text-brand-600 mt-1" x-text="viewingBacklogItem?.current_phase"></div>
+                    <div class="text-[11px] font-medium mt-1"
+                         :class="itemPhases.includes(viewingBacklogItem?.current_phase) ? 'text-brand-600' : 'text-emerald-600'"
+                         x-text="viewingBacklogItem?.current_phase"></div>
                 </div>
 
                 <!-- Description -->
@@ -3861,7 +3883,26 @@ function pmoApp() {
         },
         get filteredBacklogItems() {
             if (!this.phaseFilter) return this.backlogItems;
+            if (this.phaseFilter === 'In Release') {
+                return this.backlogItems.filter(i =>
+                    ['UAT', 'Pre-Release'].includes(i.current_phase)
+                );
+            }
+            if (this.phaseFilter === 'Released') {
+                return this.backlogItems.filter(i =>
+                    ['Release', 'Post-Release', 'Retrospective'].includes(i.current_phase) || i.status === 'Done'
+                );
+            }
             return this.backlogItems.filter(i => i.current_phase === this.phaseFilter);
+        },
+        get releaseFilterCounts() {
+            const inRelease = this.backlogItems.filter(i =>
+                ['UAT', 'Pre-Release'].includes(i.current_phase)
+            ).length;
+            const released = this.backlogItems.filter(i =>
+                ['Release', 'Post-Release', 'Retrospective'].includes(i.current_phase) || i.status === 'Done'
+            ).length;
+            return { inRelease, released };
         },
         get requiredRoles() {
             // The 6 gate-keeper roles required by the Release Process V-cycle

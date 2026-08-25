@@ -147,15 +147,9 @@ def suggest_features(
         "Analyze the gaps in this project. What critical capabilities are MISSING? "
         "Suggest 2-3 NEW epics and 3-5 NEW features that are specific to this project's domain and vision. "
         "Each suggestion must be concrete, actionable, and non-duplicative.\n\n"
-        "Each EPIC must include ALL fields:\n"
-        '  "title": Short epic name\n'
-        '  "description": 2-3 sentences\n'
-        '  "rationale": Why this epic is critical NOW\n'
-        '  "priority": "Critical" | "High" | "Medium" | "Low"\n'
-        '  "primary_actor": Persona name from the list above\n'
-        '  "story_points": Integer (1,2,3,5,8,13,21)\n'
-        '  "acceptance_criteria": 3-5 testable bullets separated by \\n\n'
-        '  "target_release": Suggested release month (e.g. "2026-10")\n\n'
+        "Each EPIC must include only these fields:\n"
+        '  "title": Short epic name (this will be the epic name)\n'
+        '  "description": 2-3 sentence description of the epic scope\n\n'
         "Each FEATURE must include ALL fields:\n"
         '  "title": Specific feature title\n'
         '  "epic": Must match a suggested or existing epic name\n'
@@ -168,7 +162,7 @@ def suggest_features(
         '  "target_release": Suggested release month (e.g. "2026-10")\n'
         '  "rationale": Why this feature is needed\n\n'
         "Respond as JSON:\n"
-        '{"suggested_epics":[{...}],"suggested_features":[{...}],"summary":"2-3 sentence assessment"}'
+        '{"suggested_epics":[{"title":"...","description":"..."}],"suggested_features":[{...all fields...}],"summary":"2-3 sentence assessment"}'
     )
     raw = _call_llm(system, user, max_tokens=6000, json_mode=True)
     parsed = _extract_json(raw)

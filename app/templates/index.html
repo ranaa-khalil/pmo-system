@@ -2631,6 +2631,15 @@
             <button x-show="phaseFilter" @click="phaseFilter = null" class="text-[10px] text-rose-400 hover:text-rose-600 px-2 py-1">✕ Clear</button>
         </div>
 
+        <!-- Backlog search -->
+        <div x-show="backlogItems.length > 0" class="relative mb-3">
+            <svg class="w-4 h-4 text-ink-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input x-model="backlogSearch" type="text" class="w-full pl-9 pr-9 py-2 text-[13px] bg-white border border-ink-200/60 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/10 focus:border-brand-300 transition-all" placeholder="Search backlog by title, description, epic, actor...">
+            <button x-show="backlogSearch" @click="backlogSearch = ''" class="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-600">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
         <!-- Backlog items grouped by epic -->
         <template x-if="backlogItems.length === 0">
             <div class="surface rounded-2xl border border-ink-200/60 p-10 text-center">
@@ -2644,6 +2653,11 @@
 
         <template x-if="backlogItems.length > 0">
             <div class="space-y-3">
+                <!-- No search results -->
+                <div x-show="backlogByEpic.length === 0" class="surface rounded-2xl border border-ink-200/60 p-8 text-center">
+                    <p class="text-[13px] text-ink-400">No items match "<span x-text="backlogSearch"></span>"</p>
+                    <button @click="backlogSearch = ''" class="text-[11px] text-brand-600 hover:text-brand-700 mt-1">Clear search</button>
+                </div>
                 <template x-for="group in backlogByEpic" :key="group.epic">
                     <div class="surface rounded-2xl border border-ink-200/60 overflow-hidden">
                         <!-- Epic header -->
@@ -4472,14 +4486,11 @@
                             <template x-for="(epic, idx) in (aiModalContent.suggested_epics || [])" :key="'epic_'+idx">
                                 <div class="bg-white border rounded-2xl overflow-hidden"
                                      :class="aiSuggestionStatus['epic_'+idx] === 'approved' ? 'border-emerald-200' : aiSuggestionStatus['epic_'+idx] === 'declined' ? 'border-ink-200 opacity-50' : aiSuggestionStatus['epic_'+idx] === 'adding' ? 'border-brand-300 ring-2 ring-brand-100' : aiSuggestionStatus['epic_'+idx] === 'error' ? 'border-rose-200' : 'border-ink-200/60'">
-                                    <!-- Header (same as backlog item detail) -->
+                                    <!-- Header -->
                                     <div class="border-b border-black/[0.06] px-5 py-3 flex items-start justify-between gap-3">
                                         <div class="flex-1 min-w-0">
                                             <div class="flex items-center gap-2 mb-1">
                                                 <span class="text-[10px] font-medium px-2 py-0.5 rounded bg-violet-50 text-violet-600">Epic</span>
-                                                <span class="text-[10px] font-medium px-2 py-0.5 rounded" :class="epic.priority==='Critical' ? 'bg-rose-50 text-rose-600' : epic.priority==='High' ? 'bg-rose-50 text-rose-600' : epic.priority==='Medium' ? 'bg-amber-50 text-amber-600' : 'bg-ink-100 text-ink-500'" x-text="epic.priority || 'Medium'"></span>
-                                                <span x-show="epic.story_points" class="text-[10px] font-medium text-ink-400" x-text="epic.story_points + ' SP'"></span>
-                                                <span x-show="epic.target_release" class="text-[10px] font-mono text-ink-400" x-text="epic.target_release"></span>
                                             </div>
                                             <h3 class="text-[15px] font-bold text-ink-800" x-text="epic.title"></h3>
                                         </div>
@@ -4493,38 +4504,10 @@
                                             <span x-show="aiSuggestionStatus['epic_'+idx]==='error'" class="text-[11px] text-rose-500">Failed</span>
                                         </div>
                                     </div>
-                                    <!-- Body (same structure as backlog item detail) -->
-                                    <div class="px-5 py-4 space-y-4">
-                                        <!-- Description -->
-                                        <div>
-                                            <div class="text-[10px] text-ink-400 mb-1">Description</div>
-                                            <p class="text-[12px] text-ink-600 leading-relaxed" x-text="epic.description"></p>
-                                        </div>
-                                        <!-- Acceptance Criteria -->
-                                        <div>
-                                            <div class="text-[10px] text-ink-400 mb-1">Acceptance Criteria</div>
-                                            <p class="text-[12px] text-ink-600 leading-relaxed whitespace-pre-line" x-text="epic.acceptance_criteria"></p>
-                                        </div>
-                                        <!-- Details grid (2-column, same as backlog item) -->
-                                        <div class="grid grid-cols-2 gap-3">
-                                            <div x-show="epic.primary_actor">
-                                                <div class="text-[10px] text-ink-400">Primary Actor</div>
-                                                <div class="text-[12px] text-ink-700" x-text="epic.primary_actor || '—'"></div>
-                                            </div>
-                                            <div x-show="epic.story_points">
-                                                <div class="text-[10px] text-ink-400">Story Points</div>
-                                                <div class="text-[12px] font-bold text-ink-700" x-text="epic.story_points || '—'"></div>
-                                            </div>
-                                            <div x-show="epic.target_release">
-                                                <div class="text-[10px] text-ink-400">Target Release</div>
-                                                <div class="text-[12px] text-ink-700 font-mono" x-text="epic.target_release || '—'"></div>
-                                            </div>
-                                        </div>
-                                        <!-- Rationale (small note at bottom) -->
-                                        <div x-show="epic.rationale" class="pt-2 border-t border-ink-100">
-                                            <div class="text-[10px] text-ink-400 mb-0.5">Rationale</div>
-                                            <p class="text-[11px] text-ink-500 italic" x-text="epic.rationale"></p>
-                                        </div>
+                                    <!-- Body: only title + description (matching epic creation form) -->
+                                    <div class="px-5 py-4">
+                                        <div class="text-[10px] text-ink-400 mb-1">Description</div>
+                                        <p class="text-[12px] text-ink-600 leading-relaxed" x-text="epic.description"></p>
                                     </div>
                                 </div>
                             </template>
@@ -5132,6 +5115,7 @@ function pmoApp() {
         // ===== Backlog state =====
         backlogItems: [],
         backlogFormMode: 'feature',  // 'feature' or 'epic'
+        backlogSearch: '',  // search query for backlog items
         phaseFilter: null,  // filter backlog by phase
         get phaseCounts() {
             const counts = {};
@@ -5347,8 +5331,20 @@ function pmoApp() {
         },
 
         get backlogByEpic() {
-            // Separate epics from features (use filtered list if phase filter is active)
-            const items = this.phaseFilter ? this.filteredBacklogItems : this.backlogItems;
+            // Start with phase-filtered or all items
+            let items = this.phaseFilter ? this.filteredBacklogItems : this.backlogItems;
+            // Apply search filter
+            if (this.backlogSearch && this.backlogSearch.trim()) {
+                const q = this.backlogSearch.trim().toLowerCase();
+                items = items.filter(i =>
+                    (i.title || '').toLowerCase().includes(q) ||
+                    (i.description || '').toLowerCase().includes(q) ||
+                    (i.epic || '').toLowerCase().includes(q) ||
+                    (i.acceptance_criteria || '').toLowerCase().includes(q) ||
+                    (i.primary_actor || '').toLowerCase().includes(q) ||
+                    (i.item_type || '').toLowerCase().includes(q)
+                );
+            }
             const epicItems = items.filter(i => i.item_type === 'Epic');
             const featureItems = items.filter(i => i.item_type !== 'Epic');
             const groups = {};
@@ -5730,6 +5726,12 @@ function pmoApp() {
                 if (type === 'epic') {
                     payload.item_type = 'Epic';
                     payload.epic = item.title;
+                    // Epics only have title + description
+                    payload.priority = 'Medium';
+                    payload.primary_actor = '';
+                    payload.story_points = null;
+                    payload.acceptance_criteria = '';
+                    payload.target_release = '';
                 } else {
                     payload.item_type = item.item_type || 'Feature';
                     payload.epic = item.epic || '';

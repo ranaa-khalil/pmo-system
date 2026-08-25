@@ -799,19 +799,22 @@
                                     </td></tr>
                                 </template>
                                 <template x-for="c in clients" :key="c.id">
-                                    <tr class="group hover:bg-slate-50/50 transition-colors">
+                                    <tr class="group hover:bg-slate-50/50 transition-colors cursor-pointer" @click="openClient(c)">
                                         <td class="px-6 py-4">
                                             <div class="flex items-center gap-3">
                                                 <div class="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold text-white shadow-sm"
                                                      :class="avatarColor(c.name)"
                                                      x-text="c.name.charAt(0)"></div>
-                                                <span class="text-[13px] font-semibold text-slate-800" x-text="c.name"></span>
+                                                <div>
+                                                    <span class="text-[13px] font-semibold text-slate-800 group-hover:text-brand-600 transition-colors" x-text="c.name"></span>
+                                                    <div class="text-[10px] text-slate-400" x-text="(projects.filter(p => p.client_id === c.id).length) + ' project(s)'"></div>
+                                                </div>
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 text-[13px] text-slate-600" x-text="c.contact_name || '—'"></td>
                                         <td class="px-6 py-4 text-[13px] text-slate-500" x-text="c.contact_email || '—'"></td>
                                         <td class="px-6 py-4 text-[13px] text-slate-400 max-w-xs truncate" x-text="c.description || '—'"></td>
-                                        <td class="px-6 py-4 text-right">
+                                        <td class="px-6 py-4 text-right" @click.stop>
                                             <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button @click="openClientModal(c)" class="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="Edit">
                                                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
@@ -825,6 +828,95 @@
                                 </template>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============ CLIENT DETAIL VIEW ============ -->
+            <div x-show="route === 'client-detail' && selectedClient" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="view-enter space-y-6 max-w-5xl">
+                <!-- Back button -->
+                <button @click="backToClients()" class="flex items-center gap-2 text-[13px] text-slate-500 hover:text-slate-800 transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    Back to Clients
+                </button>
+
+                <!-- Client Info -->
+                <div class="surface rounded-2xl border border-slate-200/60 p-6">
+                    <div class="flex items-start gap-4 mb-5">
+                        <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-xl font-bold shadow-sm flex-shrink-0"
+                             :class="avatarColor(selectedClient?.name || 'C')"
+                             x-text="selectedClient?.name?.charAt(0)"></div>
+                        <div class="flex-1 min-w-0">
+                            <h1 class="text-[24px] font-bold text-slate-900 tracking-tight" x-text="selectedClient?.name"></h1>
+                            <p class="text-[13px] text-slate-400 mt-0.5" x-text="selectedClient?.description || 'No description'"></p>
+                        </div>
+                        <button @click="openClientModal(selectedClient)" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-600 hover:text-brand-700 px-3 py-2 rounded-xl bg-brand-50 hover:bg-brand-100 transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            Edit
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4 pt-5 border-t border-slate-100">
+                        <div>
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Contact</div>
+                            <div class="text-[13px] font-medium text-slate-700" x-text="selectedClient?.contact_name || '—'"></div>
+                        </div>
+                        <div>
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Email</div>
+                            <div class="text-[13px] font-medium text-slate-700" x-text="selectedClient?.contact_email || '—'"></div>
+                        </div>
+                        <div>
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Projects</div>
+                            <div class="text-[13px] font-bold text-brand-600" x-text="projects.filter(p => p.client_id === selectedClient?.id).length"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Related Projects -->
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-[16px] font-bold text-slate-900">Projects</h2>
+                        <button @click="openProjectModal({ client_id: selectedClient?.id })" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-white btn-primary px-3 py-2 rounded-xl transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                            Add Project
+                        </button>
+                    </div>
+
+                    <template x-if="projects.filter(p => p.client_id === selectedClient?.id).length === 0">
+                        <div class="surface rounded-2xl border border-slate-200/60 p-8 text-center text-[13px] text-slate-400">No projects yet for this client.</div>
+                    </template>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <template x-for="p in projects.filter(p => p.client_id === selectedClient?.id)" :key="p.id">
+                            <div @click="openProject(p)" class="relative surface rounded-2xl border border-slate-200/60 p-5 card-lift overflow-hidden group cursor-pointer">
+                                <div class="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-10 bg-gradient-to-br from-brand-400 to-violet-500 group-hover:opacity-20 transition-opacity"></div>
+                                <div class="relative flex items-start justify-between mb-4">
+                                    <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center shadow-glow">
+                                        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/></svg>
+                                    </div>
+                                    <span class="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg"
+                                          :class="p.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : p.status === 'On Hold' ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-500'">
+                                        <span class="w-1.5 h-1.5 rounded-full" :class="p.status === 'Active' ? 'bg-emerald-400' : p.status === 'On Hold' ? 'bg-amber-400' : 'bg-slate-300'"></span>
+                                        <span x-text="p.status"></span>
+                                    </span>
+                                </div>
+                                <h3 class="relative text-[15px] font-bold text-slate-900 tracking-tight mb-1" x-text="p.name"></h3>
+                                <p class="relative text-[12px] text-slate-500 line-clamp-2 mb-4 min-h-[2rem]" x-text="p.description || ''"></p>
+                                <div class="relative flex items-center gap-2 pt-3 border-t border-slate-50">
+                                    <template x-if="p.github_repo">
+                                        <a :href="'https://github.com/' + p.github_repo" target="_blank" @click.stop class="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-500 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 px-2 py-1 rounded-lg transition-colors">
+                                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                                            <span x-text="p.github_repo"></span>
+                                        </a>
+                                    </template>
+                                    <div class="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" @click.stop>
+                                        <button @click="openProjectModal(p)" class="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
                     </div>
                 </div>
             </div>
@@ -4480,6 +4572,7 @@ function pmoApp() {
 
         // ===== Project detail state =====
         selectedProject: null,
+        selectedClient: null,
         projectTab: 'overview',
         vision: null,
         kpis: [],
@@ -4665,7 +4758,7 @@ function pmoApp() {
         ],
 
         get pageTitle() {
-            return { dashboard: 'Dashboard', clients: 'Clients', projects: 'Projects', tasks: 'My Tasks', roadmap: 'Roadmaps', docs: 'Documentation', testing: 'Testing Guide', settings: 'Settings' }[this.route] || '';
+            return { dashboard: 'Dashboard', clients: 'Clients', 'client-detail': 'Client Detail', projects: 'Projects', 'project-detail': 'Project Detail', tasks: 'My Tasks', roadmap: 'Roadmaps', docs: 'Documentation', testing: 'Testing Guide', settings: 'Settings' }[this.route] || '';
         },
         get stats() {
             const ds = this.dashStats || {};
@@ -6236,6 +6329,16 @@ function pmoApp() {
 
         getClientName(id) { return this.clients.find(c => c.id === id)?.name || 'Unknown'; },
 
+        openClient(client) {
+            this.selectedClient = client;
+            this.route = 'client-detail';
+        },
+
+        backToClients() {
+            this.selectedClient = null;
+            this.route = 'clients';
+        },
+
         openClientModal(client = null) {
             this.editingClient = client ? { ...client } : { name: '', contact_name: '', contact_email: '', description: '' };
             this.clientModalOpen = true;
@@ -6244,8 +6347,12 @@ function pmoApp() {
         async saveClient() {
             try {
                 if (this.editingClient.id) {
-                    await this.api('PUT', '/clients/' + this.editingClient.id, this.editingClient);
+                    const updated = await this.api('PUT', '/clients/' + this.editingClient.id, this.editingClient);
                     this.showToast('Client updated successfully');
+                    // Update selectedClient if we're on the detail page
+                    if (this.selectedClient && this.selectedClient.id === this.editingClient.id) {
+                        this.selectedClient = { ...this.selectedClient, ...updated };
+                    }
                 } else {
                     await this.api('POST', '/clients', this.editingClient);
                     this.showToast('Client created successfully');

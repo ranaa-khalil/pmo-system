@@ -9,7 +9,7 @@ from app.models.client import Client
 from app.models.user import User
 from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectResponse
 from app.dependencies import get_current_user
-from app.permissions import can_create_project, can_manage_client, can_manage_project, get_visible_projects
+from app.permissions import can_create_project, can_manage_client, can_manage_project, can_assign_pm, get_visible_projects
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -81,13 +81,12 @@ def assign_project_manager(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Assign a project manager to a project (super admin or AM)."""
+    """Assign a project manager to a project (super admin, AM, or current PM)."""
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    client = db.query(Client).filter(Client.id == project.client_id).first()
-    if not can_manage_client(current_user, client):
-        raise HTTPException(status_code=403, detail="Only super admins or the account manager can assign a PM")
+    if not can_assign_pm(current_user, project, db):
+        raise HTTPException(status_code=403, detail="You don't have permission to assign a PM to this project")
     pm_id = data.get("project_manager_id")
     if pm_id:
         pm = db.query(User).filter(User.id == pm_id).first()

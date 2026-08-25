@@ -8,7 +8,7 @@ from app.models.client import Client
 from app.models.user import User
 from app.schemas.client import ClientCreate, ClientUpdate, ClientResponse
 from app.dependencies import get_current_user
-from app.permissions import can_create_client, can_manage_client, get_visible_clients
+from app.permissions import can_create_client, can_manage_client, can_assign_am, get_visible_clients
 
 router = APIRouter(prefix="/api/clients", tags=["clients"])
 
@@ -68,12 +68,12 @@ def assign_account_manager(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Assign an account manager to a client (super admin only)."""
-    if not can_create_client(current_user):
-        raise HTTPException(status_code=403, detail="Only super admins can assign account managers")
+    """Assign an account manager to a client (super admin or the current AM for this client)."""
     client = db.query(Client).filter(Client.id == client_id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
+    if not can_assign_am(current_user, client):
+        raise HTTPException(status_code=403, detail="Only super admins or the current account manager can assign a new AM")
     am_id = data.get("account_manager_id")
     if am_id:
         am = db.query(User).filter(User.id == am_id).first()

@@ -61,6 +61,69 @@ def can_manage_project(user: User, project: Project, db: Session) -> bool:
     return assignment is not None
 
 
+def can_create_user(user: User) -> bool:
+    """Super admin, account manager, or project manager can create users."""
+    return user.system_role in ("super_admin", "account_manager", "project_manager")
+
+
+def can_delete_user(user: User, target_user: User) -> bool:
+    """Super admin can delete anyone. AM can delete non-super_admins. PM can delete members."""
+    if user.system_role == "super_admin":
+        return True
+    if target_user.system_role == "super_admin":
+        return False
+    if user.system_role == "account_manager":
+        return True
+    if user.system_role == "project_manager" and target_user.system_role == "member":
+        return True
+    return False
+
+
+def can_set_system_role(user: User, target_role: str) -> bool:
+    """What system_role can this user assign to a new/updated user?
+
+    super_admin → any role
+    account_manager → member, project_manager, account_manager
+    project_manager → member only
+    """
+    if user.system_role == "super_admin":
+        return True
+    if user.system_role == "account_manager":
+        return target_role in ("member", "project_manager", "account_manager")
+    if user.system_role == "project_manager":
+        return target_role == "member"
+    return False
+
+
+def can_assign_am(user: User, client: Client) -> bool:
+    """Super admin or the AM assigned to this client can assign a new AM."""
+    if is_super_admin(user):
+        return True
+    if is_account_manager(user) and client.account_manager_id == user.id:
+        return True
+    return False
+
+
+def can_assign_pm(user: User, project: Project, db: Session) -> bool:
+    """Super admin, the client's AM, or the project's PM can assign a new PM."""
+    return can_manage_project(user, project, db)
+
+
+def can_assign_role(user: User, project: Project, db: Session) -> bool:
+    """Super admin, AM for this client, or PM for this project can assign RACI roles."""
+    return can_manage_project(user, project, db)
+
+
+def can_manage_stakeholders(user: User, project: Project, db: Session) -> bool:
+    """Super admin, AM, or PM can add stakeholders to a project."""
+    return can_manage_project(user, project, db)
+
+
+def can_list_users(user: User) -> bool:
+    """Any authenticated user can list users (for dropdowns)."""
+    return True
+
+
 def get_visible_clients(user: User, db: Session):
     """Return clients the user can see."""
     if is_super_admin(user):

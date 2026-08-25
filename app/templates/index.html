@@ -1266,7 +1266,7 @@
                     </div>
                 </div>
                 <!-- Team Management card -->
-                <div class="surface rounded-2xl border border-slate-200/60 p-6">
+                <div x-show="canManageUsers" x-cloak class="surface rounded-2xl border border-slate-200/60 p-6">
                     <h3 class="text-[14px] font-semibold text-slate-800 mb-4">Team Management</h3>
                     <!-- Create user -->
                     <div class="grid grid-cols-4 gap-2 mb-4">
@@ -1274,10 +1274,9 @@
                         <input x-model="userForm.email" class="input-premium text-[13px]" placeholder="Email">
                         <input x-model="userForm.password" type="password" class="input-premium text-[13px]" placeholder="Password">
                         <select x-model="userForm.system_role" class="text-[13px] border border-slate-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
-                            <option value="member">Team Member</option>
-                            <option value="project_manager">Project Manager</option>
-                            <option value="account_manager">Account Manager</option>
-                            <option value="super_admin">Super Admin</option>
+                            <template x-for="role in allowedRoles()" :key="role">
+                                <option :value="role" x-text="role.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())"></option>
+                            </template>
                         </select>
                     </div>
                     <button @click="createUser()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all mb-4">Add User</button>
@@ -1314,7 +1313,7 @@
                     </div>
                 </div>
                 <!-- Assign Account Manager card -->
-                <div class="surface rounded-2xl border border-slate-200/60 p-6">
+                <div x-show="canAssignAM" x-cloak class="surface rounded-2xl border border-slate-200/60 p-6">
                     <h3 class="text-[14px] font-semibold text-slate-800 mb-4">Assign Account Manager to Client</h3>
                     <div class="grid grid-cols-2 gap-2">
                         <select x-model="amForm.client_id" class="text-[13px] border border-slate-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
@@ -1333,7 +1332,7 @@
                     <button @click="assignAM()" class="mt-3 text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Assign</button>
                 </div>
                 <!-- Assign Project Manager card -->
-                <div class="surface rounded-2xl border border-slate-200/60 p-6">
+                <div x-show="canAssignPM" x-cloak class="surface rounded-2xl border border-slate-200/60 p-6">
                     <h3 class="text-[14px] font-semibold text-slate-800 mb-4">Assign Project Manager to Project</h3>
                     <div class="grid grid-cols-2 gap-2">
                         <select x-model="pmForm.project_id" class="text-[13px] border border-slate-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
@@ -1352,7 +1351,7 @@
                     <button @click="assignPM()" class="mt-3 text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Assign</button>
                 </div>
                 <!-- Assign Role card -->
-                <div class="surface rounded-2xl border border-slate-200/60 p-6">
+                <div x-show="canAssignRoles" x-cloak class="surface rounded-2xl border border-slate-200/60 p-6">
                     <h3 class="text-[14px] font-semibold text-slate-800 mb-4">Assign RACI Role to User</h3>
                     <div class="grid grid-cols-3 gap-2">
                         <select x-model="assignmentForm.user_id" class="text-[13px] border border-slate-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20">
@@ -3107,6 +3106,22 @@ function pmoApp() {
         showTaskModal: false,
         editingTask: null,
         taskForm: { title: '', description: '', project_id: null, milestone_id: null, due_date: '', priority: 'Medium', status: 'Pending', reminder_days: 3 },
+
+        // ===== Role helpers =====
+        get isSuperAdmin() { return this.currentUser?.system_role === 'super_admin'; },
+        get isAccountManager() { return this.currentUser?.system_role === 'account_manager' || this.isSuperAdmin; },
+        get isProjectManager() { return this.currentUser?.system_role === 'project_manager' || this.isAccountManager; },
+        get canManageUsers() { return this.isProjectManager; },  // super_admin, AM, PM
+        get canManageClients() { return this.isSuperAdmin; },     // super_admin only
+        get canAssignAM() { return this.isSuperAdmin || this.currentUser?.system_role === 'account_manager'; },
+        get canAssignPM() { return this.isProjectManager; },
+        get canAssignRoles() { return this.isProjectManager; },
+        allowedRoles() {
+            if (this.isSuperAdmin) return ['member', 'project_manager', 'account_manager', 'super_admin'];
+            if (this.isAccountManager) return ['member', 'project_manager', 'account_manager'];
+            if (this.isProjectManager) return ['member'];
+            return [];
+        },
 
         // ===== Timeline state =====
         timelineZoom: 1,

@@ -10,6 +10,10 @@ from app.models.project import Project
 from app.models.role import Role
 from app.models.role_assignment import RoleAssignment
 from app.models.stakeholder import Stakeholder
+from app.permissions import (
+    can_create_user, can_delete_user, can_set_system_role,
+    can_manage_stakeholders, can_assign_role, can_list_users,
+)
 from app.schemas.stakeholder import (
     StakeholderCreate, StakeholderUpdate, StakeholderResponse,
     RoleCreate, RoleUpdate, RoleResponse,
@@ -28,9 +32,12 @@ def create_stakeholder(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Add a stakeholder to a project."""
-    if not db.query(Project).filter(Project.id == project_id).first():
+    """Add a stakeholder to a project (super admin, AM, or PM for this project)."""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if not can_manage_stakeholders(current_user, project, db):
+        raise HTTPException(status_code=403, detail="You don't have permission to manage stakeholders on this project")
     db_stakeholder = Stakeholder(project_id=project_id, **stakeholder.model_dump())
     db.add(db_stakeholder)
     db.commit()
@@ -172,7 +179,12 @@ def create_assignment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Assign a user to a role on a project."""
+    """Assign a user to a role on a project (super admin, AM, or PM for this project)."""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not can_assign_role(current_user, project, db):
+        raise HTTPException(status_code=403, detail="You don't have permission to assign roles on this project")
     if assignment.project_id != project_id:
         raise HTTPException(status_code=400, detail="project_id mismatch")
     existing = db.query(RoleAssignment).filter(
@@ -338,7 +350,9 @@ def create_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Create a new user (super admin only)."""
+    """Create a new user (super admin, account manager, or project manager)."""
+    if not can_create_user(current_user):
+        raise HTTPException(status_code=403, detail="You don't have permission to create users")
     from app.services.auth import hash_password
     email = data.get("email")
     name = data.get("name")
@@ -346,6 +360,8 @@ def create_user(
     system_role = data.get("system_role", "member")
     if not email or not name or not password:
         raise HTTPException(status_code=400, detail="email, name, and password are required")
+    if not can_set_system_role(current_user, system_role):
+        raise HTTPException(status_code=403, detail=f"You don't have permission to create a user with role '{system_role}'")
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
     user = User(email=email, name=name, hashed_password=hash_password(password), system_role=system_role)
@@ -361,11 +377,13 @@ def delete_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Delete a user (super admin only)."""
+    """Delete a user (super admin, AM, or PM depending on target's role)."""
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    if not can_delete_user(current_user, user):
+        raise HTTPException(status_code=403, detail=f"You don't have permission to delete this user")
     db.delete(user)
     db.commit()

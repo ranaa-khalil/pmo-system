@@ -4915,32 +4915,29 @@ function pmoApp() {
         },
 
         editBacklogItem(item) {
-            // Close the view modal
-            this.viewingBacklogItem = null;
-            // Pre-fill the form with the item's data
-            this.backlogFormMode = item.item_type === 'Epic' ? 'epic' : 'feature';
-            this.backlogForm = {
+            this.backlogEditMode = true;
+            this.backlogEditForm = {
+                id: item.id,
                 title: item.title || '',
                 description: item.description || '',
                 priority: item.priority || 'Medium',
-                kpi_id: item.kpi_id || '',
-                epic: item.epic || '',
                 item_type: item.item_type || 'Feature',
                 primary_actor: item.primary_actor || '',
-                story_points: item.story_points || null,
+                story_points: item.story_points ?? '',
                 target_release: item.target_release || '',
                 acceptance_criteria: item.acceptance_criteria || '',
-                dependencies: item.dependencies || '',
-                depends_on: item.depends_on || [],
             };
-            this.editingBacklogId = item.id;
-            this.loadAvailableDeps(this.selectedProject.id, item.id);
-            // Scroll to the form
-            this.$nextTick(() => {
-                const form = document.getElementById('backlog-form');
-                if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            });
-            this.showToast('Editing item — update and click Save', 'info');
+        },
+
+        async saveBacklogEdit() {
+            if (!this.backlogEditForm.title?.trim()) return;
+            try {
+                const updated = await this.api('PUT', `/backlog/${this.backlogEditForm.id}`, this.backlogEditForm);
+                this.viewingBacklogItem = updated;
+                this.backlogEditMode = false;
+                await this.loadBacklog();
+                this.showToast('Backlog item updated', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
         },
 
         async saveBacklogItemEdit() {

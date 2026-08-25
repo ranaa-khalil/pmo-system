@@ -907,6 +907,11 @@
                         <p class="text-[14px] text-slate-500 mt-1.5">Gantt-style roadmap across all projects.</p>
                     </div>
                     <div class="flex items-center gap-2">
+                        <button @click="$refs.roadmapScroll && ($refs.roadmapScroll.scrollLeft = Math.max(0, (260 + todayOffset * timelineZoom) - $refs.roadmapScroll.clientWidth / 2))"
+                                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 text-rose-600 text-[12px] font-medium hover:bg-rose-100 transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            Today
+                        </button>
                         <button @click="timelineZoom = Math.max(0.5, timelineZoom - 0.25)" class="w-8 h-8 rounded-lg bg-white border border-slate-200/60 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4"/></svg>
                         </button>
@@ -924,7 +929,7 @@
                 <!-- Timeline container -->
                 <div x-show="projects.length > 0" class="surface rounded-2xl border border-slate-200/60 overflow-hidden">
                     <!-- Timeline scroll area -->
-                    <div class="overflow-x-auto">
+                    <div class="overflow-x-auto" x-init="$nextTick(() => { const el = $el; const todayX = 260 + todayOffset * timelineZoom; el.scrollLeft = Math.max(0, todayX - el.clientWidth / 2); })" x-ref="roadmapScroll">
                         <div :style="'width: ' + (timelineTotalWidth + 260) + 'px; min-width: 100%'">
                             <!-- Header: project label column + time axis -->
                             <div class="flex sticky top-0 z-20 bg-white border-b border-slate-100">
@@ -2335,6 +2340,11 @@
                 <div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
                     <h3 class="text-[14px] font-semibold text-slate-800">Timeline</h3>
                     <div class="flex items-center gap-2">
+                        <button @click="$refs.projectRoadmapScroll && ($refs.projectRoadmapScroll.scrollLeft = Math.max(0, (projectTodayOffset * timelineZoom) - $refs.projectRoadmapScroll.clientWidth / 2))"
+                                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-600 text-[11px] font-medium hover:bg-rose-100 transition-colors">
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            Today
+                        </button>
                         <button @click="timelineZoom = Math.max(0.5, timelineZoom - 0.25)" class="w-7 h-7 rounded-lg border border-slate-200/60 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4"/></svg>
                         </button>
@@ -2344,7 +2354,7 @@
                         </button>
                     </div>
                 </div>
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto" x-init="$nextTick(() => { const el = $el; const todayX = projectTodayOffset * timelineZoom; el.scrollLeft = Math.max(0, todayX - el.clientWidth / 2); })" x-ref="projectRoadmapScroll">
                     <div :style="'width: ' + (projectTimelineTotalWidth * timelineZoom + 32) + 'px; min-width: 100%'">
                         <!-- Month header -->
                         <div class="flex border-b border-slate-50">
@@ -2880,47 +2890,89 @@
 
     <!-- Releases tab -->
     <div x-show="projectTab==='releases'" class="max-w-5xl">
-        <!-- V-Cycle phases reference -->
-        <div class="surface rounded-2xl border border-slate-200/60 p-4 mb-4">
-            <div class="flex items-center gap-2 mb-2">
-                <h3 class="text-[13px] font-semibold text-slate-800">Release Lifecycle</h3>
-                <span class="text-[10px] text-slate-400">— items: Requirements → Testing | releases: UAT → Retrospective</span>
+        <!-- V-Model Lifecycle Reference -->
+        <div class="surface rounded-2xl border border-slate-200/60 p-5 mb-5">
+            <div class="flex items-center gap-2 mb-4">
+                <h3 class="text-[14px] font-bold text-slate-800">Release Lifecycle (V-Model)</h3>
+                <span class="text-[10px] text-slate-400">— how items flow from requirements to retrospective</span>
             </div>
-            <div class="flex flex-wrap items-center gap-1 text-[10px]">
-                <!-- Item-level phases -->
-                <span class="text-[9px] font-bold uppercase tracking-wider text-brand-600 mr-1">ITEM</span>
-                <template x-for="(phase, idx) in [
-                    {name:'Requirements',icon:'📋'},
-                    {name:'Design',icon:'🎨'},
-                    {name:'Development',icon:'⚙️'},
-                    {name:'Testing',icon:'🔬'},
-                    {name:'Ready for UAT',icon:'✅'}
-                ]" :key="phase.name">
-                    <div class="flex items-center gap-1">
-                        <span class="text-[12px]" x-text="phase.icon"></span>
-                        <span class="text-slate-500 font-medium" x-text="phase.name"></span>
-                        <span x-show="idx < 4" class="text-slate-300 mx-0.5">→</span>
+
+            <!-- Two-track V-model: Item track → Release track -->
+            <div class="flex flex-col gap-3">
+                <!-- Item track -->
+                <div class="flex items-center gap-1">
+                    <div class="text-[9px] font-bold uppercase tracking-wider text-brand-600 w-16 flex-shrink-0">Item</div>
+                    <div class="flex items-center gap-0.5 flex-1">
+                        <template x-for="(phase, idx) in [
+                            {name:'Requirements',icon:'📋',color:'bg-brand-50 text-brand-700 border-brand-200'},
+                            {name:'Design',icon:'🎨',color:'bg-violet-50 text-violet-700 border-violet-200'},
+                            {name:'Development',icon:'⚙️',color:'bg-blue-50 text-blue-700 border-blue-200'},
+                            {name:'Testing',icon:'🔬',color:'bg-amber-50 text-amber-700 border-amber-200'},
+                            {name:'Ready for UAT',icon:'✅',color:'bg-emerald-50 text-emerald-700 border-emerald-200'}
+                        ]" :key="phase.name">
+                            <div class="flex items-center">
+                                <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-medium whitespace-nowrap" :class="phase.color">
+                                    <span x-text="phase.icon"></span>
+                                    <span x-text="phase.name"></span>
+                                </div>
+                                <template x-if="idx < 4">
+                                    <div class="flex items-center gap-0.5 mx-0.5">
+                                        <svg class="w-3 h-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                        <!-- Send-back arrow -->
+                        <div class="ml-2 flex items-center gap-1 text-[9px] text-amber-500">
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12"/></svg>
+                            <span>Testing → Dev (rework)</span>
+                        </div>
                     </div>
-                </template>
-                <span class="text-slate-300 mx-1">|</span>
-                <!-- Release-level phases -->
-                <span class="text-[9px] font-bold uppercase tracking-wider text-emerald-600 mr-1">RELEASE</span>
-                <template x-for="(phase, idx) in [
-                    {name:'UAT',icon:'✅'},
-                    {name:'Pre-Release',icon:'📦'},
-                    {name:'Released',icon:'🚀'},
-                    {name:'Post-Release',icon:'📊'},
-                    {name:'Retrospective',icon:'🔄'}
-                ]" :key="phase.name">
-                    <div class="flex items-center gap-1">
-                        <span class="text-[12px]" x-text="phase.icon"></span>
-                        <span class="text-slate-500 font-medium" x-text="phase.name"></span>
-                        <span x-show="idx < 4" class="text-slate-300 mx-0.5">→</span>
+                </div>
+
+                <!-- Connector -->
+                <div class="flex items-center gap-1">
+                    <div class="w-16 flex-shrink-0"></div>
+                    <div class="flex items-center gap-2 flex-1">
+                        <div class="flex-1 border-t border-dashed border-slate-300"></div>
+                        <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap px-2 py-0.5 rounded-full bg-slate-100">Bundle into Release</div>
+                        <div class="flex-1 border-t border-dashed border-slate-300"></div>
                     </div>
-                </template>
+                </div>
+
+                <!-- Release track -->
+                <div class="flex items-center gap-1">
+                    <div class="text-[9px] font-bold uppercase tracking-wider text-emerald-600 w-16 flex-shrink-0">Release</div>
+                    <div class="flex items-center gap-0.5 flex-1">
+                        <template x-for="(phase, idx) in [
+                            {name:'UAT',icon:'🧪',color:'bg-purple-50 text-purple-700 border-purple-200'},
+                            {name:'Pre-Release',icon:'📦',color:'bg-indigo-50 text-indigo-700 border-indigo-200'},
+                            {name:'Released',icon:'🚀',color:'bg-emerald-50 text-emerald-700 border-emerald-200'},
+                            {name:'Post-Release',icon:'📊',color:'bg-teal-50 text-teal-700 border-teal-200'},
+                            {name:'Retrospective',icon:'🔄',color:'bg-slate-50 text-slate-700 border-slate-200'}
+                        ]" :key="phase.name">
+                            <div class="flex items-center">
+                                <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-medium whitespace-nowrap" :class="phase.color">
+                                    <span x-text="phase.icon"></span>
+                                    <span x-text="phase.name"></span>
+                                </div>
+                                <template x-if="idx < 4">
+                                    <svg class="w-3 h-3 text-slate-300 mx-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </div>
             </div>
-            <div class="text-[10px] text-slate-400 mt-2 leading-relaxed">
-                Features and bugs advance through <strong>item phases</strong> (Requirements → Testing → Ready for UAT). Once Ready for UAT, they are bundled into a release. The release then advances through <strong>release phases</strong> (UAT → Retrospective) as a whole. From Testing, items can also be sent back to Development for rework.
+
+            <!-- Description -->
+            <div class="mt-4 p-3 rounded-xl bg-slate-50/60 border border-slate-100">
+                <p class="text-[11px] text-slate-500 leading-relaxed">
+                    <strong class="text-brand-600">Item phases</strong> track individual features/bugs from requirements to "Ready for UAT".
+                    From Testing, items can be sent back to Development for rework.
+                    Once ready, items are <strong class="text-emerald-600">bundled into a release</strong> which advances as a whole through
+                    <strong class="text-emerald-600">release phases</strong> — each gate requires sign-off from the RACI accountable role.
+                </p>
             </div>
         </div>
 
@@ -4853,8 +4905,12 @@ function pmoApp() {
                     }
                 }
             }
-            if (!minDate) { minDate = new Date(); maxDate = new Date(); maxDate.setMonth(maxDate.getMonth() + 6); }
-            // Pad by 1 month on each side
+            // Always center on today — 3 months before, 9 months after minimum
+            const now = new Date();
+            const minPad = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+            const maxPad = new Date(now.getFullYear(), now.getMonth() + 9, 1);
+            if (!minDate || minDate > minPad) minDate = minPad;
+            if (!maxDate || maxDate < maxPad) maxDate = maxPad;
             minDate = new Date(minDate); minDate.setDate(1); minDate.setMonth(minDate.getMonth() - 1);
             maxDate = new Date(maxDate); maxDate.setMonth(maxDate.getMonth() + 2);
             return { min: minDate, max: maxDate };
@@ -4925,7 +4981,12 @@ function pmoApp() {
                     if (ms.target_date) { const d = new Date(ms.target_date); if (!minDate || d < minDate) minDate = d; if (!maxDate || d > maxDate) maxDate = d; }
                 }
             }
-            if (!minDate) { minDate = new Date(); maxDate = new Date(); maxDate.setMonth(maxDate.getMonth() + 6); }
+            // Always center on today — 3 months before, 9 months after minimum
+            const now = new Date();
+            const minPad = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+            const maxPad = new Date(now.getFullYear(), now.getMonth() + 9, 1);
+            if (!minDate || minDate > minPad) minDate = minPad;
+            if (!maxDate || maxDate < maxPad) maxDate = maxPad;
             minDate = new Date(minDate); minDate.setDate(1); minDate.setMonth(minDate.getMonth() - 1);
             maxDate = new Date(maxDate); maxDate.setMonth(maxDate.getMonth() + 2);
             return { min: minDate, max: maxDate };

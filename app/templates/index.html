@@ -1949,7 +1949,25 @@
                         <input x-model="backlogForm.target_release" class="input-premium text-[12px]" placeholder="Target Release">
                     </div>
                     <div class="flex items-center gap-3">
-                        <input x-model="backlogForm.dependencies" class="input-premium text-[12px] flex-1" placeholder="Dependencies / Notes">
+                        <!-- Dependency selector -->
+                        <div class="flex-1" x-show="editingBacklogId" x-cloak>
+                            <div class="flex items-center gap-1 flex-wrap">
+                                <span class="text-[10px] text-slate-400 mr-1" x-text="'Dependencies for #' + editingBacklogId + ':'"></span>
+                                <template x-for="dep in (backlogForm.depends_on || [])" :key="dep.id">
+                                    <span class="inline-flex items-center gap-1 bg-violet-50 text-violet-700 text-[10px] font-medium px-2 py-0.5 rounded-md">
+                                        <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                                        <span x-text="'#' + dep.id"></span>
+                                        <button @click="removeDependency(dep.id)" class="text-violet-400 hover:text-rose-500 ml-0.5">✕</button>
+                                    </span>
+                                </template>
+                                <select @change="addDependency($event)" class="text-[11px] border border-slate-200/60 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-brand-500/20 text-slate-500">
+                                    <option value="">+ Add dependency…</option>
+                                    <template x-for="avail in availableDeps" :key="avail.id">
+                                        <option :value="avail.id" x-text="'#' + avail.id + ' ' + (avail.title || '').slice(0, 40)"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </div>
                         <select x-model="backlogForm.kpi_id" class="text-[12px] border border-slate-200/60 rounded-xl px-3 py-2 bg-white flex-1 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
                             <option value="">Link to KPI (optional)…</option>
                             <template x-for="kpi in kpis" :key="kpi.id">
@@ -2039,7 +2057,7 @@
                                         <div class="grid grid-cols-12 gap-2 px-4 py-3 hover:bg-slate-50/50 transition-colors group">
                                             <div class="col-span-4 min-w-0">
                                                 <div class="flex items-center gap-2">
-                                                    <h4 class="text-[13px] font-semibold text-slate-800 truncate" x-text="item.title"></h4>
+                                                    <h4 class="text-[13px] font-semibold text-slate-800 truncate cursor-pointer hover:text-brand-600" @click="editBacklogDeps(item)" x-text="item.title"></h4>
                                                     <template x-if="item.github_issue_number">
                                                         <a :href="'https://github.com/' + (selectedProject?.github_repo || '') + '/issues/' + item.github_issue_number" target="_blank" class="inline-flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors flex-shrink-0">
                                                             <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
@@ -2048,10 +2066,17 @@
                                                     </template>
                                                 </div>
                                                 <p class="text-[11px] text-slate-400 truncate mt-0.5" x-text="item.description || item.acceptance_criteria || ''"></p>
-                                                <template x-if="item.dependencies && item.dependencies !== '—'">
-                                                    <div class="flex items-center gap-1 mt-1">
-                                                        <svg class="w-3 h-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
-                                                        <span class="text-[9px] text-slate-400" x-text="item.dependencies"></span>
+                                                <template x-if="item.depends_on && item.depends_on.length > 0">
+                                                    <div class="flex items-center gap-1 mt-1 flex-wrap">
+                                                        <svg class="w-3 h-3 text-violet-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                                                        <template x-for="dep in item.depends_on" :key="dep.id">
+                                                            <span class="text-[9px] bg-violet-50 text-violet-600 px-1.5 py-0.5 rounded" x-text="'#' + dep.id + ' ' + (dep.title || '').slice(0, 25)" :class="{'opacity-50 line-through': dep.status === 'Done'}"></span>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                                <template x-if="item.blocked_by && item.blocked_by.length > 0">
+                                                    <div class="flex items-center gap-1 mt-0.5">
+                                                        <span class="text-[9px] text-amber-500" x-text="'↳ blocked by ' + item.blocked_by.length + ' item(s)'"></span>
                                                     </div>
                                                 </template>
                                             </div>
@@ -3052,7 +3077,9 @@ function pmoApp() {
         backlogItems: [],
         backlogFormMode: 'feature',  // 'feature' or 'epic'
         collapsedEpics: [],
-        backlogForm: { title: '', description: '', priority: 'Medium', kpi_id: '', epic: '', item_type: 'Feature', primary_actor: '', story_points: null, target_release: '', dependencies: '' },
+        backlogForm: { title: '', description: '', priority: 'Medium', kpi_id: '', epic: '', item_type: 'Feature', primary_actor: '', story_points: null, target_release: '', dependencies: '', depends_on: [] },
+        availableDeps: [],  // backlog items available to select as dependencies
+        editingBacklogId: null,  // track which backlog item is being edited
         epicForm: { name: '', description: '' },
         phases: ['Requirements', 'Design', 'Development', 'Testing', 'UAT', 'Pre-Release', 'Release', 'Post-Release', 'Retrospective'],
 
@@ -3873,10 +3900,12 @@ function pmoApp() {
                     }
                 } else {
                     // Feature / Story mode
-                    await this.api('POST', `/projects/${this.selectedProject.id}/backlog`, {
+                    const created = await this.api('POST', `/projects/${this.selectedProject.id}/backlog`, {
                         project_id: this.selectedProject.id,
                         ...this.backlogForm,
                     });
+                    this.editingBacklogId = created.id;
+                    this.loadAvailableDeps(this.selectedProject.id, created.id);
                     const savedEpic = this.backlogForm.epic;
                     await this.loadBacklog();
                     if (saveAndNew) {
@@ -3886,12 +3915,12 @@ function pmoApp() {
                             kpi_id: this.backlogForm.kpi_id, epic: savedEpic,
                             item_type: this.backlogForm.item_type, primary_actor: this.backlogForm.primary_actor,
                             story_points: null, target_release: this.backlogForm.target_release,
-                            dependencies: '',
+                            dependencies: '', depends_on: [],
                         };
                         this.showToast('Item saved — add another', 'success');
                     } else {
-                        this.backlogForm = { title: '', description: '', priority: 'Medium', kpi_id: '', epic: '', item_type: 'Feature', primary_actor: '', story_points: null, target_release: '', dependencies: '' };
-                        this.showToast('Backlog item added', 'success');
+                        this.backlogForm = { title: '', description: '', priority: 'Medium', kpi_id: '', epic: '', item_type: 'Feature', primary_actor: '', story_points: null, target_release: '', dependencies: '', depends_on: [] };
+                        this.showToast('Backlog item added — manage dependencies below', 'success');
                     }
                 }
             } catch (e) {
@@ -3937,6 +3966,51 @@ function pmoApp() {
             } catch (e) {
                 this.showToast(e.message, 'error');
             }
+        },
+
+        // ─── Backlog dependency management ───
+        async loadAvailableDeps(projectId, excludeId) {
+            if (!projectId) return;
+            try {
+                this.availableDeps = await this.api('GET', `/projects/${projectId}/backlog/available-dependencies/${excludeId || 0}`);
+            } catch(e) { this.availableDeps = []; }
+        },
+
+        async addDependency(event) {
+            const targetId = parseInt(event.target.value);
+            if (!targetId || !this.editingBacklogId) return;
+            event.target.value = '';
+            try {
+                const updated = await this.api('POST', `/backlog/${this.editingBacklogId}/dependencies`, { depends_on_id: targetId });
+                const idx = this.backlogItems.findIndex(i => i.id === this.editingBacklogId);
+                if (idx >= 0) this.backlogItems[idx] = updated;
+                this.backlogForm.depends_on = updated.depends_on || [];
+                this.loadAvailableDeps(this.selectedProject.id, this.editingBacklogId);
+                this.showToast('Dependency added', 'success');
+            } catch(e) { this.showToast(e.message || 'Failed to add dependency', 'error'); }
+        },
+
+        async removeDependency(depId) {
+            if (!this.editingBacklogId) return;
+            try {
+                const updated = await this.api('DELETE', `/backlog/${this.editingBacklogId}/dependencies/${depId}`);
+                const idx = this.backlogItems.findIndex(i => i.id === this.editingBacklogId);
+                if (idx >= 0) this.backlogItems[idx] = updated;
+                this.backlogForm.depends_on = updated.depends_on || [];
+                this.loadAvailableDeps(this.selectedProject.id, this.editingBacklogId);
+                this.showToast('Dependency removed', 'success');
+            } catch(e) { this.showToast(e.message || 'Failed to remove dependency', 'error'); }
+        },
+
+        editBacklogDeps(item) {
+            this.editingBacklogId = item.id;
+            this.backlogForm.depends_on = item.depends_on || [];
+            this.loadAvailableDeps(this.selectedProject.id, item.id);
+            // Scroll to the dependency selector
+            this.$nextTick(() => {
+                const form = document.getElementById('backlog-form');
+                if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
         },
 
         phaseIndex(phase) {

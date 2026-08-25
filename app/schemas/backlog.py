@@ -1,6 +1,15 @@
 """Pydantic schemas for backlog items."""
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel
+
+
+class BacklogItemBrief(BaseModel):
+    """Minimal info about a backlog item, used for dependency display."""
+    id: int
+    title: str
+    current_phase: str
+    status: str
+    model_config = {"from_attributes": True}
 
 
 class BacklogItemBase(BaseModel):
@@ -45,4 +54,11 @@ class BacklogItemResponse(BacklogItemBase):
     status: str
     github_issue_number: Optional[int] = None
     assigned_to: Optional[int] = None
+    depends_on: List[BacklogItemBrief] = []
+    blocked_by: List[BacklogItemBrief] = []
     model_config = {"from_attributes": True}
+
+
+class DependencyAdd(BaseModel):
+    """Add a dependency: this item depends on the specified item."""
+    depends_on_id: int

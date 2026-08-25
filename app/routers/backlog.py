@@ -7,7 +7,12 @@ from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.project import Project
 from app.models.backlog_item import BacklogItem, PHASES
-from app.schemas.backlog import BacklogItemCreate, BacklogItemUpdate, BacklogItemResponse
+from app.schemas.backlog import (
+    BacklogItemCreate,
+    BacklogItemUpdate,
+    BacklogItemResponse,
+    DependencyAdd,
+)
 from app.services.github import GitHubService
 from app.config import settings
 
@@ -137,3 +142,88 @@ def delete_backlog_item(
         raise HTTPException(status_code=404, detail="Backlog item not found")
     db.delete(item)
     db.commit()
+
+
+# ─────────────────────────────────────────────────────────────
+# Dependency management — link backlog items to each other
+# ─────────────────────────────────────────────────────────────
+
+@router.post("/backlog/{item_id}/dependencies", response_model=BacklogItemResponse)
+def add_dependency(
+    item_id: int,
+    dep: DependencyAdd,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Mark item_id as depending on depends_on_id (item_id cannot start until depends_on_id is done)."""
+    item = db.query(BacklogItem).filter(BacklogItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Backlog item not found")
+
+    target = db.query(BacklogItem).filter(BacklogItem.id == dep.depends_on_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Dependency target item not found")
+
+    # Prevent self-dependency
+    if item_id == dep.depends_on_id:
+        raise HTTPException(status_code=400, detail="An item cannot depend on itself")
+
+    # Prevent circular dependency (simple check: if target already depends on item, it's circular)
+    if item in target.depends_on:
+        raise HTTPException(status_code=400, detail="Circular dependency detected — the target item already depends on this item")
+
+    # Prevent duplicate
+    if target in item.depends_on:
+        raise HTTPException(status_code=400, detail="Dependency already exists")
+
+    item.depends_on.append(target)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@router.delete("/backlog/{item_id}/dependencies/{depends_on_id}", response_model=BacklogItemResponse)
+def remove_dependency(
+    item_id: int,
+    depends_on_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Remove a dependency link."""
+    item = db.query(BacklogItem).filter(BacklogItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Backlog item not found")
+
+    target = db.query(BacklogItem).filter(BacklogItem.id == depends_on_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Dependency target item not found")
+
+    if target not in item.depends_on:
+        raise HTTPException(status_code=404, detail="Dependency not found")
+
+    item.depends_on.remove(target)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@router.get("/projects/{project_id}/backlog/available-dependencies/{exclude_id}", response_model=List[BacklogItemResponse])
+def list_available_dependencies(
+    project_id: int,
+    exclude_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List backlog items in a project that can be used as dependencies (excludes the item itself and its existing dependencies)."""
+    item = db.query(BacklogItem).filter(BacklogItem.id == exclude_id).first()
+    existing_dep_ids = {d.id for d in item.depends_on} if item else set()
+    existing_dep_ids.add(exclude_id)
+
+    items = (
+        db.query(BacklogItem)
+        .filter(BacklogItem.project_id == project_id)
+        .filter(~BacklogItem.id.in_(existing_dep_ids))
+        .order_by(BacklogItem.created_at.desc())
+        .all()
+    )
+    return items

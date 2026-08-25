@@ -2787,7 +2787,7 @@
                 <template x-for="req in requiredRoles" :key="req.role">
                     <div class="flex items-center gap-3 rounded-xl p-3 border transition-all"
                          :class="req.assigned ? 'bg-emerald-50/50 border-emerald-200' : 'bg-amber-50/30 border-amber-200'">
-                        <div class="w-9 h-9 rounded-full flex items-center justify-center text-[16px]"
+                        <div class="w-9 h-9 rounded-full flex items-center justify-center text-[16px] shrink-0"
                              :class="req.assigned ? 'bg-emerald-100' : 'bg-amber-100'">
                             <span x-text="req.icon"></span>
                         </div>
@@ -2797,8 +2797,15 @@
                             <template x-if="req.assignedName">
                                 <div class="text-[10px] text-emerald-600 font-medium mt-0.5" x-text="'✓ ' + req.assignedName"></div>
                             </template>
+                            <!-- Inline assign picker for unassigned roles -->
                             <template x-if="!req.assignedName">
-                                <div class="text-[10px] text-amber-600 font-medium mt-0.5">⚠ Not assigned</div>
+                                <select @change="assignRequiredRole(req.role, $event.target.value)"
+                                        class="mt-1 text-[11px] border border-amber-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-brand-500/20 text-slate-600 w-full">
+                                    <option value="">Assign user…</option>
+                                    <template x-for="u in assignableUsers(req.role)" :key="u.id">
+                                        <option :value="u.id" x-text="u.name + ' — ' + u.email"></option>
+                                    </template>
+                                </select>
                             </template>
                         </div>
                     </div>
@@ -4881,6 +4888,31 @@ function pmoApp() {
                 this.assignmentForm = { user_id: '', role_id: '', project_id: '' };
                 await this.loadUsers();
                 this.showToast('RACI role assigned', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        assignableUsers(roleName) {
+            // All system users, but exclude those already assigned to THIS role on this project
+            const assignedIds = this.projectAssignments
+                .filter(a => a.role_name === roleName)
+                .map(a => a.user_id);
+            return (this.users || []).filter(u => !assignedIds.includes(u.id));
+        },
+
+        async assignRequiredRole(roleName, userId) {
+            if (!userId || !this.selectedProject) return;
+            // Find the role_id from this.roles
+            const role = (this.roles || []).find(r => r.name === roleName);
+            if (!role) { this.showToast(`Role '${roleName}' not found`, 'error'); return; }
+            try {
+                await this.api('POST', `/projects/${this.selectedProject.id}/assignments`, {
+                    user_id: parseInt(userId),
+                    role_id: role.id,
+                    project_id: this.selectedProject.id,
+                });
+                // Refresh assignments so the card turns green immediately
+                this.projectAssignments = await this.api('GET', `/projects/${this.selectedProject.id}/assignments`);
+                this.showToast(`${roleName} assigned`, 'success');
             } catch (e) { this.showToast(e.message, 'error'); }
         },
 

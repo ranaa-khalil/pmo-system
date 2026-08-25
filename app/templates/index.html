@@ -1038,24 +1038,32 @@
 
             <!-- ============ ROADMAPS / TIMELINE VIEW ============ -->
             <div x-show="route === 'roadmap'" class="view-enter space-y-5 max-w-7xl">
+                <!-- Header -->
                 <div class="flex items-end justify-between">
                     <div>
-                        <h1 class="text-[28px] font-bold text-ink-900 tracking-tight">Timeline</h1>
-                        <p class="text-[14px] text-ink-500 mt-1.5">Gantt-style roadmap across all projects.</p>
+                        <h1 class="text-[28px] font-bold text-ink-900 tracking-tight">Roadmap Timeline</h1>
+                        <p class="text-[14px] text-ink-500 mt-1.5">Cross-project milestone tracking and delivery visibility.</p>
                     </div>
                     <div class="flex items-center gap-2">
-                        <button @click="$refs.roadmapScroll && ($refs.roadmapScroll.scrollLeft = Math.max(0, (260 + todayOffset * timelineZoom) - $refs.roadmapScroll.clientWidth / 2))"
-                                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 text-rose-600 text-[12px] font-medium hover:bg-rose-100 transition-colors">
+                        <!-- Date range badge -->
+                        <div class="hidden md:flex items-center gap-2 px-3 py-2 rounded-xl bg-ink-100 border border-ink-200/60 mr-1">
+                            <svg class="w-3.5 h-3.5 text-ink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            <span class="text-[11px] font-medium text-ink-600" x-text="timelineDateRange"></span>
+                        </div>
+                        <button @click="$refs.roadmapScroll && ($refs.roadmapScroll.scrollLeft = Math.max(0, (280 + todayOffset * timelineZoom) - $refs.roadmapScroll.clientWidth / 2))"
+                                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 text-rose-600 text-[12px] font-medium hover:bg-rose-100 transition-colors border border-rose-100">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                             Today
                         </button>
-                        <button @click="timelineZoom = Math.max(0.5, timelineZoom - 0.25)" class="w-8 h-8 rounded-lg bg-white border border-ink-200/60 flex items-center justify-center text-ink-500 hover:text-ink-800 hover:bg-ink-100 transition-colors">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4"/></svg>
-                        </button>
-                        <span class="text-[11px] font-medium text-ink-400 tabular-nums w-10 text-center" x-text="Math.round(timelineZoom * 100) + '%'"></span>
-                        <button @click="timelineZoom = Math.min(3, timelineZoom + 0.25)" class="w-8 h-8 rounded-lg bg-white border border-ink-200/60 flex items-center justify-center text-ink-500 hover:text-ink-800 hover:bg-ink-100 transition-colors">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-                        </button>
+                        <div class="flex items-center gap-1 rounded-xl bg-ink-100 border border-ink-200/60 p-1">
+                            <button @click="timelineZoom = Math.max(0.5, timelineZoom - 0.25)" class="w-7 h-7 rounded-lg bg-white border border-ink-200/40 flex items-center justify-center text-ink-500 hover:text-ink-800 hover:bg-ink-50 transition-colors">
+                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4"/></svg>
+                            </button>
+                            <span class="text-[11px] font-medium text-ink-500 tabular-nums w-9 text-center" x-text="Math.round(timelineZoom * 100) + '%'"></span>
+                            <button @click="timelineZoom = Math.min(3, timelineZoom + 0.25)" class="w-7 h-7 rounded-lg bg-white border border-ink-200/40 flex items-center justify-center text-ink-500 hover:text-ink-800 hover:bg-ink-50 transition-colors">
+                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -1066,19 +1074,21 @@
                 <!-- Timeline container -->
                 <div x-show="projects.length > 0" class="surface rounded-2xl border border-ink-200/60 overflow-hidden">
                     <!-- Timeline scroll area -->
-                    <div class="overflow-x-auto" x-init="$nextTick(() => { const el = $el; const todayX = 260 + todayOffset * timelineZoom; el.scrollLeft = Math.max(0, todayX - el.clientWidth / 2); })" x-ref="roadmapScroll">
-                        <div :style="'width: ' + (timelineTotalWidth + 260) + 'px; min-width: 100%'">
+                    <div class="overflow-x-auto" x-init="$nextTick(() => { const el = $el; const todayX = 280 + todayOffset * timelineZoom; el.scrollLeft = Math.max(0, todayX - el.clientWidth / 2); })" x-ref="roadmapScroll">
+                        <div :style="'width: ' + (timelineTotalWidth + 280) + 'px; min-width: 100%'">
                             <!-- Header: project label column + time axis -->
-                            <div class="flex sticky top-0 z-20 bg-white border-b border-black/[0.06]">
-                                <div class="w-[240px] flex-shrink-0 px-5 py-3 border-r border-black/[0.06] sticky left-0 z-30 bg-white">
-                                    <div class="text-[11px] font-semibold text-ink-400 uppercase tracking-wider">Projects</div>
+                            <div class="flex sticky top-0 z-20 bg-white border-b border-black/[0.08]">
+                                <div class="w-[260px] flex-shrink-0 px-5 py-3.5 border-r border-black/[0.06] sticky left-0 z-30 bg-white">
+                                    <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider">Projects</div>
                                 </div>
                                 <!-- Month columns header -->
                                 <div class="flex-1 flex" :style="'width: ' + timelineTotalWidth + 'px'">
                                     <template x-for="month in timelineMonths" :key="month.key">
-                                        <div class="flex-shrink-0 border-r border-ink-100 px-2 py-2.5" :style="'width: ' + (monthWidth * timelineZoom) + 'px'">
+                                        <div class="flex-shrink-0 border-r border-ink-100/60 px-2.5 py-2.5"
+                                             :style="'width: ' + (monthWidth * timelineZoom) + 'px'"
+                                             :class="month.isQuarter ? 'bg-brand-50/40' : ''">
                                             <div class="text-[10px] font-bold tracking-wide" :class="month.isQuarter ? 'text-brand-600' : 'text-ink-400'" x-text="month.label"></div>
-                                            <div class="text-[9px] text-ink-300" x-text="month.year"></div>
+                                            <div class="text-[9px] text-ink-300 mt-0.5" x-text="month.year"></div>
                                         </div>
                                     </template>
                                 </div>
@@ -1087,40 +1097,41 @@
                             <!-- Today marker line (absolute positioned across the whole timeline) -->
                             <div class="relative">
                                 <div class="absolute top-0 bottom-0 z-10 pointer-events-none"
-                                     :style="'left: ' + (260 + todayOffset * timelineZoom) + 'px'">
-                                    <div class="w-px h-full bg-rose-400/50"></div>
+                                     :style="'left: ' + (280 + todayOffset * timelineZoom) + 'px'">
+                                    <div class="w-px h-full bg-rose-400/40"></div>
                                     <div class="absolute -top-0 -translate-x-1/2 left-0">
-                                        <div class="px-1.5 py-0.5 rounded-md bg-rose-500 text-white text-[9px] font-bold whitespace-nowrap shadow-sm">TODAY</div>
+                                        <div class="px-2 py-1 rounded-lg bg-rose-500 text-white text-[9px] font-bold whitespace-nowrap shadow-md shadow-rose-500/30">TODAY</div>
                                     </div>
                                 </div>
 
                                 <!-- Project rows -->
                                 <template x-for="p in projects" :key="p.id">
-                                    <div class="flex border-b border-ink-100 hover:bg-ink-100/30 transition-colors group">
+                                    <div class="flex border-b border-ink-100/60 hover:bg-ink-50/30 transition-colors group">
                                         <!-- Project label -->
-                                        <div class="w-[240px] flex-shrink-0 px-5 py-4 border-r border-black/[0.06] flex items-center gap-3 cursor-pointer sticky left-0 z-20 bg-white group-hover:bg-ink-100/80" @click="openProject(p)">
-                                            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-ink-100 to-ink-100 flex items-center justify-center ring-1 ring-brand-100/40 flex-shrink-0">
-                                                <span class="text-[12px] font-bold text-brand-600" x-text="p.name.charAt(0)"></span>
+                                        <div class="w-[260px] flex-shrink-0 px-5 py-4 border-r border-black/[0.06] flex items-center gap-3 cursor-pointer sticky left-0 z-20 bg-white group-hover:bg-ink-50/50" @click="openProject(p)">
+                                            <div class="w-9 h-9 rounded-xl bg-brand-50 flex items-center justify-center ring-1 ring-brand-100 flex-shrink-0">
+                                                <span class="text-[13px] font-bold text-brand-600" x-text="p.name.charAt(0)"></span>
                                             </div>
-                                            <div class="min-w-0">
+                                            <div class="min-w-0 flex-1">
                                                 <div class="text-[13px] font-semibold text-ink-700 truncate group-hover:text-brand-600 transition-colors" x-text="p.name"></div>
-                                                <div class="text-[10px] text-ink-400" x-text="getClientName(p.client_id)"></div>
+                                                <div class="text-[10px] text-ink-400 mt-0.5" x-text="getClientName(p.client_id)"></div>
                                             </div>
                                         </div>
                                         <!-- Timeline track -->
-                                        <div class="flex-1 relative py-3" :style="'width: ' + timelineTotalWidth + 'px; min-height: 72px'">
+                                        <div class="flex-1 relative py-4" :style="'width: ' + timelineTotalWidth + 'px; min-height: 80px'">
                                             <!-- Grid lines -->
                                             <div class="absolute inset-0 flex pointer-events-none">
                                                 <template x-for="month in timelineMonths" :key="month.key">
-                                                    <div class="flex-shrink-0 border-r border-ink-100" :style="'width: ' + (monthWidth * timelineZoom) + 'px'"></div>
+                                                    <div class="flex-shrink-0 border-r border-ink-100/40" :style="'width: ' + (monthWidth * timelineZoom) + 'px'"
+                                                         :class="month.isQuarter ? 'bg-brand-50/15' : ''"></div>
                                                 </template>
                                             </div>
 
                                             <!-- Roadmap bars + milestones -->
                                             <template x-if="!p._roadmaps">
                                                 <div class="px-4 py-3 space-y-2">
-                                                    <div class="skeleton h-7 w-3/4 rounded-lg"></div>
-                                                    <div class="skeleton h-7 w-1/2 rounded-lg"></div>
+                                                    <div class="skeleton h-8 w-3/4 rounded-lg"></div>
+                                                    <div class="skeleton h-8 w-1/2 rounded-lg"></div>
                                                 </div>
                                             </template>
                                             <template x-if="p._roadmaps && p._roadmaps.length === 0">
@@ -1128,37 +1139,37 @@
                                             </template>
 
                                             <template x-for="(rm, rmIdx) in (p._roadmaps || [])" :key="rm.id">
-                                                <div class="relative mb-2 last:mb-0" :style="'height: 28px'">
+                                                <div class="relative mb-2.5 last:mb-0" :style="'height: 32px'">
                                                     <!-- Roadmap bar -->
-                                                    <div class="absolute h-7 rounded-lg overflow-hidden cursor-pointer transition-all hover:shadow-md group/bar"
-                                                         :style="'left: ' + (roadmapLeftPx(rm) * timelineZoom) + 'px; width: ' + Math.max(roadmapWidthPx(rm) * timelineZoom, 40) + 'px'"
+                                                    <div class="absolute h-8 rounded-xl overflow-hidden cursor-pointer transition-all hover:shadow-lg group/bar"
+                                                         :style="'left: ' + (roadmapLeftPx(rm) * timelineZoom) + 'px; width: ' + Math.max(roadmapWidthPx(rm) * timelineZoom, 60) + 'px'"
                                                          :class="rmIdx % 2 === 0 ? 'bg-gradient-to-r from-brand-500 to-violet-600' : 'bg-gradient-to-r from-violet-500 to-purple-500'"
                                                          @click="openProject(p)">
                                                         <div class="absolute inset-0 bg-black/0 group-hover/bar:bg-black/10 transition-colors"></div>
                                                         <div class="relative h-full flex items-center px-3">
-                                                            <span class="text-[10px] font-semibold text-white truncate" x-text="rm.title"></span>
+                                                            <span class="text-[11px] font-semibold text-white truncate" x-text="rm.title"></span>
                                                         </div>
                                                     </div>
 
                                                     <!-- Milestone diamonds -->
                                                     <template x-for="ms in (rm.milestones || [])" :key="ms.id">
-                                                        <div class="absolute z-5 group/ms" :style="'left: ' + (milestoneLeftPx(ms) * timelineZoom) + 'px; top: -2px'"
+                                                        <div class="absolute z-5 group/ms" :style="'left: ' + (milestoneLeftPx(ms) * timelineZoom) + 'px; top: -3px'"
                                                              @click="openProject(p)">
                                                             <!-- Diamond marker -->
                                                             <div class="relative -translate-x-1/2 cursor-pointer">
-                                                                <div class="w-3.5 h-3.5 rotate-45 rounded-sm shadow-sm border-2 border-white"
+                                                                <div class="w-4 h-4 rotate-45 rounded shadow-md border-2 border-white"
                                                                      :class="{'bg-emerald-400': ms.status === 'On Track', 'bg-rose-400': ms.status === 'At Risk', 'bg-ink-300': ms.status === 'Completed'}"></div>
                                                                 <!-- Tooltip on hover -->
-                                                                <div class="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 opacity-0 group-hover/ms:opacity-100 transition-opacity pointer-events-none z-30">
-                                                                    <div class="bg-ink-700 text-white rounded-xl shadow-lg px-3 py-2 whitespace-nowrap">
-                                                                        <div class="text-[11px] font-semibold" x-text="ms.title"></div>
-                                                                        <div class="text-[9px] text-ink-300 mt-0.5" x-text="ms.target_date || 'TBD'"></div>
-                                                                        <div class="flex items-center gap-1.5 mt-1">
+                                                                <div class="absolute left-1/2 -translate-x-1/2 bottom-full mb-3 opacity-0 group-hover/ms:opacity-100 transition-opacity pointer-events-none z-30">
+                                                                    <div class="bg-ink-800 text-white rounded-xl shadow-xl px-3.5 py-2.5 whitespace-nowrap border border-ink-700">
+                                                                        <div class="text-[12px] font-semibold" x-text="ms.title"></div>
+                                                                        <div class="text-[10px] text-ink-300 mt-0.5" x-text="ms.target_date || 'TBD'"></div>
+                                                                        <div class="flex items-center gap-1.5 mt-1.5 pt-1.5 border-t border-ink-700">
                                                                             <span class="w-1.5 h-1.5 rounded-full" :class="{'bg-emerald-400': ms.status === 'On Track', 'bg-rose-400': ms.status === 'At Risk', 'bg-ink-400': ms.status === 'Completed'}"></span>
-                                                                            <span class="text-[9px] text-ink-300" x-text="ms.status"></span>
+                                                                            <span class="text-[10px] text-ink-300" x-text="ms.status"></span>
                                                                         </div>
                                                                     </div>
-                                                                    <div class="w-2 h-2 bg-ink-700 rotate-45 absolute left-1/2 -translate-x-1/2 -bottom-1"></div>
+                                                                    <div class="w-2 h-2 bg-ink-800 rotate-45 absolute left-1/2 -translate-x-1/2 -bottom-1"></div>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -1174,26 +1185,27 @@
                 </div>
 
                 <!-- Legend -->
-                <div class="flex items-center gap-4 px-1">
+                <div class="flex flex-wrap items-center gap-x-5 gap-y-2 px-1">
                     <div class="flex items-center gap-1.5">
-                        <div class="w-3 h-3 rotate-45 rounded-sm bg-emerald-400 border border-white shadow-sm"></div>
-                        <span class="text-[11px] text-ink-500">On Track</span>
+                        <div class="w-3.5 h-3.5 rotate-45 rounded-sm bg-emerald-400 border border-white shadow-sm"></div>
+                        <span class="text-[11px] text-ink-500 font-medium">On Track</span>
                     </div>
                     <div class="flex items-center gap-1.5">
-                        <div class="w-3 h-3 rotate-45 rounded-sm bg-rose-400 border border-white shadow-sm"></div>
-                        <span class="text-[11px] text-ink-500">At Risk</span>
+                        <div class="w-3.5 h-3.5 rotate-45 rounded-sm bg-rose-400 border border-white shadow-sm"></div>
+                        <span class="text-[11px] text-ink-500 font-medium">At Risk</span>
                     </div>
                     <div class="flex items-center gap-1.5">
-                        <div class="w-3 h-3 rotate-45 rounded-sm bg-ink-300 border border-white shadow-sm"></div>
-                        <span class="text-[11px] text-ink-500">Completed</span>
+                        <div class="w-3.5 h-3.5 rotate-45 rounded-sm bg-ink-300 border border-white shadow-sm"></div>
+                        <span class="text-[11px] text-ink-500 font-medium">Completed</span>
+                    </div>
+                    <div class="w-px h-4 bg-ink-200"></div>
+                    <div class="flex items-center gap-1.5">
+                        <div class="w-5 h-2.5 rounded-sm bg-gradient-to-r from-brand-500 to-violet-600"></div>
+                        <span class="text-[11px] text-ink-500 font-medium">Roadmap Period</span>
                     </div>
                     <div class="flex items-center gap-1.5">
-                        <div class="w-4 h-2 rounded-sm bg-gradient-to-r from-brand-500 to-violet-600"></div>
-                        <span class="text-[11px] text-ink-500">Roadmap</span>
-                    </div>
-                    <div class="flex items-center gap-1.5">
-                        <div class="w-px h-3 bg-rose-400"></div>
-                        <span class="text-[11px] text-ink-500">Today</span>
+                        <div class="w-px h-3.5 bg-rose-400"></div>
+                        <span class="text-[11px] text-ink-500 font-medium">Today</span>
                     </div>
                 </div>
             </div>
@@ -5435,6 +5447,12 @@ function pmoApp() {
 
         get timelineTotalWidth() {
             return this.timelineMonths.length * this.monthWidth;
+        },
+
+        get timelineDateRange() {
+            const { min, max } = this.timelineRange;
+            const fmt = (d) => d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            return fmt(min) + ' → ' + fmt(max);
         },
 
         get todayOffset() {

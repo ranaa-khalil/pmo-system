@@ -266,6 +266,40 @@ def seed():
         ]
 
         items = []
+        # Create Epic items first (one per unique epic name)
+        EPIC_DESCS = {
+            "Catalog & PIM": "Manage product catalog with bilingual search, PIM attributes, and inventory synchronization across vendors.",
+            "RBAC & Identity": "Multi-tenant role-based access control with granular permissions, MFA enforcement, and identity federation.",
+            "Platform / Core": "Core platform infrastructure: API gateway, rate limiting, audit trails, and multi-tenancy foundations.",
+            "Audit & Compliance": "Immutable audit logging, compliance reporting, and data retention policies for regulatory adherence.",
+            "Notifications": "Multi-channel notification engine: push, email, SMS, and in-app alerts with delivery tracking.",
+            "Billing & Invoicing": "Billing engine with metered usage, invoice generation, multi-currency support, and margin calculation.",
+            "Payments": "Payment gateway integration with card processing, local payment methods, retry logic, and payout scheduling.",
+            "Commerce / Cart & Checkout": "Cart management, checkout flow, abandoned cart recovery, and order orchestration.",
+            "Marketplace / Storefront": "Vendor storefront, product listings, search, ratings, and vendor analytics.",
+            "Reseller / Channel": "N-tier reseller hierarchy, channel pricing, white-label support, and commission tracking.",
+            "Cloud Resource Intelligence": "Multi-cloud usage aggregation, cost optimization recommendations, and resource health scoring.",
+            "Provisioning & Orchestration": "Automated resource provisioning, connector framework, and workflow orchestration engine.",
+        }
+        unique_epic_names = sorted(set(mi["epic"] for mi in master_items if mi["epic"] and mi["epic"] != "—"))
+        for epic_name in unique_epic_names:
+            epic_desc = EPIC_DESCS.get(epic_name, f"{epic_name} — collection of features and stories.")
+            items.append(BacklogItem(
+                project_id=pnu.id,
+                title=epic_name,
+                description=epic_desc,
+                epic=epic_name,
+                item_type="Epic",
+                primary_actor="—",
+                story_points=None,
+                target_release="",
+                acceptance_criteria=epic_desc,
+                dependencies="—",
+                priority="Medium",
+                current_phase="Requirements",
+                status="Draft",
+            ))
+        # Feature/story/bug items
         for mi in master_items:
             phase, status = map_status(mi["status"])
             items.append(BacklogItem(
@@ -422,6 +456,7 @@ def seed():
         releases_data,  # [(version, name, desc, status, target_date, milestone_idx)]
         backlog_data,  # [(title, desc, phase, status, priority, epic, type, actor, pts, target_rel, kpi_idx)]
         stakeholders_data,  # [(name, email, company, role_name, raci_type)]
+        version_prefix="1.0",
     ):
         existing = db.query(Project).filter(Project.name == name).first()
         if existing:
@@ -430,6 +465,7 @@ def seed():
         proj = Project(
             name=name, client_id=client.id, description=description,
             status=status, project_manager_id=pm_user.id,
+            version_prefix=version_prefix,
         )
         db.add(proj)
         db.commit()
@@ -477,8 +513,58 @@ def seed():
             db.refresh(r)
             rel_ids.append(r.id)
 
-        # Backlog items
+        # Backlog items — first create Epic items for each unique epic name
+        EPIC_DESCRIPTIONS = {
+            "Catalog & PIM": "Manage product catalog with bilingual search, PIM attributes, and inventory synchronization across vendors.",
+            "RBAC & Identity": "Multi-tenant role-based access control with granular permissions, MFA enforcement, and identity federation.",
+            "Platform / Core": "Core platform infrastructure: API gateway, rate limiting, audit trails, and multi-tenancy foundations.",
+            "Audit & Compliance": "Immutable audit logging, compliance reporting, and data retention policies for regulatory adherence.",
+            "Notifications": "Multi-channel notification engine: push, email, SMS, and in-app alerts with delivery tracking.",
+            "Billing & Invoicing": "Billing engine with metered usage, invoice generation, multi-currency support, and margin calculation.",
+            "Payments": "Payment gateway integration with card processing, local payment methods, retry logic, and payout scheduling.",
+            "Commerce / Cart & Checkout": "Cart management, checkout flow, abandoned cart recovery, and order orchestration.",
+            "Marketplace / Storefront": "Vendor storefront, product listings, search, ratings, and vendor analytics.",
+            "Reseller / Channel": "N-tier reseller hierarchy, channel pricing, white-label support, and commission tracking.",
+            "Cloud Resource Intelligence": "Multi-cloud usage aggregation, cost optimization recommendations, and resource health scoring.",
+            "Provisioning & Orchestration": "Automated resource provisioning, connector framework, and workflow orchestration engine.",
+            "Marketplace": "Vendor marketplace with registration, storefront, and product management capabilities.",
+            "Analytics": "Analytics dashboards for vendors, admins, and customers with sales metrics and conversion tracking.",
+            "Commerce": "Commerce engine with cart, checkout, and order management for multi-vendor transactions.",
+            "SD-WAN": "Software-defined WAN provisioning, circuit automation, and real-time network monitoring.",
+            "Network Integration": "API integration with telecom providers, circuit provisioning, and connectivity monitoring.",
+            "Monitoring & Alerting": "Real-time monitoring, alerting, and incident management with SLA tracking.",
+            "Security & Compliance": "Security hardening, vulnerability management, and compliance automation.",
+            "Reseller / Channel Mgmt": "Channel partner management, reseller hierarchy, and commission engine.",
+            "Portal & UX": "User portal, dashboard, and self-service capabilities with responsive design.",
+            "Infrastructure": "Cloud infrastructure, CI/CD pipelines, and platform reliability.",
+            "API & Integrations": "External API framework, webhook management, and third-party integrations.",
+            "Document Intelligence": "OCR, document classification, and automated data extraction pipelines.",
+            "Workflow Automation": "Business rule engine, approval workflows, and process automation.",
+        }
+        
+        # Extract unique epic names and create Epic items first
+        unique_epics = set()
+        for b in backlog_data:
+            epic_name = b[5]  # epic field
+            if epic_name and epic_name != "—":
+                unique_epics.add(epic_name)
+        
         bi_ids = []
+        for epic_name in sorted(unique_epics):
+            epic_desc = EPIC_DESCRIPTIONS.get(epic_name, f"{epic_name} — collection of features and stories.")
+            ei = BacklogItem(
+                project_id=proj.id, title=epic_name, description=epic_desc,
+                current_phase="Requirements", status="Draft", priority="Medium",
+                epic=epic_name, item_type="Epic", primary_actor="—",
+                story_points=None, target_release="",
+                acceptance_criteria=epic_desc, dependencies="—",
+            )
+            db.add(ei)
+            db.commit()
+            db.refresh(ei)
+            bi_ids.append(ei.id)
+
+        # Feature/story/bug items
         for btitle, bdesc, bphase, bstatus, bpriority, bepic, btype, bactor, bpts, btgtrel, bkpiidx in backlog_data:
             bkpi = kpi_ids[bkpiidx] if bkpiidx < len(kpi_ids) else None
             bi = BacklogItem(

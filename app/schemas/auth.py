@@ -19,6 +19,7 @@ class UserResponse(BaseModel):
     id: int
     email: str
     full_name: str = ""  # mapped from User.name
+    system_role: str = "member"
     is_active: bool
     created_at: datetime
 
@@ -30,6 +31,7 @@ class UserResponse(BaseModel):
             id=user.id,
             email=user.email,
             full_name=user.name,
+            system_role=user.system_role,
             is_active=user.is_active,
             created_at=user.created_at,
         )

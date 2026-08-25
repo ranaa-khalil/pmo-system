@@ -18,6 +18,20 @@ from app.schemas.approval import (
 router = APIRouter(prefix="/api", tags=["approvals"])
 
 
+def _enrich_steps(db: Session, request: ApprovalRequest):
+    """Add approver_name to each step by resolving the FK."""
+    steps = db.query(ApprovalStep).filter(
+        ApprovalStep.request_id == request.id
+    ).order_by(ApprovalStep.step_order).all()
+    for s in steps:
+        s.approver_name = None
+        if s.approver_id:
+            user = db.query(User).filter(User.id == s.approver_id).first()
+            s.approver_name = user.name if user else None
+    request.steps = steps
+    return request
+
+
 @router.post("/projects/{project_id}/approvals", response_model=ApprovalRequestWithStepsResponse, status_code=201)
 def create_approval_request(
     project_id: int,
@@ -57,9 +71,8 @@ def create_approval_request(
     db.commit()
     db.refresh(request)
 
-    # Load steps for response
-    request.steps = db.query(ApprovalStep).filter(ApprovalStep.request_id == request.id).order_by(ApprovalStep.step_order).all()
-    return request
+    # Load steps for response (with approver names)
+    return _enrich_steps(db, request)
 
 
 @router.get("/projects/{project_id}/approvals", response_model=List[ApprovalRequestWithStepsResponse])
@@ -71,7 +84,7 @@ def list_project_approvals(
     """List all approval requests for a project."""
     requests = db.query(ApprovalRequest).filter(ApprovalRequest.project_id == project_id).all()
     for r in requests:
-        r.steps = db.query(ApprovalStep).filter(ApprovalStep.request_id == r.id).order_by(ApprovalStep.step_order).all()
+        _enrich_steps(db, r)
     return requests
 
 
@@ -85,8 +98,7 @@ def get_approval_request(
     request = db.query(ApprovalRequest).filter(ApprovalRequest.id == approval_id).first()
     if not request:
         raise HTTPException(status_code=404, detail="Approval request not found")
-    request.steps = db.query(ApprovalStep).filter(ApprovalStep.request_id == request.id).order_by(ApprovalStep.step_order).all()
-    return request
+    return _enrich_steps(db, request)
 
 
 @router.post("/approvals/{approval_id}/steps/{step_id}/approve", response_model=ApprovalRequestWithStepsResponse)
@@ -154,8 +166,7 @@ def approve_step(
 
     db.commit()
     db.refresh(request)
-    request.steps = db.query(ApprovalStep).filter(ApprovalStep.request_id == approval_id).order_by(ApprovalStep.step_order).all()
-    return request
+    return _enrich_steps(db, request)
 
 
 @router.post("/approvals/{approval_id}/steps/{step_id}/reject", response_model=ApprovalRequestWithStepsResponse)
@@ -190,8 +201,7 @@ def reject_step(
 
     db.commit()
     db.refresh(request)
-    request.steps = db.query(ApprovalStep).filter(ApprovalStep.request_id == approval_id).order_by(ApprovalStep.step_order).all()
-    return request
+    return _enrich_steps(db, request)
 
 
 @router.delete("/approvals/{approval_id}", status_code=204)

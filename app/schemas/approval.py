@@ -15,6 +15,7 @@ class ApprovalStepResponse(BaseModel):
     step_order: int
     role_name: str
     approver_id: Optional[int] = None
+    approver_name: Optional[str] = None
     status: str
     comment: Optional[str] = None
     decided_at: Optional[str] = None

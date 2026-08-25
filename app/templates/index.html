@@ -3081,6 +3081,19 @@
                                         </template>
                                     </div>
                                 </template>
+                                <!-- Show who needs to sign off (pending gate) -->
+                                <template x-if="getReleasePhaseIndex(selectedRelease?.status) === getReleasePhaseIndex(gate.phase) - 1">
+                                    <div class="ml-6 mt-1.5 text-[10px] text-amber-600 font-medium">
+                                        <template x-for="apv in (selectedRelease?.approvals || [])" :key="apv.id">
+                                            <span x-show="apv.target_phase === gate.phase && apv.status === 'Pending'">
+                                                Awaiting sign-off from <span x-text="apv.approver_name || gate.role"></span>
+                                            </span>
+                                        </template>
+                                        <template x-if="!selectedRelease?.approvals || !selectedRelease.approvals.some(a => a.target_phase === gate.phase && a.status === 'Pending')">
+                                            <span>Awaiting sign-off from <span x-text="gate.role"></span></span>
+                                        </template>
+                                    </div>
+                                </template>
                             </div>
                         </template>
                     </div>
@@ -3444,7 +3457,7 @@
                                         <div class="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold"
                                              :class="step.status === 'Approved' ? 'bg-emerald-100 text-emerald-700' : step.status === 'Rejected' ? 'bg-rose-100 text-rose-700' : step.step_order === approval.current_step ? 'bg-amber-100 text-amber-700 ring-2 ring-amber-200' : 'bg-slate-100 text-slate-400'"
              x-text="idx + 1"></div>
-                                        <span x-show="idx === approval.current_step - 1 && step.status === 'Pending'" class="text-[9px] font-medium text-amber-600 ml-0.5" x-text="step.role_name"></span>
+                                        <span x-show="idx === approval.current_step - 1 && step.status === 'Pending'" class="text-[9px] font-medium text-amber-600 ml-0.5" x-text="step.approver_name ? step.approver_name : step.role_name"></span>
                                         <span x-show="idx < approval.steps.length - 1" class="text-slate-200 text-[10px]">→</span>
                                     </div>
                                 </template>
@@ -3492,7 +3505,15 @@
                                 <div class="flex items-center justify-between">
                                     <div>
                                         <div class="text-[13px] font-semibold text-slate-800" x-text="step.role_name"></div>
-                                        <div class="text-[11px] text-slate-400" x-text="step.status"></div>
+                                        <div class="text-[11px] text-slate-400">
+                                            <span x-text="step.status"></span>
+                                            <template x-if="step.approver_name">
+                                                <span class="ml-1">· <span x-text="step.approver_name"></span></span>
+                                            </template>
+                                            <template x-if="!step.approver_name && step.status === 'Pending' && step.step_order === selectedApproval?.current_step">
+                                                <span class="ml-1 text-amber-500">· unassigned</span>
+                                            </template>
+                                        </div>
                                     </div>
                                     <div x-show="step.step_order === selectedApproval?.current_step && selectedApproval?.status === 'Pending'" class="flex gap-1.5">
                                         <button @click="approveStep(step.id)" class="text-[11px] font-medium text-white bg-emerald-500 hover:bg-emerald-600 px-2.5 py-1 rounded-lg transition-colors">Approve</button>

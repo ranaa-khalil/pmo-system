@@ -432,10 +432,12 @@ def get_release(
         for s in steps:
             if s.status == "Pending":
                 current_step = {"role_name": s.role_name, "step_order": s.step_order, "id": s.id}
-            if s.status == "Approved" and s.approver_id:
+            # Show approver name for both approved and pending steps
+            if s.approver_id:
                 approver_user = db.query(User).filter(User.id == s.approver_id).first()
                 approver_name = approver_user.name if approver_user else s.role_name
-                decided_at = str(s.decided_at) if s.decided_at else None
+                if s.status == "Approved":
+                    decided_at = str(s.decided_at) if s.decided_at else None
         approval_data = {
             "id": ar.id, "title": ar.title, "status": ar.status,
             "target_phase": ar.target_phase,
@@ -645,7 +647,12 @@ def advance_phase(
 
 def _create_phase_approval(db: Session, release: Release, current_user: User):
     """Auto-create an approval request for the release's current phase gate-keeper.
-    Returns {'id': approval_id, 'role': role_name} or None if no gate for this phase."""
+    Returns {'id': approval_id, 'role': role_name} or None if no gate for this phase.
+
+    The approval step is auto-assigned to the user who holds the gate-keeper
+    role on this project (via RoleAssignment). If no user has the role,
+    the step stays unassigned (role_name is set so it can be claimed later).
+    """
     gate_info = PHASE_GATE_ROLES.get(release.status)
     if not gate_info:
         return None
@@ -656,11 +663,27 @@ def _create_phase_approval(db: Session, release: Release, current_user: User):
         if release.status == phase:
             current_idx = i
             break
-    if current_idx < 0 or current_idx >= len(V_CYCLE) - 2:
+    if current_idx < 0 or current_idx >= len(V_CYCLE) - 1:
         return None
     next_phase = V_CYCLE[current_idx + 1][0]
 
     gate_role, gate_desc, gate_checklist = gate_info
+
+    # Find the user assigned to this role on this project
+    from app.models.role_assignment import RoleAssignment
+    from app.models.role import Role
+    from app.models.user import User as UserModel
+
+    approver_id = None
+    role = db.query(Role).filter(Role.name == gate_role).first()
+    if role:
+        assignment = db.query(RoleAssignment).filter(
+            RoleAssignment.role_id == role.id,
+            RoleAssignment.project_id == release.project_id,
+        ).first()
+        if assignment:
+            approver_id = assignment.user_id
+
     approval = ApprovalRequest(
         project_id=release.project_id,
         title=f"Release {release.version}: {release.status} → {next_phase}",
@@ -678,11 +701,12 @@ def _create_phase_approval(db: Session, release: Release, current_user: User):
         request_id=approval.id,
         step_order=1,
         role_name=gate_role,
+        approver_id=approver_id,  # Auto-assigned to the user with this role
     )
     db.add(step)
     db.commit()
 
-    return {"id": approval.id, "role": gate_role}
+    return {"id": approval.id, "role": gate_role, "approver_id": approver_id}
 
 
 @router.delete("/releases/{release_id}", status_code=204)

@@ -118,6 +118,27 @@ def seed():
         db.commit()
         print("✅ Assigned Rana as Product Manager on PNU Cloud")
 
+    # --- Assign gate-keeper RACI roles on PNU Cloud ---
+    # Map: role_name → user_id (Rana holds multiple roles for demo)
+    GATE_ROLE_ASSIGNMENTS = [
+        ("Product Owner", admin.id),     # Rana = Product Owner
+        ("Tech Lead", dev_user.id if 'dev_user' in dir() else admin.id),      # Dev user = Tech Lead
+        ("QA Lead", admin.id),           # Rana = QA Lead (demo)
+        ("DevOps Lead", admin.id),       # Rana = DevOps Lead (demo)
+    ]
+    for role_name, uid in GATE_ROLE_ASSIGNMENTS:
+        r = db.query(Role).filter(Role.name == role_name).first()
+        if r:
+            existing = db.query(RoleAssignment).filter(
+                RoleAssignment.user_id == uid,
+                RoleAssignment.role_id == r.id,
+                RoleAssignment.project_id == pnu.id,
+            ).first()
+            if not existing:
+                db.add(RoleAssignment(user_id=uid, role_id=r.id, project_id=pnu.id))
+    db.commit()
+    print("✅ Assigned gate-keeper RACI roles on PNU Cloud")
+
     # --- Vision (connected to KPIs) ---
     vision = db.query(ProjectVision).filter(ProjectVision.project_id == pnu.id).first()
     if not vision:
@@ -396,6 +417,7 @@ def seed():
             step_order=1,
             role_name="Tech Lead",
             status="Pending",
+            approver_id=admin.id,  # Rana holds Tech Lead role on PNU Cloud
         )
         db.add(st2)
         db.commit()
@@ -602,6 +624,19 @@ def seed():
         if not existing_ra and pm_r:
             db.add(RoleAssignment(user_id=pm_user.id, role_id=pm_r.id, project_id=proj.id))
             db.commit()
+
+        # Assign gate-keeper RACI roles (PM user holds all gate roles for demo)
+        for role_name in ["Product Owner", "Tech Lead", "QA Lead", "DevOps Lead"]:
+            gr = db.query(Role).filter(Role.name == role_name).first()
+            if gr:
+                ex = db.query(RoleAssignment).filter(
+                    RoleAssignment.user_id == pm_user.id,
+                    RoleAssignment.role_id == gr.id,
+                    RoleAssignment.project_id == proj.id,
+                ).first()
+                if not ex:
+                    db.add(RoleAssignment(user_id=pm_user.id, role_id=gr.id, project_id=proj.id))
+        db.commit()
 
         return proj
 

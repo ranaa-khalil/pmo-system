@@ -24,18 +24,18 @@ from app.services.auth import hash_password
 
 # The 12 RACI roles from RACI Matrix v2.3
 RACI_ROLES = [
-    ("Product Owner", "Owns the product vision, priorities, and backlog. Accountable for what gets built and why."),
-    ("Project Manager", "Plans, schedules, and tracks delivery. Facilitates communication and removes blockers."),
-    ("Tech Lead", "Owns technical architecture and code quality. Makes technical design decisions."),
-    ("Dev Lead", "Coordinates the development team. Breaks down work and reviews code."),
-    ("Developer", "Implements features, fixes bugs, writes unit tests. Produces the code."),
-    ("QA Lead", "Owns test strategy and quality gates. Reviews test plans and coverage."),
-    ("QA Engineer", "Writes and executes test cases. Reports defects. Performs regression testing."),
-    ("DevOps Lead", "Owns CI/CD pipelines, infrastructure, and deployment strategy."),
+    ("Product Owner", "Owns the product vision, priorities, and backlog. Accountable for requirements, entry type, and UAT sign-off."),
+    ("Product Manager", "Plans delivery, documents requirements, prepares release notes. Accountable for UAT gate and PIV."),
+    ("Business Lead", "Runs UAT execution with business users. Responsible for validating business value."),
+    ("UX Designer", "Conceptualizes UX, creates mockups/prototypes. Accountable for UX sign-off gate."),
+    ("Tech Lead", "Owns technical architecture, code quality, version numbering. Accountable for In Progress gate."),
+    ("Engineering Team", "Implements features, writes unit tests, peer code review. Responsible for development phase."),
+    ("QA Lead", "Owns test strategy and quality gates. Accountable for SIT sign-off gate."),
+    ("QA Engineer", "Writes and executes test cases (SIT, regression). Reports defects."),
+    ("DevOps Lead", "Owns CI/CD, infrastructure, deployment. Accountable for deployment and rollback."),
     ("DevOps Engineer", "Maintains build pipelines, monitors systems, executes deployments."),
-    ("Security Officer", "Reviews security requirements, performs security testing, signs off on compliance."),
-    ("Release Manager", "Coordinates release activities, manages deployment windows, owns the release calendar."),
-    ("Stakeholder", "Business sponsor or interested party. Provides requirements and accepts deliverables."),
+    ("CX Engineer", "Monitors support tickets post-release. Accountable for post-implementation support."),
+    ("PMO", "Validates business value and approves post-implementation verification."),
 ]
 
 
@@ -107,7 +107,7 @@ def seed():
         print("✅ Created project: PNU Cloud")
 
     # --- Assign admin as PM on PNU Cloud ---
-    pm_role = db.query(Role).filter(Role.name == "Project Manager").first()
+    pm_role = db.query(Role).filter(Role.name == "Product Manager").first()
     existing_assign = db.query(RoleAssignment).filter(
         RoleAssignment.user_id == admin.id,
         RoleAssignment.role_id == pm_role.id,
@@ -116,7 +116,7 @@ def seed():
     if not existing_assign:
         db.add(RoleAssignment(user_id=admin.id, role_id=pm_role.id, project_id=pnu.id))
         db.commit()
-        print("✅ Assigned Rana as Project Manager on PNU Cloud")
+        print("✅ Assigned Rana as Product Manager on PNU Cloud")
 
     # --- Vision (connected to KPIs) ---
     vision = db.query(ProjectVision).filter(ProjectVision.project_id == pnu.id).first()
@@ -508,7 +508,7 @@ def seed():
         db.commit()
 
         # Assign PM role
-        pm_r = db.query(Role).filter(Role.name == "Project Manager").first()
+        pm_r = db.query(Role).filter(Role.name == "Product Manager").first()
         existing_ra = db.query(RoleAssignment).filter(
             RoleAssignment.user_id == pm_user.id,
             RoleAssignment.project_id == proj.id,
@@ -816,7 +816,7 @@ def seed():
     tm_proj = db.query(Project).filter(Project.name == "TASAMA Multi-Cloud").first()
     tm_rel = db.query(Release).filter(Release.project_id == tm_proj.id, Release.status == "Pre-Release").first() if tm_proj else None
     if tm_proj and tm_rel and not db.query(ApprovalRequest).filter(ApprovalRequest.release_id == tm_rel.id).first():
-        # TASAMA release is in Pre-Release → pending approval from Release Manager for Pre-Release → Released
+        # TASAMA release is in Pre-Release → pending approval from DevOps Lead for Pre-Release → Released
         ap_tm = ApprovalRequest(
             project_id=tm_proj.id,
             title=f"Release {tm_rel.version}: Pre-Release → Released",
@@ -827,9 +827,9 @@ def seed():
         db.add(ap_tm)
         db.commit()
         db.refresh(ap_tm)
-        db.add(ApprovalStep(request_id=ap_tm.id, step_order=1, role_name="Release Manager", status="Pending"))
+        db.add(ApprovalStep(request_id=ap_tm.id, step_order=1, role_name="DevOps Lead", status="Pending"))
         db.commit()
-        print("✅ Created pending approval for TASAMA release (Release Manager)")
+        print("✅ Created pending approval for TASAMA release (DevOps Lead)")
 
     # --- User Tasks (personal to-dos) ---
     if db.query(UserTask).count() == 0:

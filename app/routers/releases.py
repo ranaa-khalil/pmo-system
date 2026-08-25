@@ -36,12 +36,12 @@ V_CYCLE = [
 #
 # Mapping: current_phase → (gate_keeper_role, gate_description)
 PHASE_GATE_ROLES = {
-    "Planning":     ("Product Owner",   "Approve requirements are complete and ready for development"),
-    "In Progress":  ("Tech Lead",       "Approve code completion and readiness for testing"),
-    "Testing":      ("QA Lead",         "Approve SIT results and readiness for UAT"),
-    "UAT":          ("Product Owner",   "Approve UAT passed and readiness for release"),
-    "Pre-Release":  ("Release Manager", "Approve deployment checklist and go-live"),
-    "Released":     ("Release Manager", "Confirm deployment success and begin monitoring"),
+    "Planning":     ("Product Owner",    "Approve requirements are complete and ready for development"),
+    "In Progress":  ("Tech Lead",        "Approve code completion and readiness for testing"),
+    "Testing":      ("QA Lead",          "Approve SIT results and readiness for UAT"),
+    "UAT":          ("Product Manager",  "Approve UAT passed and readiness for release"),
+    "Pre-Release":  ("DevOps Lead",      "Approve deployment checklist and go-live"),
+    "Released":     ("DevOps Lead",      "Confirm deployment success and begin monitoring"),
 }
 
 
@@ -751,10 +751,10 @@ def _get_signoffs(release, db):
     - Tech Lead (version/tag)       ← In Progress / Pre-Release gate
     - DevOps Lead (deployment)      ← Released gate
     """
-    # Template sign-off roles (in order)
+    # Template sign-off roles (in order) — aligned to RACI Matrix v2.3
     signoff_roles = [
         ("QA Lead (QA sign-off)", "QA Lead"),
-        ("Product Manager (UAT sign-off)", "Product Owner"),
+        ("Product Manager (UAT sign-off)", "Product Manager"),
         ("Tech Lead (version/tag)", "Tech Lead"),
         ("DevOps Lead (deployment)", "DevOps Lead"),
     ]

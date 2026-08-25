@@ -1,6 +1,6 @@
 """Release API router — V-cycle release management with full detail."""
 from typing import List
-from datetime import date
+from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -1504,3 +1504,185 @@ def share_release_notes(
         "release_version": release.version,
         "release_name": release.name,
     }
+
+
+# ── Sign-off PDF ────────────────────────────────────────────────────────────
+
+@router.get("/releases/{release_id}/signoff-pdf")
+def download_signoff_pdf(
+    release_id: int,
+    token: str = None,
+    db: Session = Depends(get_db),
+):
+    """Generate a PDF document with all phase sign-offs for this release."""
+    from fpdf import FPDF
+    from io import BytesIO
+    from fastapi.responses import StreamingResponse
+
+    # Authenticate via query param token (for window.open downloads)
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    current_user = get_current_user(token, db)
+
+    release = db.query(Release).filter(Release.id == release_id).first()
+    if not release:
+        raise HTTPException(status_code=404, detail="Release not found")
+
+    project = db.query(Project).filter(Project.id == release.project_id).first()
+
+    # Get items linked to this release
+    from app.models.release import ReleaseItem
+    release_items = db.query(ReleaseItem).filter(ReleaseItem.release_id == release.id).all()
+    item_ids = [ri.backlog_item_id for ri in release_items]
+    items = db.query(BacklogItem).filter(BacklogItem.id.in_(item_ids)).all() if item_ids else []
+
+    # Compute V-cycle index
+    v_cycle_index = -1
+    for i, (phase, _, _) in enumerate(V_CYCLE):
+        if release.status == phase:
+            v_cycle_index = i
+            break
+
+    # Get phase gates
+    phase_gates = _compute_phase_gates(release, [{"current_phase": i.current_phase, "is_done": i.status == "Done"} for i in items], v_cycle_index)
+
+    # Get approvals
+    approval_requests = db.query(ApprovalRequest).filter(
+        ApprovalRequest.release_id == release.id
+    ).order_by(ApprovalRequest.id).all()
+
+    # Build PDF
+    pdf = FPDF(orientation="P", unit="mm", format="A4")
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+
+    # Header
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.set_text_color(30, 27, 75)  # indigo-950
+    pdf.cell(0, 8, "Release Sign-off Document", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(2)
+
+    # Release info table
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(51, 51, 51)
+
+    info_data = [
+        ("Project", project.name if project else "-"),
+        ("Release", f"{release.name} (v{release.version})"),
+        ("Status", release.status),
+        ("Release Date", release.release_date or "-"),
+        ("Target Date", release.target_date or "-"),
+        ("Generated", datetime.now().strftime("%Y-%m-%d %H:%M")),
+    ]
+    for label, value in info_data:
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.cell(35, 5, label + ":")
+        pdf.set_font("Helvetica", "", 9)
+        pdf.cell(0, 5, str(value), new_x="LMARGIN", new_y="NEXT")
+
+    pdf.ln(3)
+
+    # Phase Gates table header
+    pdf.set_fill_color(240, 240, 245)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.cell(25, 6, "Phase", border=1, fill=True)
+    pdf.cell(30, 6, "RACI Role", border=1, fill=True)
+    pdf.cell(20, 6, "Status", border=1, fill=True)
+    pdf.cell(35, 6, "Approver", border=1, fill=True)
+    pdf.cell(25, 6, "Date", border=1, fill=True)
+    pdf.cell(0, 6, "Checklist", border=1, fill=True, new_x="LMARGIN", new_y="NEXT")
+
+    # Phase Gates rows
+    for gate in phase_gates:
+        # Find matching approval
+        approver_name = "-"
+        decided_at = "-"
+        for ar in approval_requests:
+            if ar.target_phase == gate["phase"]:
+                steps = db.query(ApprovalStep).filter(ApprovalStep.request_id == ar.id).all()
+                for s in steps:
+                    if s.approver_id:
+                        u = db.query(User).filter(User.id == s.approver_id).first()
+                        if u:
+                            approver_name = u.name
+                    if s.decided_at:
+                        decided_at = str(s.decided_at)[:10]
+
+        gate_status = "Signed Off" if gate["reached"] else ("Pending" if gate["phase"] == release.status else "Upcoming")
+        checked_count = sum(1 for item in gate["checklist"] if item["checked"])
+        total = len(gate["checklist"])
+        checklist_str = f"{checked_count}/{total} checked"
+
+        pdf.set_font("Helvetica", "", 8)
+        pdf.cell(25, 6, gate["phase"], border=1)
+        pdf.cell(30, 6, gate["role"], border=1)
+        pdf.cell(20, 6, gate_status, border=1)
+        pdf.cell(35, 6, approver_name, border=1)
+        pdf.cell(25, 6, decided_at, border=1)
+        pdf.cell(0, 6, checklist_str, border=1, new_x="LMARGIN", new_y="NEXT")
+
+    pdf.ln(3)
+
+    # Detailed checklist per gate
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_text_color(30, 27, 75)
+    pdf.cell(0, 6, "Phase Gate Checklists", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(1)
+
+    for gate in phase_gates:
+        gate_status = "Signed Off" if gate["reached"] else ("Pending" if gate["phase"] == release.status else "Upcoming")
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_text_color(51, 51, 51)
+        pdf.cell(0, 5, f"{gate['phase']} Gate - {gate['role']} ({gate_status})", new_x="LMARGIN", new_y="NEXT")
+
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(80, 80, 80)
+        for item in gate["checklist"]:
+            mark = "[x]" if item["checked"] else "[ ]"
+            pdf.cell(5, 4, "")
+            pdf.cell(0, 4, f"{mark} {item['text']}", new_x="LMARGIN", new_y="NEXT")
+
+        pdf.ln(1)
+
+    # Release items
+    if items:
+        pdf.ln(2)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_text_color(30, 27, 75)
+        pdf.cell(0, 6, f"Release Items ({len(items)})", new_x="LMARGIN", new_y="NEXT")
+
+        pdf.set_fill_color(240, 240, 245)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.cell(15, 5, "ID", border=1, fill=True)
+        pdf.cell(60, 5, "Title", border=1, fill=True)
+        pdf.cell(25, 5, "Type", border=1, fill=True)
+        pdf.cell(30, 5, "Phase", border=1, fill=True)
+        pdf.cell(0, 5, "Status", border=1, fill=True, new_x="LMARGIN", new_y="NEXT")
+
+        for item in items:
+            pdf.set_font("Helvetica", "", 8)
+            pdf.cell(15, 5, f"#{item.id}", border=1)
+            pdf.cell(60, 5, str(item.title)[:40], border=1)
+            pdf.cell(25, 5, str(item.item_type), border=1)
+            pdf.cell(30, 5, str(item.current_phase), border=1)
+            pdf.cell(0, 5, str(item.status), border=1, new_x="LMARGIN", new_y="NEXT")
+
+    # Footer
+    pdf.ln(5)
+    pdf.set_font("Helvetica", "I", 7)
+    pdf.set_text_color(150, 150, 150)
+    pdf.cell(0, 4, f"This document was auto-generated by the PMO System on {datetime.now().strftime('%Y-%m-%d at %H:%M')}.", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 4, "Sign-offs are captured automatically as the release advances through V-cycle approval gates per the RACI matrix.", new_x="LMARGIN", new_y="NEXT")
+
+    # Output
+    output = BytesIO()
+    pdf.output(output)
+    output.seek(0)
+
+    filename = f"signoff_{release.version}_{datetime.now().strftime('%Y%m%d')}.pdf"
+
+    return StreamingResponse(
+        output,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

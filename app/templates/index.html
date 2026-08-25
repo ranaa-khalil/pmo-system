@@ -1414,7 +1414,7 @@
                     <button @click="projectTab='kpis'" :class="projectTab==='kpis' ? 'tab-active text-brand-600' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">KPIs</button>
                     <button @click="projectTab='roadmap'" :class="projectTab==='roadmap' ? 'tab-active text-brand-600' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Roadmap</button>
                     <button @click="projectTab='backlog'" :class="projectTab==='backlog' ? 'tab-active text-brand-600' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Backlog</button>
-                    <button @click="projectTab='forms'" :class="projectTab==='forms' ? 'tab-active text-brand-600' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Forms</button>
+                    <button @click="projectTab='docs'" :class="projectTab==='docs' ? 'tab-active text-brand-600' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Docs</button>
                     <button @click="projectTab='approvals'" :class="projectTab==='approvals' ? 'tab-active text-brand-600' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Approvals</button>
                     <button @click="projectTab='releases'" :class="projectTab==='releases' ? 'tab-active text-brand-600' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Releases</button>
                     <button @click="projectTab='stakeholders'" :class="projectTab==='stakeholders' ? 'tab-active text-brand-600' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Stakeholders</button>
@@ -2208,50 +2208,55 @@
         </template>
     </div>
 
-    <!-- Forms tab -->
-    <div x-show="projectTab==='forms'" class="max-w-4xl">
-        <!-- Template gallery -->
-        <div class="mb-5">
-            <h3 class="text-[13px] font-semibold text-slate-800 mb-3">Create from Template</h3>
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                <template x-for="tpl in formTemplates" :key="tpl.id">
-                    <button @click="createForm(tpl.id)" class="text-left surface rounded-2xl border border-slate-200/60 p-4 card-lift transition-all group">
-                        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-50 to-violet-50 flex items-center justify-center mb-3 ring-1 ring-brand-100/50 group-hover:from-brand-100 group-hover:to-violet-100 transition-colors">
-                            <svg class="w-4.5 h-4.5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                        </div>
-                        <div class="text-[13px] font-semibold text-slate-800" x-text="tpl.name"></div>
-                        <div class="text-[11px] text-slate-400 mt-0.5 line-clamp-2" x-text="tpl.description || ''"></div>
-                    </button>
-                </template>
+    <!-- Docs tab -->
+    <div x-show="projectTab==='docs'" class="max-w-4xl">
+        <!-- Intro -->
+        <div class="surface rounded-2xl border border-slate-200/60 p-4 mb-4">
+            <div class="flex items-center gap-2 mb-1">
+                <h3 class="text-[13px] font-semibold text-slate-800">Release Sign-off Documents</h3>
+                <span class="text-[10px] text-slate-400">— auto-generated PDFs per release</span>
             </div>
+            <p class="text-[11px] text-slate-400">Each release has a sign-off PDF that captures all phase gates, RACI roles, checklist items, approver names, and dates. The document updates automatically as the release advances through the V-cycle.</p>
         </div>
 
-        <!-- Existing forms -->
-        <h3 class="text-[13px] font-semibold text-slate-800 mb-3">Project Forms</h3>
-        <template x-if="projectForms.length === 0">
+        <!-- Release docs list -->
+        <template x-if="projectReleases.length === 0">
             <div class="surface rounded-2xl border border-slate-200/60 p-10 text-center">
-    <div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-violet-50 flex items-center justify-center">
-        <svg class="w-6 h-6 text-violet-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-    </div>
-    <p class="text-[13px] text-slate-400 mb-1">No forms yet</p>
-    <p class="text-[11px] text-slate-300">Create one from a template above</p>
-</div>
+                <div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-violet-50 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-violet-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                </div>
+                <p class="text-[13px] text-slate-400 mb-1">No releases yet</p>
+                <p class="text-[11px] text-slate-300">Create a release to generate sign-off documents</p>
+            </div>
         </template>
+
         <div class="space-y-2">
-            <template x-for="form in projectForms" :key="form.id">
-                <div @click="openForm(form)" class="surface rounded-2xl border border-slate-200/60 p-4 card-lift transition-all cursor-pointer flex items-center justify-between">
+            <template x-for="rel in projectReleases" :key="rel.id">
+                <div class="surface rounded-2xl border border-slate-200/60 p-4 card-lift transition-all flex items-center justify-between">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-50 to-violet-50 flex items-center justify-center ring-1 ring-brand-100/50">
-                            <svg class="w-5 h-5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <svg class="w-5 h-5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                         </div>
                         <div>
-                            <div class="text-[13px] font-semibold text-slate-800" x-text="form.template?.name || 'Form'"></div>
-                            <div class="text-[11px] text-slate-400" x-text="form.template?.form_type || ''"></div>
+                            <div class="text-[13px] font-semibold text-slate-800">
+                                Release <span x-text="rel.version"></span> — Sign-off Document
+                            </div>
+                            <div class="flex items-center gap-2 mt-0.5">
+                                <span class="text-[11px] text-slate-400" x-text="rel.name"></span>
+                                <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-md"
+                                      :class="{'bg-emerald-50 text-emerald-600': rel.status === 'Released', 'bg-amber-50 text-amber-600': rel.status === 'Testing' || rel.status === 'UAT' || rel.status === 'In Progress', 'bg-slate-100 text-slate-500': rel.status === 'Planning' || rel.status === 'Pre-Release' || rel.status === 'Post-Release'}"
+                                      x-text="rel.status"></span>
+                            </div>
                         </div>
                     </div>
                     <div class="flex items-center gap-2">
-                        <span class="text-[11px] font-medium px-2.5 py-1 rounded-lg" :class="formStatusColor(form.status)" x-text="form.status"></span>
-                        <svg class="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                        <span class="text-[10px] text-slate-400">PDF</span>
+                        <a :href="'/api/releases/' + rel.id + '/signoff-pdf?token=' + (localStorage.getItem('pmo_token') || '')"
+                           @click.prevent="downloadSignoffPdf(rel.id)"
+                           class="text-[12px] font-medium text-brand-600 hover:text-brand-700 px-3 py-2 rounded-xl bg-brand-50 hover:bg-brand-100 transition-colors flex items-center gap-1.5">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                            Download PDF
+                        </a>
                     </div>
                 </div>
             </template>
@@ -3106,8 +3111,9 @@
                         <div class="flex items-center gap-2">
                             <button @click="generateNotes(selectedRelease.id)" class="text-[12px] font-medium text-brand-600 hover:text-brand-700 px-2 py-1 rounded-lg hover:bg-brand-50 transition-colors">📝 Generate</button>
                             <template x-if="selectedRelease?.release_notes">
-                                <button @click="downloadNotes(selectedRelease.id)" class="text-[12px] font-medium text-violet-600 hover:text-violet-700 px-2 py-1 rounded-lg hover:bg-violet-50 transition-colors">⬇ Download</button>
+                                <button @click="downloadNotes(selectedRelease.id)" class="text-[12px] font-medium text-violet-600 hover:text-violet-700 px-2 py-1 rounded-lg hover:bg-violet-50 transition-colors">⬇ Notes</button>
                             </template>
+                            <button @click="downloadSignoffPdf(selectedRelease.id)" class="text-[12px] font-medium text-rose-600 hover:text-rose-700 px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors">📄 Sign-off PDF</button>
                             <template x-if="selectedRelease?.release_notes">
                                 <button @click="shareNotes(selectedRelease.id)" class="text-[12px] font-medium text-emerald-600 hover:text-emerald-700 px-2 py-1 rounded-lg hover:bg-emerald-50 transition-colors">📤 Share</button>
                             </template>
@@ -5336,6 +5342,11 @@ function pmoApp() {
         downloadNotes(releaseId) {
             const token = localStorage.getItem('pmo_token') || '';
             window.open(`/api/releases/${releaseId}/download-notes?token=${token}`, '_blank');
+        },
+
+        downloadSignoffPdf(releaseId) {
+            const token = localStorage.getItem('pmo_token') || '';
+            window.open(`/api/releases/${releaseId}/signoff-pdf?token=${token}`, '_blank');
         },
 
         async shareNotes(releaseId) {

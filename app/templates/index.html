@@ -2797,15 +2797,37 @@
                             <template x-if="req.assignedName">
                                 <div class="text-[10px] text-emerald-600 font-medium mt-0.5" x-text="'✓ ' + req.assignedName"></div>
                             </template>
-                            <!-- Inline assign picker for unassigned roles -->
+                            <!-- Inline assign with autocomplete search -->
                             <template x-if="!req.assignedName">
-                                <select @change="assignRequiredRole(req.role, $event.target.value)"
-                                        class="mt-1 text-[11px] border border-amber-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-brand-500/20 text-slate-600 w-full">
-                                    <option value="">Assign user…</option>
-                                    <template x-for="u in assignableUsers(req.role)" :key="u.id">
-                                        <option :value="u.id" x-text="u.name + ' — ' + u.email"></option>
-                                    </template>
-                                </select>
+                                <div class="relative mt-1" @click.stop>
+                                    <input type="text"
+                                           x-model="reqUserSearch[req.role]"
+                                           @input="filterReqUsers(req.role)"
+                                           @focus="reqUserFocused = req.role; filterReqUsers(req.role)"
+                                           @blur="setTimeout(() => { if (reqUserFocused === req.role) reqUserFocused = null; }, 200)"
+                                           class="text-[11px] border border-amber-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-brand-500/20 text-slate-600 w-full"
+                                           placeholder="Search user to assign…">
+                                    <!-- Dropdown results -->
+                                    <div x-show="reqUserFocused === req.role && reqUserResults.length > 0" x-cloak
+                                         class="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto min-w-full">
+                                        <template x-for="u in reqUserResults" :key="u.id">
+                                            <button @mousedown.prevent="assignRequiredRole(req.role, u.id)" type="button"
+                                                    class="w-full text-left px-3 py-2 hover:bg-brand-50 transition-colors border-b border-slate-50 last:border-0">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-6 h-6 rounded-full bg-brand-100 flex items-center justify-center text-[10px] font-bold text-brand-600 shrink-0" x-text="(u.name || '?').charAt(0)"></div>
+                                                    <div class="min-w-0">
+                                                        <div class="text-[11px] font-medium text-slate-700 truncate" x-text="u.name"></div>
+                                                        <div class="text-[9px] text-slate-400 truncate" x-text="u.email"></div>
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        </template>
+                                    </div>
+                                    <div x-show="reqUserFocused === req.role && reqUserSearch[req.role] && reqUserResults.length === 0" x-cloak
+                                         class="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 px-3 py-2 text-[11px] text-slate-400 min-w-full">
+                                        No users found
+                                    </div>
+                                </div>
                             </template>
                         </div>
                     </div>
@@ -3413,6 +3435,9 @@ function pmoApp() {
         // ===== Stakeholders state =====
         projectStakeholders: [],
         projectAssignments: [],  // system users assigned to the project
+        reqUserSearch: {},  // per-role search text for required role autocomplete
+        reqUserFocused: null,  // which role's dropdown is open
+        reqUserResults: [],  // filtered results for required role autocomplete
         stakeholderForm: { name: '', email: '', phone: '', company: '', role_name: 'Stakeholder', raci_type: 'I', notes: '' },
 
         // ===== Roles state =====
@@ -4899,9 +4924,23 @@ function pmoApp() {
             return (this.users || []).filter(u => !assignedIds.includes(u.id));
         },
 
+        filterReqUsers(roleName) {
+            const q = (this.reqUserSearch[roleName] || '').toLowerCase().trim();
+            const pool = this.assignableUsers(roleName);
+            if (!q) {
+                this.reqUserResults = pool.slice(0, 10);
+            } else {
+                this.reqUserResults = pool.filter(u =>
+                    (u.name || '').toLowerCase().includes(q) ||
+                    (u.email || '').toLowerCase().includes(q)
+                ).slice(0, 10);
+            }
+        },
+
         async assignRequiredRole(roleName, userId) {
             if (!userId || !this.selectedProject) return;
-            // Find the role_id from this.roles
+            this.reqUserFocused = null;
+            this.reqUserSearch[roleName] = '';
             const role = (this.roles || []).find(r => r.name === roleName);
             if (!role) { this.showToast(`Role '${roleName}' not found`, 'error'); return; }
             try {
@@ -4910,7 +4949,6 @@ function pmoApp() {
                     role_id: role.id,
                     project_id: this.selectedProject.id,
                 });
-                // Refresh assignments so the card turns green immediately
                 this.projectAssignments = await this.api('GET', `/projects/${this.selectedProject.id}/assignments`);
                 this.showToast(`${roleName} assigned`, 'success');
             } catch (e) { this.showToast(e.message, 'error'); }

@@ -2251,15 +2251,41 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <span class="text-[10px] text-slate-400">PDF</span>
+                        <button @click="viewSignoffPdf(rel.id)"
+                           class="text-[12px] font-medium text-violet-600 hover:text-violet-700 px-3 py-2 rounded-xl bg-violet-50 hover:bg-violet-100 transition-colors flex items-center gap-1.5">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                            View
+                        </button>
                         <a :href="'/api/releases/' + rel.id + '/signoff-pdf?token=' + (localStorage.getItem('pmo_token') || '')"
                            @click.prevent="downloadSignoffPdf(rel.id)"
                            class="text-[12px] font-medium text-brand-600 hover:text-brand-700 px-3 py-2 rounded-xl bg-brand-50 hover:bg-brand-100 transition-colors flex items-center gap-1.5">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                            Download PDF
+                            Download
                         </a>
                     </div>
                 </div>
             </template>
+        </div>
+    </div>
+
+    <!-- PDF Viewer Modal -->
+    <div x-show="pdfViewerUrl" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" @keydown.escape.window="pdfViewerUrl = null">
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" @click="pdfViewerUrl = null"></div>
+        <div class="relative surface rounded-3xl shadow-modal w-full max-w-4xl h-[85vh] overflow-hidden modal-enter border border-slate-100 flex flex-col">
+            <div class="flex items-center justify-between px-6 py-3 border-b border-slate-100 bg-white">
+                <h3 class="text-[14px] font-bold text-slate-900">Sign-off Document</h3>
+                <div class="flex items-center gap-2">
+                    <a :href="pdfViewerUrl.replace('&view=1', '')" download
+                       class="text-[12px] font-medium text-brand-600 hover:text-brand-700 px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 transition-colors flex items-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Download
+                    </a>
+                    <button @click="pdfViewerUrl = null" class="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            </div>
+            <iframe :src="pdfViewerUrl" class="flex-1 w-full bg-slate-50" frameborder="0"></iframe>
         </div>
     </div>
 
@@ -3866,6 +3892,7 @@ function pmoApp() {
         viewingBacklogItem: null,  // backlog item being viewed in detail modal
         suggestedVersion: null,  // auto-suggested next SemVer version
         sharedWith: null,  // result of sharing release notes
+        pdfViewerUrl: null,  // URL for PDF viewer modal
         depSearch: '',  // search text for dependency autocomplete
         depSearchFocused: false,
         filteredDeps: [],  // filtered results for dependency autocomplete
@@ -5347,6 +5374,11 @@ function pmoApp() {
         downloadSignoffPdf(releaseId) {
             const token = localStorage.getItem('pmo_token') || '';
             window.open(`/api/releases/${releaseId}/signoff-pdf?token=${token}`, '_blank');
+        },
+
+        viewSignoffPdf(releaseId) {
+            const token = localStorage.getItem('pmo_token') || '';
+            this.pdfViewerUrl = `/api/releases/${releaseId}/signoff-pdf?token=${token}&view=1`;
         },
 
         async shareNotes(releaseId) {

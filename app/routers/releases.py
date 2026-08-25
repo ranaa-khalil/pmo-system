@@ -1,7 +1,7 @@
 """Release API router — V-cycle release management with full detail."""
 from typing import List
 from datetime import date, datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -1510,6 +1510,7 @@ def share_release_notes(
 
 @router.get("/releases/{release_id}/signoff-pdf")
 def download_signoff_pdf(
+    request: Request,
     release_id: int,
     token: str = None,
     db: Session = Depends(get_db),
@@ -1681,8 +1682,12 @@ def download_signoff_pdf(
 
     filename = f"signoff_{release.version}_{datetime.now().strftime('%Y%m%d')}.pdf"
 
+    # Check if this is a view (inline) or download (attachment)
+    view_mode = request.query_params.get("view", "0") == "1"
+    disposition = "inline" if view_mode else "attachment"
+
     return StreamingResponse(
         output,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'{disposition}; filename="{filename}"'},
     )

@@ -164,10 +164,10 @@ def seed():
     # --- Test Accounts ---
     from app.models.project_test_account import ProjectTestAccount
     test_account_data = [
-        {"environment": "Development", "username": "admin@dev.pnu-cloud.opex.com.sa", "password_hint": "Admin@2026", "role": "Super Admin", "notes": "Full access to dev environment"},
-        {"environment": "Development", "username": "pm@dev.pnu-cloud.opex.com.sa", "password_hint": "Pm@2026", "role": "Product Manager", "notes": "PM view in dev"},
-        {"environment": "UAT", "username": "admin@uat.pnu-cloud.opex.com.sa", "password_hint": "Admin@2026", "role": "Super Admin", "notes": "Full access to UAT environment for testing"},
-        {"environment": "UAT", "username": "client.admin@uat.pnu-cloud.opex.com.sa", "password_hint": "Client@2026", "role": "Client Admin (PNU)", "notes": "PNU client admin — limited scope for UAT"},
+        {"environment": "Development", "username": "admin@dev.pnu-cloud.opex.com.sa", "password_hint": "Admin@2026", "role": "Platform Admin", "notes": "Full access to dev environment"},
+        {"environment": "Development", "username": "pm@dev.pnu-cloud.opex.com.sa", "password_hint": "Pm@2026", "role": "Product Owner", "notes": "PM view in dev"},
+        {"environment": "UAT", "username": "admin@uat.pnu-cloud.opex.com.sa", "password_hint": "Admin@2026", "role": "Platform Admin", "notes": "Full access to UAT environment for testing"},
+        {"environment": "UAT", "username": "client.admin@uat.pnu-cloud.opex.com.sa", "password_hint": "Client@2026", "role": "Account Manager", "notes": "PNU client admin — limited scope for UAT"},
         {"environment": "UAT", "username": "enduser@uat.pnu-cloud.opex.com.sa", "password_hint": "User@2026", "role": "End Customer", "notes": "End user perspective for UAT testing"},
     ]
     for td in test_account_data:

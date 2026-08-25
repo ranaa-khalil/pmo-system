@@ -4222,7 +4222,7 @@
                             <th class="text-left py-2.5 px-3 font-semibold">Environment</th>
                             <th class="text-left py-2.5 px-3 font-semibold">Username</th>
                             <th class="text-left py-2.5 px-3 font-semibold">Password</th>
-                            <th class="text-left py-2.5 px-3 font-semibold">Role</th>
+                            <th class="text-left py-2.5 px-3 font-semibold">Persona</th>
                             <th class="text-left py-2.5 px-3 font-semibold">Notes</th>
                             <th></th>
                         </tr>
@@ -4644,8 +4644,13 @@
                     <input x-model="editingTestAccount.password_hint" class="input-premium w-full text-[13px] font-mono" placeholder="e.g. Admin@2026">
                 </div>
                 <div>
-                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Role</label>
-                    <input x-model="editingTestAccount.role" class="input-premium w-full text-[13px]" placeholder="e.g. Super Admin">
+                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Persona</label>
+                    <select x-model="editingTestAccount.role" class="input-premium w-full text-[13px] bg-white">
+                        <option value="">Select persona...</option>
+                        <template x-for="p in personas" :key="p.id">
+                            <option :value="p.name" x-text="p.name"></option>
+                        </template>
+                    </select>
                 </div>
                 <div>
                     <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Notes</label>

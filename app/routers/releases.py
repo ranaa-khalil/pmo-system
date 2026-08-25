@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
+from app.models.role import Role
 from app.models.project import Project
 from app.models.backlog_item import BacklogItem, PHASES
 from app.models.release import Release, ReleaseItem, RELEASE_STATUSES
@@ -495,91 +496,391 @@ def get_next_version(
     return {"version": f"{major}.{minor}.{patch}", "bump": bump, "previous": latest.version}
 
 
+def _build_release_notes(release, project, items, milestone, prev_tag, db):
+    """Build release notes matching Release_Notes_Template_v1.1.docx exactly."""
+    from datetime import date
+
+    done_phases = ["Pre-Release", "Release", "Post-Release", "Retrospective"]
+    completed = [i for i in items if i.current_phase in done_phases]
+    in_progress = [i for i in items if i.current_phase not in done_phases]
+
+    # Determine release type from version
+    ver_parts = release.version.lstrip("v").split(".")
+    release_type = "Minor / Feature"
+    if len(ver_parts) >= 3:
+        try:
+            patch = int(ver_parts[2])
+            minor = int(ver_parts[1])
+            major = int(ver_parts[0])
+            if patch > 0:
+                release_type = "Patch / Hotfix"
+            elif minor == 0 and major > 0:
+                release_type = "Major / Breaking"
+        except (ValueError, IndexError):
+            pass
+
+    # Categorize items
+    new_features = [i for i in completed if i.item_type and i.item_type.lower() in ("feature", "story", "user story")]
+    enhancements = [i for i in completed if i.item_type and i.item_type.lower() in ("enhancement", "improvement", "task")]
+    bug_fixes = [i for i in completed if i.item_type and i.item_type.lower() in ("bug", "defect", "fix")]
+    # If no item_type set, use priority as fallback categorization
+    if not new_features and not enhancements and not bug_fixes:
+        new_features = [i for i in completed if i.priority in ("Critical", "High")]
+        enhancements = [i for i in completed if i.priority == "Medium"]
+        bug_fixes = [i for i in completed if i.priority == "Low"]
+
+    today = release.release_date or date.today().isoformat()
+    prepared_by = ""
+    pm = db.query(User).filter(User.id == project.project_manager_id).first() if project.project_manager_id else None
+    if pm:
+        prepared_by = pm.name
+
+    L = []  # lines
+
+    # ── Header metadata ──────────────────────────────────────────────
+    L.append(f"# {project.name}")
+    L.append("## Release Notes")
+    L.append("")
+    L.append("| Field | Value |")
+    L.append("|---|---|")
+    L.append(f"| Product | {project.name} |")
+    L.append(f"| Release Version | v{release.version.lstrip('v')} |")
+    L.append(f"| Release Type | {release_type} |")
+    L.append(f"| Release Date | {today} |")
+    L.append("| Environment | Production |")
+    L.append(f"| Git Tag / Image Tag | v{release.version.lstrip('v')} |")
+    L.append(f"| Prepared By (PM) | {prepared_by or '—'} |")
+    L.append(f"| Status | {release.status} |")
+    L.append(f"| Release Cycle / Train | {today[:7]} monthly train |")
+    L.append(f"| Previous Stable Tag | {prev_tag or '—'} |")
+    L.append("")
+
+    # ── 1. Release Summary ───────────────────────────────────────────
+    L.append("## 1. Release Summary")
+    if release.description:
+        L.append(release.description)
+    else:
+        summary_parts = []
+        if new_features:
+            summary_parts.append(f"{len(new_features)} new feature(s)")
+        if enhancements:
+            summary_parts.append(f"{len(enhancements)} enhancement(s)")
+        if bug_fixes:
+            summary_parts.append(f"{len(bug_fixes)} bug fix(es)")
+        if in_progress:
+            summary_parts.append(f"{len(in_progress)} item(s) carried over")
+        summary = ", ".join(summary_parts) if summary_parts else "No items in this release."
+        L.append(f"This release delivers {summary}.")
+    L.append("")
+
+    # ── 2. New Features ──────────────────────────────────────────────
+    L.append("## 2. New Features")
+    L.append("Customer-visible new capabilities. Reference the BRD / story ID.")
+    L.append("")
+    L.append("| Ref / Story ID | Feature | User Impact |")
+    L.append("|---|---|---|")
+    if new_features:
+        for item in new_features:
+            impact = (item.description or "")[:100]
+            L.append(f"| {item.id} | {item.title} | {impact} |")
+    else:
+        L.append("| — | No new features in this release | — |")
+    L.append("")
+
+    # ── 3. Enhancements & Improvements ───────────────────────────────
+    L.append("## 3. Enhancements & Improvements")
+    L.append("Changes to existing behaviour — performance, UX, usability.")
+    L.append("")
+    L.append("| Ref / Story ID | Enhancement | User Impact |")
+    L.append("|---|---|---|")
+    if enhancements:
+        for item in enhancements:
+            impact = (item.description or "")[:100]
+            L.append(f"| {item.id} | {item.title} | {impact} |")
+    else:
+        L.append("| — | No enhancements in this release | — |")
+    L.append("")
+
+    # ── 4. Bug Fixes ─────────────────────────────────────────────────
+    L.append("## 4. Bug Fixes")
+    L.append("Defects resolved in this release. Severity: Critical / High / Medium / Low.")
+    L.append("")
+    L.append("| Ref / Bug ID | Description | Severity |")
+    L.append("|---|---|---|")
+    if bug_fixes:
+        for item in bug_fixes:
+            L.append(f"| {item.id} | {item.title} | {item.priority or 'Medium'} |")
+    else:
+        L.append("| — | No bug fixes in this release | — |")
+    L.append("")
+
+    # ── 5. Hotfixes Included ─────────────────────────────────────────
+    hotfix_items = [i for i in completed if "hotfix" in (i.item_type or "").lower()]
+    L.append("## 5. Hotfixes Included")
+    L.append("Only if this release rolls up prior emergency hotfixes. Otherwise delete this section.")
+    L.append("")
+    if hotfix_items:
+        L.append("| Hotfix Tag | Description | Original Incident |")
+        L.append("|---|---|---|")
+        for item in hotfix_items:
+            L.append(f"| v{release.version.lstrip('v')} | {item.title} | {item.id} |")
+    else:
+        L.append("_No hotfixes rolled up in this release._")
+    L.append("")
+
+    # ── 6. Breaking Changes & Migration Notes ────────────────────────
+    breaking = [i for i in completed if "breaking" in (i.item_type or "").lower() or "migration" in (item.description or "").lower()]
+    L.append("## 6. Breaking Changes & Migration Notes")
+    L.append("Anything that requires action from consumers/integrators, config changes, or data migration. State 'None' if not applicable.")
+    L.append("")
+    if breaking:
+        for item in breaking:
+            L.append(f"- **{item.title}**: {item.description or ''}")
+    else:
+        L.append("None.")
+    L.append("")
+
+    # ── 7. Known Issues & Limitations ────────────────────────────────
+    known = in_progress  # items still in progress are known limitations
+    L.append("## 7. Known Issues & Limitations")
+    L.append("Known defects or limitations shipping with this release, with a workaround if one exists.")
+    L.append("")
+    L.append("| Ref | Known Issue | Workaround / Planned Fix |")
+    L.append("|---|---|---|")
+    if known:
+        for item in known:
+            L.append(f"| {item.id} | {item.title} — {item.current_phase} ({item.status}) | Targeted for next release |")
+    else:
+        L.append("| — | No known issues | — |")
+    L.append("")
+
+    # ── 8. Deployment Details ────────────────────────────────────────
+    L.append("## 8. Deployment Details")
+    L.append("Filled by DevOps at release time. These fields make the release traceable and rollback-ready.")
+    L.append("")
+    L.append("| Field | Value |")
+    L.append("|---|---|")
+    L.append(f"| Git Commit / SHA | {'—'} |")
+    L.append(f"| Container Image Tag | {'—'} |")
+    L.append(f"| ArgoCD App / Sync Status | {'—'} |")
+    L.append(f"| Previous Stable Tag (rollback target) | {prev_tag or '—'} |")
+    L.append(f"| Config / Secret Changes (Vault) | None |")
+    L.append(f"| DB Migrations (reversible?) | None |")
+    L.append(f"| Monitoring Dashboards | Prometheus / Sentry / Uptime |")
+    L.append("")
+
+    # ── 9. Rollback Reference ────────────────────────────────────────
+    L.append("## 9. Rollback Reference")
+    L.append("Link to the tested rollback script/plan for this release (SHIP repo).")
+    L.append("")
+    L.append(f"_Rollback runbook to be linked by DevOps at release time. Previous stable tag: {prev_tag or '—'}._")
+    L.append("")
+
+    # ── 10. Sign-Offs ────────────────────────────────────────────────
+    L.append("## 10. Sign-Offs")
+    L.append("Aligned to the RACI gates. All four must be captured before a Production release is marked Released.")
+    L.append("")
+    L.append("| Role | Name | Date / Approval |")
+    L.append("|---|---|---|")
+    # Try to get actual approver names from approvals
+    signoff_roles = [
+        ("QA Lead (QA sign-off)", None),
+        ("Product Manager (UAT sign-off)", prepared_by or None),
+        ("Tech Lead (version/tag)", None),
+        ("DevOps Lead (deployment)", None),
+    ]
+    for role, name in signoff_roles:
+        L.append(f"| {role} | {name or '—'} | {'—'} |")
+    L.append("")
+    L.append("---")
+    L.append(f"*Document version: Release Notes Template v1.1 · aligned to Release Process v3.4, Versioning & Release Cadence v1.2*")
+
+    return "\n".join(L)
+
+
 @router.post("/releases/{release_id}/generate-notes", response_model=dict)
 def generate_release_notes(
     release_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Auto-generate structured release notes from completed backlog items."""
+    """Auto-generate structured release notes matching Release_Notes_Template_v1.1.docx."""
     release = db.query(Release).filter(Release.id == release_id).first()
     if not release:
         raise HTTPException(status_code=404, detail="Release not found")
 
+    project = db.query(Project).filter(Project.id == release.project_id).first()
+
+    # Gather backlog items
     items = []
     for ri in release.items:
         bi = db.query(BacklogItem).filter(BacklogItem.id == ri.backlog_item_id).first()
         if bi:
             items.append(bi)
 
-    # Group by phase and priority
-    done_phases = ["Pre-Release", "Release", "Post-Release", "Retrospective"]
-    completed = [i for i in items if i.current_phase in done_phases]
-    in_progress = [i for i in items if i.current_phase not in done_phases]
+    # Milestone
+    milestone = None
+    if release.milestone_id:
+        ms = db.query(Milestone).filter(Milestone.id == release.milestone_id).first()
+        if ms:
+            milestone = {"id": ms.id, "title": ms.title, "target_date": str(ms.target_date) if ms.target_date else None}
 
-    # Categorize by priority
-    critical = [i for i in completed if i.priority == "Critical"]
-    high = [i for i in completed if i.priority == "High"]
-    medium = [i for i in completed if i.priority == "Medium"]
-    low = [i for i in completed if i.priority == "Low"]
+    # Find previous stable tag
+    all_releases = db.query(Release).filter(Release.project_id == release.project_id).all()
+    prev_tag = None
+    def parse_version(v):
+        try:
+            parts = v.lstrip("v").split(".")
+            return (int(parts[0]), int(parts[1]) if len(parts) > 1 else 0, int(parts[2]) if len(parts) > 2 else 0)
+        except (ValueError, IndexError):
+            return (0, 0, 0)
+    released = [r for r in all_releases if r.status == "Released" and r.id != release.id]
+    if released:
+        prev_tag = f"v{max(released, key=lambda r: parse_version(r.version)).version.lstrip('v')}"
 
-    today = date.today().isoformat()
-    notes_lines = [
-        f"# Release {release.version} — {release.name}",
-        f"**Date:** {release.release_date or today}",
-        f"**Status:** {release.status}",
-        f"**Milestone:** {release.milestone_id or 'Not linked'}",
-        "",
-        "---",
-        "",
-    ]
-
-    if release.description:
-        notes_lines.append("## 📋 Overview")
-        notes_lines.append(release.description)
-        notes_lines.append("")
-
-    if critical:
-        notes_lines.append("## 🔴 Critical Updates")
-        for item in critical:
-            notes_lines.append(f"- **{item.title}**")
-            if item.description:
-                notes_lines.append(f"  {item.description}")
-        notes_lines.append("")
-
-    if high:
-        notes_lines.append("## 🟠 New Features & Improvements")
-        for item in high:
-            notes_lines.append(f"- **{item.title}**")
-            if item.description:
-                notes_lines.append(f"  {item.description}")
-        notes_lines.append("")
-
-    if medium:
-        notes_lines.append("## 🟡 Enhancements")
-        for item in medium:
-            notes_lines.append(f"- {item.title}")
-        notes_lines.append("")
-
-    if low:
-        notes_lines.append("## 🟢 Minor Changes")
-        for item in low:
-            notes_lines.append(f"- {item.title}")
-        notes_lines.append("")
-
-    if in_progress:
-        notes_lines.append("## 🔄 In Progress (Carried Over)")
-        for item in in_progress:
-            notes_lines.append(f"- **{item.title}** — {item.current_phase} ({item.status})")
-        notes_lines.append("")
-
-    notes_lines.append("---")
-    notes_lines.append(f"**Total items:** {len(items)}")
-    notes_lines.append(f"**Completed:** {len(completed)} | **In Progress:** {len(in_progress)}")
-    notes_lines.append(f"**Progress:** {round((len(completed) / len(items) * 100) if items else 0)}%")
-
-    notes = "\n".join(notes_lines)
+    notes = _build_release_notes(release, project, items, milestone, prev_tag, db)
     release.release_notes = notes
     db.commit()
 
-    return {"release_notes": notes, "total_items": len(items), "completed": len(completed)}
+    done_phases = ["Pre-Release", "Release", "Post-Release", "Retrospective"]
+    completed = len([i for i in items if i.current_phase in done_phases])
+    return {"release_notes": notes, "total_items": len(items), "completed": completed}
+
+
+@router.get("/releases/{release_id}/download-notes")
+def download_release_notes(
+    release_id: int,
+    token: str = None,
+    db: Session = Depends(get_db),
+):
+    """Download release notes as a DOCX file matching the template format."""
+    # Authenticate via query param token (for window.open downloads)
+    from app.dependencies import get_current_user
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    current_user = get_current_user(token, db)
+
+    release = db.query(Release).filter(Release.id == release_id).first()
+    if not release:
+        raise HTTPException(status_code=404, detail="Release not found")
+    if not release.release_notes:
+        raise HTTPException(status_code=400, detail="Generate release notes first")
+
+    project = db.query(Project).filter(Project.id == release.project_id).first()
+
+    from docx import Document
+    from docx.shared import Pt, Inches, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from io import BytesIO
+
+    doc = Document()
+
+    # Set default font
+    style = doc.styles['Normal']
+    font = style.font
+    font.name = 'Calibri'
+    font.size = Pt(11)
+
+    # Title
+    title = doc.add_heading(f'{project.name}', level=0)
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    subtitle = doc.add_heading('Release Notes', level=1)
+    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    # Parse the markdown notes and convert to DOCX
+    lines = release.release_notes.split('\n')
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+
+        # Skip empty lines
+        if not line:
+            i += 1
+            continue
+
+        # Headers
+        if line.startswith('## '):
+            doc.add_heading(line[3:], level=2)
+        elif line.startswith('# '):
+            doc.add_heading(line[2:], level=1)
+        elif line.startswith('---'):
+            doc.add_paragraph('─' * 50)
+        elif line.startswith('|'):
+            # Table — collect all consecutive table lines
+            table_lines = []
+            while i < len(lines) and lines[i].strip().startswith('|'):
+                table_lines.append(lines[i].strip())
+                i += 1
+            # Parse table
+            rows = []
+            for tl in table_lines:
+                cells = [c.strip() for c in tl.split('|')[1:-1]]
+                if not all(c.startswith('---') or c.startswith(':--') for c in cells):
+                    rows.append(cells)
+            if rows:
+                table = doc.add_table(rows=len(rows), cols=len(rows[0]))
+                table.style = 'Light Grid Accent 1'
+                for r_idx, row in enumerate(rows):
+                    for c_idx, cell_text in enumerate(row):
+                        if c_idx < len(table.rows[r_idx].cells):
+                            table.rows[r_idx].cells[c_idx].text = cell_text
+            continue
+        elif line.startswith('_') and line.endswith('_'):
+            p = doc.add_paragraph()
+            run = p.add_run(line.strip('_'))
+            run.italic = True
+        else:
+            doc.add_paragraph(line)
+        i += 1
+
+    # Save to BytesIO
+    buf = BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+
+    from fastapi.responses import StreamingResponse
+    filename = f"Release_Notes_v{release.version.lstrip('v')}_{project.name.replace(' ', '_')}.docx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
+@router.post("/releases/{release_id}/share", response_model=dict)
+def share_release_notes(
+    release_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Mark release notes as shared with project stakeholders."""
+    release = db.query(Release).filter(Release.id == release_id).first()
+    if not release:
+        raise HTTPException(status_code=404, detail="Release not found")
+    if not release.release_notes:
+        raise HTTPException(status_code=400, detail="Generate release notes first")
+
+    # Get project stakeholders
+    from app.models.stakeholder import Stakeholder
+    stakeholders = db.query(Stakeholder).filter(Stakeholder.project_id == release.project_id).all()
+
+    # Get assigned users (RACI roles)
+    from app.models.role_assignment import RoleAssignment
+    assignments = db.query(RoleAssignment).filter(RoleAssignment.project_id == release.project_id).all()
+
+    shared_with = []
+    for s in stakeholders:
+        shared_with.append({"name": s.name, "role": s.role or "Stakeholder", "email": s.email or ""})
+    for a in assignments:
+        u = db.query(User).filter(User.id == a.user_id).first()
+        role = db.query(Role).filter(Role.id == a.role_id).first() if hasattr(a, 'role_id') else None
+        if u:
+            role_name = role.name if role else (getattr(a, 'role_name', None) or "Team Member")
+            shared_with.append({"name": u.name, "role": role_name, "email": u.email})
+
+    return {
+        "message": f"Release notes shared with {len(shared_with)} stakeholder(s)",
+        "shared_with": shared_with,
+        "release_version": release.version,
+        "release_name": release.name,
+    }

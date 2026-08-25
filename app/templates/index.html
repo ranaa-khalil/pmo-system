@@ -2093,7 +2093,7 @@
                                     </template>
                                     <div class="min-w-0 flex-1 cursor-pointer" @click="group.epicItem && toggleEpicDesc(group.epic)">
                                         <h3 class="text-[14px] font-semibold truncate hover:text-brand-600 transition-colors" :class="group.epic === 'Uncategorized' ? 'text-slate-500' : 'text-violet-700'" x-text="group.epic"></h3>
-                                        <template x-if="group.epicItem && group.epicItem.description && !expandedEpicDesc.includes(group.epic)">
+                                        <template x-if="group.epicItem && group.epicItem.description && !expandedEpicDesc[group.epic]">
                                             <p class="text-[11px] text-slate-400 truncate" x-text="group.epicItem.description"></p>
                                         </template>
                                     </div>
@@ -2111,7 +2111,7 @@
                                 </div>
                             </div>
                             <!-- Expanded description (inline) -->
-                            <template x-if="group.epicItem && expandedEpicDesc.includes(group.epic)">
+                            <template x-if="group.epicItem && expandedEpicDesc[group.epic]">
                                 <div class="mt-3 pt-3 border-t border-slate-200/50">
                                     <div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Description</div>
                                     <p class="text-[12px] text-slate-600 leading-relaxed" x-text="group.epicItem.description"></p>
@@ -3812,7 +3812,7 @@ function pmoApp() {
             return this.requiredRoles.filter(r => r.assigned).length;
         },
         collapsedEpics: [],
-        expandedEpicDesc: [],  // epics whose description is expanded inline
+        expandedEpicDesc: {},  // epic name → true for expanded description
         backlogForm: { title: '', description: '', priority: 'Medium', kpi_id: '', epic: '', item_type: 'Feature', primary_actor: '', story_points: null, target_release: '', dependencies: '', depends_on: [] },
         availableDeps: [],  // backlog items available to select as dependencies
         editingBacklogId: null,  // track which backlog item is being edited
@@ -4773,12 +4773,7 @@ function pmoApp() {
         },
 
         toggleEpicDesc(epicName) {
-            const idx = this.expandedEpicDesc.indexOf(epicName);
-            if (idx >= 0) {
-                this.expandedEpicDesc.splice(idx, 1);
-            } else {
-                this.expandedEpicDesc.push(epicName);
-            }
+            this.expandedEpicDesc[epicName] = !this.expandedEpicDesc[epicName];
         },
 
         async advanceBacklogItem(id) {

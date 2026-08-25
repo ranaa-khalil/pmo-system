@@ -29,6 +29,10 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db), curren
         status=project.status or "Active",
         start_date=project.start_date,
         github_repo=project.github_repo,
+        version_prefix=project.version_prefix,
+        dev_url=project.dev_url,
+        uat_url=project.uat_url,
+        prod_url=project.prod_url,
     )
     db.add(db_project)
     db.commit()

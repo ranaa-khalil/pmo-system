@@ -16,6 +16,8 @@ from app.models.form_template import FormTemplate, FormInstance
 from app.models.approval import ApprovalRequest, ApprovalStep
 from app.models.stakeholder import Stakeholder
 from app.models.release import Release, ReleaseItem
+from app.models.user_persona import UserPersona
+from app.models.project_test_account import ProjectTestAccount
 
 __all__ = [
     "Client", "Project", "User", "Role", "RoleAssignment",
@@ -26,4 +28,5 @@ __all__ = [
     "ApprovalRequest", "ApprovalStep",
     "Stakeholder",
     "Release", "ReleaseItem",
+    "UserPersona", "ProjectTestAccount",
 ]

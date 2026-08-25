@@ -2084,6 +2084,7 @@
                     <button @click="projectTab='approvals'" :class="projectTab==='approvals' ? 'tab-active text-brand-600' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Approvals</button>
                     <button @click="projectTab='releases'" :class="projectTab==='releases' ? 'tab-active text-brand-600' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Releases</button>
                     <button @click="projectTab='stakeholders'" :class="projectTab==='stakeholders' ? 'tab-active text-brand-600' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Stakeholders</button>
+                    <button @click="projectTab='env'" :class="projectTab==='env' ? 'tab-active text-brand-600' : 'text-slate-500 hover:text-slate-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Env & Personas</button>
                 </div>
 
                 <!-- Overview tab — Connected Traceability Dashboard -->
@@ -2647,7 +2648,12 @@
                             <option value="Bug">Bug</option>
                             <option value="Enhancement">Enhancement</option>
                         </select>
-                        <input x-model="backlogForm.primary_actor" class="input-premium text-[12px]" placeholder="Primary Actor">
+                        <select x-model="backlogForm.primary_actor" class="input-premium text-[12px] bg-white">
+                            <option value="">Primary Actor</option>
+                            <template x-for="p in personas" :key="p.id">
+                                <option :value="p.name" x-text="p.name"></option>
+                            </template>
+                        </select>
                         <select x-model="backlogForm.priority" class="input-premium text-[12px] bg-white">
                             <option value="Critical">Critical</option>
                             <option value="High">High</option>
@@ -3317,7 +3323,12 @@
                         <input x-model="backlogEditForm.story_points" type="number" class="input-premium text-[12px]" placeholder="Story points">
                     </div>
                     <div class="grid grid-cols-2 gap-3">
-                        <input x-model="backlogEditForm.primary_actor" class="input-premium text-[12px]" placeholder="Primary actor">
+                        <select x-model="backlogEditForm.primary_actor" class="input-premium text-[12px] bg-white">
+                            <option value="">Primary Actor</option>
+                            <template x-for="p in personas" :key="p.id">
+                                <option :value="p.name" x-text="p.name"></option>
+                            </template>
+                        </select>
                         <input x-model="backlogEditForm.target_release" class="input-premium text-[12px]" placeholder="Target release">
                     </div>
                     <div class="flex gap-2 pt-2">
@@ -4089,6 +4100,163 @@
         </div>
     </div>
 
+    <!-- ============ ENV & PERSONAS TAB ============ -->
+    <div x-show="projectTab==='env'" class="max-w-5xl space-y-5">
+        <!-- Environment URLs -->
+        <div class="surface rounded-2xl border border-slate-200/60 p-5">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-[14px] font-bold text-slate-800">Environment URLs</h3>
+                    <p class="text-[11px] text-slate-400 mt-0.5">Links to Dev, UAT, and Production environments for this project.</p>
+                </div>
+                <button @click="envEditMode = !envEditMode" class="text-[12px] font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 px-3 py-2 rounded-xl transition-colors">
+                    <span x-text="envEditMode ? 'Cancel' : 'Edit'"></span>
+                </button>
+            </div>
+            <div class="grid grid-cols-3 gap-4">
+                <template x-for="env in [
+                    {key:'dev_url', label:'Development', icon:'⚙️', color:'bg-blue-50 text-blue-700 border-blue-200'},
+                    {key:'uat_url', label:'UAT', icon:'🧪', color:'bg-purple-50 text-purple-700 border-purple-200'},
+                    {key:'prod_url', label:'Production', icon:'🚀', color:'bg-emerald-50 text-emerald-700 border-emerald-200'}
+                ]" :key="env.key">
+                    <div class="rounded-xl border p-4" :class="env.color">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-[16px]" x-text="env.icon"></span>
+                            <span class="text-[11px] font-bold uppercase tracking-wider" x-text="env.label"></span>
+                        </div>
+                        <template x-if="!envEditMode">
+                            <a :href="selectedProject?.[env.key] || '#'" target="_blank" x-show="selectedProject?.[env.key]"
+                               class="text-[12px] font-medium underline break-all" x-text="selectedProject?.[env.key] || 'Not configured'"></a>
+                            <span x-show="!selectedProject?.[env.key]" class="text-[12px] text-slate-400">Not configured</span>
+                        </template>
+                        <template x-if="envEditMode">
+                            <input x-model="envForm[env.key]" type="url" placeholder="https://..."
+                                   class="w-full text-[12px] px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 bg-white">
+                        </template>
+                    </div>
+                </template>
+            </div>
+            <div x-show="envEditMode" class="mt-4 flex justify-end">
+                <button @click="saveEnvUrls()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-colors">Save URLs</button>
+            </div>
+        </div>
+
+        <!-- User Personas -->
+        <div class="surface rounded-2xl border border-slate-200/60 p-5">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-[14px] font-bold text-slate-800">User Personas</h3>
+                    <p class="text-[11px] text-slate-400 mt-0.5">Used as the <strong>primary actor</strong> when creating backlog items. Define who uses the system.</p>
+                </div>
+                <button @click="openPersonaModal()" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-white btn-primary px-3 py-2 rounded-xl transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                    Add Persona
+                </button>
+            </div>
+
+            <template x-if="personas.length === 0">
+                <div class="text-center py-8 text-[13px] text-slate-400">No personas defined yet. Add personas to use as primary actors in backlog items.</div>
+            </template>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <template x-for="p in personas" :key="p.id">
+                    <div class="rounded-xl border border-slate-200/60 p-4 hover:shadow-sm transition-shadow group">
+                        <div class="flex items-start justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-100 to-violet-100 flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                </div>
+                                <div>
+                                    <div class="text-[13px] font-semibold text-slate-800" x-text="p.name"></div>
+                                    <div class="text-[10px] text-slate-400" x-text="p.role || ''"></div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button @click="openPersonaModal(p)" class="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                </button>
+                                <button @click="deletePersona(p)" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <p class="text-[11px] text-slate-500 leading-relaxed mb-2" x-show="p.description" x-text="p.description"></p>
+                        <template x-if="p.goals || p.pain_points">
+                            <div class="space-y-1 mt-2 pt-2 border-t border-slate-50">
+                                <div x-show="p.goals" class="flex items-start gap-1.5 text-[10px]">
+                                    <span class="text-emerald-500 font-bold">✓</span>
+                                    <span class="text-slate-500" x-text="p.goals"></span>
+                                </div>
+                                <div x-show="p.pain_points" class="flex items-start gap-1.5 text-[10px]">
+                                    <span class="text-rose-400 font-bold">!</span>
+                                    <span class="text-slate-500" x-text="p.pain_points"></span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- Test Accounts -->
+        <div class="surface rounded-2xl border border-slate-200/60 p-5">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-[14px] font-bold text-slate-800">Test Accounts</h3>
+                    <p class="text-[11px] text-slate-400 mt-0.5">Credentials that stakeholders can use to access each environment for testing.</p>
+                </div>
+                <button @click="openTestAccountModal()" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-white btn-primary px-3 py-2 rounded-xl transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                    Add Account
+                </button>
+            </div>
+
+            <template x-if="testAccounts.length === 0">
+                <div class="text-center py-8 text-[13px] text-slate-400">No test accounts configured yet.</div>
+            </template>
+
+            <div class="overflow-x-auto" x-show="testAccounts.length > 0">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-slate-100 text-[10px] text-slate-400 uppercase tracking-wider">
+                            <th class="text-left py-2.5 px-3 font-semibold">Environment</th>
+                            <th class="text-left py-2.5 px-3 font-semibold">Username</th>
+                            <th class="text-left py-2.5 px-3 font-semibold">Password</th>
+                            <th class="text-left py-2.5 px-3 font-semibold">Role</th>
+                            <th class="text-left py-2.5 px-3 font-semibold">Notes</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-50">
+                        <template x-for="ta in testAccounts" :key="ta.id">
+                            <tr class="group hover:bg-slate-50/30 transition-colors">
+                                <td class="py-2.5 px-3">
+                                    <span class="text-[10px] font-semibold px-2 py-1 rounded-lg"
+                                          :class="ta.environment === 'Development' ? 'bg-blue-50 text-blue-600' : ta.environment === 'UAT' ? 'bg-purple-50 text-purple-600' : 'bg-emerald-50 text-emerald-600'"
+                                          x-text="ta.environment"></span>
+                                </td>
+                                <td class="py-2.5 px-3 text-[12px] font-medium text-slate-700" x-text="ta.username"></td>
+                                <td class="py-2.5 px-3 text-[12px] text-slate-500 font-mono" x-text="ta.password_hint || '—'"></td>
+                                <td class="py-2.5 px-3 text-[12px] text-slate-600" x-text="ta.role || '—'"></td>
+                                <td class="py-2.5 px-3 text-[11px] text-slate-400 max-w-xs truncate" x-text="ta.notes || '—'"></td>
+                                <td class="py-2.5 px-3 text-right">
+                                    <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button @click="openTestAccountModal(ta)" class="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                        </button>
+                                        <button @click="deleteTestAccount(ta)" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <!-- Form detail modal -->
     <div x-show="selectedForm" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" @keydown.escape.window="closeForm()">
         <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="closeForm()"></div>
@@ -4401,6 +4569,92 @@
     </div>
 </div>
 
+<!-- ==================== PERSONA MODAL ==================== -->
+<div x-show="personaModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+    <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm overlay-enter" @click="personaModalOpen = false"></div>
+    <div class="flex min-h-full items-center justify-center p-4 relative">
+        <div class="surface rounded-3xl shadow-modal w-full max-w-lg modal-enter border border-slate-100">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="text-[16px] font-bold text-slate-900" x-text="editingPersona?.id ? 'Edit Persona' : 'New Persona'"></h3>
+                <button @click="personaModalOpen = false" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <form @submit.prevent="savePersona()" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Name <span class="text-rose-400">*</span></label>
+                    <input x-model="editingPersona.name" required class="input-premium w-full text-[13px]" placeholder="e.g. Platform Admin">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Role</label>
+                    <input x-model="editingPersona.role" class="input-premium w-full text-[13px]" placeholder="e.g. System Administrator">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Description</label>
+                    <textarea x-model="editingPersona.description" rows="2" class="input-premium w-full text-[13px]" placeholder="What does this persona do?"></textarea>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Goals</label>
+                    <textarea x-model="editingPersona.goals" rows="2" class="input-premium w-full text-[13px]" placeholder="What does this persona want to achieve?"></textarea>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Pain Points</label>
+                    <textarea x-model="editingPersona.pain_points" rows="2" class="input-premium w-full text-[13px]" placeholder="What challenges does this persona face?"></textarea>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" @click="personaModalOpen = false" class="text-[13px] font-medium text-slate-600 px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-colors">Cancel</button>
+                    <button type="submit" class="text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-colors">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== TEST ACCOUNT MODAL ==================== -->
+<div x-show="testAccountModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+    <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm overlay-enter" @click="testAccountModalOpen = false"></div>
+    <div class="flex min-h-full items-center justify-center p-4 relative">
+        <div class="surface rounded-3xl shadow-modal w-full max-w-lg modal-enter border border-slate-100">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="text-[16px] font-bold text-slate-900" x-text="editingTestAccount?.id ? 'Edit Test Account' : 'New Test Account'"></h3>
+                <button @click="testAccountModalOpen = false" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <form @submit.prevent="saveTestAccount()" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Environment <span class="text-rose-400">*</span></label>
+                    <select x-model="editingTestAccount.environment" class="input-premium w-full text-[13px] bg-white">
+                        <option value="Development">Development</option>
+                        <option value="UAT">UAT</option>
+                        <option value="Production">Production</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Username <span class="text-rose-400">*</span></label>
+                    <input x-model="editingTestAccount.username" required class="input-premium w-full text-[13px]" placeholder="e.g. admin@uat.pnu-cloud.opex.com.sa">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Password Hint</label>
+                    <input x-model="editingTestAccount.password_hint" class="input-premium w-full text-[13px] font-mono" placeholder="e.g. Admin@2026">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Role</label>
+                    <input x-model="editingTestAccount.role" class="input-premium w-full text-[13px]" placeholder="e.g. Super Admin">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Notes</label>
+                    <textarea x-model="editingTestAccount.notes" rows="2" class="input-premium w-full text-[13px]" placeholder="Any extra info for testers..."></textarea>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" @click="testAccountModalOpen = false" class="text-[13px] font-medium text-slate-600 px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-colors">Cancel</button>
+                    <button type="submit" class="text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-colors">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- ==================== CLIENT MODAL ==================== -->
 <div x-show="clientModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
     <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm backdrop-blur-sm overlay-enter" @click="clientModalOpen = false"></div>
@@ -4511,6 +4765,26 @@
                     <textarea x-model="editingProject.description" rows="3"
                               class="input-premium w-full text-[14px] resize-none"
                               placeholder="Brief description..."></textarea>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Dev URL</label>
+                        <input x-model="editingProject.dev_url" type="url"
+                               class="input-premium w-full text-[13px]"
+                               placeholder="https://dev...">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">UAT URL</label>
+                        <input x-model="editingProject.uat_url" type="url"
+                               class="input-premium w-full text-[13px]"
+                               placeholder="https://uat...">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Prod URL</label>
+                        <input x-model="editingProject.prod_url" type="url"
+                               class="input-premium w-full text-[13px]"
+                               placeholder="https://prod...">
+                    </div>
                 </div>
                 <div class="flex justify-end gap-2 pt-3">
                     <button type="button" @click="projectModalOpen = false" class="text-[13px] font-medium text-slate-600 px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-colors">Cancel</button>
@@ -4675,6 +4949,14 @@ function pmoApp() {
 
         // ===== Stakeholders state =====
         projectStakeholders: [],
+        personas: [],
+        testAccounts: [],
+        envEditMode: false,
+        envForm: { dev_url: '', uat_url: '', prod_url: '' },
+        personaModalOpen: false,
+        editingPersona: null,
+        testAccountModalOpen: false,
+        editingTestAccount: null,
         projectAssignments: [],  // system users assigned to the project
         reqUserSearch: {},  // per-role search text for required role autocomplete
         reqUserFocused: null,  // which role's dropdown is open
@@ -5334,7 +5616,8 @@ function pmoApp() {
             this.selectedProject = project;
             this.route = 'project-detail';
             this.projectTab = 'overview';
-            await Promise.all([this.loadVision(), this.loadKPIs(), this.loadRoadmaps(), this.loadBacklog(), this.loadForms(), this.loadApprovals(), this.loadStakeholders(), this.loadReleases(), this.loadTraceability()]);
+            this.initEnvForm();
+            await Promise.all([this.loadVision(), this.loadKPIs(), this.loadRoadmaps(), this.loadBacklog(), this.loadForms(), this.loadApprovals(), this.loadStakeholders(), this.loadReleases(), this.loadTraceability(), this.loadPersonas(), this.loadTestAccounts()]);
         },
 
         backToProjects() {
@@ -6073,6 +6356,95 @@ function pmoApp() {
             }[type] || 'bg-slate-100 text-slate-500';
         },
 
+        // ===== Personas & Environments =====
+        async loadPersonas() {
+            try {
+                this.personas = await this.api('GET', `/projects/${this.selectedProject.id}/personas`);
+            } catch { this.personas = []; }
+        },
+
+        async loadTestAccounts() {
+            try {
+                this.testAccounts = await this.api('GET', `/projects/${this.selectedProject.id}/test-accounts`);
+            } catch { this.testAccounts = []; }
+        },
+
+        initEnvForm() {
+            this.envForm = {
+                dev_url: this.selectedProject?.dev_url || '',
+                uat_url: this.selectedProject?.uat_url || '',
+                prod_url: this.selectedProject?.prod_url || '',
+            };
+        },
+
+        async saveEnvUrls() {
+            try {
+                const updated = await this.api('PUT', '/projects/' + this.selectedProject.id, this.envForm);
+                this.selectedProject = { ...this.selectedProject, ...updated };
+                // Also update in projects array
+                const idx = this.projects.findIndex(p => p.id === this.selectedProject.id);
+                if (idx >= 0) this.projects[idx] = { ...this.projects[idx], ...updated };
+                this.envEditMode = false;
+                this.showToast('Environment URLs saved');
+            } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+        },
+
+        openPersonaModal(persona = null) {
+            this.editingPersona = persona ? { ...persona } : { name: '', role: '', description: '', goals: '', pain_points: '' };
+            this.personaModalOpen = true;
+        },
+
+        async savePersona() {
+            try {
+                if (this.editingPersona.id) {
+                    await this.api('PUT', `/projects/${this.selectedProject.id}/personas/${this.editingPersona.id}`, this.editingPersona);
+                    this.showToast('Persona updated');
+                } else {
+                    await this.api('POST', `/projects/${this.selectedProject.id}/personas`, { ...this.editingPersona, project_id: this.selectedProject.id });
+                    this.showToast('Persona created');
+                }
+                this.personaModalOpen = false;
+                await this.loadPersonas();
+            } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+        },
+
+        async deletePersona(persona) {
+            if (!confirm('Delete persona "' + persona.name + '"?')) return;
+            try {
+                await this.api('DELETE', `/projects/${this.selectedProject.id}/personas/${persona.id}`);
+                this.showToast('Persona deleted');
+                await this.loadPersonas();
+            } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+        },
+
+        openTestAccountModal(account = null) {
+            this.editingTestAccount = account ? { ...account } : { environment: 'UAT', username: '', password_hint: '', role: '', notes: '' };
+            this.testAccountModalOpen = true;
+        },
+
+        async saveTestAccount() {
+            try {
+                if (this.editingTestAccount.id) {
+                    await this.api('PUT', `/projects/${this.selectedProject.id}/test-accounts/${this.editingTestAccount.id}`, this.editingTestAccount);
+                    this.showToast('Test account updated');
+                } else {
+                    await this.api('POST', `/projects/${this.selectedProject.id}/test-accounts`, { ...this.editingTestAccount, project_id: this.selectedProject.id });
+                    this.showToast('Test account created');
+                }
+                this.testAccountModalOpen = false;
+                await this.loadTestAccounts();
+            } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+        },
+
+        async deleteTestAccount(account) {
+            if (!confirm('Delete test account "' + account.username + '"?')) return;
+            try {
+                await this.api('DELETE', `/projects/${this.selectedProject.id}/test-accounts/${account.id}`);
+                this.showToast('Test account deleted');
+                await this.loadTestAccounts();
+            } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+        },
+
         // ===== Releases =====
         async loadReleases() {
             try {
@@ -6379,7 +6751,7 @@ function pmoApp() {
         },
 
         openProjectModal(project = null) {
-            this.editingProject = project ? { ...project } : { name: '', client_id: '', status: 'Active', github_repo: '', description: '' };
+            this.editingProject = project ? { ...project } : { name: '', client_id: '', status: 'Active', github_repo: '', description: '', version_prefix: '', dev_url: '', uat_url: '', prod_url: '' };
             this.projectModalOpen = true;
         },
 

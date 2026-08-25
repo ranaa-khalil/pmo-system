@@ -101,6 +101,9 @@ def seed():
             github_repo="opexsa/pnu-cloud",
             version_prefix="1.0",
             project_manager_id=admin.id,
+            dev_url="https://dev.pnu-cloud.opex.com.sa",
+            uat_url="https://uat.pnu-cloud.opex.com.sa",
+            prod_url="https://pnu-cloud.opex.com.sa",
         )
         db.add(pnu)
         db.commit()
@@ -138,6 +141,37 @@ def seed():
                 db.add(RoleAssignment(user_id=uid, role_id=r.id, project_id=pnu.id))
     db.commit()
     print("✅ Assigned gate-keeper RACI roles on PNU Cloud")
+
+    # --- User Personas ---
+    from app.models.user_persona import UserPersona
+    persona_data = [
+        {"name": "Platform Admin", "role": "System Administrator", "description": "Manages cloud infrastructure, users, and system configurations.", "goals": "Provision resources quickly, monitor system health, enforce security policies.", "pain_points": "Manual provisioning is slow, limited visibility into resource usage."},
+        {"name": "End Customer", "role": "PNU Faculty/Staff", "description": "Consumes cloud services and submits support requests.", "goals": "Request resources easily, track request status, access self-service portal.", "pain_points": "Complex request forms, no real-time status updates."},
+        {"name": "Account Manager", "role": "OPEX Business Lead", "description": "Manages client relationship, contracts, and commercial aspects.", "goals": "Track service usage, manage SLAs, generate reports for client.", "pain_points": "No centralized dashboard for client metrics, manual reporting."},
+        {"name": "DevOps Engineer", "role": "OPEX Technical", "description": "Deploys and maintains cloud infrastructure components.", "goals": "Automate deployments, monitor health, respond to incidents quickly.", "pain_points": "Manual deployments, no CI/CD pipeline visibility."},
+    ]
+    for pd in persona_data:
+        existing_p = db.query(UserPersona).filter(UserPersona.project_id == pnu.id, UserPersona.name == pd["name"]).first()
+        if not existing_p:
+            db.add(UserPersona(project_id=pnu.id, **pd))
+    db.commit()
+    print(f"✅ Created {len(persona_data)} user personas for PNU Cloud")
+
+    # --- Test Accounts ---
+    from app.models.project_test_account import ProjectTestAccount
+    test_account_data = [
+        {"environment": "Development", "username": "admin@dev.pnu-cloud.opex.com.sa", "password_hint": "Admin@2026", "role": "Super Admin", "notes": "Full access to dev environment"},
+        {"environment": "Development", "username": "pm@dev.pnu-cloud.opex.com.sa", "password_hint": "Pm@2026", "role": "Product Manager", "notes": "PM view in dev"},
+        {"environment": "UAT", "username": "admin@uat.pnu-cloud.opex.com.sa", "password_hint": "Admin@2026", "role": "Super Admin", "notes": "Full access to UAT environment for testing"},
+        {"environment": "UAT", "username": "client.admin@uat.pnu-cloud.opex.com.sa", "password_hint": "Client@2026", "role": "Client Admin (PNU)", "notes": "PNU client admin — limited scope for UAT"},
+        {"environment": "UAT", "username": "enduser@uat.pnu-cloud.opex.com.sa", "password_hint": "User@2026", "role": "End Customer", "notes": "End user perspective for UAT testing"},
+    ]
+    for td in test_account_data:
+        existing_t = db.query(ProjectTestAccount).filter(ProjectTestAccount.project_id == pnu.id, ProjectTestAccount.username == td["username"]).first()
+        if not existing_t:
+            db.add(ProjectTestAccount(project_id=pnu.id, **td))
+    db.commit()
+    print(f"✅ Created {len(test_account_data)} test accounts for PNU Cloud")
 
     # --- Vision (connected to KPIs) ---
     vision = db.query(ProjectVision).filter(ProjectVision.project_id == pnu.id).first()

@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     # GitHub integration (optional — set PMO_GITHUB_TOKEN to enable sync)
     github_token: str = ""
 
+    # AI/LLM integration (optional — set to enable AI assistant)
+    ai_api_key: str = ""
+    ai_base_url: str = "https://api.openai.com/v1"
+    ai_model: str = "gpt-4o-mini"
+
     model_config = {"env_file": ".env", "env_prefix": "PMO_"}
 
 

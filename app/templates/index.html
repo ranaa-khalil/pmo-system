@@ -1557,6 +1557,78 @@
                 </div>
             </div>
 
+                <!-- AI Configuration card -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-100 to-violet-100 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                        </div>
+                        <div>
+                            <h3 class="text-[14px] font-semibold text-ink-800">AI Assistant</h3>
+                            <p class="text-[11px] text-ink-500 mt-0.5">Configure LLM integration for vision, feature, and field suggestions.</p>
+                        </div>
+                    </div>
+
+                    <!-- Status badge -->
+                    <div class="flex items-center gap-2 mb-4">
+                        <div x-show="aiConfigured" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-100">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            <span class="text-[11px] font-medium text-emerald-600">Connected</span>
+                        </div>
+                        <div x-show="!aiConfigured" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-100">
+                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                            <span class="text-[11px] font-medium text-amber-600">Not configured</span>
+                        </div>
+                    </div>
+
+                    <!-- Config form -->
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-[11px] font-medium text-ink-500 uppercase tracking-wider">API Key</label>
+                            <input type="password" x-model="aiConfigForm.api_key" class="input-premium text-[13px] rounded-[10px] mt-1" placeholder="sk-...">
+                            <p class="text-[10px] text-ink-400 mt-1">Set as PMO_AI_API_KEY in .env or enter here and save.</p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-[11px] font-medium text-ink-500 uppercase tracking-wider">Base URL</label>
+                                <input x-model="aiConfigForm.base_url" class="input-premium text-[13px] rounded-[10px] mt-1" placeholder="https://api.openai.com/v1">
+                            </div>
+                            <div>
+                                <label class="text-[11px] font-medium text-ink-500 uppercase tracking-wider">Model</label>
+                                <input x-model="aiConfigForm.model" class="input-premium text-[13px] rounded-[10px] mt-1" placeholder="gpt-4o-mini">
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 pt-1">
+                            <button @click="saveAIConfig()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Configuration</button>
+                            <button @click="testAIConfig()" x-show="aiConfigured" class="text-[12px] font-medium text-brand-600 hover:text-white hover:bg-brand-600 px-3 py-2 rounded-xl border border-brand-200 transition-all">Test Connection</button>
+                        </div>
+                        <div x-show="aiConfigForm._msg" class="text-[11px] mt-1" :class="aiConfigForm._ok ? 'text-emerald-600' : 'text-rose-500'" x-text="aiConfigForm._msg"></div>
+                    </div>
+
+                    <!-- Feature list -->
+                    <div class="mt-5 pt-4 border-t border-ink-100">
+                        <div class="text-[11px] font-medium text-ink-400 uppercase tracking-wider mb-2">AI Features</div>
+                        <div class="space-y-1.5">
+                            <div class="flex items-center gap-2 text-[12px] text-ink-600">
+                                <svg class="w-3.5 h-3.5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                Vision improvement suggestions on the Vision tab
+                            </div>
+                            <div class="flex items-center gap-2 text-[12px] text-ink-600">
+                                <svg class="w-3.5 h-3.5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                Feature & epic suggestions on the Backlog tab
+                            </div>
+                            <div class="flex items-center gap-2 text-[12px] text-ink-600">
+                                <svg class="w-3.5 h-3.5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                Auto-fill empty description & acceptance criteria fields
+                            </div>
+                            <div class="flex items-center gap-2 text-[12px] text-ink-600">
+                                <svg class="w-3.5 h-3.5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                Product Owner approves or declines every suggestion
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             <!-- ============ DOCUMENTATION VIEW ============ -->
             <div x-show="route === 'docs'" class="view-enter space-y-6 max-w-5xl">
                 <div>
@@ -2145,7 +2217,13 @@
                             <div class="space-y-3">
                                 <textarea x-model="visionForm.statement" rows="3" class="input-premium w-full text-[14px]" placeholder="e.g., Become the leading cloud platform for Saudi universities by 2030"></textarea>
                                 <textarea x-model="visionForm.strategic_objectives" rows="4" class="input-premium w-full text-[14px]" placeholder="1. Objective one&#10;2. Objective two"></textarea>
-                                <button @click="saveVision()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Vision</button>
+                                <div class="flex items-center gap-2">
+                                    <button @click="saveVision()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Vision</button>
+                                    <button @click="aiSuggestVision()" :disabled="aiLoading" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-600 hover:text-white hover:bg-brand-600 px-3 py-2 rounded-xl border border-brand-200 transition-all disabled:opacity-50">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                                        <span x-text="aiLoading ? 'Thinking...' : 'AI Improve'"></span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </template>
@@ -2153,7 +2231,13 @@
                         <div class="surface rounded-2xl border border-ink-200/60 p-5">
                             <div class="flex justify-between items-start mb-3">
                                 <h3 class="text-[13px] font-semibold text-ink-800">Vision Statement</h3>
-                                <button @click="vision = null" class="text-[12px] text-brand-600 hover:text-brand-700">Edit</button>
+                                <div class="flex items-center gap-2">
+                                    <button @click="aiSuggestVision()" :disabled="aiLoading" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-600 hover:text-white hover:bg-brand-600 px-3 py-1.5 rounded-lg border border-brand-200 transition-all disabled:opacity-50">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                                        <span x-text="aiLoading ? 'Thinking...' : 'AI Improve'"></span>
+                                    </button>
+                                    <button @click="vision = null" class="text-[12px] text-brand-600 hover:text-brand-700">Edit</button>
+                                </div>
                             </div>
                             <p class="text-[14px] text-ink-700 mb-4" x-text="vision.statement"></p>
                             <h4 class="text-[12px] font-semibold text-ink-500 uppercase tracking-wider mb-2">Strategic Objectives</h4>
@@ -2449,8 +2533,12 @@
 
     <!-- Backlog tab -->
     <div x-show="projectTab==='backlog'" class="max-w-6xl">
-        <!-- Export button -->
-        <div class="flex justify-end mb-2">
+        <!-- Export + AI buttons -->
+        <div class="flex justify-end items-center gap-2 mb-2">
+            <button @click="aiSuggestFeatures()" :disabled="aiLoading" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-600 hover:text-white hover:bg-brand-600 px-3 py-1.5 rounded-lg border border-brand-200 transition-all disabled:opacity-50">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                <span x-text="aiLoading ? 'Thinking...' : 'AI Suggest Features'"></span>
+            </button>
             <button @click="exportBacklog(selectedProject.id)" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-600 hover:text-brand-600 px-3 py-1.5 rounded-lg border border-ink-200 hover:bg-ink-50 transition-colors">
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                 Export CSV
@@ -3096,15 +3184,29 @@
                 </div>
 
                 <!-- Description -->
-                <div x-show="viewingBacklogItem?.description">
-                    <div class="text-[10px] text-ink-400 mb-1">Description</div>
-                    <p class="text-[12px] text-ink-600 leading-relaxed" x-text="viewingBacklogItem?.description"></p>
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <div class="text-[10px] text-ink-400">Description</div>
+                        <button x-show="!viewingBacklogItem?.description && aiConfigured" @click="aiFillField(viewingBacklogItem.id, 'description')" :disabled="aiLoading" class="inline-flex items-center gap-1 text-[10px] font-medium text-brand-600 hover:text-white hover:bg-brand-600 px-2 py-0.5 rounded-md border border-brand-200 transition-all disabled:opacity-50">
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                            AI Fill
+                        </button>
+                    </div>
+                    <p x-show="viewingBacklogItem?.description" class="text-[12px] text-ink-600 leading-relaxed" x-text="viewingBacklogItem?.description"></p>
+                    <p x-show="!viewingBacklogItem?.description" class="text-[12px] text-ink-300 italic">No description yet.</p>
                 </div>
 
                 <!-- Acceptance Criteria -->
-                <div x-show="viewingBacklogItem?.acceptance_criteria">
-                    <div class="text-[10px] text-ink-400 mb-1">Acceptance Criteria</div>
-                    <p class="text-[12px] text-ink-600 leading-relaxed whitespace-pre-line" x-text="viewingBacklogItem?.acceptance_criteria"></p>
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <div class="text-[10px] text-ink-400">Acceptance Criteria</div>
+                        <button x-show="!viewingBacklogItem?.acceptance_criteria && aiConfigured" @click="aiFillField(viewingBacklogItem.id, 'acceptance_criteria')" :disabled="aiLoading" class="inline-flex items-center gap-1 text-[10px] font-medium text-brand-600 hover:text-white hover:bg-brand-600 px-2 py-0.5 rounded-md border border-brand-200 transition-all disabled:opacity-50">
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                            AI Fill
+                        </button>
+                    </div>
+                    <p x-show="viewingBacklogItem?.acceptance_criteria" class="text-[12px] text-ink-600 leading-relaxed whitespace-pre-line" x-text="viewingBacklogItem?.acceptance_criteria"></p>
+                    <p x-show="!viewingBacklogItem?.acceptance_criteria" class="text-[12px] text-ink-300 italic">No acceptance criteria yet.</p>
                 </div>
 
                 <!-- Details grid -->
@@ -4333,6 +4435,179 @@
     </div>
 </div>
 
+<!-- ==================== AI SUGGESTION MODAL ==================== -->
+<div x-show="aiModalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm" @keydown.escape.window="aiModalOpen = false">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto modal-enter" @click.stop>
+        <!-- Header -->
+        <div class="sticky top-0 bg-white border-b border-black/[0.06] px-6 py-4 flex items-center justify-between gap-3 z-10">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                </div>
+                <h3 class="text-[15px] font-bold text-ink-800" x-text="aiModalTitle"></h3>
+            </div>
+            <button @click="aiModalOpen = false" class="text-ink-400 hover:text-ink-600">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <!-- Body -->
+        <div class="px-6 py-5 space-y-4">
+            <!-- Loading state -->
+            <template x-if="aiLoading">
+                <div class="flex flex-col items-center justify-center py-16">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-100 to-violet-100 flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6 text-brand-600 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+                    </div>
+                    <p class="text-[13px] text-ink-500 font-medium">AI is analyzing your project...</p>
+                    <p class="text-[11px] text-ink-400 mt-1">This usually takes 5-15 seconds</p>
+                </div>
+            </template>
+
+            <!-- Error state -->
+            <template x-if="!aiLoading && aiModalContent?.error">
+                <div class="bg-rose-50 border border-rose-200 rounded-xl p-4">
+                    <div class="flex items-center gap-2 text-rose-600 text-[13px] font-medium">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                        Error
+                    </div>
+                    <p class="text-[12px] text-rose-500 mt-1" x-text="aiModalContent.error"></p>
+                </div>
+            </template>
+
+            <!-- Vision suggestion -->
+            <template x-if="!aiLoading && aiModalContent && !aiModalContent.error && aiModalType === 'vision'">
+                <div class="space-y-4">
+                    <!-- Improved vision -->
+                    <div class="bg-brand-50/40 border border-brand-100 rounded-xl p-4">
+                        <div class="text-[10px] font-semibold text-brand-600 uppercase tracking-wider mb-2">Improved Vision</div>
+                        <p class="text-[14px] text-ink-800 leading-relaxed" x-text="aiModalContent.improved_vision"></p>
+                    </div>
+                    <!-- Strengths -->
+                    <div x-show="aiModalContent.strengths?.length">
+                        <div class="text-[12px] font-semibold text-ink-700 mb-1.5">What works well</div>
+                        <ul class="space-y-1">
+                            <template x-for="s in (aiModalContent.strengths || [])" :key="s">
+                                <li class="flex items-start gap-2 text-[12px] text-ink-600">
+                                    <svg class="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                    <span x-text="s"></span>
+                                </li>
+                            </template>
+                        </ul>
+                    </div>
+                    <!-- Improvements -->
+                    <div x-show="aiModalContent.improvements?.length">
+                        <div class="text-[12px] font-semibold text-ink-700 mb-1.5">Suggested improvements</div>
+                        <ul class="space-y-1">
+                            <template x-for="s in (aiModalContent.improvements || [])" :key="s">
+                                <li class="flex items-start gap-2 text-[12px] text-ink-600">
+                                    <svg class="w-3.5 h-3.5 text-amber-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01"/></svg>
+                                    <span x-text="s"></span>
+                                </li>
+                            </template>
+                        </ul>
+                    </div>
+                    <!-- Suggested objectives -->
+                    <div x-show="aiModalContent.suggested_objectives?.length">
+                        <div class="text-[12px] font-semibold text-ink-700 mb-1.5">Suggested strategic objectives</div>
+                        <div class="space-y-1.5">
+                            <template x-for="(s, idx) in (aiModalContent.suggested_objectives || [])" :key="idx">
+                                <div class="flex items-start gap-2 text-[12px] text-ink-600 bg-ink-50 rounded-lg px-3 py-2">
+                                    <span class="text-[10px] font-bold text-brand-600 mt-0.5" x-text="(idx+1)+'.'"></span>
+                                    <span x-text="s"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Feature suggestions -->
+            <template x-if="!aiLoading && aiModalContent && !aiModalContent.error && aiModalType === 'features'">
+                <div class="space-y-4">
+                    <!-- Summary -->
+                    <div x-show="aiModalContent.summary" class="bg-brand-50/40 border border-brand-100 rounded-xl p-4">
+                        <div class="text-[10px] font-semibold text-brand-600 uppercase tracking-wider mb-1.5">AI Assessment</div>
+                        <p class="text-[13px] text-ink-700 leading-relaxed" x-text="aiModalContent.summary"></p>
+                    </div>
+                    <!-- Suggested epics -->
+                    <div x-show="aiModalContent.suggested_epics?.length">
+                        <div class="text-[12px] font-semibold text-ink-700 mb-2">Suggested Epics</div>
+                        <div class="space-y-2">
+                            <template x-for="(epic, idx) in (aiModalContent.suggested_epics || [])" :key="idx">
+                                <div class="border border-ink-200/60 rounded-xl p-3">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="w-5 h-5 rounded-md bg-violet-100 text-violet-600 text-[10px] font-bold flex items-center justify-center">E</span>
+                                        <span class="text-[13px] font-semibold text-ink-800" x-text="epic.name"></span>
+                                    </div>
+                                    <p class="text-[11px] text-ink-500 ml-7" x-text="epic.description"></p>
+                                    <p x-show="epic.rationale" class="text-[10px] text-ink-400 ml-7 mt-1 italic" x-text="'Rationale: ' + epic.rationale"></p>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                    <!-- Suggested features -->
+                    <div x-show="aiModalContent.suggested_features?.length">
+                        <div class="text-[12px] font-semibold text-ink-700 mb-2">Suggested Features</div>
+                        <div class="space-y-2">
+                            <template x-for="(feat, idx) in (aiModalContent.suggested_features || [])" :key="idx">
+                                <div class="border border-ink-200/60 rounded-xl p-3 hover:border-brand-200 transition-colors">
+                                    <div class="flex items-center justify-between gap-2 mb-1">
+                                        <div class="flex items-center gap-2">
+                                            <span class="w-5 h-5 rounded-md bg-brand-100 text-brand-600 text-[10px] font-bold flex items-center justify-center">F</span>
+                                            <span class="text-[13px] font-semibold text-ink-800" x-text="feat.title"></span>
+                                        </div>
+                                        <div class="flex items-center gap-1.5">
+                                            <span x-show="feat.priority" class="text-[9px] font-medium px-1.5 py-0.5 rounded" :class="{'bg-rose-50 text-rose-600': feat.priority==='High', 'bg-amber-50 text-amber-600': feat.priority==='Medium', 'bg-ink-100 text-ink-500': feat.priority==='Low'}" x-text="feat.priority"></span>
+                                        </div>
+                                    </div>
+                                    <p class="text-[11px] text-ink-500 ml-7" x-text="feat.description"></p>
+                                    <div class="flex items-center gap-3 ml-7 mt-1.5">
+                                        <span x-show="feat.epic" class="text-[10px] text-violet-500" x-text="'Epic: ' + feat.epic"></span>
+                                        <span x-show="feat.primary_actor" class="text-[10px] text-ink-400" x-text="'Actor: ' + feat.primary_actor"></span>
+                                    </div>
+                                    <p x-show="feat.rationale" class="text-[10px] text-ink-400 ml-7 mt-1 italic" x-text="feat.rationale"></p>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                    <!-- Info note -->
+                    <div class="bg-amber-50/40 border border-amber-100 rounded-xl p-3">
+                        <p class="text-[11px] text-amber-700">ℹ️ These are AI suggestions. Review them with your team and add the ones you approve to your backlog manually.</p>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Fill field suggestion -->
+            <template x-if="!aiLoading && aiModalContent && !aiModalContent.error && aiModalType === 'fill'">
+                <div class="space-y-3">
+                    <div class="bg-brand-50/40 border border-brand-100 rounded-xl p-4">
+                        <div class="text-[10px] font-semibold text-brand-600 uppercase tracking-wider mb-2">AI Suggestion</div>
+                        <p class="text-[13px] text-ink-700 leading-relaxed whitespace-pre-line" x-text="aiModalContent[_aiFillFieldName] || aiModalContent.description || aiModalContent.acceptance_criteria || ''"></p>
+                    </div>
+                    <div x-show="aiModalContent.explanation" class="bg-ink-50 rounded-xl p-3">
+                        <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1">Why this?</div>
+                        <p class="text-[11px] text-ink-500" x-text="aiModalContent.explanation"></p>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Footer: Approve / Decline -->
+        <template x-if="!aiLoading && aiModalContent && !aiModalContent.error">
+            <div class="sticky bottom-0 bg-white border-t border-black/[0.06] px-6 py-3 flex items-center justify-between gap-3">
+                <button @click="declineAISuggestion()" class="text-[12px] font-medium text-ink-500 hover:text-ink-800 px-4 py-2 rounded-xl hover:bg-ink-100 transition-all">
+                    Decline
+                </button>
+                <button @click="approveAISuggestion()" class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-white btn-primary px-5 py-2 rounded-xl transition-all">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    <span x-text="aiModalType === 'features' ? 'Got it' : 'Approve & Apply'"></span>
+                </button>
+            </div>
+        </template>
+    </div>
+</div>
+
 <!-- ==================== FLOATING ACTION BUTTON (Quick Add Task) ==================== -->
 <div x-data="{
     pos: { x: window.innerWidth - 80, y: window.innerHeight - 120 },
@@ -4805,6 +5080,15 @@ function pmoApp() {
         activityFeed: [],
         projectHealth: null,
 
+        // ===== AI assistant state =====
+        aiConfigured: false,
+        aiLoading: false,
+        aiModalOpen: false,
+        aiModalTitle: '',
+        aiModalContent: null,
+        aiModalType: '',  // 'vision', 'features', 'fill'
+        aiConfigForm: { api_key: '', base_url: 'https://api.openai.com/v1', model: 'gpt-4o-mini', _msg: '', _ok: false },
+
         // ===== Project detail state =====
         selectedProject: null,
         selectedClient: null,
@@ -5092,7 +5376,7 @@ function pmoApp() {
                 }
             }
             if (this.isLoggedIn) {
-                await Promise.all([this.loadClients(), this.loadProjects(), this.loadDashboard(), this.loadRoles(), this.loadUsers(), this.loadNotifications(), this.loadActivity()]);
+                await Promise.all([this.loadClients(), this.loadProjects(), this.loadDashboard(), this.loadRoles(), this.loadUsers(), this.loadNotifications(), this.loadActivity(), this.checkAIStatus()]);
                 // Poll notifications every 30 seconds
                 setInterval(() => this.loadNotifications(), 30000);
             }
@@ -5288,6 +5572,148 @@ function pmoApp() {
         exportKPIs(projectId) {
             const token = localStorage.getItem('pmo_token');
             window.open(`/api/export/kpis/${projectId}?token=${token}`, '_blank');
+        },
+
+        // ===== AI assistant methods =====
+        async checkAIStatus() {
+            try {
+                const data = await this.api('GET', '/ai/status');
+                this.aiConfigured = data.configured;
+                if (data.base_url) this.aiConfigForm.base_url = data.base_url;
+                if (data.model) this.aiConfigForm.model = data.model;
+            } catch (e) { this.aiConfigured = false; }
+        },
+
+        async aiSuggestVision() {
+            if (!this.aiConfigured) {
+                this.showToast('AI is not configured. Set API key in Settings.', 'error');
+                return;
+            }
+            this.aiLoading = true;
+            this.aiModalType = 'vision';
+            this.aiModalTitle = '✨ AI Vision Analysis';
+            this.aiModalOpen = true;
+            this.aiModalContent = null;
+            try {
+                this.aiModalContent = await this.api('POST', '/ai/suggest-vision', {
+                    project_id: this.selectedProject.id
+                });
+            } catch (e) {
+                this.aiModalContent = { error: e?.message || 'Failed to get AI suggestion' };
+            }
+            this.aiLoading = false;
+        },
+
+        async aiSuggestFeatures() {
+            if (!this.aiConfigured) {
+                this.showToast('AI is not configured. Set API key in Settings.', 'error');
+                return;
+            }
+            this.aiLoading = true;
+            this.aiModalType = 'features';
+            this.aiModalTitle = '✨ AI Feature Suggestions';
+            this.aiModalOpen = true;
+            this.aiModalContent = null;
+            try {
+                this.aiModalContent = await this.api('POST', '/ai/suggest-features', {
+                    project_id: this.selectedProject.id
+                });
+            } catch (e) {
+                this.aiModalContent = { error: e?.message || 'Failed to get AI suggestion' };
+            }
+            this.aiLoading = false;
+        },
+
+        async aiFillField(itemId, fieldName, context = '') {
+            if (!this.aiConfigured) {
+                this.showToast('AI is not configured. Set API key in Settings.', 'error');
+                return;
+            }
+            this.aiLoading = true;
+            this.aiModalType = 'fill';
+            this.aiModalTitle = `✨ AI Fill: ${fieldName}`;
+            this.aiModalOpen = true;
+            this.aiModalContent = null;
+            this._aiFillItemId = itemId;
+            this._aiFillFieldName = fieldName;
+            try {
+                this.aiModalContent = await this.api('POST', '/ai/fill-field', {
+                    item_id: itemId,
+                    field_name: fieldName,
+                    field_context: context,
+                });
+            } catch (e) {
+                this.aiModalContent = { error: e?.message || 'Failed to get AI suggestion' };
+            }
+            this.aiLoading = false;
+        },
+
+        approveAISuggestion() {
+            if (this.aiModalType === 'vision' && this.aiModalContent?.improved_vision) {
+                this.visionForm.statement = this.aiModalContent.improved_vision;
+                if (this.aiModalContent.suggested_objectives?.length) {
+                    this.visionForm.strategic_objectives = this.aiModalContent.suggested_objectives.join('\n');
+                }
+                this.saveVision();
+                this.showToast('Vision updated with AI suggestion', 'success');
+            } else if (this.aiModalType === 'fill' && this.aiModalContent) {
+                const fieldName = this._aiFillFieldName;
+                const value = this.aiModalContent[fieldName];
+                if (value && this.viewingBacklogItem) {
+                    this.viewingBacklogItem[fieldName] = value;
+                    // Also update edit form if open
+                    if (this.editingBacklogId) {
+                        this.backlogEditForm[fieldName] = value;
+                    }
+                    this.showToast(`${fieldName} filled with AI suggestion`, 'success');
+                }
+            }
+            this.aiModalOpen = false;
+        },
+
+        declineAISuggestion() {
+            this.aiModalOpen = false;
+            this.showToast('AI suggestion declined', 'info');
+        },
+
+        async saveAIConfig() {
+            try {
+                const data = await this.api('PUT', '/ai/config', {
+                    api_key: this.aiConfigForm.api_key,
+                    base_url: this.aiConfigForm.base_url,
+                    model: this.aiConfigForm.model,
+                });
+                this.aiConfigured = data.configured;
+                this.aiConfigForm._msg = data.message || 'Configuration saved.';
+                this.aiConfigForm._ok = true;
+                this.aiConfigForm.api_key = ''; // Clear for security
+                this.showToast('AI configuration saved', 'success');
+            } catch (e) {
+                this.aiConfigForm._msg = e?.message || 'Failed to save configuration';
+                this.aiConfigForm._ok = false;
+            }
+        },
+
+        async testAIConfig() {
+            this.aiLoading = true;
+            try {
+                // Try a simple vision suggestion as a test
+                if (this.projects.length > 0) {
+                    const data = await this.api('POST', '/ai/suggest-vision', {
+                        project_id: this.projects[0].id
+                    });
+                    if (data.error) throw new Error(data.error);
+                    this.aiConfigForm._msg = '✅ AI is working! Test successful.';
+                    this.aiConfigForm._ok = true;
+                } else {
+                    this.aiConfigForm._msg = 'Create a project first to test AI.';
+                    this.aiConfigForm._ok = false;
+                }
+            } catch (e) {
+                this.aiConfigForm._msg = '❌ ' + (e?.message || 'Test failed');
+                this.aiConfigForm._ok = false;
+            }
+            this.aiLoading = false;
         },
 
         // Chart.js instances

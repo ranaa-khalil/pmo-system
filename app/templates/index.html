@@ -1557,78 +1557,6 @@
                 </div>
             </div>
 
-                <!-- AI Configuration card -->
-                <div class="surface rounded-2xl border border-ink-200/60 p-6">
-                    <div class="flex items-center gap-3 mb-4">
-                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-100 to-violet-100 flex items-center justify-center">
-                            <svg class="w-5 h-5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
-                        </div>
-                        <div>
-                            <h3 class="text-[14px] font-semibold text-ink-800">AI Assistant</h3>
-                            <p class="text-[11px] text-ink-500 mt-0.5">Configure LLM integration for vision, feature, and field suggestions.</p>
-                        </div>
-                    </div>
-
-                    <!-- Status badge -->
-                    <div class="flex items-center gap-2 mb-4">
-                        <div x-show="aiConfigured" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-100">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                            <span class="text-[11px] font-medium text-emerald-600">Connected</span>
-                        </div>
-                        <div x-show="!aiConfigured" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-100">
-                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                            <span class="text-[11px] font-medium text-amber-600">Not configured</span>
-                        </div>
-                    </div>
-
-                    <!-- Config form -->
-                    <div class="space-y-3">
-                        <div>
-                            <label class="text-[11px] font-medium text-ink-500 uppercase tracking-wider">API Key</label>
-                            <input type="password" x-model="aiConfigForm.api_key" class="input-premium text-[13px] rounded-[10px] mt-1" placeholder="sk-...">
-                            <p class="text-[10px] text-ink-400 mt-1">Set as PMO_AI_API_KEY in .env or enter here and save.</p>
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <label class="text-[11px] font-medium text-ink-500 uppercase tracking-wider">Base URL</label>
-                                <input x-model="aiConfigForm.base_url" class="input-premium text-[13px] rounded-[10px] mt-1" placeholder="https://api.openai.com/v1">
-                            </div>
-                            <div>
-                                <label class="text-[11px] font-medium text-ink-500 uppercase tracking-wider">Model</label>
-                                <input x-model="aiConfigForm.model" class="input-premium text-[13px] rounded-[10px] mt-1" placeholder="gpt-4o-mini">
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2 pt-1">
-                            <button @click="saveAIConfig()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Configuration</button>
-                            <button @click="testAIConfig()" x-show="aiConfigured" class="text-[12px] font-medium text-brand-600 hover:text-white hover:bg-brand-600 px-3 py-2 rounded-xl border border-brand-200 transition-all">Test Connection</button>
-                        </div>
-                        <div x-show="aiConfigForm._msg" class="text-[11px] mt-1" :class="aiConfigForm._ok ? 'text-emerald-600' : 'text-rose-500'" x-text="aiConfigForm._msg"></div>
-                    </div>
-
-                    <!-- Feature list -->
-                    <div class="mt-5 pt-4 border-t border-ink-100">
-                        <div class="text-[11px] font-medium text-ink-400 uppercase tracking-wider mb-2">AI Features</div>
-                        <div class="space-y-1.5">
-                            <div class="flex items-center gap-2 text-[12px] text-ink-600">
-                                <svg class="w-3.5 h-3.5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                Vision improvement suggestions on the Vision tab
-                            </div>
-                            <div class="flex items-center gap-2 text-[12px] text-ink-600">
-                                <svg class="w-3.5 h-3.5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                Feature & epic suggestions on the Backlog tab
-                            </div>
-                            <div class="flex items-center gap-2 text-[12px] text-ink-600">
-                                <svg class="w-3.5 h-3.5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                Auto-fill empty description & acceptance criteria fields
-                            </div>
-                            <div class="flex items-center gap-2 text-[12px] text-ink-600">
-                                <svg class="w-3.5 h-3.5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                Product Owner approves or declines every suggestion
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
             <!-- ============ DOCUMENTATION VIEW ============ -->
             <div x-show="route === 'docs'" class="view-enter space-y-6 max-w-5xl">
                 <div>
@@ -2219,6 +2147,10 @@
                                 <textarea x-model="visionForm.strategic_objectives" rows="4" class="input-premium w-full text-[14px]" placeholder="1. Objective one&#10;2. Objective two"></textarea>
                                 <div class="flex items-center gap-2">
                                     <button @click="saveVision()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Vision</button>
+                                    <button @click="aiSuggestVision()" :disabled="aiLoading" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-600 hover:text-white hover:bg-brand-600 px-3 py-2 rounded-xl border border-brand-200 transition-all disabled:opacity-50">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                                        <span x-text="aiLoading ? 'Thinking...' : 'AI Improve'"></span>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -2228,6 +2160,10 @@
                             <div class="flex justify-between items-start mb-3">
                                 <h3 class="text-[13px] font-semibold text-ink-800">Vision Statement</h3>
                                 <div class="flex items-center gap-2">
+                                    <button @click="aiSuggestVision()" :disabled="aiLoading" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-600 hover:text-white hover:bg-brand-600 px-3 py-1.5 rounded-lg border border-brand-200 transition-all disabled:opacity-50">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                                        <span x-text="aiLoading ? 'Thinking...' : 'AI Improve'"></span>
+                                    </button>
                                     <button @click="vision = null" class="text-[12px] text-brand-600 hover:text-brand-700">Edit</button>
                                 </div>
                             </div>
@@ -2525,8 +2461,12 @@
 
     <!-- Backlog tab -->
     <div x-show="projectTab==='backlog'" class="max-w-6xl">
-        <!-- Export button -->
+        <!-- Export + AI buttons -->
         <div class="flex justify-end items-center gap-2 mb-2">
+            <button @click="aiSuggestFeatures()" :disabled="aiLoading" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-600 hover:text-white hover:bg-brand-600 px-3 py-1.5 rounded-lg border border-brand-200 transition-all disabled:opacity-50">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                <span x-text="aiLoading ? 'Thinking...' : 'AI Suggest Features'"></span>
+            </button>
             <button @click="exportBacklog(selectedProject.id)" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-600 hover:text-brand-600 px-3 py-1.5 rounded-lg border border-ink-200 hover:bg-ink-50 transition-colors">
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                 Export CSV
@@ -3173,14 +3113,26 @@
 
                 <!-- Description -->
                 <div>
-                    <div class="text-[10px] text-ink-400 mb-1">Description</div>
+                    <div class="flex items-center justify-between mb-1">
+                        <div class="text-[10px] text-ink-400">Description</div>
+                        <button x-show="!viewingBacklogItem?.description" @click="aiFillField(viewingBacklogItem.id, 'description')" :disabled="aiLoading" class="inline-flex items-center gap-1 text-[10px] font-medium text-brand-600 hover:text-white hover:bg-brand-600 px-2 py-0.5 rounded-md border border-brand-200 transition-all disabled:opacity-50">
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                            AI Fill
+                        </button>
+                    </div>
                     <p x-show="viewingBacklogItem?.description" class="text-[12px] text-ink-600 leading-relaxed" x-text="viewingBacklogItem?.description"></p>
                     <p x-show="!viewingBacklogItem?.description" class="text-[12px] text-ink-300 italic">No description yet.</p>
                 </div>
 
                 <!-- Acceptance Criteria -->
                 <div>
-                    <div class="text-[10px] text-ink-400 mb-1">Acceptance Criteria</div>
+                    <div class="flex items-center justify-between mb-1">
+                        <div class="text-[10px] text-ink-400">Acceptance Criteria</div>
+                        <button x-show="!viewingBacklogItem?.acceptance_criteria" @click="aiFillField(viewingBacklogItem.id, 'acceptance_criteria')" :disabled="aiLoading" class="inline-flex items-center gap-1 text-[10px] font-medium text-brand-600 hover:text-white hover:bg-brand-600 px-2 py-0.5 rounded-md border border-brand-200 transition-all disabled:opacity-50">
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                            AI Fill
+                        </button>
+                    </div>
                     <p x-show="viewingBacklogItem?.acceptance_criteria" class="text-[12px] text-ink-600 leading-relaxed whitespace-pre-line" x-text="viewingBacklogItem?.acceptance_criteria"></p>
                     <p x-show="!viewingBacklogItem?.acceptance_criteria" class="text-[12px] text-ink-300 italic">No acceptance criteria yet.</p>
                 </div>

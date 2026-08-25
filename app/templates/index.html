@@ -4699,7 +4699,7 @@ function pmoApp() {
         },
 
         downloadNotes(releaseId) {
-            const token = localStorage.getItem('token') || '';
+            const token = localStorage.getItem('pmo_token') || '';
             window.open(`/api/releases/${releaseId}/download-notes?token=${token}`, '_blank');
         },
 

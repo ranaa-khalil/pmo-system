@@ -2080,8 +2080,9 @@
                         <!-- Epic header -->
                         <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100"
                              :class="group.epic === 'Uncategorized' ? 'bg-slate-50/50' : 'bg-gradient-to-r from-violet-50/60 to-brand-50/40'">
-                            <div class="flex items-center gap-2 min-w-0">
-                                <button @click="toggleEpic(group.epic)" class="text-slate-400 hover:text-slate-700 flex-shrink-0">
+                            <div class="flex items-center gap-2 min-w-0 flex-1 cursor-pointer"
+                                 @click="group.epicItem && viewBacklogItem(group.epicItem)">
+                                <button @click.stop="toggleEpic(group.epic)" class="text-slate-400 hover:text-slate-700 flex-shrink-0">
                                     <svg class="w-4 h-4 transition-transform" :class="collapsedEpics.includes(group.epic) ? '' : 'rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                                 </button>
                                 <template x-if="group.epicItem">
@@ -2090,19 +2091,22 @@
                                 <template x-if="group.epic === 'Uncategorized'">
                                     <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-200 text-slate-500 flex-shrink-0">UNG</span>
                                 </template>
-                                <h3 class="text-[14px] font-semibold truncate cursor-pointer hover:text-brand-600 transition-colors" :class="group.epic === 'Uncategorized' ? 'text-slate-500' : 'text-violet-700'" @click="group.epicItem && viewBacklogItem(group.epicItem)" x-text="group.epic"></h3>
-                                <template x-if="group.epicItem && group.epicItem.description">
-                                    <span class="text-[11px] text-slate-400 truncate hidden md:block" x-text="group.epicItem.description"></span>
-                                </template>
+                                <div class="min-w-0 flex-1">
+                                    <h3 class="text-[14px] font-semibold truncate hover:text-brand-600 transition-colors" :class="group.epic === 'Uncategorized' ? 'text-slate-500' : 'text-violet-700'" x-text="group.epic"></h3>
+                                    <template x-if="group.epicItem && group.epicItem.description">
+                                        <p class="text-[11px] text-slate-400 truncate" x-text="group.epicItem.description"></p>
+                                    </template>
+                                </div>
                                 <span class="text-[10px] text-slate-400 flex-shrink-0" x-text="group.items.length + ' item' + (group.items.length !== 1 ? 's' : '')"></span>
                             </div>
-                            <div class="flex items-center gap-2 flex-shrink-0">
+                            <div class="flex items-center gap-2 flex-shrink-0 ml-2">
                                 <button @click="addFeatureToEpic(group.epic === 'Uncategorized' ? '' : group.epic)" class="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-2 py-1 rounded-lg hover:bg-brand-50 transition-colors flex items-center gap-1">
                                     <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
                                     Add Feature
                                 </button>
                                 <template x-if="group.epicItem">
-                                    <button @click="deleteBacklogItem(group.epicItem.id)" class="text-[10px] text-slate-300 hover:text-rose-500 px-1 transition-colors">✕</button>
+                                    <button @click.stop="viewBacklogItem(group.epicItem)" class="text-[10px] text-slate-400 hover:text-brand-600 px-1.5 py-1 rounded transition-colors" title="View details">👁</button>
+                                    <button @click.stop="deleteBacklogItem(group.epicItem.id)" class="text-[10px] text-slate-300 hover:text-rose-500 px-1 transition-colors">✕</button>
                                 </template>
                             </div>
                         </div>

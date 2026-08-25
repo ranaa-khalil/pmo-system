@@ -2,7 +2,7 @@
 
 Run with: python -m app.seed
 """
-from datetime import date
+from datetime import date, timedelta
 from app.database import SessionLocal, engine, Base
 import app.models  # noqa: F401 — register all models
 from app.models.user import User
@@ -15,6 +15,7 @@ from app.models.kpi import KPI
 from app.models.roadmap import Roadmap
 from app.models.milestone import Milestone
 from app.models.backlog_item import BacklogItem
+from app.models.user_task import UserTask
 from app.models.release import Release, ReleaseItem
 from app.models.form_template import FormTemplate, FormInstance
 from app.models.stakeholder import Stakeholder
@@ -824,6 +825,84 @@ def seed():
         db.add(ApprovalStep(request_id=ap_tm.id, step_order=1, role_name="Release Manager", status="Pending"))
         db.commit()
         print("✅ Created pending approval for TASAMA release (Release Manager)")
+
+    # --- User Tasks (personal to-dos) ---
+    if db.query(UserTask).count() == 0:
+        pnu = db.query(Project).filter(Project.name == "PNU Cloud").first()
+        cg = db.query(Project).filter(Project.name == "CloudGate").first()
+        ms = db.query(Milestone).first()
+
+        sample_tasks = [
+            UserTask(
+                title="Review AD domain integration proposal for Citrix",
+                description="Follow up with GO Telecom on the AD domain question before Citrix deployment.",
+                assigned_to=admin.id, created_by=admin.id,
+                project_id=pnu.id if pnu else None,
+                milestone_id=ms.id if ms else None,
+                due_date=date.today() + timedelta(days=2),
+                reminder_days=3, status="Pending", priority="Urgent",
+            ),
+            UserTask(
+                title="Prepare weekly status report for NITC",
+                description="Compile progress from all partners for the weekly client update.",
+                assigned_to=admin.id, created_by=admin.id,
+                project_id=pnu.id if pnu else None,
+                due_date=date.today() + timedelta(days=5),
+                reminder_days=3, status="Pending", priority="High",
+            ),
+            UserTask(
+                title="Review backlog items for CloudGate release",
+                description="Prioritize features for the next release cycle.",
+                assigned_to=admin.id, created_by=admin.id,
+                project_id=cg.id if cg else None,
+                due_date=date.today() + timedelta(days=7),
+                reminder_days=3, status="Pending", priority="Medium",
+            ),
+            UserTask(
+                title="Update stakeholder matrix",
+                description="Add new contacts from TASAMA and Yotta.",
+                assigned_to=admin.id, created_by=admin.id,
+                project_id=pnu.id if pnu else None,
+                due_date=date.today() - timedelta(days=1),  # overdue
+                reminder_days=3, status="In Progress", priority="High",
+            ),
+            UserTask(
+                title="Schedule Q3 retrospective",
+                description="Coordinate with team for a 1-hour retrospective session.",
+                assigned_to=admin.id, created_by=admin.id,
+                project_id=None,  # general task
+                due_date=date.today() + timedelta(days=14),
+                reminder_days=5, status="Pending", priority="Low",
+            ),
+            UserTask(
+                title="Complete CPMAI module 3",
+                description="Finish the data preparation module.",
+                assigned_to=admin.id, created_by=admin.id,
+                project_id=None,  # general personal task
+                due_date=date.today() + timedelta(days=21),
+                reminder_days=7, status="Pending", priority="Medium",
+            ),
+            UserTask(
+                title="Review OPEX organizational structure",
+                description="Finalize the updated org chart with Mohammed Aljahmi.",
+                assigned_to=admin.id, created_by=admin.id,
+                project_id=None,
+                due_date=date.today() - timedelta(days=3),  # overdue
+                reminder_days=3, status="Pending", priority="Urgent",
+            ),
+            UserTask(
+                title="Submit monthly expense report",
+                description="Compile and submit August expenses to finance.",
+                assigned_to=admin.id, created_by=admin.id,
+                project_id=None,
+                due_date=date.today() + timedelta(days=1),
+                reminder_days=2, status="Completed", priority="Medium",
+            ),
+        ]
+        for t in sample_tasks:
+            db.add(t)
+        db.commit()
+        print(f"✅ Created {len(sample_tasks)} user tasks (including overdue and completed)")
 
     # --- Summary ---
     total_clients = db.query(Client).count()

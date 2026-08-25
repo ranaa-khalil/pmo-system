@@ -439,6 +439,62 @@ def remove_item_from_release(
     db.commit()
 
 
+@router.get("/projects/{project_id}/releases/next-version")
+def get_next_version(
+    project_id: int,
+    bump: str = "minor",  # "major", "minor", or "patch"
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Suggest the next SemVer version for a project based on existing releases.
+
+    Rules (from Versioning & Release Cadence v1.2):
+    - MAJOR: breaking changes / new platform (1.x → 2.0.0)
+    - MINOR: new features, monthly release train (1.0.0 → 1.1.0)
+    - PATCH: hotfixes, bug fixes (1.0.0 → 1.0.1)
+
+    If project has version_prefix (e.g. "1.0"), the first release is 1.0.0.
+    """
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    releases = db.query(Release).filter(Release.project_id == project_id).all()
+
+    if not releases:
+        # First release — use version_prefix if set, otherwise 1.0.0
+        if project.version_prefix:
+            parts = project.version_prefix.split(".")
+            major = int(parts[0]) if len(parts) > 0 else 1
+            minor = int(parts[1]) if len(parts) > 1 else 0
+            return {"version": f"{major}.{minor}.0", "bump": "initial", "previous": None}
+
+        return {"version": "1.0.0", "bump": "initial", "previous": None}
+
+    # Find the highest existing version
+    def parse_version(v):
+        try:
+            parts = v.split(".")
+            return (int(parts[0]), int(parts[1]) if len(parts) > 1 else 0, int(parts[2]) if len(parts) > 2 else 0)
+        except (ValueError, IndexError):
+            return (0, 0, 0)
+
+    latest = max(releases, key=lambda r: parse_version(r.version))
+    major, minor, patch = parse_version(latest.version)
+
+    if bump == "major":
+        major += 1
+        minor = 0
+        patch = 0
+    elif bump == "patch":
+        patch += 1
+    else:  # minor (default)
+        minor += 1
+        patch = 0
+
+    return {"version": f"{major}.{minor}.{patch}", "bump": bump, "previous": latest.version}
+
+
 @router.post("/releases/{release_id}/generate-notes", response_model=dict)
 def generate_release_notes(
     release_id: int,

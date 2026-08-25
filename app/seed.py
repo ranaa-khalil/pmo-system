@@ -99,6 +99,7 @@ def seed():
             description="Cloud infrastructure and managed services for PNU",
             status="Active",
             github_repo="opexsa/pnu-cloud",
+            version_prefix="1.0",
             project_manager_id=admin.id,
         )
         db.add(pnu)
@@ -521,6 +522,7 @@ def seed():
     # --- Project 2: CloudGate Platform (NITC/PNU) ---
     create_project_with_data(
         name="CloudGate Platform",
+        version_prefix="0.9",
         client=nitc,
         description="Unified cloud management portal with billing, catalog, and marketplace",
         status="Active",
@@ -568,6 +570,7 @@ def seed():
     go_user = created_users.get("ahmed@opex.com.sa", admin)
     create_project_with_data(
         name="GO Telecom Integration",
+        version_prefix="1.0",
         client=go,
         description="Network connectivity integration and SD-WAN provisioning for GO Telecom",
         status="Active",
@@ -613,6 +616,7 @@ def seed():
     tasama_user = created_users.get("khalid@opex.com.sa", admin)
     create_project_with_data(
         name="TASAMA Multi-Cloud",
+        version_prefix="0.1",
         client=tasama,
         description="Multi-cloud aggregation platform with cost optimization and resource intelligence",
         status="Active",
@@ -660,6 +664,7 @@ def seed():
     yotta_user = created_users.get("fatima@opex.com.sa", admin)
     create_project_with_data(
         name="PNU Mobile App",
+        version_prefix="2.0",
         client=yotta,
         description="Native iOS/Android app for PNU students — schedules, grades, campus services",
         status="On Hold",

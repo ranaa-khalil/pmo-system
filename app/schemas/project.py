@@ -11,6 +11,7 @@ class ProjectBase(BaseModel):
     status: Optional[str] = "Active"
     start_date: Optional[date] = None
     github_repo: Optional[str] = None
+    version_prefix: Optional[str] = None  # e.g. "1.0" — first release auto-numbers to 1.0.0
 
 
 class ProjectCreate(ProjectBase):
@@ -23,6 +24,7 @@ class ProjectUpdate(BaseModel):
     status: Optional[str] = None
     start_date: Optional[date] = None
     github_repo: Optional[str] = None
+    version_prefix: Optional[str] = None
 
 
 class ProjectResponse(ProjectBase):

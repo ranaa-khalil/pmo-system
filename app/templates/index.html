@@ -1949,23 +1949,45 @@
                         <input x-model="backlogForm.target_release" class="input-premium text-[12px]" placeholder="Target Release">
                     </div>
                     <div class="flex items-center gap-3">
-                        <!-- Dependency selector -->
+                        <!-- Dependency selector with autocomplete search -->
                         <div class="flex-1">
                             <div class="flex items-center gap-1 flex-wrap">
                                 <span class="text-[10px] text-slate-400 mr-1" x-text="editingBacklogId ? 'Dependencies for #' + editingBacklogId + ':' : 'Dependencies:'"></span>
                                 <template x-for="dep in (backlogForm.depends_on || [])" :key="dep.id">
                                     <span class="inline-flex items-center gap-1 bg-violet-50 text-violet-700 text-[10px] font-medium px-2 py-0.5 rounded-md">
                                         <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
-                                        <span x-text="'#' + dep.id"></span>
+                                        <span x-text="'#' + dep.id + ' ' + (dep.title || '').slice(0, 20)"></span>
                                         <button @click="removeDependency(dep.id)" class="text-violet-400 hover:text-rose-500 ml-0.5">✕</button>
                                     </span>
                                 </template>
-                                <select @change="addDependency($event)" class="text-[11px] border border-slate-200/60 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-brand-500/20 text-slate-500">
-                                    <option value="">+ Add dependency…</option>
-                                    <template x-for="avail in availableDeps" :key="avail.id">
-                                        <option :value="avail.id" x-text="'#' + avail.id + ' ' + (avail.title || '').slice(0, 40)"></option>
-                                    </template>
-                                </select>
+                                <!-- Autocomplete search input -->
+                                <div class="relative inline-block">
+                                    <input type="text"
+                                           x-model="depSearch"
+                                           @input="filterDeps()"
+                                           @focus="depSearchFocused = true; filterDeps()"
+                                           @blur="setTimeout(() => depSearchFocused = false, 200)"
+                                           class="text-[11px] border border-slate-200/60 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-brand-500/20 text-slate-600 w-40"
+                                           placeholder="Search to add…">
+                                    <!-- Dropdown results -->
+                                    <div x-show="depSearchFocused && filteredDeps.length > 0" x-cloak
+                                         class="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto min-w-[280px]">
+                                        <template x-for="avail in filteredDeps" :key="avail.id">
+                                            <button @mousedown.prevent="selectDepFromSearch(avail)" type="button"
+                                                    class="w-full text-left px-3 py-2 hover:bg-brand-50 transition-colors border-b border-slate-50 last:border-0">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-[10px] font-mono text-slate-400" x-text="'#' + avail.id"></span>
+                                                    <span class="text-[11px] text-slate-700 truncate flex-1" x-text="avail.title"></span>
+                                                    <span class="text-[9px] px-1.5 py-0.5 rounded" :class="{'bg-emerald-50 text-emerald-500': avail.status === 'Done', 'bg-amber-50 text-amber-500': avail.status === 'In Progress', 'bg-slate-50 text-slate-400': avail.status === 'Draft'}" x-text="avail.status"></span>
+                                                </div>
+                                            </button>
+                                        </template>
+                                    </div>
+                                    <div x-show="depSearchFocused && depSearch && filteredDeps.length === 0" x-cloak
+                                         class="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 px-3 py-2 text-[11px] text-slate-400 min-w-[280px]">
+                                        No matching items found
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <select x-model="backlogForm.kpi_id" class="text-[12px] border border-slate-200/60 rounded-xl px-3 py-2 bg-white flex-1 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
@@ -2195,7 +2217,14 @@
         <div class="surface rounded-2xl border border-slate-200/60 p-5 mb-4">
             <h3 class="text-[13px] font-semibold text-slate-800 mb-3">Plan New Release</h3>
             <div class="grid grid-cols-4 gap-3">
-                <input x-model="releaseForm.version" class="input-premium text-[13px]" placeholder="Version (e.g., 1.2.0)">
+                <div class="relative">
+                    <input x-model="releaseForm.version" @focus="loadNextVersion('minor')" class="input-premium text-[13px] font-mono" placeholder="Version">
+                    <template x-if="suggestedVersion">
+                        <button @click="releaseForm.version = suggestedVersion" class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 px-2 py-1 rounded-md transition-all">
+                            Use <span x-text="suggestedVersion"></span>
+                        </button>
+                    </template>
+                </div>
                 <input x-model="releaseForm.name" class="input-premium text-[13px] col-span-2" placeholder="Release name">
                 <input x-model="releaseForm.target_date" type="date" class="input-premium text-[13px]">
             </div>
@@ -2208,7 +2237,15 @@
                     </template>
                 </template>
             </select>
-            <button @click="saveRelease()" class="mt-2 text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Create Release</button>
+                        <div class="flex items-center gap-2 mt-2">
+                <button @click="saveRelease()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Create Release</button>
+                <div class="flex items-center gap-1 ml-2">
+                    <span class="text-[10px] text-slate-400">Suggest:</span>
+                    <button @click="loadNextVersion('minor')" class="text-[10px] font-medium text-slate-500 hover:text-brand-600 px-2 py-1 rounded-md hover:bg-slate-50 transition-all">Minor (1.x.0)</button>
+                    <button @click="loadNextVersion('patch')" class="text-[10px] font-medium text-slate-500 hover:text-brand-600 px-2 py-1 rounded-md hover:bg-slate-50 transition-all">Patch (1.0.x)</button>
+                    <button @click="loadNextVersion('major')" class="text-[10px] font-medium text-slate-500 hover:text-brand-600 px-2 py-1 rounded-md hover:bg-slate-50 transition-all">Major (2.0.0)</button>
+                </div>
+            </div>
         </div>
 
         <!-- Releases list -->
@@ -2223,44 +2260,53 @@
         </template>
         <div class="space-y-3">
             <template x-for="rel in projectReleases" :key="rel.id">
-                <div @click="openRelease(rel)" class="surface rounded-2xl border border-slate-200/60 p-4 card-lift transition-all cursor-pointer"
+                <div @click="openRelease(rel)" class="surface rounded-2xl border border-slate-200/60 p-5 card-lift transition-all cursor-pointer hover:border-brand-300 hover:shadow-md"
                      :class="selectedRelease?.id === rel.id ? 'ring-2 ring-brand-400/50' : ''">
-                    <!-- Inline V-Cycle progress bar -->
-                    <div class="flex items-center gap-1 mb-3">
-                        <template x-for="(phase, idx) in ['Planning','In Progress','Testing','UAT','Pre-Release','Released','Post-Release']" :key="phase">
-                            <div class="flex items-center flex-1">
-                                <div class="flex-1 h-1.5 rounded-full transition-all"
-                                     :class="['Planning','In Progress','Testing','UAT','Pre-Release','Released','Post-Release'].indexOf(rel.status) >= idx ? 'bg-gradient-to-r from-brand-400 to-violet-500' : 'bg-slate-100'"></div>
-                            </div>
-                        </template>
-                    </div>
-                    <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center justify-between mb-3">
                         <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-50 to-violet-50 flex items-center justify-center ring-1 ring-brand-100/50">
-                                <svg class="w-5 h-5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                            <div class="w-11 h-11 rounded-xl flex items-center justify-center ring-1"
+                                 :class="rel.status === 'Released' ? 'bg-emerald-50 ring-emerald-100' : 'bg-brand-50 ring-brand-100/50'">
+                                <span class="text-[18px]" x-text="rel.status === 'Released' ? '🚀' : rel.status === 'Post-Release' ? '📊' : rel.status === 'Planning' ? '📋' : '⚙️'"></span>
                             </div>
                             <div>
-                                <div class="text-[14px] font-semibold text-slate-800 flex items-center gap-2">
-                                    <span x-text="rel.version"></span>
-                                    <span class="text-slate-300">·</span>
+                                <div class="text-[15px] font-bold text-slate-800 flex items-center gap-2">
+                                    <span class="font-mono" x-text="rel.version"></span>
+                                    <span class="text-slate-300 font-normal">—</span>
                                     <span x-text="rel.name"></span>
                                 </div>
-                                <div class="text-[11px] text-slate-400 mt-0.5">
-                                    Target: <span x-text="rel.target_date || 'TBD'"></span>
+                                <div class="text-[11px] text-slate-400 mt-0.5 flex items-center gap-2">
+                                    <span>Target: <span class="font-medium text-slate-500" x-text="rel.target_date || 'TBD'"></span></span>
                                     <template x-if="rel.release_date">
-                                        <span> · Released: <span x-text="rel.release_date"></span></span>
+                                        <span>· Released: <span class="font-medium text-emerald-500" x-text="rel.release_date"></span></span>
                                     </template>
                                 </div>
                             </div>
                         </div>
-                        <span class="text-[11px] font-medium px-2.5 py-1 rounded-lg" :class="releaseStatusColor(rel.status)" x-text="rel.status"></span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[11px] font-semibold px-3 py-1 rounded-lg" :class="releaseStatusColor(rel.status)" x-text="rel.status"></span>
+                            <svg class="w-4 h-4 text-slate-300 group-hover:text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                        </div>
                     </div>
-                    <!-- Mini V-cycle progress bar -->
-                    <div class="flex items-center gap-1.5">
+                    <!-- V-Cycle progress bar -->
+                    <div class="flex items-center gap-1 mb-1">
                         <template x-for="(phase, idx) in ['Planning','In Progress','Testing','UAT','Pre-Release','Released','Post-Release']" :key="phase">
-                            <div class="flex-1 h-1.5 rounded-full transition-colors"
-                                 :class="getReleasePhaseIndex(rel.status) >= idx ? 'bg-gradient-to-r from-brand-400 to-violet-400' : 'bg-slate-100'"></div>
+                            <div class="flex-1 h-2 rounded-full transition-all"
+                                 :class="getReleasePhaseIndex(rel.status) >= idx ? 'bg-gradient-to-r from-brand-400 to-violet-500' : 'bg-slate-100'"></div>
                         </template>
+                    </div>
+                    <!-- Phase labels -->
+                    <div class="flex items-center justify-between text-[8px] text-slate-300">
+                        <span>Planning</span>
+                        <span>In Progress</span>
+                        <span>Testing</span>
+                        <span>UAT</span>
+                        <span>Pre-Release</span>
+                        <span>Released</span>
+                        <span>Post-Release</span>
+                    </div>
+                    <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
+                        <span class="text-[10px] text-slate-400" x-text="'Click to view details →'"></span>
+                        <span class="text-[10px] text-slate-400" x-text="getReleasePhaseIndex(rel.status) + 1 + '/7 phases'"></span>
                     </div>
                 </div>
             </template>
@@ -3108,6 +3154,13 @@
                     </div>
                 </div>
                 <div>
+                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Starting Version (SemVer prefix)</label>
+                    <input x-model="editingProject.version_prefix" type="text"
+                           class="input-premium w-full text-[14px] font-mono text-[13px]"
+                           placeholder="e.g., 1.0 — first release will be 1.0.0">
+                    <p class="text-[10px] text-slate-400 mt-1">Set the base version. Releases auto-increment: 1.0.0 → 1.1.0 → 1.2.0 (minor), 1.0.1 (patch), 2.0.0 (major).</p>
+                </div>
+                <div>
                     <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Description</label>
                     <textarea x-model="editingProject.description" rows="3"
                               class="input-premium w-full text-[14px] resize-none"
@@ -3167,7 +3220,7 @@ function pmoApp() {
         clientModalOpen: false,
         projectModalOpen: false,
         editingClient: {},
-        editingProject: {},
+        editingProject: { name: '', client_id: '', description: '', status: 'Active', github_repo: '', version_prefix: '' },
         toast: { show: false, message: '', type: 'success' },
         currentTime: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
 
@@ -3204,6 +3257,10 @@ function pmoApp() {
         availableDeps: [],  // backlog items available to select as dependencies
         editingBacklogId: null,  // track which backlog item is being edited
         viewingBacklogItem: null,  // backlog item being viewed in detail modal
+        suggestedVersion: null,  // auto-suggested next SemVer version
+        depSearch: '',  // search text for dependency autocomplete
+        depSearchFocused: false,
+        filteredDeps: [],  // filtered results for dependency autocomplete
         epicForm: { name: '', description: '' },
         phases: ['Requirements', 'Design', 'Development', 'Testing', 'UAT', 'Pre-Release', 'Release', 'Post-Release', 'Retrospective'],
 
@@ -4187,6 +4244,56 @@ function pmoApp() {
 
         viewBacklogItem(item) {
             this.viewingBacklogItem = item;
+        },
+
+        async loadNextVersion(bump = 'minor') {
+            if (!this.selectedProject) return;
+            try {
+                const result = await this.api('GET', `/projects/${this.selectedProject.id}/releases/next-version?bump=${bump}`);
+                this.suggestedVersion = result.version;
+            } catch(e) { this.suggestedVersion = null; }
+        },
+
+        filterDeps() {
+            const q = (this.depSearch || '').toLowerCase().trim();
+            if (!q) {
+                this.filteredDeps = this.availableDeps.slice(0, 10);
+            } else {
+                this.filteredDeps = this.availableDeps.filter(d => {
+                    return ('#' + d.id).includes(q) ||
+                           (d.title || '').toLowerCase().includes(q) ||
+                           (d.current_phase || '').toLowerCase().includes(q);
+                }).slice(0, 10);
+            }
+        },
+
+        selectDepFromSearch(avail) {
+            // Simulate the addDependency flow
+            this.depSearch = '';
+            this.depSearchFocused = false;
+            // Reuse the addDependency logic
+            if (!this.editingBacklogId) {
+                // New item — collect pending dep locally
+                if (!this.backlogForm.depends_on) this.backlogForm.depends_on = [];
+                const exists = this.backlogForm.depends_on.find(d => d.id === avail.id);
+                if (!exists) {
+                    this.backlogForm.depends_on.push({ id: avail.id, title: avail.title, current_phase: avail.current_phase, status: avail.status });
+                    this.availableDeps = this.availableDeps.filter(a => a.id !== avail.id);
+                    this.showToast('Dependency added (will link on save)', 'success');
+                }
+            } else {
+                // Existing item — add via API
+                this.api('POST', `/backlog/${this.editingBacklogId}/dependencies`, { depends_on_id: avail.id })
+                    .then(updated => {
+                        const idx = this.backlogItems.findIndex(i => i.id === this.editingBacklogId);
+                        if (idx >= 0) this.backlogItems[idx] = updated;
+                        this.backlogForm.depends_on = updated.depends_on || [];
+                        this.loadAvailableDeps(this.selectedProject.id, this.editingBacklogId);
+                        this.showToast('Dependency added', 'success');
+                    })
+                    .catch(e => this.showToast(e.message || 'Failed', 'error'));
+            }
+            this.filterDeps();
         },
 
         togglePhaseFilter(phase) {

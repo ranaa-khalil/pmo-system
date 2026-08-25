@@ -1974,24 +1974,32 @@
                                 <option :value="kpi.id" x-text="kpi.name"></option>
                             </template>
                         </select>
-                        <button @click="saveBacklogItem(false)" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all whitespace-nowrap">Save</button>
-                        <button @click="saveBacklogItem(true)" class="text-[13px] font-medium text-brand-600 border border-brand-200 hover:bg-brand-50 px-4 py-2 rounded-xl transition-all whitespace-nowrap">Save & New</button>
+                        <button @click="editingBacklogId ? saveBacklogItemEdit() : saveBacklogItem(false)" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all whitespace-nowrap" x-text="editingBacklogId ? 'Update' : 'Save'"></button>
+                        <template x-if="!editingBacklogId">
+                            <button @click="saveBacklogItem(true)" class="text-[13px] font-medium text-brand-600 border border-brand-200 hover:bg-brand-50 px-4 py-2 rounded-xl transition-all whitespace-nowrap">Save & New</button>
+                        </template>
+                        <template x-if="editingBacklogId">
+                            <button @click="cancelEditBacklog()" class="text-[13px] font-medium text-slate-500 border border-slate-200 hover:bg-slate-50 px-4 py-2 rounded-xl transition-all whitespace-nowrap">Cancel</button>
+                        </template>
                     </div>
                 </div>
             </template>
         </div>
 
-        <!-- Phase legend -->
-        <div class="flex flex-wrap gap-1 mb-4 text-[10px]">
+        <!-- Phase legend — click to filter -->
+        <div class="flex flex-wrap gap-1.5 mb-4">
             <template x-for="(phase, idx) in phases" :key="phase">
-                <div class="flex items-center gap-1">
-                    <div class="w-5 h-5 rounded-md flex items-center justify-center font-bold"
-                         :class="idx === 0 ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-400'"
-                         x-text="idx + 1"></div>
-                    <span class="text-slate-400" x-text="phase"></span>
-                    <span x-show="idx < phases.length - 1" class="text-slate-300 mx-0.5">→</span>
-                </div>
+                <button @click="togglePhaseFilter(phase)"
+                        class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all"
+                        :class="phaseFilter === phase ? 'bg-brand-500 text-white shadow-sm' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'">
+                    <span class="w-4 h-4 rounded flex items-center justify-center text-[9px] font-bold"
+                          :class="phaseFilter === phase ? 'bg-white/20' : 'bg-slate-200'"
+                          x-text="idx + 1"></span>
+                    <span x-text="phase"></span>
+                    <span class="text-[9px] opacity-60" x-text="phaseCounts[phase] || 0"></span>
+                </button>
             </template>
+            <button x-show="phaseFilter" @click="phaseFilter = null" class="text-[10px] text-rose-400 hover:text-rose-600 px-2 py-1">✕ Clear filter</button>
         </div>
 
         <!-- Backlog items grouped by epic -->
@@ -2158,51 +2166,29 @@
 
     <!-- Releases tab -->
     <div x-show="projectTab==='releases'" class="max-w-5xl">
-        <!-- Dynamic V-Cycle diagram -->
-        <div class="surface rounded-2xl border border-slate-200/60 p-5 mb-4">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-[13px] font-semibold text-slate-800">Release V-Cycle</h3>
-                <span class="text-[10px] text-slate-400">Click a release below to see its position</span>
+        <!-- V-Cycle phases reference -->
+        <div class="surface rounded-2xl border border-slate-200/60 p-4 mb-4">
+            <div class="flex items-center gap-2 mb-2">
+                <h3 class="text-[13px] font-semibold text-slate-800">Release Lifecycle</h3>
+                <span class="text-[10px] text-slate-400">— each release flows through these phases</span>
             </div>
-            <div class="flex items-center justify-between gap-1">
+            <div class="flex flex-wrap items-center gap-1 text-[10px]">
                 <template x-for="(phase, idx) in [
-                    {name:'Planning',color:'brand',icon:'📋'},
-                    {name:'In Progress',color:'blue',icon:'⚙️'},
-                    {name:'Testing',color:'amber',icon:'🔬'},
-                    {name:'UAT',color:'violet',icon:'✅'},
-                    {name:'Pre-Release',color:'orange',icon:'📦'},
-                    {name:'Released',color:'emerald',icon:'🚀'},
-                    {name:'Post-Release',color:'teal',icon:'📊'}
+                    {name:'Planning',icon:'📋'},
+                    {name:'In Progress',icon:'⚙️'},
+                    {name:'Testing',icon:'🔬'},
+                    {name:'UAT',icon:'✅'},
+                    {name:'Pre-Release',icon:'📦'},
+                    {name:'Released',icon:'🚀'},
+                    {name:'Post-Release',icon:'📊'}
                 ]" :key="phase.name">
                     <div class="flex items-center gap-1">
-                        <div class="flex flex-col items-center gap-1 min-w-[60px]">
-                            <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-[18px] transition-all"
-                                 :class="selectedRelease && selectedRelease.v_cycle_index >= 0 && idx <= selectedRelease.v_cycle_index
-                                     ? 'bg-gradient-to-br from-brand-500 to-violet-600 text-white shadow-md scale-105'
-                                     : 'bg-slate-50 text-slate-300'">
-                                <span x-text="phase.icon"></span>
-                            </div>
-                            <div class="text-[9px] font-medium text-center leading-tight"
-                                 :class="selectedRelease && selectedRelease.v_cycle_index >= 0 && idx <= selectedRelease.v_cycle_index ? 'text-slate-700' : 'text-slate-300'"
-                                 x-text="phase.name"></div>
-                        </div>
-                        <template x-if="idx < 6">
-                            <div class="flex-1 h-0.5 rounded-full mx-1 transition-colors"
-                                 :class="selectedRelease && selectedRelease.v_cycle_index >= 0 && idx < selectedRelease.v_cycle_index ? 'bg-brand-400' : 'bg-slate-100'"></div>
-                        </template>
+                        <span class="text-[12px]" x-text="phase.icon"></span>
+                        <span class="text-slate-500 font-medium" x-text="phase.name"></span>
+                        <span x-show="idx < 6" class="text-slate-300 mx-0.5">→</span>
                     </div>
                 </template>
             </div>
-            <template x-if="selectedRelease">
-                <div class="mt-3 flex items-center gap-3 bg-brand-50/50 rounded-xl p-3">
-                    <div class="text-[11px] text-slate-500">Current phase:</div>
-                    <span class="text-[12px] font-semibold text-brand-600" x-text="selectedRelease?.status"></span>
-                    <div class="flex-1 bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                        <div class="h-full bg-gradient-to-r from-brand-500 to-violet-600 rounded-full transition-all duration-500" :style="'width:' + (selectedRelease?.v_cycle_progress || 0) + '%'"></div>
-                    </div>
-                    <span class="text-[11px] font-bold text-slate-600" x-text="(selectedRelease?.v_cycle_progress || 0) + '%'"></span>
-                </div>
-            </template>
         </div>
 
         <!-- Create release form -->
@@ -2239,6 +2225,15 @@
             <template x-for="rel in projectReleases" :key="rel.id">
                 <div @click="openRelease(rel)" class="surface rounded-2xl border border-slate-200/60 p-4 card-lift transition-all cursor-pointer"
                      :class="selectedRelease?.id === rel.id ? 'ring-2 ring-brand-400/50' : ''">
+                    <!-- Inline V-Cycle progress bar -->
+                    <div class="flex items-center gap-1 mb-3">
+                        <template x-for="(phase, idx) in ['Planning','In Progress','Testing','UAT','Pre-Release','Released','Post-Release']" :key="phase">
+                            <div class="flex items-center flex-1">
+                                <div class="flex-1 h-1.5 rounded-full transition-all"
+                                     :class="['Planning','In Progress','Testing','UAT','Pre-Release','Released','Post-Release'].indexOf(rel.status) >= idx ? 'bg-gradient-to-r from-brand-400 to-violet-500' : 'bg-slate-100'"></div>
+                            </div>
+                        </template>
+                    </div>
                     <div class="flex items-center justify-between mb-2">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-50 to-violet-50 flex items-center justify-center ring-1 ring-brand-100/50">
@@ -2379,6 +2374,7 @@
             <div class="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-3 flex items-center justify-between">
                 <button @click="viewingBacklogItem = null" class="text-[12px] text-slate-500 hover:text-slate-700">Close</button>
                 <div class="flex items-center gap-2">
+                    <button @click="editBacklogItem(viewingBacklogItem)" class="text-[12px] font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-all">✏ Edit</button>
                     <button @click="advanceBacklogItem(viewingBacklogItem.id); viewingBacklogItem = null;" class="text-[12px] font-medium text-white btn-primary px-3 py-1.5 rounded-lg transition-all">Advance Phase →</button>
                 </div>
             </div>
@@ -3191,6 +3187,18 @@ function pmoApp() {
         // ===== Backlog state =====
         backlogItems: [],
         backlogFormMode: 'feature',  // 'feature' or 'epic'
+        phaseFilter: null,  // filter backlog by phase
+        get phaseCounts() {
+            const counts = {};
+            for (const item of this.backlogItems) {
+                counts[item.current_phase] = (counts[item.current_phase] || 0) + 1;
+            }
+            return counts;
+        },
+        get filteredBacklogItems() {
+            if (!this.phaseFilter) return this.backlogItems;
+            return this.backlogItems.filter(i => i.current_phase === this.phaseFilter);
+        },
         collapsedEpics: [],
         backlogForm: { title: '', description: '', priority: 'Medium', kpi_id: '', epic: '', item_type: 'Feature', primary_actor: '', story_points: null, target_release: '', dependencies: '', depends_on: [] },
         availableDeps: [],  // backlog items available to select as dependencies
@@ -3317,9 +3325,10 @@ function pmoApp() {
         },
 
         get backlogByEpic() {
-            // Separate epics from features
-            const epicItems = this.backlogItems.filter(i => i.item_type === 'Epic');
-            const featureItems = this.backlogItems.filter(i => i.item_type !== 'Epic');
+            // Separate epics from features (use filtered list if phase filter is active)
+            const items = this.phaseFilter ? this.filteredBacklogItems : this.backlogItems;
+            const epicItems = items.filter(i => i.item_type === 'Epic');
+            const featureItems = items.filter(i => i.item_type !== 'Epic');
             const groups = {};
 
             // First, create groups from existing epic items
@@ -4178,6 +4187,71 @@ function pmoApp() {
 
         viewBacklogItem(item) {
             this.viewingBacklogItem = item;
+        },
+
+        togglePhaseFilter(phase) {
+            this.phaseFilter = this.phaseFilter === phase ? null : phase;
+        },
+
+        cancelEditBacklog() {
+            this.backlogForm = { title: '', description: '', priority: 'Medium', kpi_id: '', epic: '', item_type: 'Feature', primary_actor: '', story_points: null, target_release: '', dependencies: '', depends_on: [] };
+            this.editingBacklogId = null;
+            this.loadAvailableDeps(this.selectedProject.id, 0);
+        },
+
+        editBacklogItem(item) {
+            // Close the view modal
+            this.viewingBacklogItem = null;
+            // Pre-fill the form with the item's data
+            this.backlogFormMode = item.item_type === 'Epic' ? 'epic' : 'feature';
+            this.backlogForm = {
+                title: item.title || '',
+                description: item.description || '',
+                priority: item.priority || 'Medium',
+                kpi_id: item.kpi_id || '',
+                epic: item.epic || '',
+                item_type: item.item_type || 'Feature',
+                primary_actor: item.primary_actor || '',
+                story_points: item.story_points || null,
+                target_release: item.target_release || '',
+                acceptance_criteria: item.acceptance_criteria || '',
+                dependencies: item.dependencies || '',
+                depends_on: item.depends_on || [],
+            };
+            this.editingBacklogId = item.id;
+            this.loadAvailableDeps(this.selectedProject.id, item.id);
+            // Scroll to the form
+            this.$nextTick(() => {
+                const form = document.getElementById('backlog-form');
+                if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+            this.showToast('Editing item — update and click Save', 'info');
+        },
+
+        async saveBacklogItemEdit() {
+            if (!this.editingBacklogId) return;
+            try {
+                const updated = await this.api('PUT', `/backlog/${this.editingBacklogId}`, {
+                    title: this.backlogForm.title,
+                    description: this.backlogForm.description,
+                    priority: this.backlogForm.priority,
+                    kpi_id: this.backlogForm.kpi_id || null,
+                    epic: this.backlogForm.epic,
+                    item_type: this.backlogForm.item_type,
+                    primary_actor: this.backlogForm.primary_actor,
+                    story_points: this.backlogForm.story_points,
+                    target_release: this.backlogForm.target_release,
+                    acceptance_criteria: this.backlogForm.acceptance_criteria,
+                    dependencies: this.backlogForm.dependencies,
+                });
+                // Update the item in the list
+                const idx = this.backlogItems.findIndex(i => i.id === this.editingBacklogId);
+                if (idx >= 0) this.backlogItems[idx] = updated;
+                this.showToast('Backlog item updated', 'success');
+                // Reset form
+                this.backlogForm = { title: '', description: '', priority: 'Medium', kpi_id: '', epic: '', item_type: 'Feature', primary_actor: '', story_points: null, target_release: '', dependencies: '', depends_on: [] };
+                this.editingBacklogId = null;
+            } catch(e) { this.showToast(e.message || 'Failed to update', 'error'); }
         },
 
         phaseIndex(phase) {

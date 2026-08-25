@@ -3064,9 +3064,9 @@
                                 <!-- Checklist items -->
                                 <div class="ml-6 space-y-0.5" x-show="gate.checklist && gate.checklist.length > 0">
                                     <template x-for="(item, i) in (gate.checklist || [])" :key="i">
-                                        <div class="flex items-center gap-1.5 text-[11px]" :class="getReleasePhaseIndex(selectedRelease?.status) >= getReleasePhaseIndex(gate.phase) ? 'text-emerald-700' : 'text-slate-400'">
-                                            <span x-text="getReleasePhaseIndex(selectedRelease?.status) >= getReleasePhaseIndex(gate.phase) ? '☑' : '☐'"></span>
-                                            <span x-text="item"></span>
+                                        <div class="flex items-center gap-1.5 text-[11px]" :class="item.checked ? 'text-emerald-700' : 'text-slate-400'">
+                                            <span x-text="item.checked ? '☑' : '☐'"></span>
+                                            <span x-text="item.text"></span>
                                         </div>
                                     </template>
                                 </div>

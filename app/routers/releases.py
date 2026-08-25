@@ -71,6 +71,146 @@ PHASE_GATE_ROLES = {
 }
 
 
+def _compute_phase_gates(release, items, v_cycle_index):
+    """Compute phase gate checklist status based on actual release data.
+
+    Each checklist item is evaluated against the real state of the release
+    and its linked backlog items. Returns a list of gates with checklist
+    items marked as checked or unchecked.
+    """
+    from app.models.backlog_item import ITEM_PHASES
+
+    # Item stats
+    total_items = len(items)
+    done_items = len([i for i in items if i.get("is_done")])
+    has_items = total_items > 0
+    has_release_notes = bool(release.release_notes)
+
+    # Check how many items are past each phase
+    items_past_testing = len([i for i in items if i.get("current_phase") in ("Ready for UAT", "UAT", "Pre-Release", "Release", "Post-Release", "Retrospective")])
+    items_in_or_past_testing = len([i for i in items if i.get("current_phase") in ("Testing", "Ready for UAT", "UAT", "Pre-Release", "Release", "Post-Release", "Retrospective")])
+    items_past_development = len([i for i in items if i.get("current_phase") in ("Testing", "Ready for UAT", "UAT", "Pre-Release", "Release", "Post-Release", "Retrospective")])
+
+    # Phase index helpers
+    release_phases = [p for p, _, _ in V_CYCLE]
+    current_idx = v_cycle_index
+
+    def phase_reached(phase_name):
+        """True if the release has reached or passed the given phase."""
+        idx = release_phases.index(phase_name) if phase_name in release_phases else -1
+        return current_idx >= idx
+
+    gates = []
+    for phase, (role, desc, checklist) in PHASE_GATE_ROLES.items():
+        gate_reached = phase_reached(phase)
+
+        # Compute checked status for each checklist item
+        checked_items = []
+        for item_text in checklist:
+            checked = _is_checklist_item_satisfied(
+                item_text, phase, gate_reached, has_items, total_items,
+                done_items, items_past_testing, items_in_or_past_testing,
+                items_past_development, has_release_notes, release
+            )
+            checked_items.append({"text": item_text, "checked": checked})
+
+        gates.append({
+            "phase": phase,
+            "role": role,
+            "description": desc,
+            "checklist": checked_items,
+            "reached": gate_reached,
+        })
+    return gates
+
+
+def _is_checklist_item_satisfied(item_text, phase, gate_reached, has_items,
+                                  total_items, done_items, items_past_testing,
+                                  items_in_or_past_testing, items_past_development,
+                                  has_release_notes, release):
+    """Determine if a specific checklist item is satisfied based on release data."""
+    text = item_text.lower()
+
+    # If the gate has been reached (release passed this phase), all items are checked
+    if gate_reached:
+        return True
+
+    # Otherwise, check specific conditions based on the item text
+    # Planning gate
+    if "backlog items selected" in text:
+        return has_items
+    if "requirements reviewed" in text:
+        return has_items and total_items > 0
+    if "scope and priority" in text:
+        return has_items
+
+    # In Progress gate
+    if "all features developed" in text:
+        return total_items > 0 and items_past_development == total_items
+    if "unit tests passing" in text:
+        return total_items > 0 and items_past_development == total_items
+    if "technical debt logged" in text:
+        return total_items > 0 and items_past_development >= total_items * 0.5
+    if "branch merged" in text:
+        return total_items > 0 and items_past_development == total_items
+
+    # Testing gate
+    if "integration testing" in text or "sit" in text:
+        return total_items > 0 and items_in_or_past_testing == total_items
+    if "critical defects resolved" in text:
+        return total_items > 0 and items_in_or_past_testing >= total_items * 0.5
+    if "regression tests" in text:
+        return total_items > 0 and items_in_or_past_testing == total_items
+    if "test report" in text:
+        return total_items > 0 and items_in_or_past_testing == total_items
+
+    # UAT gate
+    if "uat scenarios" in text:
+        return phase_reached(release, "UAT")
+    if "must-fix defects" in text:
+        return phase_reached(release, "UAT")
+    if "business sign-off" in text:
+        return phase_reached(release, "UAT")
+    if "no critical" in text:
+        return phase_reached(release, "UAT")
+
+    # Pre-Release gate
+    if "release notes" in text:
+        return has_release_notes
+    if "deployment runbook" in text:
+        return phase_reached(release, "Pre-Release")
+    if "rollback plan" in text:
+        return phase_reached(release, "Pre-Release")
+    if "db migrations" in text:
+        return phase_reached(release, "Pre-Release")
+    if "monitoring and alerts" in text:
+        return phase_reached(release, "Pre-Release")
+
+    # Released gate
+    if "deployment to production" in text:
+        return phase_reached(release, "Released")
+    if "smoke tests" in text:
+        return phase_reached(release, "Released")
+    if "stakeholders notified" in text:
+        return phase_reached(release, "Released")
+    if "post-release monitoring" in text:
+        return phase_reached(release, "Released")
+
+    return False
+
+
+def phase_reached(release, phase_name):
+    """Check if the release has reached or passed the given phase."""
+    release_phases = [p for p, _, _ in V_CYCLE]
+    current_idx = -1
+    for i, (p, _, _) in enumerate(V_CYCLE):
+        if release.status == p:
+            current_idx = i
+            break
+    target_idx = release_phases.index(phase_name) if phase_name in release_phases else -1
+    return current_idx >= target_idx
+
+
 def _sync_release_items_to_phase(db: Session, release: Release, phase: str):
     """When a release advances, update all linked backlog items to reflect
     the release-level phase (UAT, Pre-Release, Release, Post-Release, Retrospective).
@@ -345,15 +485,7 @@ def get_release(
         "forms": forms,
         "approvals": approvals,
         "v_cycle": [{"phase": p, "description": d, "color": c} for p, d, c in V_CYCLE],
-        "phase_gates": [
-            {
-                "phase": phase,
-                "role": info[0],
-                "description": info[1],
-                "checklist": info[2],
-            }
-            for phase, info in PHASE_GATE_ROLES.items()
-        ],
+        "phase_gates": _compute_phase_gates(release, items, v_cycle_index),
         "pending_approval": pending_approval,
     }
 

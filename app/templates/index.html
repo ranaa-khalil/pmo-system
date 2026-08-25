@@ -4168,7 +4168,7 @@
                                 </div>
                                 <div>
                                     <div class="text-[13px] font-semibold text-slate-800" x-text="p.name"></div>
-                                    <div x-show="p.role" class="inline-block mt-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-brand-50 text-brand-600" x-text="p.role"></div>
+                                    <div class="text-[10px] text-slate-400" x-text="p.role || ''"></div>
                                 </div>
                             </div>
                             <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -4586,13 +4586,8 @@
                     <input x-model="editingPersona.name" required class="input-premium w-full text-[13px]" placeholder="e.g. Platform Admin">
                 </div>
                 <div>
-                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">RACI Role</label>
-                    <select x-model="editingPersona.role" class="input-premium w-full text-[13px] bg-white">
-                        <option value="">Select RACI role...</option>
-                        <template x-for="role in raciRoles" :key="role">
-                            <option :value="role" x-text="role"></option>
-                        </template>
-                    </select>
+                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Role</label>
+                    <input x-model="editingPersona.role" class="input-premium w-full text-[13px]" placeholder="e.g. System Administrator">
                 </div>
                 <div>
                     <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Description</label>

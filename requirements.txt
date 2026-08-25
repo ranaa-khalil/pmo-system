@@ -1,6 +1,8 @@
 # PMO System — Python dependencies
+# Note: using plain uvicorn (not [standard]) to avoid uvloop/httptools
+# compilation issues on Render free tier
 fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
+uvicorn>=0.24.0
 sqlalchemy>=2.0.0
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4

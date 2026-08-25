@@ -2774,6 +2774,38 @@
             </div>
         </div>
 
+        <!-- Required roles checklist — gate-keeper roles needed for release process -->
+        <div class="surface rounded-2xl border border-slate-200/60 p-5 mb-4">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-[13px] font-semibold text-slate-800">Required Roles for Release Process</h3>
+                <span class="text-[10px] font-medium px-2 py-1 rounded-lg"
+                      :class="requiredRolesAssigned === requiredRoles.length ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'"
+                      x-text="requiredRolesAssigned + '/' + requiredRoles.length + ' assigned'"></span>
+            </div>
+            <p class="text-[10px] text-slate-400 mb-3">These roles are required as per the Release Process V-cycle approval gates. Assign each role to a team member in the Settings tab before planning a release.</p>
+            <div class="grid grid-cols-2 gap-2">
+                <template x-for="req in requiredRoles" :key="req.role">
+                    <div class="flex items-center gap-3 rounded-xl p-3 border transition-all"
+                         :class="req.assigned ? 'bg-emerald-50/50 border-emerald-200' : 'bg-amber-50/30 border-amber-200'">
+                        <div class="w-9 h-9 rounded-full flex items-center justify-center text-[16px]"
+                             :class="req.assigned ? 'bg-emerald-100' : 'bg-amber-100'">
+                            <span x-text="req.icon"></span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-[12px] font-semibold text-slate-700" x-text="req.role"></div>
+                            <div class="text-[9px] text-slate-400" x-text="req.gate"></div>
+                            <template x-if="req.assignedName">
+                                <div class="text-[10px] text-emerald-600 font-medium mt-0.5" x-text="'✓ ' + req.assignedName"></div>
+                            </template>
+                            <template x-if="!req.assignedName">
+                                <div class="text-[10px] text-amber-600 font-medium mt-0.5">⚠ Not assigned</div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
         <!-- RACI legend -->
         <div class="flex items-center gap-4 mb-4 text-[11px]">
             <div class="flex items-center gap-1.5"><span class="w-5 h-5 rounded-md bg-blue-100 text-blue-700 font-bold flex items-center justify-center">R</span> <span class="text-slate-500">Responsible</span></div>
@@ -3323,6 +3355,28 @@ function pmoApp() {
         get filteredBacklogItems() {
             if (!this.phaseFilter) return this.backlogItems;
             return this.backlogItems.filter(i => i.current_phase === this.phaseFilter);
+        },
+        get requiredRoles() {
+            // The 6 gate-keeper roles required by the Release Process V-cycle
+            const defs = [
+                {role: 'Project Manager', gate: 'Prepares release notes, owns delivery', icon: '📋'},
+                {role: 'Product Owner', gate: 'Planning gate + UAT gate', icon: '🎯'},
+                {role: 'Tech Lead', gate: 'In Progress gate (code readiness)', icon: '⚙️'},
+                {role: 'QA Lead', gate: 'Testing gate (SIT sign-off)', icon: '🔬'},
+                {role: 'Release Manager', gate: 'Pre-Release + Released gates', icon: '📦'},
+                {role: 'DevOps Lead', gate: 'Deployment sign-off', icon: '🚀'},
+            ];
+            // Also check stakeholders (external people assigned with these roles)
+            const stakeholderRoles = this.projectStakeholders.map(s => s.role_name);
+            return defs.map(d => {
+                const assignment = this.projectAssignments.find(a => a.role_name === d.role);
+                const stakeholder = this.projectStakeholders.find(s => s.role_name === d.role);
+                const assignedName = assignment ? assignment.user_name : (stakeholder ? stakeholder.name : null);
+                return {...d, assigned: !!assignedName, assignedName};
+            });
+        },
+        get requiredRolesAssigned() {
+            return this.requiredRoles.filter(r => r.assigned).length;
         },
         collapsedEpics: [],
         backlogForm: { title: '', description: '', priority: 'Medium', kpi_id: '', epic: '', item_type: 'Feature', primary_actor: '', story_points: null, target_release: '', dependencies: '', depends_on: [] },

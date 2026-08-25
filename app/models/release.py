@@ -20,7 +20,6 @@ RELEASE_STATUSES = [
     "Pre-Release",   # Ready to deploy, generating release notes
     "Released",      # Deployed to production
     "Post-Release",  # Monitoring, hotfixes if needed
-    "Cancelled",     # Abandoned
 ]
 
 

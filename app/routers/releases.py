@@ -11,7 +11,7 @@ from app.models.project import Project
 from app.models.backlog_item import BacklogItem, PHASES
 from app.models.release import Release, ReleaseItem, RELEASE_STATUSES
 from app.models.milestone import Milestone
-from app.models.form_template import FormInstance
+from app.models.form_template import FormInstance, FormTemplate
 from app.models.approval import ApprovalRequest, ApprovalStep
 from app.schemas.release import ReleaseCreate, ReleaseUpdate, ReleaseResponse
 
@@ -26,8 +26,10 @@ V_CYCLE = [
     ("Pre-Release", "Release notes, deployment prep", "orange"),
     ("Released", "Deployed to production", "emerald"),
     ("Post-Release", "Monitoring, hotfixes if needed", "teal"),
-    ("Cancelled", "Release abandoned", "rose"),
 ]
+
+# Cancelled is a terminal status, not a phase in the progress bar
+CANCELLED = "Cancelled"
 
 # ── Automatic approval routing ──────────────────────────────────────────────
 # When a release advances from phase X → phase X+1, an approval request is
@@ -49,12 +51,7 @@ def _sync_release_items_to_phase(db: Session, release: Release, phase: str):
     """When a release advances, update all linked backlog items to reflect
     the release-level phase (UAT, Pre-Release, Release, Post-Release, Retrospective).
 
-    Mapping:
-      UAT           → item.current_phase = 'UAT',         status stays as-is
-      Pre-Release   → item.current_phase = 'Pre-Release',  status stays as-is
-      Release       → item.current_phase = 'Release',      status = 'Done'
-      Post-Release  → item.current_phase = 'Post-Release',  status = 'Done'
-      Retrospective → item.current_phase = 'Retrospective',  status = 'Done'
+    Also auto-generate the appropriate form for the new phase.
     """
     from app.models.release import ReleaseItem
     from app.models.backlog_item import BacklogItem
@@ -71,6 +68,105 @@ def _sync_release_items_to_phase(db: Session, release: Release, phase: str):
             item.status = new_status
 
     db.commit()
+
+    # Auto-generate forms based on the new phase
+    _auto_generate_form_for_phase(db, release, phase)
+
+
+# Mapping: release phase → (form_type, form_name)
+PHASE_FORM_MAP = {
+    "UAT": ("uat_signoff", "UAT Sign-off Form"),
+    "Pre-Release": ("deployment_checklist", "Deployment Checklist"),
+    "Post-Release": ("retrospective", "Retrospective Form"),
+}
+
+
+def _auto_generate_form_for_phase(db: Session, release: Release, phase: str):
+    """Auto-create a form instance when a release enters a phase that requires a form."""
+    from app.models.form_template import FormTemplate, FormInstance
+
+    form_info = PHASE_FORM_MAP.get(phase)
+    if not form_info:
+        return
+
+    form_type, form_name = form_info
+
+    # Check if a form of this type already exists for this release's project
+    template = db.query(FormTemplate).filter(FormTemplate.form_type == form_type).first()
+    if not template:
+        # Create the template if it doesn't exist
+        template = _get_or_create_form_template(db, form_type, form_name)
+        if not template:
+            return
+
+    # Check if an instance already exists for this project + template
+    existing = db.query(FormInstance).filter(
+        FormInstance.template_id == template.id,
+        FormInstance.project_id == release.project_id,
+    ).first()
+    if existing:
+        return  # Already exists, don't duplicate
+
+    # Create the form instance
+    fi = FormInstance(
+        template_id=template.id,
+        project_id=release.project_id,
+        status="Draft",
+        created_by=release.created_by,
+        data={},
+    )
+    db.add(fi)
+    db.commit()
+    print(f"  📝 Auto-generated form: {form_name} (phase: {phase})")
+
+
+def _get_or_create_form_template(db: Session, form_type: str, form_name: str):
+    """Get or create a form template for the given type."""
+    from app.models.form_template import FormTemplate
+
+    # Check existing
+    existing = db.query(FormTemplate).filter(FormTemplate.form_type == form_type).first()
+    if existing:
+        return existing
+
+    # Define field schemas for each form type
+    SCHEMAS = {
+        "uat_signoff": [
+            {"name": "tester_name", "label": "Tester Name", "type": "text"},
+            {"name": "test_cases_run", "label": "Test Cases Run", "type": "number"},
+            {"name": "test_cases_passed", "label": "Test Cases Passed", "type": "number"},
+            {"name": "defects_found", "label": "Defects Found", "type": "number"},
+            {"name": "signoff_decision", "label": "Sign-off Decision", "type": "select", "options": ["Approved", "Rejected", "Conditional"]},
+            {"name": "comments", "label": "Comments", "type": "textarea"},
+        ],
+        "deployment_checklist": [
+            {"name": "code_review_complete", "label": "Code review complete", "type": "boolean"},
+            {"name": "tests_passing", "label": "All tests passing", "type": "boolean"},
+            {"name": "docs_updated", "label": "Documentation updated", "type": "boolean"},
+            {"name": "security_scan", "label": "Security scan passed", "type": "boolean"},
+            {"name": "stakeholder_signoff", "label": "Stakeholder sign-off received", "type": "boolean"},
+            {"name": "db_migrations", "label": "DB migrations applied", "type": "boolean"},
+            {"name": "rollback_plan", "label": "Rollback plan ready", "type": "boolean"},
+        ],
+        "retrospective": [
+            {"name": "what_went_well", "label": "What went well", "type": "textarea"},
+            {"name": "what_didnt", "label": "What didn't go well", "type": "textarea"},
+            {"name": "improvements", "label": "Improvements for next release", "type": "textarea"},
+            {"name": "action_items", "label": "Action items", "type": "textarea"},
+        ],
+    }
+
+    schema = SCHEMAS.get(form_type, [])
+    template = FormTemplate(
+        name=form_name,
+        form_type=form_type,
+        description=f"Auto-generated for {form_type.replace('_', ' ')}",
+        field_schema=schema,
+    )
+    db.add(template)
+    db.commit()
+    db.refresh(template)
+    return template
 
 
 @router.post("/projects/{project_id}/releases", response_model=ReleaseResponse, status_code=201)
@@ -146,9 +242,13 @@ def get_release(
     forms = []
     form_instances = db.query(FormInstance).filter(FormInstance.project_id == release.project_id).all()
     for fi in form_instances:
+        # Get template name and form_type
+        template = db.query(FormTemplate).filter(FormTemplate.id == fi.template_id).first()
         forms.append({
             "id": fi.id, "template_id": fi.template_id,
             "status": fi.status, "created_by": fi.created_by,
+            "name": template.name if template else f"Form #{fi.id}",
+            "form_type": template.form_type if template else "",
         })
 
     # Approvals (for this project, type=release, linked to THIS release)
@@ -183,11 +283,11 @@ def get_release(
         if release.status == phase:
             v_cycle_index = i
             break
-    v_cycle_progress = round((v_cycle_index / (len(V_CYCLE) - 2)) * 100) if v_cycle_index >= 0 and v_cycle_index < len(V_CYCLE) - 1 else 100
+    v_cycle_progress = round((v_cycle_index / (len(V_CYCLE) - 1)) * 100) if v_cycle_index >= 0 else 0
 
     # Phase actions — what the user can do next
     next_phase = None
-    if v_cycle_index >= 0 and v_cycle_index < len(V_CYCLE) - 2:  # not Released or Cancelled
+    if v_cycle_index >= 0 and v_cycle_index < len(V_CYCLE) - 1:  # not at final phase
         next_phase = V_CYCLE[v_cycle_index + 1][0]
 
     return {

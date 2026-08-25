@@ -2185,12 +2185,16 @@
                                             <div class="col-span-2 flex items-center justify-end gap-1 min-w-0">
                                                 <span class="text-[10px] font-medium truncate" :class="item.current_phase === 'Testing' ? 'text-amber-600' : itemPhases.includes(item.current_phase) ? 'text-brand-600' : 'text-emerald-600'" x-text="item.current_phase"></span>
                                                 <template x-if="item.current_phase === 'Testing'">
-                                                    <span class="text-[8px] font-bold px-1 py-0.5 rounded bg-amber-50 text-amber-600 whitespace-nowrap">READY FOR RELEASE</span>
+                                                    <span class="text-[8px] font-bold px-1 py-0.5 rounded bg-amber-50 text-amber-600 whitespace-nowrap">TESTING</span>
+                                                </template>
+                                                <template x-if="item.current_phase === 'Ready for UAT'">
+                                                    <span class="text-[8px] font-bold px-1 py-0.5 rounded bg-emerald-50 text-emerald-600 whitespace-nowrap">READY FOR UAT</span>
                                                 </template>
                                                 <template x-if="!itemPhases.includes(item.current_phase)">
                                                     <span class="text-[8px] font-bold px-1 py-0.5 rounded bg-emerald-50 text-emerald-600 whitespace-nowrap" x-text="'IN ' + item.current_phase.toUpperCase()"></span>
                                                 </template>
-                                                <button @click.stop="advanceBacklogItem(item.id)" class="opacity-0 group-hover:opacity-100 text-[10px] font-medium text-brand-600 hover:text-brand-700 px-1 rounded transition-all whitespace-nowrap" x-show="itemPhases.includes(item.current_phase) && item.current_phase !== 'Testing'">→</button>
+                                                <button @click.stop="advanceBacklogItem(item.id)" class="opacity-0 group-hover:opacity-100 text-[10px] font-medium text-brand-600 hover:text-brand-700 px-1 rounded transition-all whitespace-nowrap" x-show="itemPhases.includes(item.current_phase) && item.current_phase !== 'Ready for UAT'">→</button>
+                                                <button @click.stop="sendBackToDev(item.id)" class="opacity-0 group-hover:opacity-100 text-[10px] font-medium text-rose-500 hover:text-rose-700 px-1 rounded transition-all whitespace-nowrap" x-show="item.current_phase === 'Testing'" title="Send back to Development">↩</button>
                                                 <button @click.stop="deleteBacklogItem(item.id)" class="opacity-0 group-hover:opacity-100 text-[10px] text-rose-400 hover:text-rose-600 px-1 transition-all">✕</button>
                                             </div>
                                         </div>
@@ -2269,12 +2273,13 @@
                     {name:'Requirements',icon:'📋'},
                     {name:'Design',icon:'🎨'},
                     {name:'Development',icon:'⚙️'},
-                    {name:'Testing',icon:'🔬'}
+                    {name:'Testing',icon:'🔬'},
+                    {name:'Ready for UAT',icon:'✅'}
                 ]" :key="phase.name">
                     <div class="flex items-center gap-1">
                         <span class="text-[12px]" x-text="phase.icon"></span>
                         <span class="text-slate-500 font-medium" x-text="phase.name"></span>
-                        <span x-show="idx < 3" class="text-slate-300 mx-0.5">→</span>
+                        <span x-show="idx < 4" class="text-slate-300 mx-0.5">→</span>
                     </div>
                 </template>
                 <span class="text-slate-300 mx-1">|</span>
@@ -2295,7 +2300,7 @@
                 </template>
             </div>
             <div class="text-[10px] text-slate-400 mt-2 leading-relaxed">
-                Features and bugs advance through <strong>item phases</strong> (Requirements → Testing). Once in Testing, they are bundled into a release. The release then advances through <strong>release phases</strong> (UAT → Retrospective) as a whole — UAT, deployment, and monitoring happen at the release level, not per-item.
+                Features and bugs advance through <strong>item phases</strong> (Requirements → Testing → Ready for UAT). Once Ready for UAT, they are bundled into a release. The release then advances through <strong>release phases</strong> (UAT → Retrospective) as a whole. From Testing, items can also be sent back to Development for rework.
             </div>
         </div>
 
@@ -2559,7 +2564,12 @@
                     <button @click="viewingBacklogItem = null" class="text-[12px] text-slate-500 hover:text-slate-700">Close</button>
                     <div class="flex items-center gap-2">
                         <button @click="editBacklogItem(viewingBacklogItem)" class="text-[12px] font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-all">✏ Edit</button>
-                        <button @click="advanceBacklogItem(viewingBacklogItem.id)" class="text-[12px] font-medium text-white btn-primary px-3 py-1.5 rounded-lg transition-all" x-text="itemPhases.includes(viewingBacklogItem?.current_phase) && viewingBacklogItem?.current_phase === 'Testing' ? 'In Testing — add to release →' : 'Advance Phase →'"></button>
+                        <!-- Send back to Development (only in Testing) -->
+                        <button x-show="viewingBacklogItem?.current_phase === 'Testing'" @click="sendBackToDev(viewingBacklogItem.id)" class="text-[12px] font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-all">↩ Send back to Dev</button>
+                        <!-- Advance (hidden at Ready for UAT) -->
+                        <button x-show="itemPhases.includes(viewingBacklogItem?.current_phase) && viewingBacklogItem?.current_phase !== 'Ready for UAT'" @click="advanceBacklogItem(viewingBacklogItem.id)" class="text-[12px] font-medium text-white btn-primary px-3 py-1.5 rounded-lg transition-all" x-text="viewingBacklogItem?.current_phase === 'Testing' ? 'Pass Testing → Ready for UAT' : 'Advance Phase →'"></button>
+                        <!-- Ready for UAT message -->
+                        <span x-show="viewingBacklogItem?.current_phase === 'Ready for UAT'" class="text-[11px] text-emerald-600 font-medium">✓ Ready for UAT — add to a release</span>
                     </div>
                 </div>
             </template>
@@ -3869,7 +3879,7 @@ function pmoApp() {
         // Full 9-phase process (for reference)
         phases: ['Requirements', 'Design', 'Development', 'Testing', 'UAT', 'Pre-Release', 'Release', 'Post-Release', 'Retrospective'],
         // Item-level phases (features/bugs advance through these only)
-        itemPhases: ['Requirements', 'Design', 'Development', 'Testing'],
+        itemPhases: ['Requirements', 'Design', 'Development', 'Testing', 'Ready for UAT'],
         // Release-level phases (the release as a whole goes through these)
         releasePhases: ['UAT', 'Pre-Release', 'Release', 'Post-Release', 'Retrospective'],
 
@@ -4822,6 +4832,19 @@ function pmoApp() {
 
         toggleEpicDesc(epicName) {
             this.expandedEpicDesc[epicName] = !this.expandedEpicDesc[epicName];
+        },
+
+        async sendBackToDev(id) {
+            try {
+                await this.api('POST', `/backlog/${id}/send-back`);
+                await this.loadBacklog();
+                if (this.viewingBacklogItem) {
+                    this.viewingBacklogItem = this.backlogItems.find(i => i.id === id);
+                }
+                this.showToast('Sent back to Development', 'info');
+            } catch (e) {
+                this.showToast(e.message, 'error');
+            }
         },
 
         async advanceBacklogItem(id) {

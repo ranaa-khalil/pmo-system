@@ -12,6 +12,7 @@ ITEM_PHASES = [
     "Design",
     "Development",
     "Testing",
+    "Ready for UAT",
 ]
 
 # Phases that happen at the release level (after items are bundled)

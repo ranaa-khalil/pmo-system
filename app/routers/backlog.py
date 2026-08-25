@@ -101,8 +101,8 @@ def advance_backlog_phase(
 ):
     """Advance a backlog item to the next item-level phase.
 
-    Items only advance through Requirements → Design → Development → Testing.
-    After Testing, items must be bundled into a release — the release then
+    Items advance through: Requirements → Design → Development → Testing → Ready for UAT.
+    After Ready for UAT, items must be bundled into a release — the release then
     goes through UAT → Pre-Release → Release → Post-Release → Retrospective.
     """
     from app.models.backlog_item import ITEM_PHASES
@@ -113,11 +113,11 @@ def advance_backlog_phase(
 
     current_idx = ITEM_PHASES.index(item.current_phase) if item.current_phase in ITEM_PHASES else 0
 
-    # Items cannot advance beyond Testing on their own
+    # Items cannot advance beyond "Ready for UAT" on their own
     if current_idx >= len(ITEM_PHASES) - 1:
         raise HTTPException(
             status_code=400,
-            detail="Item has reached Testing. Add it to a release to continue through UAT, Pre-Release, and Release phases.",
+            detail="Item is Ready for UAT. Add it to a release to continue through UAT, Pre-Release, and Release phases.",
         )
 
     item.current_phase = ITEM_PHASES[current_idx + 1]
@@ -139,6 +139,34 @@ def advance_backlog_phase(
                 item.github_issue_number = issue["number"]
             gh.close()
 
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@router.post("/backlog/{item_id}/send-back", response_model=BacklogItemResponse)
+def send_back_to_development(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Send a backlog item back from Testing to Development (rework).
+
+    Only items currently in Testing can be sent back. Sets status to 'In Progress'
+    and phase to 'Development'.
+    """
+    item = db.query(BacklogItem).filter(BacklogItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Backlog item not found")
+
+    if item.current_phase != "Testing":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Only items in Testing can be sent back to Development. Current phase: {item.current_phase}",
+        )
+
+    item.current_phase = "Development"
+    item.status = "In Progress"
     db.commit()
     db.refresh(item)
     return item

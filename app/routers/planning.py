@@ -10,6 +10,9 @@ from app.models.project_vision import ProjectVision
 from app.models.kpi import KPI
 from app.models.roadmap import Roadmap
 from app.models.milestone import Milestone
+from app.models.user_task import UserTask
+from app.models.release import Release
+from app.models.backlog_item import BacklogItem
 from app.schemas.planning import (
     VisionCreate, VisionUpdate, VisionResponse,
     KPICreate, KPIUpdate, KPIResponse,
@@ -93,6 +96,42 @@ def delete_kpi(kpi_id: int, db: Session = Depends(get_db), current_user: User = 
     db.commit()
 
 
+@router.get("/kpis/{kpi_id}/detail")
+def get_kpi_detail(kpi_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Get a KPI with related items: linked vision objective, releases, backlog items."""
+    kpi = db.query(KPI).filter(KPI.id == kpi_id).first()
+    if not kpi:
+        raise HTTPException(status_code=404, detail="KPI not found")
+
+    project_id = kpi.project_id
+
+    # Linked vision objective
+    vision = db.query(ProjectVision).filter(ProjectVision.project_id == project_id).first()
+
+    # Releases for this project (the KPI measures the project's output)
+    releases = db.query(Release).filter(Release.project_id == project_id).all()
+
+    # Backlog items for this project
+    backlog_items = db.query(BacklogItem).filter(BacklogItem.project_id == project_id).all()
+
+    return {
+        "id": kpi.id,
+        "name": kpi.name,
+        "target_value": kpi.target_value,
+        "current_value": kpi.current_value,
+        "unit": kpi.unit,
+        "category": kpi.category,
+        "vision_objective": kpi.vision_objective,
+        "project_id": kpi.project_id,
+        "vision_statement": vision.statement if vision else None,
+        "strategic_objectives": vision.strategic_objectives if vision else None,
+        "releases": [{"id": r.id, "version": r.version, "status": r.status, "target_date": r.target_date} for r in releases],
+        "backlog_items_count": len(backlog_items),
+        "backlog_items_done": len([b for b in backlog_items if b.status == "Done"]),
+        "backlog_items_in_progress": len([b for b in backlog_items if b.status not in ("Done",)]),
+    }
+
+
 # ===== Roadmaps =====
 @router.post("/projects/{project_id}/roadmaps", response_model=RoadmapResponse, status_code=201)
 def create_roadmap(project_id: int, roadmap: RoadmapCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -143,6 +182,39 @@ def create_milestone(roadmap_id: int, milestone: MilestoneCreate, db: Session = 
     db.commit()
     db.refresh(db_ms)
     return db_ms
+
+@router.get("/milestones/{milestone_id}/detail")
+def get_milestone_detail(milestone_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Get a milestone with all related items: tasks, releases, backlog items."""
+    ms = db.query(Milestone).filter(Milestone.id == milestone_id).first()
+    if not ms:
+        raise HTTPException(status_code=404, detail="Milestone not found")
+
+    # Related user tasks
+    tasks = db.query(UserTask).filter(UserTask.milestone_id == milestone_id).all()
+
+    # Related releases
+    releases = db.query(Release).filter(Release.milestone_id == milestone_id).all()
+
+    # Backlog items for this project (via roadmap → project)
+    roadmap = db.query(Roadmap).filter(Roadmap.id == ms.roadmap_id).first()
+    backlog_items = []
+    if roadmap:
+        backlog_items = db.query(BacklogItem).filter(BacklogItem.project_id == roadmap.project_id).all()
+
+    return {
+        "id": ms.id,
+        "title": ms.title,
+        "description": ms.description,
+        "target_date": ms.target_date,
+        "status": ms.status,
+        "roadmap_id": ms.roadmap_id,
+        "created_at": ms.created_at,
+        "tasks": [{"id": t.id, "title": t.title, "status": t.status, "priority": t.priority, "assignee_name": t.assignee.name if t.assignee else None} for t in tasks],
+        "releases": [{"id": r.id, "version": r.version, "status": r.status, "target_date": r.target_date} for r in releases],
+        "backlog_items": [{"id": b.id, "title": b.title, "type": b.item_type, "current_phase": b.current_phase, "status": b.status} for b in backlog_items],
+    }
+
 
 @router.put("/milestones/{milestone_id}", response_model=MilestoneResponse)
 def update_milestone(milestone_id: int, ms_update: MilestoneUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

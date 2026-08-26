@@ -5746,6 +5746,41 @@ function pmoApp() {
             const item = this.aiModalContent?.[list]?.[idx];
             if (!item) return;
 
+            // If approving a feature, auto-create its parent epic first (if it's a suggested epic not yet created)
+            if (type === 'feature' && item.epic) {
+                const epics = this.aiModalContent?.suggested_epics || [];
+                const epicIdx = epics.findIndex(e => e.title === item.epic);
+                if (epicIdx !== -1) {
+                    const epicKey = 'epic_' + epicIdx;
+                    const epicStatus = this.aiSuggestionStatus[epicKey];
+                    // If epic hasn't been approved yet (pending or not started), create it first
+                    if (!epicStatus || epicStatus === 'pending') {
+                        // Mark as adding while we create it
+                        this.aiSuggestionStatus[epicKey] = 'adding';
+                        try {
+                            const epicItem = epics[epicIdx];
+                            await this.api('POST', `/projects/${this.selectedProject.id}/backlog`, {
+                                project_id: this.selectedProject.id,
+                                title: epicItem.title,
+                                description: epicItem.description || '',
+                                item_type: 'Epic',
+                                epic: epicItem.title,
+                                priority: 'Medium',
+                                primary_actor: '',
+                                story_points: null,
+                                acceptance_criteria: '',
+                                target_release: '',
+                            });
+                            this.aiSuggestionStatus[epicKey] = 'approved';
+                            this.showToast(`Epic "${epicItem.title}" auto-created`, 'success');
+                        } catch (e) {
+                            // Epic creation failed — continue with feature anyway, it'll still reference the epic name
+                            this.aiSuggestionStatus[epicKey] = 'error';
+                        }
+                    }
+                }
+            }
+
             this.aiSuggestionStatus[key] = 'adding';
             try {
                 const payload = {

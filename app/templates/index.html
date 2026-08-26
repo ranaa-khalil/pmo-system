@@ -4479,101 +4479,93 @@
                         <button @click="approveAllFeatureSuggestions()" class="text-[11px] font-semibold text-white btn-primary px-3 py-1.5 rounded-lg transition-all">Approve All</button>
                     </div>
 
-                    <!-- ============ SUGGESTED EPICS ============ -->
-                    <div x-show="aiModalContent.suggested_epics?.length">
-                        <div class="text-[12px] font-bold text-violet-700 uppercase tracking-wider mb-2">Suggested Epics</div>
-                        <div class="space-y-3">
-                            <template x-for="(epic, idx) in (aiModalContent.suggested_epics || [])" :key="'epic_'+idx">
+                    <!-- ============ GROUPED: EPICS WITH THEIR FEATURES ============ -->
+                    <template x-for="(group, gIdx) in aiGroupedSuggestions" :key="'group_'+gIdx">
+                        <div class="space-y-2">
+                            <!-- Epic header (or "Other features" label) -->
+                            <template x-if="group.epic">
                                 <div class="bg-white border rounded-2xl overflow-hidden"
-                                     :class="aiSuggestionStatus['epic_'+idx] === 'approved' ? 'border-emerald-200' : aiSuggestionStatus['epic_'+idx] === 'declined' ? 'border-ink-200 opacity-50' : aiSuggestionStatus['epic_'+idx] === 'adding' ? 'border-brand-300 ring-2 ring-brand-100' : aiSuggestionStatus['epic_'+idx] === 'error' ? 'border-rose-200' : 'border-ink-200/60'">
-                                    <!-- Header -->
-                                    <div class="border-b border-black/[0.06] px-5 py-3 flex items-start justify-between gap-3">
+                                     :class="aiSuggestionStatus['epic_'+group.epicIdx] === 'approved' ? 'border-emerald-200' : aiSuggestionStatus['epic_'+group.epicIdx] === 'declined' ? 'border-ink-200 opacity-50' : aiSuggestionStatus['epic_'+group.epicIdx] === 'adding' ? 'border-brand-300 ring-2 ring-brand-100' : 'border-violet-200'">
+                                    <div class="px-5 py-3 flex items-start justify-between gap-3"
+                                         :class="aiSuggestionStatus['epic_'+group.epicIdx] === 'approved' ? 'bg-emerald-50/30' : 'bg-gradient-to-r from-violet-50/60 to-brand-50/40'">
                                         <div class="flex-1 min-w-0">
                                             <div class="flex items-center gap-2 mb-1">
-                                                <span class="text-[10px] font-medium px-2 py-0.5 rounded bg-violet-50 text-violet-600">Epic</span>
+                                                <span class="text-[10px] font-medium px-2 py-0.5 rounded bg-violet-100 text-violet-700">Epic</span>
+                                                <span class="text-[10px] text-ink-400" x-text="group.features.length + ' features'"></span>
                                             </div>
-                                            <h3 class="text-[15px] font-bold text-ink-800" x-text="epic.title"></h3>
+                                            <h3 class="text-[15px] font-bold text-ink-800" x-text="group.epic.title"></h3>
+                                            <p class="text-[12px] text-ink-500 leading-relaxed mt-1" x-text="group.epic.description"></p>
                                         </div>
-                                        <!-- Action buttons -->
                                         <div class="flex-shrink-0 flex items-center gap-2">
-                                            <button x-show="!aiSuggestionStatus['epic_'+idx] || aiSuggestionStatus['epic_'+idx]==='pending'" @click="approveFeatureSuggestion(idx,'epic')" class="text-[11px] font-semibold text-white bg-emerald-500 hover:bg-emerald-600 px-3 py-1.5 rounded-lg transition-all">Approve</button>
-                                            <button x-show="!aiSuggestionStatus['epic_'+idx] || aiSuggestionStatus['epic_'+idx]==='pending'" @click="declineFeatureSuggestion(idx,'epic')" class="text-[11px] font-medium text-ink-500 hover:text-ink-800 px-3 py-1.5 rounded-lg hover:bg-ink-100 transition-all">Decline</button>
-                                            <span x-show="aiSuggestionStatus['epic_'+idx]==='adding'" class="text-[11px] text-brand-600 font-medium">Adding...</span>
-                                            <span x-show="aiSuggestionStatus['epic_'+idx]==='approved'" class="text-[11px] text-emerald-600 font-semibold">✓ Added</span>
-                                            <span x-show="aiSuggestionStatus['epic_'+idx]==='declined'" class="text-[11px] text-ink-400">Declined</span>
-                                            <span x-show="aiSuggestionStatus['epic_'+idx]==='error'" class="text-[11px] text-rose-500">Failed</span>
+                                            <button x-show="!aiSuggestionStatus['epic_'+group.epicIdx] || aiSuggestionStatus['epic_'+group.epicIdx]==='pending'" @click="approveFeatureSuggestion(group.epicIdx,'epic')" class="text-[11px] font-semibold text-white bg-emerald-500 hover:bg-emerald-600 px-3 py-1.5 rounded-lg transition-all">Approve Epic</button>
+                                            <button x-show="!aiSuggestionStatus['epic_'+group.epicIdx] || aiSuggestionStatus['epic_'+group.epicIdx]==='pending'" @click="declineFeatureSuggestion(group.epicIdx,'epic')" class="text-[11px] font-medium text-ink-500 hover:text-ink-800 px-3 py-1.5 rounded-lg hover:bg-ink-100 transition-all">Decline</button>
+                                            <span x-show="aiSuggestionStatus['epic_'+group.epicIdx]==='adding'" class="text-[11px] text-brand-600 font-medium">Adding...</span>
+                                            <span x-show="aiSuggestionStatus['epic_'+group.epicIdx]==='approved'" class="text-[11px] text-emerald-600 font-semibold">✓ Added</span>
+                                            <span x-show="aiSuggestionStatus['epic_'+group.epicIdx]==='declined'" class="text-[11px] text-ink-400">Declined</span>
                                         </div>
-                                    </div>
-                                    <!-- Body: only title + description (matching epic creation form) -->
-                                    <div class="px-5 py-4">
-                                        <div class="text-[10px] text-ink-400 mb-1">Description</div>
-                                        <p class="text-[12px] text-ink-600 leading-relaxed" x-text="epic.description"></p>
                                     </div>
                                 </div>
                             </template>
-                        </div>
-                    </div>
+                            <template x-if="!group.epic">
+                                <div class="text-[12px] font-bold text-brand-700 uppercase tracking-wider py-1">Features for existing epics</div>
+                            </template>
 
-                    <!-- ============ SUGGESTED FEATURES ============ -->
-                    <div x-show="aiModalContent.suggested_features?.length">
-                        <div class="text-[12px] font-bold text-brand-700 uppercase tracking-wider mb-2">Suggested Features</div>
-                        <div class="space-y-3">
-                            <template x-for="(feat, idx) in (aiModalContent.suggested_features || [])" :key="'feat_'+idx">
-                                <div class="bg-white border rounded-2xl overflow-hidden"
-                                     :class="aiSuggestionStatus['feature_'+idx] === 'approved' ? 'border-emerald-200' : aiSuggestionStatus['feature_'+idx] === 'declined' ? 'border-ink-200 opacity-50' : aiSuggestionStatus['feature_'+idx] === 'adding' ? 'border-brand-300 ring-2 ring-brand-100' : aiSuggestionStatus['feature_'+idx] === 'error' ? 'border-rose-200' : 'border-ink-200/60'">
-                                    <!-- Header (same as backlog item detail) -->
+                            <!-- Features under this epic -->
+                            <template x-for="(feat, fIdx) in group.features" :key="'feat_'+feat._origIdx">
+                                <div class="bg-white border rounded-2xl overflow-hidden ml-4"
+                                     :class="aiSuggestionStatus['feature_'+feat._origIdx] === 'approved' ? 'border-emerald-200' : aiSuggestionStatus['feature_'+feat._origIdx] === 'declined' ? 'border-ink-200 opacity-50' : aiSuggestionStatus['feature_'+feat._origIdx] === 'adding' ? 'border-brand-300 ring-2 ring-brand-100' : aiSuggestionStatus['feature_'+feat._origIdx] === 'error' ? 'border-rose-200' : 'border-ink-200/60'">
+                                    <!-- Header -->
                                     <div class="border-b border-black/[0.06] px-5 py-3 flex items-start justify-between gap-3">
                                         <div class="flex-1 min-w-0">
-                                            <div class="flex items-center gap-2 mb-1">
+                                            <div class="flex items-center gap-2 mb-1 flex-wrap">
                                                 <span class="text-[10px] font-medium px-2 py-0.5 rounded bg-blue-50 text-blue-600" x-text="feat.item_type || 'Feature'"></span>
                                                 <span class="text-[10px] font-medium px-2 py-0.5 rounded" :class="feat.priority==='Critical' ? 'bg-rose-50 text-rose-600' : feat.priority==='High' ? 'bg-rose-50 text-rose-600' : feat.priority==='Medium' ? 'bg-amber-50 text-amber-600' : 'bg-ink-100 text-ink-500'" x-text="feat.priority || 'Medium'"></span>
-                                                <span x-show="feat.story_points" class="text-[10px] font-medium text-ink-400" x-text="feat.story_points + ' SP'"></span>
+                                                <span class="text-[10px] font-medium text-ink-400" x-text="(feat.story_points || '—') + ' SP'"></span>
                                                 <span x-show="feat.target_release" class="text-[10px] font-mono text-ink-400" x-text="feat.target_release"></span>
                                             </div>
                                             <h3 class="text-[15px] font-bold text-ink-800" x-text="feat.title"></h3>
                                         </div>
-                                        <!-- Action buttons -->
                                         <div class="flex-shrink-0 flex items-center gap-2">
-                                            <button x-show="!aiSuggestionStatus['feature_'+idx] || aiSuggestionStatus['feature_'+idx]==='pending'" @click="approveFeatureSuggestion(idx,'feature')" class="text-[11px] font-semibold text-white bg-emerald-500 hover:bg-emerald-600 px-3 py-1.5 rounded-lg transition-all">Approve</button>
-                                            <button x-show="!aiSuggestionStatus['feature_'+idx] || aiSuggestionStatus['feature_'+idx]==='pending'" @click="declineFeatureSuggestion(idx,'feature')" class="text-[11px] font-medium text-ink-500 hover:text-ink-800 px-3 py-1.5 rounded-lg hover:bg-ink-100 transition-all">Decline</button>
-                                            <span x-show="aiSuggestionStatus['feature_'+idx]==='adding'" class="text-[11px] text-brand-600 font-medium">Adding...</span>
-                                            <span x-show="aiSuggestionStatus['feature_'+idx]==='approved'" class="text-[11px] text-emerald-600 font-semibold">✓ Added</span>
-                                            <span x-show="aiSuggestionStatus['feature_'+idx]==='declined'" class="text-[11px] text-ink-400">Declined</span>
-                                            <span x-show="aiSuggestionStatus['feature_'+idx]==='error'" class="text-[11px] text-rose-500">Failed</span>
+                                            <button x-show="!aiSuggestionStatus['feature_'+feat._origIdx] || aiSuggestionStatus['feature_'+feat._origIdx]==='pending'" @click="approveFeatureSuggestion(feat._origIdx,'feature')" class="text-[11px] font-semibold text-white bg-emerald-500 hover:bg-emerald-600 px-3 py-1.5 rounded-lg transition-all">Approve</button>
+                                            <button x-show="!aiSuggestionStatus['feature_'+feat._origIdx] || aiSuggestionStatus['feature_'+feat._origIdx]==='pending'" @click="declineFeatureSuggestion(feat._origIdx,'feature')" class="text-[11px] font-medium text-ink-500 hover:text-ink-800 px-3 py-1.5 rounded-lg hover:bg-ink-100 transition-all">Decline</button>
+                                            <span x-show="aiSuggestionStatus['feature_'+feat._origIdx]==='adding'" class="text-[11px] text-brand-600 font-medium">Adding...</span>
+                                            <span x-show="aiSuggestionStatus['feature_'+feat._origIdx]==='approved'" class="text-[11px] text-emerald-600 font-semibold">✓ Added</span>
+                                            <span x-show="aiSuggestionStatus['feature_'+feat._origIdx]==='declined'" class="text-[11px] text-ink-400">Declined</span>
+                                            <span x-show="aiSuggestionStatus['feature_'+feat._origIdx]==='error'" class="text-[11px] text-rose-500">Failed</span>
                                         </div>
                                     </div>
-                                    <!-- Body (same structure as backlog item detail) -->
-                                    <div class="px-5 py-4 space-y-4">
+                                    <!-- Body: ALL fields visible -->
+                                    <div class="px-5 py-4 space-y-3">
                                         <!-- Description -->
                                         <div>
                                             <div class="text-[10px] text-ink-400 mb-1">Description</div>
-                                            <p class="text-[12px] text-ink-600 leading-relaxed" x-text="feat.description"></p>
+                                            <p class="text-[12px] text-ink-600 leading-relaxed" x-text="feat.description || '—'"></p>
                                         </div>
                                         <!-- Acceptance Criteria -->
                                         <div>
                                             <div class="text-[10px] text-ink-400 mb-1">Acceptance Criteria</div>
-                                            <p class="text-[12px] text-ink-600 leading-relaxed whitespace-pre-line" x-text="feat.acceptance_criteria"></p>
+                                            <p class="text-[12px] text-ink-600 leading-relaxed whitespace-pre-line" x-text="feat.acceptance_criteria || '—'"></p>
                                         </div>
-                                        <!-- Details grid (2-column, same as backlog item) -->
-                                        <div class="grid grid-cols-2 gap-3">
-                                            <div x-show="feat.epic">
-                                                <div class="text-[10px] text-ink-400">Epic</div>
-                                                <div class="text-[12px] text-ink-700" x-text="feat.epic || '—'"></div>
-                                            </div>
-                                            <div x-show="feat.primary_actor">
+                                        <!-- Details grid: ALL fields, always shown -->
+                                        <div class="grid grid-cols-2 gap-3 pt-2 border-t border-ink-100">
+                                            <div>
                                                 <div class="text-[10px] text-ink-400">Primary Actor</div>
                                                 <div class="text-[12px] text-ink-700" x-text="feat.primary_actor || '—'"></div>
                                             </div>
-                                            <div x-show="feat.story_points">
+                                            <div>
                                                 <div class="text-[10px] text-ink-400">Story Points</div>
                                                 <div class="text-[12px] font-bold text-ink-700" x-text="feat.story_points || '—'"></div>
                                             </div>
-                                            <div x-show="feat.target_release">
+                                            <div>
                                                 <div class="text-[10px] text-ink-400">Target Release</div>
                                                 <div class="text-[12px] text-ink-700 font-mono" x-text="feat.target_release || '—'"></div>
                                             </div>
+                                            <div>
+                                                <div class="text-[10px] text-ink-400">Item Type</div>
+                                                <div class="text-[12px] text-ink-700" x-text="feat.item_type || 'Feature'"></div>
+                                            </div>
                                         </div>
-                                        <!-- Rationale (small note at bottom) -->
+                                        <!-- Rationale -->
                                         <div x-show="feat.rationale" class="pt-2 border-t border-ink-100">
                                             <div class="text-[10px] text-ink-400 mb-0.5">Rationale</div>
                                             <p class="text-[11px] text-ink-500 italic" x-text="feat.rationale"></p>
@@ -4582,7 +4574,7 @@
                                 </div>
                             </template>
                         </div>
-                    </div>
+                    </template>
                 </div>
             </template>
 
@@ -5330,8 +5322,40 @@ function pmoApp() {
             return milestones;
         },
 
+        get aiGroupedSuggestions() {
+            // Group AI features under their epics
+            const epics = this.aiModalContent?.suggested_epics || [];
+            const features = this.aiModalContent?.suggested_features || [];
+            const groups = [];
+
+            // For each suggested epic, find its features
+            for (let i = 0; i < epics.length; i++) {
+                const epic = epics[i];
+                const epicFeatures = [];
+                for (let j = 0; j < features.length; j++) {
+                    if (features[j].epic === epic.title) {
+                        epicFeatures.push({ ...features[j], _origIdx: j });
+                    }
+                }
+                groups.push({ epic, epicIdx: i, features: epicFeatures });
+            }
+
+            // Features whose epic is NOT a suggested epic (existing epics)
+            const suggestedEpicTitles = epics.map(e => e.title);
+            const orphanFeatures = [];
+            for (let j = 0; j < features.length; j++) {
+                if (!suggestedEpicTitles.includes(features[j].epic)) {
+                    orphanFeatures.push({ ...features[j], _origIdx: j });
+                }
+            }
+            if (orphanFeatures.length > 0) {
+                groups.push({ epic: null, epicIdx: -1, features: orphanFeatures });
+            }
+
+            return groups;
+        },
+
         get backlogByEpic() {
-            // Start with phase-filtered or all items
             let items = this.phaseFilter ? this.filteredBacklogItems : this.backlogItems;
             // Apply search filter
             if (this.backlogSearch && this.backlogSearch.trim()) {

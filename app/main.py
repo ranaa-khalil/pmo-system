@@ -18,7 +18,7 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title=settings.app_name,
-    description="Project Management Office system for OPEX",
+    description="Project Management Office system for Obelion",
     version="0.1.0",
 )
 

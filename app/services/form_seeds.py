@@ -1,4 +1,4 @@
-"""Seed form templates based on the OPEX Release Process V2.0.
+"""Seed form templates based on the Obelion Release Process V2.0.
 
 Templates:
 1. Deployment Checklist — pre-deployment verification

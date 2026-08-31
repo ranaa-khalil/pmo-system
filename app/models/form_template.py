@@ -1,6 +1,6 @@
 """FormTemplate and FormInstance models — automated form generation.
 
-Templates are based on the OPEX Release Process V2.0:
+Templates are based on the Obelion Release Process V2.0:
 - Deployment Checklist
 - UAT Sign-off
 - Hotfix Request

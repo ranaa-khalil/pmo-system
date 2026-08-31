@@ -6,7 +6,7 @@ from app.database import Base
 
 
 class Client(Base):
-    """A client organization that OPEX serves."""
+    """A client organization that Obelion serves."""
 
     __tablename__ = "clients"
     __table_args__ = (UniqueConstraint("contact_email", name="uq_client_email"),)

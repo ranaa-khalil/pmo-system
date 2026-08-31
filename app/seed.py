@@ -100,7 +100,7 @@ def seed():
             client_id=nitc.id,
             description="Cloud infrastructure and managed services for PNU",
             status="Active",
-            github_repo="opexsa/pnu-cloud",
+            github_repo="obelion/pnu-cloud",
             version_prefix="1.0",
             project_manager_id=admin.id,
             dev_url="https://dev.pnu-cloud.opex.com.sa",
@@ -149,8 +149,8 @@ def seed():
     persona_data = [
         {"name": "Platform Admin", "role": "System Administrator", "description": "Manages cloud infrastructure, users, and system configurations.", "goals": "Provision resources quickly, monitor system health, enforce security policies.", "pain_points": "Manual provisioning is slow, limited visibility into resource usage."},
         {"name": "End Customer", "role": "PNU Faculty/Staff", "description": "Consumes cloud services and submits support requests.", "goals": "Request resources easily, track request status, access self-service portal.", "pain_points": "Complex request forms, no real-time status updates."},
-        {"name": "Account Manager", "role": "OPEX Business Lead", "description": "Manages client relationship, contracts, and commercial aspects.", "goals": "Track service usage, manage SLAs, generate reports for client.", "pain_points": "No centralized dashboard for client metrics, manual reporting."},
-        {"name": "DevOps Engineer", "role": "OPEX Technical", "description": "Deploys and maintains cloud infrastructure components.", "goals": "Automate deployments, monitor health, respond to incidents quickly.", "pain_points": "Manual deployments, no CI/CD pipeline visibility."},
+        {"name": "Account Manager", "role": "Obelion Business Lead", "description": "Manages client relationship, contracts, and commercial aspects.", "goals": "Track service usage, manage SLAs, generate reports for client.", "pain_points": "No centralized dashboard for client metrics, manual reporting."},
+        {"name": "DevOps Engineer", "role": "Obelion Technical", "description": "Deploys and maintains cloud infrastructure components.", "goals": "Automate deployments, monitor health, respond to incidents quickly.", "pain_points": "Manual deployments, no CI/CD pipeline visibility."},
         {"name": "QA Tester", "role": "Quality Assurance", "description": "Tests the platform across environments before releases.", "goals": "Verify all features work as expected, report bugs clearly.", "pain_points": "Test data setup is manual, no automated regression suite."},
         {"name": "Product Owner", "role": "Business Stakeholder", "description": "Owns the product vision and prioritizes the backlog.", "goals": "Deliver value to users every release, maintain a clear roadmap.", "pain_points": "Shifting priorities, limited visibility into dev progress."},
         {"name": "Developer", "role": "Engineering Team", "description": "Builds and maintains the platform features.", "goals": "Write clean, testable code, deliver on sprint commitments.", "pain_points": "Technical debt, unclear requirements."},
@@ -721,8 +721,8 @@ def seed():
         ],
         stakeholders_data=[
             ("Aldaana Almuqrin", "aldaana@pnu.edu.sa", "PNU", "Sponsor", "Accountable"),
-            ("Mohammed Aljahmi", "mohammed@opex.com.sa", "OPEX", "COO", "Accountable"),
-            ("Tarek Eltarrass", "tarek@opex.com.sa", "OPEX", "Former PM", "Informed"),
+            ("Mohammed Aljahmi", "mohammed@opex.com.sa", "Obelion", "COO", "Accountable"),
+            ("Tarek Eltarrass", "tarek@opex.com.sa", "Obelion", "Former PM", "Informed"),
         ],
     )
     print("✅ CloudGate Platform: vision, 3 KPIs, 3 milestones, 3 releases, 10 backlog, 3 stakeholders")
@@ -767,7 +767,7 @@ def seed():
         ],
         stakeholders_data=[
             ("Khalid Al-Harbi", "khalid@gotelecom.com.sa", "GO Telecom", "Technical Lead", "Responsible"),
-            ("Ahmed Eldosoukey", "ahmed@opex.com.sa", "OPEX", "Cloud Architect", "Consulted"),
+            ("Ahmed Eldosoukey", "ahmed@opex.com.sa", "Obelion", "Cloud Architect", "Consulted"),
             ("Sara Al-Dossari", "sara@gotelecom.com.sa", "GO Telecom", "Sponsor", "Accountable"),
         ],
     )
@@ -815,7 +815,7 @@ def seed():
         ],
         stakeholders_data=[
             ("Mohammed Al-Otaibi", "mohammed@tasama.sa", "TASAMA", "Program Director", "Accountable"),
-            ("Fatima Al-Zahra", "fatima@opex.com.sa", "OPEX", "Cloud Architect", "Responsible"),
+            ("Fatima Al-Zahra", "fatima@opex.com.sa", "Obelion", "Cloud Architect", "Responsible"),
             ("Omar Al-Shehri", "omar@tasama.sa", "TASAMA", "Technical Lead", "Consulted"),
         ],
     )
@@ -862,7 +862,7 @@ def seed():
         ],
         stakeholders_data=[
             ("Nora Al-Qahtani", "nora@pnu.edu.sa", "PNU", "Product Owner", "Accountable"),
-            ("Omar Al-Shehri", "omar@opex.com.sa", "OPEX", "Mobile Lead", "Responsible"),
+            ("Omar Al-Shehri", "omar@opex.com.sa", "Obelion", "Mobile Lead", "Responsible"),
             ("Aldaana Almuqrin", "aldaana@pnu.edu.sa", "PNU", "Dean of IT", "Informed"),
         ],
     )
@@ -1049,7 +1049,7 @@ def seed():
                 reminder_days=7, status="Pending", priority="Medium",
             ),
             UserTask(
-                title="Review OPEX organizational structure",
+                title="Review Obelion organizational structure",
                 description="Finalize the updated org chart with Mohammed Aljahmi.",
                 assigned_to=admin.id, created_by=admin.id,
                 project_id=None,

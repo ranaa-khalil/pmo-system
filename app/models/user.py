@@ -5,7 +5,7 @@ from app.database import Base
 
 
 class User(Base):
-    """A user of the PMO system (OPEX staff or client stakeholder)."""
+    """A user of the PMO system (Obelion staff or client stakeholder)."""
 
     __tablename__ = "users"
     __table_args__ = (

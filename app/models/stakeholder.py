@@ -1,6 +1,6 @@
 """Stakeholder model — a person involved in a project.
 
-Stakeholders can be internal (OPEX staff) or external (client, partner).
+Stakeholders can be internal (Obelion staff) or external (client, partner).
 Each stakeholder has a RACI role on the project.
 """
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime

@@ -20,6 +20,74 @@ from app.config import settings
 router = APIRouter(prefix="/api", tags=["backlog"])
 
 
+def _auto_export_to_github(db: Session, item: BacklogItem):
+    """Auto-export a backlog item to GitHub when it reaches the configured trigger phase.
+
+    Uses the project's GitHubBoardConfig if available, otherwise falls back to
+    the project's github_repo field with basic issue creation.
+    """
+    from app.models.github_board_config import GitHubBoardConfig
+    from datetime import datetime, timezone
+
+    project = db.query(Project).filter(Project.id == item.project_id).first()
+    if not project:
+        return
+
+    # Check for board config
+    config = db.query(GitHubBoardConfig).filter(
+        GitHubBoardConfig.project_id == item.project_id
+    ).first()
+
+    # Determine the repo to use
+    if config and config.repo:
+        repo = config.repo
+    elif project.github_repo:
+        repo = project.github_repo
+    else:
+        return  # No repo configured
+
+    # If auto_export is explicitly disabled, skip
+    if config and not config.auto_export:
+        return
+
+    # If config exists, check if the current phase matches the trigger
+    if config and config.export_trigger_phase:
+        if item.current_phase != config.export_trigger_phase:
+            return
+
+    # Parse labels
+    labels = ["from-pmo"]
+    if config and config.default_labels:
+        labels = [l.strip() for l in config.default_labels.split(",") if l.strip()]
+
+    gh = GitHubService(token=settings.github_token or None)
+    try:
+        issue = gh.export_backlog_item(
+            repo=repo,
+            title=item.title,
+            description=item.description or "",
+            priority=item.priority,
+            item_type=item.item_type,
+            epic=item.epic,
+            primary_actor=item.primary_actor,
+            story_points=item.story_points,
+            acceptance_criteria=item.acceptance_criteria,
+            dependencies_text=item.dependencies,
+            pmo_item_id=item.id,
+            labels=labels,
+            title_prefix=config.issue_title_prefix if config else None,
+            project_node_id=config.project_node_id if config else None,
+            include_acceptance_criteria=config.include_acceptance_criteria if config else True,
+            include_dependencies=config.include_dependencies if config else True,
+        )
+        if issue:
+            item.github_issue_number = issue["number"]
+            item.github_issue_url = issue.get("html_url", "")
+            item.github_synced_at = datetime.now(timezone.utc).isoformat()
+    finally:
+        gh.close()
+
+
 @router.post("/projects/{project_id}/backlog", response_model=BacklogItemResponse, status_code=201)
 def create_backlog_item(
     project_id: int,
@@ -76,18 +144,7 @@ def update_backlog_item(
 
     # GitHub sync: when item enters Development, create issue if not already synced
     if item.current_phase == "Development" and old_phase != "Development" and not item.github_issue_number:
-        project = db.query(Project).filter(Project.id == item.project_id).first()
-        if project and project.github_repo:
-            gh = GitHubService(token=settings.github_token or None)
-            issue = gh.create_issue(
-                repo=project.github_repo,
-                title=item.title,
-                body=f"**PMO Backlog Item**\n\n{item.description or 'No description'}\n\n---\nPriority: {item.priority}\nPhase: {item.current_phase}",
-                labels=["from-pmo"],
-            )
-            if issue:
-                item.github_issue_number = issue["number"]
-            gh.close()
+        _auto_export_to_github(db, item)
 
     db.commit()
     db.refresh(item)
@@ -127,18 +184,7 @@ def advance_backlog_phase(
 
     # GitHub sync on entering Development
     if item.current_phase == "Development" and not item.github_issue_number:
-        project = db.query(Project).filter(Project.id == item.project_id).first()
-        if project and project.github_repo:
-            gh = GitHubService(token=settings.github_token or None)
-            issue = gh.create_issue(
-                repo=project.github_repo,
-                title=item.title,
-                body=f"**PMO Backlog Item**\n\n{item.description or ''}\n\n---\nPriority: {item.priority}",
-                labels=["from-pmo"],
-            )
-            if issue:
-                item.github_issue_number = issue["number"]
-            gh.close()
+        _auto_export_to_github(db, item)
 
     db.commit()
     db.refresh(item)

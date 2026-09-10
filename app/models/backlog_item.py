@@ -64,6 +64,8 @@ class BacklogItem(Base):
     acceptance_criteria = Column(Text, nullable=True)
     dependencies = Column(Text, nullable=True)  # legacy free-text field (kept for backward compat)
     github_issue_number = Column(Integer, nullable=True)
+    github_synced_at = Column(String, nullable=True)  # ISO timestamp of last GitHub sync
+    github_issue_url = Column(String(500), nullable=True)  # full URL to the GitHub issue
     assigned_to = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     kpi_id = Column(Integer, ForeignKey("kpis.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(String, server_default=func.now(), nullable=False)

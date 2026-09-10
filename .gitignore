@@ -5,3 +5,4 @@ __pycache__/
 .env
 .pytest_cache/
 pmo_system.db
+venv_old/

@@ -53,6 +53,8 @@ class BacklogItemResponse(BacklogItemBase):
     current_phase: str
     status: str
     github_issue_number: Optional[int] = None
+    github_synced_at: Optional[str] = None
+    github_issue_url: Optional[str] = None
     assigned_to: Optional[int] = None
     depends_on: List[BacklogItemBrief] = []
     blocked_by: List[BacklogItemBrief] = []

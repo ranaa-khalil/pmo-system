@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from app.config import settings
 from app.database import Base, engine, SessionLocal
-from app.routers import clients, projects, auth, planning, backlog, forms, approvals, dashboard, stakeholders, releases, user_tasks, personas, notifications, ai
+from app.routers import clients, projects, auth, planning, backlog, forms, approvals, dashboard, stakeholders, releases, user_tasks, personas, notifications, ai, github_sync
 from app.frontend import router as frontend_router
 import app.models  # noqa: F401 — register all models
 
@@ -51,6 +51,7 @@ app.include_router(user_tasks.router)
 app.include_router(personas.router)
 app.include_router(notifications.router)
 app.include_router(ai.router)
+app.include_router(github_sync.router)
 
 # Register frontend UI
 app.include_router(frontend_router)

@@ -18,8 +18,9 @@ class TestPermissionModel:
 
     def test_permission_name_is_required(self, db_session):
         """Permission name is required."""
-        from app.models.permission import Permission
         from sqlalchemy.exc import IntegrityError
+
+        from app.models.permission import Permission
         perm = Permission(description="No name")
         db_session.add(perm)
         with pytest.raises(IntegrityError):
@@ -48,8 +49,8 @@ class TestRolePermissionModel:
 
     def test_assign_permission_to_role(self, db_session):
         """Can assign a permission to a role."""
-        from app.models.role import Role
         from app.models.permission import Permission
+        from app.models.role import Role
         from app.models.role_permission import RolePermission
 
         role = Role(name="Product Manager", description="PM role")
@@ -64,8 +65,8 @@ class TestRolePermissionModel:
 
     def test_role_can_have_multiple_permissions(self, db_session):
         """A role can have many permissions."""
-        from app.models.role import Role
         from app.models.permission import Permission
+        from app.models.role import Role
         from app.models.role_permission import RolePermission
 
         role = Role(name="Tech Lead", description="Tech Lead role")
@@ -84,8 +85,8 @@ class TestRolePermissionModel:
 
     def test_unique_role_permission_constraint(self, db_session):
         """Same permission can't be assigned to same role twice."""
-        from app.models.role import Role
         from app.models.permission import Permission
+        from app.models.role import Role
         from app.models.role_permission import RolePermission
 
         role = Role(name="QA Lead", description="QA role")

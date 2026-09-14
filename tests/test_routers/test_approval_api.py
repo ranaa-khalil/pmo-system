@@ -1,5 +1,4 @@
 """Test the Approval API — TDD."""
-import pytest
 
 
 class TestApprovalAPI:

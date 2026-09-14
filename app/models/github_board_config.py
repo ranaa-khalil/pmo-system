@@ -7,9 +7,10 @@ When auto_export is enabled, backlog items are automatically exported to
 GitHub (issue created + added to project board) when they reach the
 configured export trigger phase.
 """
-from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey
-from sqlalchemy.sql import func
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+
 from app.database import Base
 
 
@@ -31,6 +32,9 @@ class GitHubBoardConfig(Base):
 
     # Human-readable project title (cached for display without API calls)
     project_title = Column(String(255), nullable=True)
+
+    # Full URL to the GitHub Project V2 board (e.g. https://github.com/users/ranaa-khalil/projects/1)
+    project_url = Column(String(500), nullable=True)
 
     # Comma-separated default labels to apply to exported issues
     # e.g. "from-pmo,feature,enhancement"

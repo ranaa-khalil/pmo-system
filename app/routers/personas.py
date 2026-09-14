@@ -1,26 +1,30 @@
 """Personas & Test Accounts API router — CRUD for project personas and test accounts."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
 
 from app.database import get_db
-from app.models.project import Project
-from app.models.user_persona import UserPersona
-from app.models.project_test_account import ProjectTestAccount
-from app.schemas.persona import (
-    PersonaCreate, PersonaUpdate, PersonaResponse,
-    TestAccountCreate, TestAccountUpdate, TestAccountResponse,
-)
-from app.models.user import User
 from app.dependencies import get_current_user
+from app.models.project import Project
+from app.models.project_test_account import ProjectTestAccount
+from app.models.user import User
+from app.models.user_persona import UserPersona
 from app.permissions import can_manage_project
+from app.schemas.persona import (
+    PersonaCreate,
+    PersonaResponse,
+    PersonaUpdate,
+    TestAccountCreate,
+    TestAccountResponse,
+    TestAccountUpdate,
+)
 
 router = APIRouter(prefix="/api/projects/{project_id}", tags=["personas"])
 
 
 # ===== Personas =====
 
-@router.get("/personas", response_model=List[PersonaResponse])
+@router.get("/personas", response_model=list[PersonaResponse])
 def list_personas(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return db.query(UserPersona).filter(UserPersona.project_id == project_id).order_by(UserPersona.name).all()
 
@@ -67,7 +71,7 @@ def delete_persona(project_id: int, persona_id: int, db: Session = Depends(get_d
 
 # ===== Test Accounts =====
 
-@router.get("/test-accounts", response_model=List[TestAccountResponse])
+@router.get("/test-accounts", response_model=list[TestAccountResponse])
 def list_test_accounts(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return db.query(ProjectTestAccount).filter(ProjectTestAccount.project_id == project_id).order_by(
         ProjectTestAccount.environment, ProjectTestAccount.username

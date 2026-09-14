@@ -1,20 +1,20 @@
 """Pydantic schemas for vision, KPI, roadmap, milestone."""
-from datetime import date, datetime
-from typing import Optional, List
+from datetime import date
+
 from pydantic import BaseModel
 
 
 # ===== Vision =====
 class VisionBase(BaseModel):
     statement: str
-    strategic_objectives: Optional[str] = None
+    strategic_objectives: str | None = None
 
 class VisionCreate(VisionBase):
     project_id: int
 
 class VisionUpdate(BaseModel):
-    statement: Optional[str] = None
-    strategic_objectives: Optional[str] = None
+    statement: str | None = None
+    strategic_objectives: str | None = None
 
 class VisionResponse(VisionBase):
     id: int
@@ -25,22 +25,22 @@ class VisionResponse(VisionBase):
 # ===== KPI =====
 class KPIBase(BaseModel):
     name: str
-    target_value: Optional[str] = None
-    current_value: Optional[str] = None
-    unit: Optional[str] = None
-    category: Optional[str] = None
-    vision_objective: Optional[str] = None
+    target_value: str | None = None
+    current_value: str | None = None
+    unit: str | None = None
+    category: str | None = None
+    vision_objective: str | None = None
 
 class KPICreate(KPIBase):
     project_id: int
 
 class KPIUpdate(BaseModel):
-    name: Optional[str] = None
-    target_value: Optional[str] = None
-    current_value: Optional[str] = None
-    unit: Optional[str] = None
-    category: Optional[str] = None
-    vision_objective: Optional[str] = None
+    name: str | None = None
+    target_value: str | None = None
+    current_value: str | None = None
+    unit: str | None = None
+    category: str | None = None
+    vision_objective: str | None = None
 
 class KPIResponse(KPIBase):
     id: int
@@ -51,16 +51,16 @@ class KPIResponse(KPIBase):
 # ===== Roadmap =====
 class RoadmapBase(BaseModel):
     title: str
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
+    start_date: date | None = None
+    end_date: date | None = None
 
 class RoadmapCreate(RoadmapBase):
     project_id: int
 
 class RoadmapUpdate(BaseModel):
-    title: Optional[str] = None
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
+    title: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
 
 class RoadmapResponse(RoadmapBase):
     id: int
@@ -71,18 +71,18 @@ class RoadmapResponse(RoadmapBase):
 # ===== Milestone =====
 class MilestoneBase(BaseModel):
     title: str
-    target_date: Optional[date] = None
+    target_date: date | None = None
     status: str = "On Track"
-    description: Optional[str] = None
+    description: str | None = None
 
 class MilestoneCreate(MilestoneBase):
     roadmap_id: int
 
 class MilestoneUpdate(BaseModel):
-    title: Optional[str] = None
-    target_date: Optional[date] = None
-    status: Optional[str] = None
-    description: Optional[str] = None
+    title: str | None = None
+    target_date: date | None = None
+    status: str | None = None
+    description: str | None = None
 
 class MilestoneResponse(MilestoneBase):
     id: int
@@ -90,4 +90,4 @@ class MilestoneResponse(MilestoneBase):
     model_config = {"from_attributes": True}
 
 class RoadmapWithMilestonesResponse(RoadmapResponse):
-    milestones: List[MilestoneResponse] = []
+    milestones: list[MilestoneResponse] = []

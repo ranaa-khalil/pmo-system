@@ -1,5 +1,4 @@
 """Test the Release model — TDD RED phase."""
-import pytest
 from app.models.release import Release, ReleaseItem
 
 

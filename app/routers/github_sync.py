@@ -8,28 +8,30 @@ Endpoints:
   POST /api/projects/{project_id}/github/export         — export approved features to GitHub
   GET  /api/projects/{project_id}/github/sync-status    — check sync status of backlog items
 """
-from typing import List, Optional
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
+from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.user import User
-from app.models.project import Project
-from app.models.backlog_item import BacklogItem, ITEM_PHASES
+from app.models.backlog_item import ITEM_PHASES, BacklogItem
 from app.models.github_board_config import GitHubBoardConfig
-from app.services.github import GitHubService
-from app.services.notifications import log_activity
-from app.config import settings
+from app.models.project import Project
+from app.models.user import User
 from app.schemas.github_sync import (
-    GitHubBoardConfigCreate,
-    GitHubBoardConfigUpdate,
     GitHubBoardConfigResponse,
-    GitHubProjectInfo,
+    GitHubBoardConfigUpdate,
     GitHubExportRequest,
     GitHubExportResult,
+    GitHubImportResult,
+    GitHubProjectInfo,
+    GitHubResolveBoardRequest,
     GitHubSyncStatus,
 )
+from app.services.github import GitHubService
+from app.services.notifications import log_activity
 
 router = APIRouter(prefix="/api", tags=["github-sync"])
 
@@ -105,53 +107,93 @@ def update_github_config(
 # GitHub Project V2 boards listing
 # ─────────────────────────────────────────────────────────────
 
-@router.get("/projects/{project_id}/github/projects", response_model=List[GitHubProjectInfo])
+@router.get("/projects/{project_id}/github/projects", response_model=list[GitHubProjectInfo])
 def list_github_projects(
     project_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List available GitHub Project V2 boards for the project's repo.
+    """List available GitHub Project V2 boards.
 
-    Also searches org-level and user-level projects.
+    Always lists user-level projects (the authenticated user's boards).
+    Also lists repo-level and org-level projects if a repo is configured.
     Requires 'project' scope on the GitHub token.
     """
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    if not settings.github_token:
+        raise HTTPException(status_code=400, detail="GitHub token not configured. Set PMO_GITHUB_TOKEN environment variable.")
+
     config = _get_or_create_config(db, project_id)
     repo = _resolve_repo(config, project)
-    if not repo:
-        raise HTTPException(status_code=400, detail="No GitHub repo configured. Set the repo in the board config or project settings.")
 
     gh = _get_gh_service()
     try:
-        projects = gh.list_projects(repo)
+        projects = []
 
-        # Also try org-level projects if the repo is under an org
-        owner = repo.split("/")[0] if "/" in repo else ""
-        if owner:
-            org_projects = gh.list_org_projects(owner)
-            # Merge, avoiding duplicates by ID
+        # Always list user-level projects (works without a repo)
+        user_projects = gh.list_user_projects()
+        projects.extend(user_projects)
+
+        # Also list repo-level and org-level projects if a repo is configured
+        if repo:
+            repo_projects = gh.list_projects(repo)
             existing_ids = {p["id"] for p in projects}
-            for p in org_projects:
+            for p in repo_projects:
                 if p["id"] not in existing_ids:
                     projects.append(p)
 
-        # Also try user-level projects
-        user_projects = gh.list_user_projects()
-        existing_ids = {p["id"] for p in projects}
-        for p in user_projects:
-            if p["id"] not in existing_ids:
-                projects.append(p)
+            # Also try org-level projects
+            owner = repo.split("/")[0] if "/" in repo else ""
+            if owner:
+                org_projects = gh.list_org_projects(owner)
+                existing_ids = {p["id"] for p in projects}
+                for p in org_projects:
+                    if p["id"] not in existing_ids:
+                        projects.append(p)
 
         return projects
     finally:
         gh.close()
 
 
-@router.get("/projects/{project_id}/github/labels", response_model=List[dict])
+@router.post("/projects/{project_id}/github/resolve-board", response_model=GitHubProjectInfo)
+def resolve_board_url(
+    project_id: int,
+    req: GitHubResolveBoardRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Resolve a GitHub Project V2 board URL to its node ID and metadata.
+
+    Accepts URLs like:
+      https://github.com/users/ranaa-khalil/projects/1
+      https://github.com/users/ranaa-khalil/projects/1/views/1
+      https://github.com/orgs/myorg/projects/3
+      https://github.com/owner/repo/projects/2
+
+    Returns the project's node ID, title, URL, etc.
+    Requires 'project' scope on the GitHub token.
+    """
+    if not db.query(Project).filter(Project.id == project_id).first():
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not settings.github_token:
+        raise HTTPException(status_code=400, detail="GitHub token not configured. Set PMO_GITHUB_TOKEN environment variable.")
+
+    gh = _get_gh_service()
+    try:
+        result = gh.resolve_project_url(req.url)
+        if not result:
+            raise HTTPException(status_code=404, detail="Could not resolve the board URL. Make sure the URL is correct and the token has 'project' scope.")
+        return result
+    finally:
+        gh.close()
+
+
+@router.get("/projects/{project_id}/github/labels", response_model=list[dict])
 def list_github_labels(
     project_id: int,
     db: Session = Depends(get_db),
@@ -205,6 +247,13 @@ def export_to_github(
     config = _get_or_create_config(db, project_id)
     repo = _resolve_repo(config, project)
     if not repo:
+        if config.project_node_id:
+            raise HTTPException(
+                status_code=400,
+                detail="A project board is connected but no GitHub repo is configured. "
+                       "Issues must be created in a repo before they can be added to a board. "
+                       "Please set the GitHub Repository field above."
+            )
         raise HTTPException(status_code=400, detail="No GitHub repo configured. Set the repo in the board config or project settings.")
 
     if not settings.github_token:
@@ -271,7 +320,7 @@ def export_to_github(
             if issue:
                 item.github_issue_number = issue["number"]
                 item.github_issue_url = issue.get("html_url", "")
-                item.github_synced_at = datetime.now(timezone.utc).isoformat()
+                item.github_synced_at = datetime.now(UTC).isoformat()
                 result.exported += 1
                 result.details.append({
                     "item_id": item.id,
@@ -334,3 +383,223 @@ def get_sync_status(
         unsynced_items=len(unsynced),
         config=config,
     )
+
+
+# ─────────────────────────────────────────────────────────────
+# Import / reverse-sync: GitHub → PMO
+# ─────────────────────────────────────────────────────────────
+
+@router.post("/projects/{project_id}/github/import", response_model=GitHubImportResult)
+def import_from_github(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Pull issue status from GitHub and update backlog items.
+
+    For each backlog item that has been exported to GitHub (has a github_issue_number):
+    1. Fetch the issue's current state (open/closed), labels, assignees
+    2. Store them on the backlog item (github_state, github_labels, github_assignees)
+    3. If the issue is closed, advance the item to "Ready for UAT" + status "Done"
+    4. If a project board is configured, also fetch the board's Status field
+
+    Two strategies:
+    - If project_node_id is set: single GraphQL call for all board items (fast)
+    - Otherwise: individual REST calls per issue (works without project board)
+    """
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    config = _get_or_create_config(db, project_id)
+    repo = _resolve_repo(config, project)
+    if not repo:
+        raise HTTPException(status_code=400, detail="No GitHub repo configured. Set the repo in the board config or project settings.")
+
+    if not settings.github_token:
+        raise HTTPException(status_code=400, detail="GitHub token not configured. Set PMO_GITHUB_TOKEN environment variable.")
+
+    # Get all items that have been exported to GitHub
+    synced_items = db.query(BacklogItem).filter(
+        BacklogItem.project_id == project_id,
+        BacklogItem.github_issue_number.isnot(None),
+        BacklogItem.status != "Cancelled",
+    ).all()
+
+    if not synced_items:
+        return GitHubImportResult(total=0)
+
+    gh = _get_gh_service()
+    result = GitHubImportResult(total=len(synced_items))
+    now_iso = datetime.now(UTC).isoformat()
+
+    try:
+        # Strategy 1: If we have a project board, use GraphQL for a single batch call
+        if config.project_node_id:
+            board_items = gh.get_project_items_with_status(config.project_node_id)
+            # Build a lookup: issue_number → board_item
+            board_lookup = {bi["issue_number"]: bi for bi in board_items if bi.get("issue_number")}
+
+            for item in synced_items:
+                board_item = board_lookup.get(item.github_issue_number)
+                if board_item:
+                    old_state = item.github_state
+                    new_state = (board_item.get("state", "") or "").lower()
+
+                    item.github_state = new_state
+                    item.github_labels = ", ".join(board_item.get("labels", []))
+                    item.github_assignees = ", ".join(board_item.get("assignees", []))
+                    item.github_last_sync_at = now_iso
+
+                    # Track project board status if available
+                    project_status = board_item.get("project_status")
+                    phase_changed = False
+                    if project_status:
+                        # Map common GitHub Project status names to PMO phases
+                        ps_lower = project_status.lower()
+                        if ps_lower in ("done", "completed", "finished"):
+                            if item.current_phase != "Ready for UAT":
+                                item.current_phase = "Ready for UAT"
+                                phase_changed = True
+                            if item.status != "Done":
+                                item.status = "Done"
+                                phase_changed = True
+                        elif ps_lower in ("in review", "review", "reviewing"):
+                            if item.current_phase not in ("Testing", "Ready for UAT"):
+                                item.current_phase = "Testing"
+                                phase_changed = True
+                        elif ps_lower in ("in progress", "working", "started"):
+                            if item.current_phase not in ("Development", "Testing", "Ready for UAT"):
+                                item.current_phase = "Development"
+                                phase_changed = True
+
+                    # Also check issue state — closed = done
+                    # Normalize old_state for comparison (might be uppercase from older syncs)
+                    old_state_norm = (old_state or "").lower()
+                    status_changed = (old_state_norm != new_state)
+                    if new_state == "closed":
+                        if item.status != "Done":
+                            item.status = "Done"
+                            if item.current_phase not in ("Ready for UAT",):
+                                item.current_phase = "Ready for UAT"
+                            status_changed = True
+                        result.closed_count += 1
+                    elif new_state == "open":
+                        result.open_count += 1
+
+                    if status_changed or phase_changed:
+                        result.updated += 1
+                    else:
+                        result.unchanged += 1
+
+                    result.details.append({
+                        "item_id": item.id,
+                        "title": item.title,
+                        "issue_number": item.github_issue_number,
+                        "state": new_state,
+                        "project_status": project_status,
+                        "labels": board_item.get("labels", []),
+                        "assignees": board_item.get("assignees", []),
+                        "changed": status_changed or phase_changed,
+                    })
+                else:
+                    # Issue not found on board — try REST as fallback
+                    issue = gh.get_issue(repo, item.github_issue_number)
+                    if issue:
+                        old_state = item.github_state
+                        new_state = (issue["state"] or "").lower()
+                        item.github_state = new_state
+                        item.github_labels = ", ".join(issue.get("labels", []))
+                        item.github_assignees = ", ".join(issue.get("assignees", []))
+                        item.github_last_sync_at = now_iso
+
+                        status_changed = (old_state != new_state)
+                        if new_state == "closed" and item.status != "Done":
+                            item.status = "Done"
+                            if item.current_phase != "Ready for UAT":
+                                item.current_phase = "Ready for UAT"
+                            status_changed = True
+                            result.closed_count += 1
+                        elif new_state == "open":
+                            result.open_count += 1
+
+                        if status_changed:
+                            result.updated += 1
+                        else:
+                            result.unchanged += 1
+
+                        result.details.append({
+                            "item_id": item.id,
+                            "title": item.title,
+                            "issue_number": item.github_issue_number,
+                            "state": new_state,
+                            "labels": issue.get("labels", []),
+                            "assignees": issue.get("assignees", []),
+                            "changed": status_changed,
+                        })
+                    else:
+                        result.failed += 1
+                        result.details.append({
+                            "item_id": item.id,
+                            "title": item.title,
+                            "issue_number": item.github_issue_number,
+                            "error": "Could not fetch issue",
+                        })
+
+        # Strategy 2: No project board — fetch each issue via REST
+        else:
+            for item in synced_items:
+                issue = gh.get_issue(repo, item.github_issue_number)
+                if issue:
+                    old_state = item.github_state
+                    new_state = (issue["state"] or "").lower()
+                    item.github_state = new_state
+                    item.github_labels = ", ".join(issue.get("labels", []))
+                    item.github_assignees = ", ".join(issue.get("assignees", []))
+                    item.github_last_sync_at = now_iso
+
+                    status_changed = (old_state != new_state)
+                    if new_state == "closed" and item.status != "Done":
+                        item.status = "Done"
+                        if item.current_phase != "Ready for UAT":
+                            item.current_phase = "Ready for UAT"
+                        status_changed = True
+                        result.closed_count += 1
+                    elif new_state == "open":
+                        result.open_count += 1
+
+                    if status_changed:
+                        result.updated += 1
+                    else:
+                        result.unchanged += 1
+
+                    result.details.append({
+                        "item_id": item.id,
+                        "title": item.title,
+                        "issue_number": item.github_issue_number,
+                        "state": new_state,
+                        "labels": issue.get("labels", []),
+                        "assignees": issue.get("assignees", []),
+                        "changed": status_changed,
+                    })
+                else:
+                    result.failed += 1
+                    result.details.append({
+                        "item_id": item.id,
+                        "title": item.title,
+                        "issue_number": item.github_issue_number,
+                        "error": "Could not fetch issue",
+                    })
+
+        db.commit()
+
+        log_activity(db, current_user.id, current_user.name, project_id,
+                     "github_import", 0, "synced",
+                     f"Imported status from GitHub ({repo}). "
+                     f"Updated: {result.updated}, Unchanged: {result.unchanged}, "
+                     f"Failed: {result.failed}, Closed: {result.closed_count}")
+
+    finally:
+        gh.close()
+
+    return result

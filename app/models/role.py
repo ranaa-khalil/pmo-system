@@ -1,5 +1,6 @@
 """Role model — based on the 12 RACI roles from RACI Matrix v2.3."""
 from sqlalchemy import Column, Integer, String, Text
+
 from app.database import Base
 
 

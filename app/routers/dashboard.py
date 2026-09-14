@@ -1,20 +1,20 @@
 """Dashboard API router — aggregated stats with charts data."""
-from typing import Dict, List, Any
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.user import User
-from app.models.client import Client
-from app.models.project import Project
-from app.models.backlog_item import BacklogItem
 from app.models.approval import ApprovalRequest, ApprovalStep
+from app.models.backlog_item import BacklogItem
+from app.models.client import Client
 from app.models.form_template import FormInstance
 from app.models.kpi import KPI
-from app.models.release import Release, ReleaseItem
 from app.models.milestone import Milestone
+from app.models.project import Project
+from app.models.release import Release, ReleaseItem
 from app.models.roadmap import Roadmap
 from app.models.stakeholder import Stakeholder
+from app.models.user import User
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
 
@@ -36,23 +36,23 @@ def get_dashboard_stats(
     stakeholders_count = db.query(Stakeholder).count()
 
     # Backlog phase distribution
-    phase_distribution: Dict[str, int] = {}
+    phase_distribution: dict[str, int] = {}
     items = db.query(BacklogItem).all()
     for item in items:
         phase_distribution[item.current_phase] = phase_distribution.get(item.current_phase, 0) + 1
 
     # Backlog status distribution
-    status_distribution: Dict[str, int] = {}
+    status_distribution: dict[str, int] = {}
     for item in items:
         status_distribution[item.status] = status_distribution.get(item.status, 0) + 1
 
     # Backlog priority distribution
-    priority_distribution: Dict[str, int] = {}
+    priority_distribution: dict[str, int] = {}
     for item in items:
         priority_distribution[item.priority] = priority_distribution.get(item.priority, 0) + 1
 
     # Release status distribution (for donut chart)
-    release_status_dist: Dict[str, int] = {}
+    release_status_dist: dict[str, int] = {}
     releases = db.query(Release).all()
     for rel in releases:
         release_status_dist[rel.status] = release_status_dist.get(rel.status, 0) + 1

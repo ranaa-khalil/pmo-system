@@ -70,7 +70,7 @@ class TestFormInstanceModel:
 
     def test_create_form_instance(self, db_session):
         """A form instance can be created from a template."""
-        from app.models.form_template import FormTemplate, FormInstance
+        from app.models.form_template import FormInstance, FormTemplate
 
         p = self._create_project(db_session)
         template = FormTemplate(
@@ -106,7 +106,7 @@ class TestFormInstanceModel:
 
     def test_form_instance_requires_project_id(self, db_session):
         """Instance cannot be created without a project_id."""
-        from app.models.form_template import FormTemplate, FormInstance
+        from app.models.form_template import FormInstance, FormTemplate
 
         template = FormTemplate(name="T", form_type="rca", field_schema=[])
         db_session.add(template)
@@ -120,7 +120,7 @@ class TestFormInstanceModel:
 
     def test_default_status_is_draft(self, db_session):
         """New form instances default to 'Draft' status."""
-        from app.models.form_template import FormTemplate, FormInstance
+        from app.models.form_template import FormInstance, FormTemplate
         p = self._create_project(db_session)
         template = FormTemplate(name="T2", form_type="retrospective", field_schema=[])
         db_session.add(template)

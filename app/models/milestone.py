@@ -1,6 +1,7 @@
 """Milestone model — a point in time within a roadmap."""
-from sqlalchemy import Column, Integer, String, Date, ForeignKey
+from sqlalchemy import Column, Date, ForeignKey, Integer, String
 from sqlalchemy.sql import func
+
 from app.database import Base
 
 

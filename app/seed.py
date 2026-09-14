@@ -3,26 +3,26 @@
 Run with: python -m app.seed
 """
 from datetime import date, timedelta
-from app.database import SessionLocal, engine, Base
+
 import app.models  # noqa: F401 — register all models
-from app.models.user import User
+from app.database import Base, SessionLocal, engine
+from app.models.activity_log import ActivityLog
+from app.models.backlog_item import BacklogItem
 from app.models.client import Client
+from app.models.form_template import FormInstance, FormTemplate
+from app.models.kpi import KPI
+from app.models.milestone import Milestone
+from app.models.notification import NotificationPreference
 from app.models.project import Project
+from app.models.project_vision import ProjectVision
+from app.models.release import Release, ReleaseItem
+from app.models.roadmap import Roadmap
 from app.models.role import Role
 from app.models.role_assignment import RoleAssignment
-from app.models.project_vision import ProjectVision
-from app.models.kpi import KPI
-from app.models.roadmap import Roadmap
-from app.models.milestone import Milestone
-from app.models.backlog_item import BacklogItem
-from app.models.user_task import UserTask
-from app.models.release import Release, ReleaseItem
-from app.models.form_template import FormTemplate, FormInstance
 from app.models.stakeholder import Stakeholder
-from app.models.notification import NotificationPreference
-from app.models.activity_log import ActivityLog
+from app.models.user import User
+from app.models.user_task import UserTask
 from app.services.auth import hash_password
-
 
 # The 12 RACI roles from RACI Matrix v2.3
 RACI_ROLES = [
@@ -404,14 +404,15 @@ def seed():
         for item in backlog_items[:3]:
             db.add(ReleaseItem(release_id=rel.id, backlog_item_id=item.id))
         db.commit()
-        print(f"✅ Created release v1.0.0 linked to Q3 milestone with 3 backlog items")
+        print("✅ Created release v1.0.0 linked to Q3 milestone with 3 backlog items")
 
         # --- Auto-routed approval chain for the release ---
         # The release is in "In Progress" phase. Backfill:
         # 1. Approved approval for Planning → In Progress (Product Owner gate)
         # 2. Pending approval for In Progress → Testing (Tech Lead gate)
-        from app.models.approval import ApprovalRequest, ApprovalStep
         from sqlalchemy.sql import func
+
+        from app.models.approval import ApprovalRequest, ApprovalStep
 
         # 1. Approved: Planning → In Progress (Product Owner)
         ap1 = ApprovalRequest(
@@ -461,7 +462,7 @@ def seed():
         )
         db.add(st2)
         db.commit()
-        print(f"✅ Created auto-routed approval chain: Planning→In Progress (approved), In Progress→Testing (pending Tech Lead)")
+        print("✅ Created auto-routed approval chain: Planning→In Progress (approved), In Progress→Testing (pending Tech Lead)")
 
     # ====================================================================
     # COMPREHENSIVE SAMPLE DATA — clients, projects, KPIs, roadmaps,
@@ -603,14 +604,14 @@ def seed():
             "Document Intelligence": "OCR, document classification, and automated data extraction pipelines.",
             "Workflow Automation": "Business rule engine, approval workflows, and process automation.",
         }
-        
+
         # Extract unique epic names and create Epic items first
         unique_epics = set()
         for b in backlog_data:
             epic_name = b[5]  # epic field
             if epic_name and epic_name != "—":
                 unique_epics.add(epic_name)
-        
+
         bi_ids = []
         for epic_name in sorted(unique_epics):
             epic_desc = EPIC_DESCRIPTIONS.get(epic_name, f"{epic_name} — collection of features and stories.")
@@ -935,8 +936,8 @@ def seed():
         print("✅ Created 4 form instances across projects")
 
     # --- Additional approvals for other projects ---
+
     from app.models.approval import ApprovalRequest, ApprovalStep
-    from sqlalchemy.sql import func as sa_func
 
     cg_proj = db.query(Project).filter(Project.name == "CloudGate Platform").first()
     cg_rel = db.query(Release).filter(Release.project_id == cg_proj.id).first() if cg_proj else None
@@ -1127,14 +1128,14 @@ def seed():
     print(f"✅ Created {len(activity_entries)} activity log entries")
 
     db.close()
-    print(f"\n📊 COMPREHENSIVE SAMPLE DATA SUMMARY:")
+    print("\n📊 COMPREHENSIVE SAMPLE DATA SUMMARY:")
     print(f"   {total_clients} clients | {total_projects} projects | {total_users} users")
     print(f"   {total_kpis} KPIs | {total_milestones} milestones | {total_releases} releases")
     print(f"   {total_backlog} backlog items | {total_stakeholders} stakeholders")
     print(f"   {total_forms} form instances | {total_approvals} approval requests")
-    print(f"\n🔐 Login credentials:")
-    print(f"   Email:    rana@opex.com.sa")
-    print(f"   Password: Pmo@2026")
+    print("\n🔐 Login credentials:")
+    print("   Email:    rana@opex.com.sa")
+    print("   Password: Pmo@2026")
 
 
 if __name__ == "__main__":

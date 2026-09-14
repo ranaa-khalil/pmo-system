@@ -5,11 +5,10 @@ Configure via Settings: AI API Key, Base URL, Model.
 """
 import json
 import re
+
 import httpx
+
 from app.config import settings
-
-
-from typing import Optional
 
 
 def is_ai_configured() -> bool:
@@ -17,7 +16,7 @@ def is_ai_configured() -> bool:
     return bool(settings.ai_api_key)
 
 
-def _extract_json(raw: str) -> Optional[dict]:
+def _extract_json(raw: str) -> dict | None:
     """Try every strategy to extract valid JSON from an LLM response."""
     # 1. Direct parse
     try:

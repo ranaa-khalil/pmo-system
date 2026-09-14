@@ -8,9 +8,9 @@ class TestBacklogItemModel:
 
     def test_create_backlog_item(self, db_session):
         """A backlog item can be created and linked to a project."""
+        from app.models.backlog_item import BacklogItem
         from app.models.client import Client
         from app.models.project import Project
-        from app.models.backlog_item import BacklogItem
 
         client = Client(name="BL Test", contact_email="b@b.sa")
         db_session.add(client)
@@ -47,9 +47,9 @@ class TestBacklogItemModel:
 
     def test_backlog_item_title_is_required(self, db_session):
         """BacklogItem cannot be created without a title."""
+        from app.models.backlog_item import BacklogItem
         from app.models.client import Client
         from app.models.project import Project
-        from app.models.backlog_item import BacklogItem
 
         client = Client(name="BL2", contact_email="b2@b.sa")
         db_session.add(client)
@@ -66,9 +66,9 @@ class TestBacklogItemModel:
 
     def test_default_phase_is_requirements(self, db_session):
         """New backlog items default to 'Requirements' phase."""
+        from app.models.backlog_item import BacklogItem
         from app.models.client import Client
         from app.models.project import Project
-        from app.models.backlog_item import BacklogItem
 
         client = Client(name="BL3", contact_email="b3@b.sa")
         db_session.add(client)
@@ -87,9 +87,9 @@ class TestBacklogItemModel:
 
     def test_project_can_have_multiple_backlog_items(self, db_session):
         """A project can have many backlog items."""
+        from app.models.backlog_item import BacklogItem
         from app.models.client import Client
         from app.models.project import Project
-        from app.models.backlog_item import BacklogItem
 
         client = Client(name="BL4", contact_email="b4@b.sa")
         db_session.add(client)
@@ -111,9 +111,9 @@ class TestBacklogItemModel:
 
     def test_github_issue_number_nullable(self, db_session):
         """github_issue_number is nullable (not synced yet)."""
+        from app.models.backlog_item import BacklogItem
         from app.models.client import Client
         from app.models.project import Project
-        from app.models.backlog_item import BacklogItem
 
         client = Client(name="BL5", contact_email="b5@b.sa")
         db_session.add(client)

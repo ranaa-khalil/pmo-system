@@ -1,20 +1,21 @@
 """Release API router — V-cycle release management with full detail."""
-from typing import List
 from datetime import date, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
+
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.user import User
-from app.models.role import Role
-from app.models.project import Project
-from app.models.backlog_item import BacklogItem, PHASES
-from app.models.release import Release, ReleaseItem, RELEASE_STATUSES
-from app.models.milestone import Milestone
-from app.models.form_template import FormInstance, FormTemplate
 from app.models.approval import ApprovalRequest, ApprovalStep
+from app.models.backlog_item import BacklogItem
+from app.models.form_template import FormInstance, FormTemplate
+from app.models.milestone import Milestone
+from app.models.project import Project
+from app.models.release import Release, ReleaseItem
+from app.models.role import Role
+from app.models.user import User
+from app.schemas.release import ReleaseCreate, ReleaseResponse, ReleaseUpdate
 from app.services.notifications import log_activity
-from app.schemas.release import ReleaseCreate, ReleaseUpdate, ReleaseResponse
 
 router = APIRouter(prefix="/api", tags=["releases"])
 
@@ -79,7 +80,6 @@ def _compute_phase_gates(release, items, v_cycle_index):
     and its linked backlog items. Returns a list of gates with checklist
     items marked as checked or unchecked.
     """
-    from app.models.backlog_item import ITEM_PHASES
 
     # Item stats
     total_items = len(items)
@@ -218,8 +218,8 @@ def _sync_release_items_to_phase(db: Session, release: Release, phase: str):
 
     Also auto-generate the appropriate form for the new phase.
     """
-    from app.models.release import ReleaseItem
     from app.models.backlog_item import BacklogItem
+    from app.models.release import ReleaseItem
 
     items = db.query(BacklogItem).join(
         ReleaseItem, ReleaseItem.backlog_item_id == BacklogItem.id
@@ -249,7 +249,7 @@ PHASE_FORM_MAP = {
 
 def _auto_generate_form_for_phase(db: Session, release: Release, phase: str):
     """Auto-create a form instance when a release enters a phase that requires a form."""
-    from app.models.form_template import FormTemplate, FormInstance
+    from app.models.form_template import FormInstance, FormTemplate
 
     form_info = PHASE_FORM_MAP.get(phase)
     if not form_info:
@@ -361,7 +361,7 @@ def create_release(
     return db_release
 
 
-@router.get("/projects/{project_id}/releases", response_model=List[ReleaseResponse])
+@router.get("/projects/{project_id}/releases", response_model=list[ReleaseResponse])
 def list_releases(
     project_id: int,
     db: Session = Depends(get_db),
@@ -676,9 +676,8 @@ def _create_phase_approval(db: Session, release: Release, current_user: User):
     gate_role, gate_desc, gate_checklist = gate_info
 
     # Find the user assigned to this role on this project
-    from app.models.role_assignment import RoleAssignment
     from app.models.role import Role
-    from app.models.user import User as UserModel
+    from app.models.role_assignment import RoleAssignment
 
     approver_id = None
     role = db.query(Role).filter(Role.name == gate_role).first()
@@ -997,9 +996,9 @@ def _build_release_notes(release, project, items, milestone, prev_tag, db):
     L.append(f"| Container Image Tag | {'—'} |")
     L.append(f"| ArgoCD App / Sync Status | {'—'} |")
     L.append(f"| Previous Stable Tag (rollback target) | {prev_tag or '—'} |")
-    L.append(f"| Config / Secret Changes (Vault) | None |")
-    L.append(f"| DB Migrations (reversible?) | None |")
-    L.append(f"| Monitoring Dashboards | Prometheus / Sentry / Uptime |")
+    L.append("| Config / Secret Changes (Vault) | None |")
+    L.append("| DB Migrations (reversible?) | None |")
+    L.append("| Monitoring Dashboards | Prometheus / Sentry / Uptime |")
     L.append("")
 
     # ── 9. Rollback Reference ────────────────────────────────────────
@@ -1021,7 +1020,7 @@ def _build_release_notes(release, project, items, milestone, prev_tag, db):
         L.append(f"| {s['role']} | {s['name']} | {status_icon} {s['date']} |")
     L.append("")
     L.append("---")
-    L.append(f"*Document version: Release Notes Template v1.1 · aligned to Release Process v3.4, Versioning & Release Cadence v1.2*")
+    L.append("*Document version: Release Notes Template v1.1 · aligned to Release Process v3.4, Versioning & Release Cadence v1.2*")
 
     return "\n".join(L)
 
@@ -1137,13 +1136,14 @@ def _get_signoffs(release, db):
 
 def _build_docx(release, project, items, prev_tag, db):
     """Build a DOCX that matches Release_Notes_Template_v1.1.docx exactly."""
-    from docx import Document
-    from docx.shared import Pt, Inches, RGBColor, Cm
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from docx.enum.table import WD_TABLE_ALIGNMENT
-    from docx.oxml.ns import qn
-    from io import BytesIO
     from datetime import date, datetime
+    from io import BytesIO
+
+    from docx import Document
+    from docx.enum.table import WD_TABLE_ALIGNMENT
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.oxml.ns import qn
+    from docx.shared import Cm, Pt, RGBColor
 
     done_phases = ["Pre-Release", "Release", "Post-Release", "Retrospective"]
     completed = [i for i in items if i.current_phase in done_phases]
@@ -1522,9 +1522,10 @@ def download_signoff_pdf(
     db: Session = Depends(get_db),
 ):
     """Generate a PDF document with all phase sign-offs for this release."""
-    from fpdf import FPDF
     from io import BytesIO
+
     from fastapi.responses import StreamingResponse
+    from fpdf import FPDF
 
     # Authenticate via query param token (for window.open downloads)
     if not token:

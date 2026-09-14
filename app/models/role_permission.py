@@ -1,5 +1,6 @@
 """RolePermission model — many-to-many link between Role and Permission."""
-from sqlalchemy import Column, Integer, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, ForeignKey, Integer, UniqueConstraint
+
 from app.database import Base
 
 

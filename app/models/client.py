@@ -1,7 +1,7 @@
 """Client model — represents a client organization (e.g., NITC/PNU, GO Telecom)."""
-from sqlalchemy import Column, Integer, String, Text, DateTime, UniqueConstraint, ForeignKey
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
+
 from app.database import Base
 
 

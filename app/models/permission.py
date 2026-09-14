@@ -1,5 +1,6 @@
 """Permission model — granular action permissions (e.g., 'client:create')."""
 from sqlalchemy import Column, Integer, String, Text
+
 from app.database import Base
 
 

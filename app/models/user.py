@@ -1,6 +1,7 @@
 """User model — a person who uses the PMO system."""
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy import Boolean, Column, DateTime, Integer, String
 from sqlalchemy.sql import func
+
 from app.database import Base
 
 

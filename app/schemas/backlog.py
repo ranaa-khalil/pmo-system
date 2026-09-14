@@ -1,5 +1,5 @@
 """Pydantic schemas for backlog items."""
-from typing import Optional, List
+
 from pydantic import BaseModel
 
 
@@ -14,16 +14,16 @@ class BacklogItemBrief(BaseModel):
 
 class BacklogItemBase(BaseModel):
     title: str
-    description: Optional[str] = None
+    description: str | None = None
     priority: str = "Medium"
-    kpi_id: Optional[int] = None
-    epic: Optional[str] = None
-    item_type: Optional[str] = None
-    primary_actor: Optional[str] = None
-    story_points: Optional[int] = None
-    target_release: Optional[str] = None
-    acceptance_criteria: Optional[str] = None
-    dependencies: Optional[str] = None
+    kpi_id: int | None = None
+    epic: str | None = None
+    item_type: str | None = None
+    primary_actor: str | None = None
+    story_points: int | None = None
+    target_release: str | None = None
+    acceptance_criteria: str | None = None
+    dependencies: str | None = None
 
 
 class BacklogItemCreate(BacklogItemBase):
@@ -31,20 +31,20 @@ class BacklogItemCreate(BacklogItemBase):
 
 
 class BacklogItemUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    current_phase: Optional[str] = None
-    status: Optional[str] = None
-    priority: Optional[str] = None
-    assigned_to: Optional[int] = None
-    kpi_id: Optional[int] = None
-    epic: Optional[str] = None
-    item_type: Optional[str] = None
-    primary_actor: Optional[str] = None
-    story_points: Optional[int] = None
-    target_release: Optional[str] = None
-    acceptance_criteria: Optional[str] = None
-    dependencies: Optional[str] = None
+    title: str | None = None
+    description: str | None = None
+    current_phase: str | None = None
+    status: str | None = None
+    priority: str | None = None
+    assigned_to: int | None = None
+    kpi_id: int | None = None
+    epic: str | None = None
+    item_type: str | None = None
+    primary_actor: str | None = None
+    story_points: int | None = None
+    target_release: str | None = None
+    acceptance_criteria: str | None = None
+    dependencies: str | None = None
 
 
 class BacklogItemResponse(BacklogItemBase):
@@ -52,12 +52,16 @@ class BacklogItemResponse(BacklogItemBase):
     project_id: int
     current_phase: str
     status: str
-    github_issue_number: Optional[int] = None
-    github_synced_at: Optional[str] = None
-    github_issue_url: Optional[str] = None
-    assigned_to: Optional[int] = None
-    depends_on: List[BacklogItemBrief] = []
-    blocked_by: List[BacklogItemBrief] = []
+    github_issue_number: int | None = None
+    github_synced_at: str | None = None
+    github_issue_url: str | None = None
+    github_state: str | None = None
+    github_labels: str | None = None
+    github_assignees: str | None = None
+    github_last_sync_at: str | None = None
+    assigned_to: int | None = None
+    depends_on: list[BacklogItemBrief] = []
+    blocked_by: list[BacklogItemBrief] = []
     model_config = {"from_attributes": True}
 
 

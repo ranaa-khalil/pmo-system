@@ -5,8 +5,8 @@ These tests verify that:
 2. Routes work with a valid token
 3. Permission checks work (403 when lacking permission)
 """
-import pytest
 from fastapi.testclient import TestClient
+
 from app.main import app as fastapi_app
 
 

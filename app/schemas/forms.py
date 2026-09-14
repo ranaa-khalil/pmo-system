@@ -1,5 +1,6 @@
 """Pydantic schemas for forms."""
-from typing import Any, Optional, List
+from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -7,31 +8,31 @@ class FormTemplateResponse(BaseModel):
     id: int
     name: str
     form_type: str
-    description: Optional[str] = None
-    field_schema: List[Any] = []
+    description: str | None = None
+    field_schema: list[Any] = []
     model_config = {"from_attributes": True}
 
 
 class FormInstanceCreate(BaseModel):
     template_id: int
     project_id: int
-    backlog_item_id: Optional[int] = None
+    backlog_item_id: int | None = None
 
 
 class FormInstanceUpdate(BaseModel):
-    data: Optional[dict] = None
+    data: dict | None = None
 
 
 class FormInstanceResponse(BaseModel):
     id: int
     template_id: int
     project_id: int
-    backlog_item_id: Optional[int] = None
+    backlog_item_id: int | None = None
     status: str
     data: dict = {}
-    created_by: Optional[int] = None
+    created_by: int | None = None
     model_config = {"from_attributes": True}
 
 
 class FormInstanceWithTemplateResponse(FormInstanceResponse):
-    template: Optional[FormTemplateResponse] = None
+    template: FormTemplateResponse | None = None

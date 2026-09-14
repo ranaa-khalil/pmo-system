@@ -1,16 +1,17 @@
 """User tasks API router — personal to-dos with project/milestone links and due dates."""
-from typing import List, Optional
 from datetime import date, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.user import User
-from app.models.user_task import UserTask, TASK_STATUSES, TASK_PRIORITIES
-from app.models.project import Project
 from app.models.milestone import Milestone
+from app.models.project import Project
+from app.models.user import User
+from app.models.user_task import TASK_PRIORITIES, TASK_STATUSES, UserTask
+from app.schemas.user_task import UserTaskCreate, UserTaskUpdate
 from app.services.notifications import log_activity
-from app.schemas.user_task import UserTaskCreate, UserTaskUpdate, UserTaskResponse
 
 router = APIRouter(prefix="/api", tags=["user-tasks"])
 
@@ -52,9 +53,9 @@ def _enrich(task: UserTask, db: Session) -> dict:
 
 @router.get("/tasks")
 def list_tasks(
-    status: Optional[str] = Query(None, description="Filter by status"),
-    priority: Optional[str] = Query(None, description="Filter by priority"),
-    project_id: Optional[int] = Query(None, description="Filter by project"),
+    status: str | None = Query(None, description="Filter by status"),
+    priority: str | None = Query(None, description="Filter by priority"),
+    project_id: int | None = Query(None, description="Filter by project"),
     overdue: bool = Query(False, description="Only overdue tasks"),
     upcoming: bool = Query(False, description="Only tasks due within reminder window"),
     db: Session = Depends(get_db),

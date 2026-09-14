@@ -1,11 +1,12 @@
 """Auth API router — register, login, me."""
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+
 from app.database import get_db
-from app.models.user import User
-from app.schemas.auth import UserRegister, UserLogin, UserResponse, TokenResponse
-from app.services.auth import hash_password, verify_password, create_access_token
 from app.dependencies import get_current_user
+from app.models.user import User
+from app.schemas.auth import TokenResponse, UserLogin, UserRegister, UserResponse
+from app.services.auth import create_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 

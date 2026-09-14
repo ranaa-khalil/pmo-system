@@ -2486,6 +2486,10 @@
                 <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
                 Export to GitHub
             </button>
+            <button @click="importFromGithub()" :disabled="githubImporting" x-show="githubSyncStatus?.synced_items > 0" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-600 hover:text-white hover:bg-brand-600 px-3 py-1.5 rounded-lg border border-brand-200 transition-all disabled:opacity-50" title="Sync issue status from GitHub back to PMO">
+                <svg class="w-3.5 h-3.5" :class="githubImporting ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4v6h6M21 20v-6h-6M3 10c.39-1.1 1.01-2.1 1.82-3A8 8 0 0118 5.5M21 14c-.39 1.1-1.01 2.1-1.82 3A8 8 0 016 18.5"/></svg>
+                <span x-text="githubImporting ? 'Syncing...' : 'Sync from GitHub'"></span>
+            </button>
             <button @click="exportBacklog(selectedProject.id)" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-600 hover:text-brand-600 px-3 py-1.5 rounded-lg border border-ink-200 hover:bg-ink-50 transition-colors">
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                 Export CSV
@@ -2757,10 +2761,15 @@
                                                 <div class="flex items-center gap-2">
                                                     <h4 class="text-[13px] font-semibold text-ink-800 truncate cursor-pointer hover:text-brand-600" @click="viewBacklogItem(item)" x-text="item.title"></h4>
                                                     <template x-if="item.github_issue_number">
-                                                        <a :href="item.github_issue_url || ('https://github.com/' + (selectedProject?.github_repo || '') + '/issues/' + item.github_issue_number)" target="_blank" @click.stop class="inline-flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded-md bg-ink-100 text-ink-600 hover:bg-ink-200 transition-colors flex-shrink-0">
-                                                            <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-                                                            <span x-text="'#' + item.github_issue_number"></span>
-                                                        </a>
+                                                        <div class="inline-flex items-center gap-1 flex-shrink-0">
+                                                            <a :href="item.github_issue_url || ('https://github.com/' + (selectedProject?.github_repo || '') + '/issues/' + item.github_issue_number)" target="_blank" @click.stop class="inline-flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded-md bg-ink-100 text-ink-600 hover:bg-ink-200 transition-colors">
+                                                                <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                                                                <span x-text="'#' + item.github_issue_number"></span>
+                                                            </a>
+                                                            <template x-if="item.github_state">
+                                                                <span class="text-[9px] font-medium px-1.5 py-0.5 rounded-md" :class="(item.github_state || '').toLowerCase() === 'closed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'" x-text="(item.github_state || '').toLowerCase()"></span>
+                                                            </template>
+                                                        </div>
                                                     </template>
                                                 </div>
                                                 <p class="text-[11px] text-ink-400 truncate mt-0.5" x-text="item.description || item.acceptance_criteria || ''"></p>
@@ -3192,7 +3201,15 @@
                     </div>
                     <div x-show="viewingBacklogItem?.github_issue_number">
                         <div class="text-[10px] text-ink-400">GitHub Issue</div>
-                        <a :href="viewingBacklogItem?.github_issue_url || ('https://github.com/' + (selectedProject?.github_repo || '') + '/issues/' + viewingBacklogItem?.github_issue_number)" target="_blank" class="text-[12px] text-brand-600 hover:underline" x-text="'#' + viewingBacklogItem?.github_issue_number"></a>
+                        <div class="flex items-center gap-1.5">
+                            <a :href="viewingBacklogItem?.github_issue_url || ('https://github.com/' + (selectedProject?.github_repo || '') + '/issues/' + viewingBacklogItem?.github_issue_number)" target="_blank" class="text-[12px] text-brand-600 hover:underline" x-text="'#' + viewingBacklogItem?.github_issue_number"></a>
+                            <template x-if="viewingBacklogItem?.github_state">
+                                <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-md" :class="(viewingBacklogItem?.github_state || '').toLowerCase() === 'closed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'" x-text="(viewingBacklogItem?.github_state || '').toLowerCase()"></span>
+                            </template>
+                        </div>
+                        <div x-show="viewingBacklogItem?.github_labels" class="text-[10px] text-ink-400 mt-0.5" x-text="viewingBacklogItem?.github_labels"></div>
+                        <div x-show="viewingBacklogItem?.github_assignees" class="text-[10px] text-ink-400" x-text="'Assigned: ' + viewingBacklogItem?.github_assignees"></div>
+                        <div x-show="viewingBacklogItem?.github_last_sync_at" class="text-[9px] text-ink-300 mt-0.5" x-text="'Last synced: ' + new Date(viewingBacklogItem?.github_last_sync_at).toLocaleString()"></div>
                     </div>
                 </div>
 
@@ -4058,13 +4075,26 @@
                     <div class="text-[11px] text-ink-400 uppercase tracking-wider mt-0.5">Pending Export</div>
                 </div>
             </div>
-            <!-- Quick export button -->
-            <div class="mt-4 flex justify-end" x-show="githubSyncStatus?.unsynced_items > 0">
-                <button @click="exportToGithub([])"
-                        class="inline-flex items-center gap-1.5 text-[12px] font-medium text-white bg-brand-600 hover:bg-brand-700 px-4 py-2 rounded-lg transition-all">
-                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7v3m0 0l-3-3m3 3l3-3"/></svg>
-                    Export All Pending
-                </button>
+            <!-- Sync actions -->
+            <div class="mt-4 flex justify-between items-center gap-3">
+                <div class="text-[11px] text-ink-400" x-show="githubSyncStatus?.synced_items > 0">
+                    <span x-text="githubSyncStatus?.synced_items ?? 0"></span> item(s) on GitHub
+                </div>
+                <div class="flex gap-2 ml-auto">
+                    <button @click="importFromGithub()"
+                            x-show="githubSyncStatus?.synced_items > 0"
+                            :disabled="githubImporting"
+                            class="inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-600 hover:text-white hover:bg-brand-600 px-4 py-2 rounded-lg border border-brand-200 transition-all disabled:opacity-50">
+                        <svg class="w-3.5 h-3.5" :class="githubImporting ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4v6h6M21 20v-6h-6M3 10c.39-1.1 1.01-2.1 1.82-3A8 8 0 0118 5.5M21 14c-.39 1.1-1.01 2.1-1.82 3A8 8 0 016 18.5"/></svg>
+                        <span x-text="githubImporting ? 'Syncing...' : 'Sync from GitHub'"></span>
+                    </button>
+                    <button @click="exportToGithub([])"
+                            x-show="githubSyncStatus?.unsynced_items > 0"
+                            class="inline-flex items-center gap-1.5 text-[12px] font-medium text-white bg-brand-600 hover:bg-brand-700 px-4 py-2 rounded-lg transition-all">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7v3m0 0l-3-3m3 3l3-3"/></svg>
+                        Export All Pending
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -4083,27 +4113,68 @@
 
                 <!-- Project Board Selection -->
                 <div>
-                    <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">GitHub Project Board (optional)</label>
-                    <div class="flex gap-2">
-                        <select x-model="githubBoardConfig.project_node_id"
-                                class="input-premium w-full text-[14px] bg-white flex-1"
-                                @change="onGithubProjectSelected()">
-                            <option value="">— Issues only (no project board) —</option>
-                            <template x-for="p in githubProjects" :key="p.id">
-                                <option :value="p.id" x-text="p.title + (p.description ? ' — ' + p.description : '')"></option>
-                            </template>
-                        </select>
-                        <button @click="loadGithubProjects()"
-                                :disabled="githubLoadingProjects"
-                                class="inline-flex items-center gap-1 text-[12px] font-medium text-brand-600 hover:text-white hover:bg-brand-600 px-3 py-2 rounded-lg border border-brand-200 transition-all disabled:opacity-50 whitespace-nowrap">
-                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                            <span x-text="githubLoadingProjects ? 'Loading...' : 'Refresh'"></span>
-                        </button>
-                    </div>
-                    <p class="text-[10px] text-ink-400 mt-1">Select a GitHub Project V2 board to automatically add exported issues to it. Requires 'project' scope on the GitHub token.</p>
-                    <template x-if="githubBoardConfig.project_title">
-                        <p class="text-[10px] text-brand-600 mt-1">Selected: <span x-text="githubBoardConfig.project_title"></span></p>
+                    <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">GitHub Project Board</label>
+
+                    <!-- Connected board display -->
+                    <template x-if="githubBoardConfig.project_node_id && githubBoardConfig.project_title">
+                        <div class="flex items-center justify-between gap-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <svg class="w-4 h-4 text-emerald-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                <div class="min-w-0">
+                                    <div class="text-[13px] font-medium text-ink-800 truncate" x-text="githubBoardConfig.project_title"></div>
+                                    <a :href="githubBoardConfig.project_url || '#'" target="_blank" class="text-[10px] text-brand-600 hover:underline" x-text="githubBoardConfig.project_url || ''" x-show="githubBoardConfig.project_url"></a>
+                                </div>
+                            </div>
+                            <button @click="githubBoardConfig.project_node_id = ''; githubBoardConfig.project_title = ''; githubBoardConfig.project_url = ''"
+                                    class="text-[11px] text-ink-400 hover:text-rose-600 transition-colors flex-shrink-0">Disconnect</button>
+                        </div>
                     </template>
+
+                    <!-- Not connected: show URL input + dropdown -->
+                    <template x-if="!githubBoardConfig.project_node_id || !githubBoardConfig.project_title">
+                        <div class="space-y-2">
+                            <!-- URL input -->
+                            <div class="flex gap-2">
+                                <input x-model="githubBoardUrlInput" type="text"
+                                       class="input-premium w-full text-[13px] font-mono"
+                                       placeholder="Paste board URL: https://github.com/users/ranaa-khalil/projects/1"
+                                       @keydown.enter="resolveBoardUrl()">
+                                <button @click="resolveBoardUrl()"
+                                        :disabled="githubResolvingBoard || !githubBoardUrlInput"
+                                        class="inline-flex items-center gap-1 text-[12px] font-medium text-white bg-brand-600 hover:bg-brand-700 px-3 py-2 rounded-lg transition-all disabled:opacity-50 whitespace-nowrap">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                                    <span x-text="githubResolvingBoard ? '...' : 'Connect'"></span>
+                                </button>
+                            </div>
+
+                            <!-- Divider -->
+                            <div class="flex items-center gap-3 py-1">
+                                <div class="flex-1 h-px bg-ink-100"></div>
+                                <span class="text-[10px] text-ink-400 uppercase tracking-wider">or pick from list</span>
+                                <div class="flex-1 h-px bg-ink-100"></div>
+                            </div>
+
+                            <!-- Dropdown listing -->
+                            <div class="flex gap-2">
+                                <select x-model="githubBoardConfig.project_node_id"
+                                        class="input-premium w-full text-[14px] bg-white flex-1"
+                                        @change="onGithubProjectSelected()">
+                                    <option value="">— Select a board —</option>
+                                    <template x-for="p in githubProjects" :key="p.id">
+                                        <option :value="p.id" x-text="p.title + (p.description ? ' — ' + p.description : '')"></option>
+                                    </template>
+                                </select>
+                                <button @click="loadGithubProjects()"
+                                        :disabled="githubLoadingProjects"
+                                        class="inline-flex items-center gap-1 text-[12px] font-medium text-brand-600 hover:text-white hover:bg-brand-600 px-3 py-2 rounded-lg border border-brand-200 transition-all disabled:opacity-50 whitespace-nowrap">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                    <span x-text="githubLoadingProjects ? '...' : 'Refresh'"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+
+                    <p class="text-[10px] text-ink-400 mt-1">Paste your GitHub Project board URL (e.g. https://github.com/users/ranaa-khalil/projects/1) or pick from the list. Issues will be added to this board automatically when exported. Requires 'project' scope on the GitHub token.</p>
                 </div>
 
                 <!-- Default Labels -->
@@ -4217,6 +4288,57 @@
                             <a :href="d.issue_url" target="_blank" class="text-brand-600 hover:underline font-medium flex-shrink-0" x-text="'#' + d.issue_number"></a>
                         </template>
                         <span class="text-ink-400 text-[10px] flex-shrink-0" x-text="d.status"></span>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- Import Results (Sync from GitHub) -->
+        <div class="surface rounded-2xl border border-ink-200/60 p-5" x-show="githubImportResult" x-cloak>
+            <div class="flex items-center justify-between mb-3">
+                <h4 class="text-[14px] font-semibold text-ink-800">Last Sync from GitHub</h4>
+                <button @click="githubImportResult = null" class="text-ink-400 hover:text-ink-600">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="grid grid-cols-5 gap-3 mb-3">
+                <div class="bg-ink-100 rounded-lg p-2 text-center">
+                    <div class="text-[18px] font-bold text-ink-700" x-text="githubImportResult?.total"></div>
+                    <div class="text-[10px] text-ink-400">Checked</div>
+                </div>
+                <div class="bg-blue-50 rounded-lg p-2 text-center">
+                    <div class="text-[18px] font-bold text-blue-600" x-text="githubImportResult?.updated"></div>
+                    <div class="text-[10px] text-ink-400">Updated</div>
+                </div>
+                <div class="bg-ink-100 rounded-lg p-2 text-center">
+                    <div class="text-[18px] font-bold text-ink-500" x-text="githubImportResult?.unchanged"></div>
+                    <div class="text-[10px] text-ink-400">Unchanged</div>
+                </div>
+                <div class="bg-emerald-50 rounded-lg p-2 text-center">
+                    <div class="text-[18px] font-bold text-emerald-600" x-text="githubImportResult?.closed_count"></div>
+                    <div class="text-[10px] text-ink-400">Closed</div>
+                </div>
+                <div class="bg-rose-50 rounded-lg p-2 text-center">
+                    <div class="text-[18px] font-bold text-rose-600" x-text="githubImportResult?.failed"></div>
+                    <div class="text-[10px] text-ink-400">Failed</div>
+                </div>
+            </div>
+            <!-- Details list -->
+            <div class="space-y-1.5 max-h-60 overflow-y-auto">
+                <template x-for="d in githubImportResult?.details" :key="d.item_id">
+                    <div class="flex items-center gap-2 text-[12px] py-1.5 px-2 rounded-lg" :class="d.changed ? 'bg-blue-50/50' : d.error ? 'bg-rose-50/50' : 'bg-ink-50/50'">
+                        <span class="w-2 h-2 rounded-full flex-shrink-0" :class="d.changed ? 'bg-blue-400' : d.error ? 'bg-rose-400' : 'bg-ink-300'"></span>
+                        <span class="text-ink-700 flex-1 truncate" x-text="d.title"></span>
+                        <template x-if="d.state">
+                            <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-md flex-shrink-0" :class="d.state === 'closed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'" x-text="d.state"></span>
+                        </template>
+                        <template x-if="d.project_status">
+                            <span class="text-[10px] text-ink-500 bg-ink-100 px-1.5 py-0.5 rounded-md flex-shrink-0" x-text="d.project_status"></span>
+                        </template>
+                        <template x-if="d.issue_number">
+                            <a :href="'https://github.com/' + (githubBoardConfig?.repo || selectedProject?.github_repo) + '/issues/' + d.issue_number" target="_blank" class="text-brand-600 hover:underline font-medium flex-shrink-0" x-text="'#' + d.issue_number"></a>
+                        </template>
+                        <span class="text-ink-400 text-[10px] flex-shrink-0" x-text="d.error ? 'failed' : (d.changed ? 'updated' : 'ok')"></span>
                     </div>
                 </template>
             </div>
@@ -5372,11 +5494,15 @@ function pmoApp() {
         backlogForm: { title: '', description: '', priority: 'Medium', kpi_id: '', epic: '', item_type: 'Feature', primary_actor: '', story_points: null, target_release: '', dependencies: '', depends_on: [] },
         availableDeps: [],  // backlog items available to select as dependencies
         // GitHub Board integration
-        githubBoardConfig: { repo: '', project_node_id: '', project_title: '', default_labels: 'from-pmo', auto_export: false, export_trigger_phase: 'Development', issue_title_prefix: '', include_acceptance_criteria: true, include_dependencies: true },
+        githubBoardConfig: { repo: '', project_node_id: '', project_title: '', project_url: '', default_labels: 'from-pmo', auto_export: false, export_trigger_phase: 'Development', issue_title_prefix: '', include_acceptance_criteria: true, include_dependencies: true },
         githubProjects: [],  // available GitHub Project V2 boards
         githubLoadingProjects: false,
+        githubBoardUrlInput: '',  // input for pasting a board URL
+        githubResolvingBoard: false,  // resolving board URL in progress
         githubSyncStatus: null,  // sync status for current project
         githubExportResult: null,  // last export result
+        githubImportResult: null,  // last import result
+        githubImporting: false,  // import in progress
         editingBacklogId: null,  // track which backlog item is being edited
         viewingBacklogItem: null,  // backlog item being viewed in detail modal
         suggestedVersion: null,  // auto-suggested next SemVer version
@@ -6901,7 +7027,7 @@ function pmoApp() {
                 this.githubBoardConfig = await this.api('GET', `/projects/${projectId}/github-config`);
             } catch (e) {
                 // Config doesn't exist yet — use defaults
-                this.githubBoardConfig = { repo: '', project_node_id: '', project_title: '', default_labels: 'from-pmo', auto_export: false, export_trigger_phase: 'Development', issue_title_prefix: '', include_acceptance_criteria: true, include_dependencies: true };
+                this.githubBoardConfig = { repo: '', project_node_id: '', project_title: '', project_url: '', default_labels: 'from-pmo', auto_export: false, export_trigger_phase: 'Development', issue_title_prefix: '', include_acceptance_criteria: true, include_dependencies: true };
             }
         },
 
@@ -6932,9 +7058,28 @@ function pmoApp() {
         },
 
         onGithubProjectSelected() {
-            // Update project_title when a project is selected
+            // Update project_title and project_url when a project is selected
             const selected = this.githubProjects.find(p => p.id === this.githubBoardConfig.project_node_id);
             this.githubBoardConfig.project_title = selected ? selected.title : '';
+            this.githubBoardConfig.project_url = selected ? selected.url : '';
+        },
+
+        async resolveBoardUrl() {
+            const projectId = this.selectedProject?.id;
+            if (!projectId || !this.githubBoardUrlInput) return;
+            this.githubResolvingBoard = true;
+            try {
+                const result = await this.api('POST', `/projects/${projectId}/github/resolve-board`, { url: this.githubBoardUrlInput });
+                this.githubBoardConfig.project_node_id = result.id;
+                this.githubBoardConfig.project_title = result.title;
+                this.githubBoardConfig.project_url = result.url;
+                this.githubBoardUrlInput = '';
+                this.showToast(`Connected to board: ${result.title}`, 'success');
+            } catch (e) {
+                this.showToast(e.message || 'Could not resolve board URL. Make sure the URL is correct and the token has "project" scope.', 'error');
+            } finally {
+                this.githubResolvingBoard = false;
+            }
         },
 
         async saveGithubBoardConfig() {
@@ -6968,6 +7113,29 @@ function pmoApp() {
                 await this.loadGithubSyncStatus(projectId);
             } catch (e) {
                 this.showToast(e.message || 'Export failed', 'error');
+            }
+        },
+
+        async importFromGithub() {
+            const projectId = this.selectedProject?.id;
+            if (!projectId) return;
+            this.githubImporting = true;
+            try {
+                this.githubImportResult = await this.api('POST', `/projects/${projectId}/github/import`);
+                const r = this.githubImportResult;
+                if (r.updated > 0) {
+                    this.showToast(`Synced from GitHub: ${r.updated} item(s) updated, ${r.closed_count} closed`, 'success');
+                } else if (r.failed > 0 && r.updated === 0) {
+                    this.showToast(`Sync failed for ${r.failed} item(s)`, 'error');
+                } else {
+                    this.showToast(`All ${r.unchanged} item(s) up to date`, 'info');
+                }
+                await this.loadBacklog();
+                await this.loadGithubSyncStatus(projectId);
+            } catch (e) {
+                this.showToast(e.message || 'Import failed', 'error');
+            } finally {
+                this.githubImporting = false;
             }
         },
 

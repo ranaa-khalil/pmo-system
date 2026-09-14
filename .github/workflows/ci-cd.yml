@@ -1,0 +1,82 @@
+# PMO System — CI/CD Pipeline
+# Runs on push to main/develop and on PRs
+
+name: CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  # ─── Lint & Test ───────────────────────────────────────────
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Lint with ruff
+        run: ruff check app/ tests/
+
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
+        env:
+          PMO_DATABASE_URL: "sqlite:///:memory:"
+          PMO_SECRET_KEY: "test-secret-key"
+          PMO_ENV: "test"
+
+  # ─── Build Docker Image ────────────────────────────────────
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t pmo-system:${{ github.sha }} .
+
+      - name: Test container starts
+        run: |
+          docker run -d --name pmo-test -p 8001:8000 \
+            -e PMO_DATABASE_URL="sqlite:///./test.db" \
+            -e PMO_SECRET_KEY="test-secret" \
+            -e PMO_ENV="test" \
+            pmo-system:${{ github.sha }}
+          sleep 5
+          curl -s http://localhost:8001/health | grep -q "healthy"
+          docker stop pmo-test
+          docker rm pmo-test
+
+  # ─── Deploy to Staging ─────────────────────────────────────
+  # Uncomment when staging environment is ready
+  # deploy-staging:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/develop'
+  #   environment: staging
+  #   steps:
+  #     - name: Deploy to staging
+  #       run: echo "Deploy to staging — configure your platform (Render/Railway/AWS)"
+
+  # ─── Deploy to Production ──────────────────────────────────
+  # Uncomment when production environment is ready
+  # deploy-production:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/main'
+  #   environment: production
+  #   steps:
+  #     - name: Deploy to production
+  #       run: echo "Deploy to production — configure your platform"

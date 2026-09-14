@@ -1,5 +1,4 @@
 """Test the Clients API endpoints — TDD RED phase."""
-import pytest
 
 
 class TestClientsAPI:
@@ -23,7 +22,7 @@ class TestClientsAPI:
         """GET /api/clients returns a list of clients."""
         # Create a client first
         client.post("/api/clients", json={"name": "GO Telecom", "contact_email": "info@go.com.sa"})
-        
+
         response = client.get("/api/clients")
         assert response.status_code == 200
         data = response.json()

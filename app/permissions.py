@@ -6,11 +6,12 @@ Hierarchy:
   project_manager → manages their projects, assigns team members
   member → works on assigned items
 """
-from app.models.user import User
+from sqlalchemy.orm import Session
+
 from app.models.client import Client
 from app.models.project import Project
 from app.models.role_assignment import RoleAssignment
-from sqlalchemy.orm import Session
+from app.models.user import User
 
 
 def is_super_admin(user: User) -> bool:

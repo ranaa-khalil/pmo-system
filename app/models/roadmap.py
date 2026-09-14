@@ -1,6 +1,7 @@
 """Roadmap model — a timeline view for a project (e.g., yearly)."""
-from sqlalchemy import Column, Integer, String, Date, ForeignKey
+from sqlalchemy import Column, Date, ForeignKey, Integer, String
 from sqlalchemy.sql import func
+
 from app.database import Base
 
 

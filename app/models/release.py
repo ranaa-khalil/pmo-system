@@ -5,11 +5,11 @@ A release goes through the V-cycle:
 
 Each release links to backlog items and can generate release notes.
 """
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, UniqueConstraint
-from sqlalchemy.sql import func
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
-from app.database import Base
+from sqlalchemy.sql import func
 
+from app.database import Base
 
 # Valid release statuses (maps to the V-cycle phases)
 RELEASE_STATUSES = [

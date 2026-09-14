@@ -1,6 +1,7 @@
 """UserTask model — a personal to-do item, optionally linked to a project and milestone."""
-from sqlalchemy import Column, Integer, String, Text, Date, ForeignKey
+from sqlalchemy import Column, Date, ForeignKey, Integer, String, Text
 from sqlalchemy.sql import func
+
 from app.database import Base
 
 # Valid statuses for a user task

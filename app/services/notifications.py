@@ -4,11 +4,12 @@ Used by routers (approvals, releases, backlog, user_tasks) to notify users
 of important events without coupling them to notification implementation details.
 """
 import json
-from datetime import datetime, date
+from datetime import date
+
 from sqlalchemy.orm import Session
-from app.models.notification import Notification, NotificationPreference
+
 from app.models.activity_log import ActivityLog
-from app.models.user import User
+from app.models.notification import Notification, NotificationPreference
 
 
 def create_notification(

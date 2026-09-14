@@ -1,5 +1,4 @@
 """Test the Dashboard API — TDD."""
-import pytest
 
 
 class TestDashboardAPI:

@@ -2,23 +2,24 @@
 import csv
 import io
 import json
-from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Query
+
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from jose import JWTError, jwt
 from sqlalchemy.orm import Session
+
+from app.config import settings
 from app.database import get_db
-from app.models.user import User
-from app.models.notification import Notification, NotificationPreference
+from app.dependencies import get_current_user
 from app.models.activity_log import ActivityLog
 from app.models.backlog_item import BacklogItem
-from app.models.user_task import UserTask
 from app.models.kpi import KPI
+from app.models.notification import Notification
 from app.models.project import Project
-from app.dependencies import get_current_user
-from app.services.notifications import ensure_preferences
-from jose import jwt, JWTError
-from app.config import settings
+from app.models.user import User
 from app.models.user import User as UserModel
+from app.models.user_task import UserTask
+from app.services.notifications import ensure_preferences
 
 router = APIRouter(prefix="/api", tags=["notifications"])
 
@@ -258,7 +259,7 @@ def export_tasks(
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=my_tasks.csv"}
+        headers={"Content-Disposition": "attachment; filename=my_tasks.csv"}
     )
 
 
@@ -311,8 +312,8 @@ def get_project_health(
     current_user: User = Depends(get_current_user),
 ):
     """Get composite project health score and breakdown."""
-    from app.models.release import Release, ReleaseItem
     from app.models.approval import ApprovalRequest
+    from app.models.release import Release, ReleaseItem
 
     # Phase distribution
     items = db.query(BacklogItem).filter(BacklogItem.project_id == project_id).all()

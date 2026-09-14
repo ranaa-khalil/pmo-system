@@ -1,6 +1,7 @@
 """Test the Roadmap and Milestone models — TDD RED phase."""
-import pytest
 from datetime import date
+
+import pytest
 from sqlalchemy.exc import IntegrityError
 
 
@@ -94,9 +95,9 @@ class TestMilestoneModel:
     def test_create_milestone_in_roadmap(self, db_session):
         """A milestone can be created and linked to a roadmap."""
         from app.models.client import Client
+        from app.models.milestone import Milestone
         from app.models.project import Project
         from app.models.roadmap import Roadmap
-        from app.models.milestone import Milestone
 
         client = Client(name="MS Test", contact_email="m@m.sa")
         db_session.add(client)
@@ -124,8 +125,9 @@ class TestMilestoneModel:
 
     def test_milestone_requires_roadmap_id(self, db_session):
         """Milestone cannot be created without a roadmap_id."""
-        from app.models.milestone import Milestone
         from datetime import date
+
+        from app.models.milestone import Milestone
 
         milestone = Milestone(title="Test", target_date=date(2026, 6, 1))
         db_session.add(milestone)
@@ -135,11 +137,12 @@ class TestMilestoneModel:
 
     def test_milestone_title_is_required(self, db_session):
         """Milestone cannot be created without a title."""
+        from datetime import date
+
         from app.models.client import Client
+        from app.models.milestone import Milestone
         from app.models.project import Project
         from app.models.roadmap import Roadmap
-        from app.models.milestone import Milestone
-        from datetime import date
 
         client = Client(name="M2", contact_email="m2@m.sa")
         db_session.add(client)
@@ -160,11 +163,12 @@ class TestMilestoneModel:
 
     def test_roadmap_can_have_multiple_milestones(self, db_session):
         """A roadmap can have many milestones."""
+        from datetime import date
+
         from app.models.client import Client
+        from app.models.milestone import Milestone
         from app.models.project import Project
         from app.models.roadmap import Roadmap
-        from app.models.milestone import Milestone
-        from datetime import date
 
         client = Client(name="M3", contact_email="m3@m.sa")
         db_session.add(client)

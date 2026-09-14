@@ -54,9 +54,9 @@ class TestApprovalStepModel:
     """Tests for the ApprovalStep model."""
 
     def _create_request(self, db_session):
+        from app.models.approval import ApprovalRequest
         from app.models.client import Client
         from app.models.project import Project
-        from app.models.approval import ApprovalRequest
         c = Client(name="Step Test", contact_email="s@s.sa")
         db_session.add(c)
         db_session.commit()

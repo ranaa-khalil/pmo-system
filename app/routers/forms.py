@@ -1,24 +1,25 @@
 """Forms API router — automated form generation from release process templates."""
-from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.user import User
+from app.models.form_template import FormInstance, FormTemplate
 from app.models.project import Project
-from app.models.form_template import FormTemplate, FormInstance
+from app.models.user import User
 from app.schemas.forms import (
-    FormTemplateResponse,
     FormInstanceCreate,
-    FormInstanceUpdate,
     FormInstanceResponse,
+    FormInstanceUpdate,
     FormInstanceWithTemplateResponse,
+    FormTemplateResponse,
 )
 
 router = APIRouter(prefix="/api", tags=["forms"])
 
 
-@router.get("/forms/templates", response_model=List[FormTemplateResponse])
+@router.get("/forms/templates", response_model=list[FormTemplateResponse])
 def list_templates(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """List all available form templates."""
     templates = db.query(FormTemplate).all()
@@ -60,7 +61,7 @@ def create_form_instance(
     return instance
 
 
-@router.get("/projects/{project_id}/forms", response_model=List[FormInstanceWithTemplateResponse])
+@router.get("/projects/{project_id}/forms", response_model=list[FormInstanceWithTemplateResponse])
 def list_project_forms(
     project_id: int,
     db: Session = Depends(get_db),

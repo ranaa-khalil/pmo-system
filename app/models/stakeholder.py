@@ -3,9 +3,10 @@
 Stakeholders can be internal (Obelion staff) or external (client, partner).
 Each stakeholder has a RACI role on the project.
 """
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
-from sqlalchemy.sql import func
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+
 from app.database import Base
 
 

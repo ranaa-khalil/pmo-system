@@ -1,6 +1,7 @@
 """KPI model — key performance indicators for a project."""
-from sqlalchemy import Column, Integer, String, Text, ForeignKey
+from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlalchemy.sql import func
+
 from app.database import Base
 
 

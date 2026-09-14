@@ -1,6 +1,4 @@
 """Test the Planning API (vision, KPIs, roadmaps, milestones) — TDD."""
-import pytest
-from datetime import date
 
 
 class TestVisionAPI:

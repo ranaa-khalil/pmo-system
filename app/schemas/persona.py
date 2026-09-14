@@ -1,16 +1,15 @@
 """Pydantic schemas for UserPersona and ProjectTestAccount."""
-from typing import Optional
-from pydantic import BaseModel
 
+from pydantic import BaseModel
 
 # ===== User Persona =====
 
 class PersonaBase(BaseModel):
     name: str
-    role: Optional[str] = None
-    description: Optional[str] = None
-    goals: Optional[str] = None
-    pain_points: Optional[str] = None
+    role: str | None = None
+    description: str | None = None
+    goals: str | None = None
+    pain_points: str | None = None
 
 
 class PersonaCreate(PersonaBase):
@@ -18,11 +17,11 @@ class PersonaCreate(PersonaBase):
 
 
 class PersonaUpdate(BaseModel):
-    name: Optional[str] = None
-    role: Optional[str] = None
-    description: Optional[str] = None
-    goals: Optional[str] = None
-    pain_points: Optional[str] = None
+    name: str | None = None
+    role: str | None = None
+    description: str | None = None
+    goals: str | None = None
+    pain_points: str | None = None
 
 
 class PersonaResponse(PersonaBase):
@@ -37,9 +36,9 @@ class PersonaResponse(PersonaBase):
 class TestAccountBase(BaseModel):
     environment: str  # Development, UAT, Production
     username: str
-    password_hint: Optional[str] = None
-    role: Optional[str] = None
-    notes: Optional[str] = None
+    password_hint: str | None = None
+    role: str | None = None
+    notes: str | None = None
 
 
 class TestAccountCreate(TestAccountBase):
@@ -47,11 +46,11 @@ class TestAccountCreate(TestAccountBase):
 
 
 class TestAccountUpdate(BaseModel):
-    environment: Optional[str] = None
-    username: Optional[str] = None
-    password_hint: Optional[str] = None
-    role: Optional[str] = None
-    notes: Optional[str] = None
+    environment: str | None = None
+    username: str | None = None
+    password_hint: str | None = None
+    role: str | None = None
+    notes: str | None = None
 
 
 class TestAccountResponse(TestAccountBase):

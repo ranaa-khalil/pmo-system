@@ -1,14 +1,14 @@
 """Clients API router — CRUD endpoints with hierarchical RBAC."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List, Optional
 
 from app.database import get_db
+from app.dependencies import get_current_user
 from app.models.client import Client
 from app.models.user import User
-from app.schemas.client import ClientCreate, ClientUpdate, ClientResponse
-from app.dependencies import get_current_user
-from app.permissions import can_create_client, can_manage_client, can_assign_am, get_visible_clients
+from app.permissions import can_assign_am, can_create_client, can_manage_client, get_visible_clients
+from app.schemas.client import ClientCreate, ClientResponse, ClientUpdate
 
 router = APIRouter(prefix="/api/clients", tags=["clients"])
 
@@ -30,7 +30,7 @@ def create_client(client: ClientCreate, db: Session = Depends(get_db), current_u
     return db_client
 
 
-@router.get("", response_model=List[ClientResponse])
+@router.get("", response_model=list[ClientResponse])
 def list_clients(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """List clients visible to the current user."""
     return get_visible_clients(current_user, db)

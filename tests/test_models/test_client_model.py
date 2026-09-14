@@ -2,8 +2,8 @@
 
 This test defines the expected behavior of the Client model before it exists.
 """
+
 import pytest
-from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 
 

@@ -1,5 +1,4 @@
 """Test the Backlog API — TDD."""
-import pytest
 
 
 class TestBacklogAPI:

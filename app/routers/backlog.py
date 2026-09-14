@@ -1,21 +1,24 @@
 """Backlog API router — business requirements following the 9-phase process."""
-from typing import List, Optional
+
+from datetime import UTC
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+
+from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.user import User
+from app.models.backlog_item import BacklogItem
 from app.models.project import Project
-from app.models.backlog_item import BacklogItem, PHASES
-from app.services.notifications import log_activity, notify_item_sent_back
+from app.models.user import User
 from app.schemas.backlog import (
     BacklogItemCreate,
-    BacklogItemUpdate,
     BacklogItemResponse,
+    BacklogItemUpdate,
     DependencyAdd,
 )
 from app.services.github import GitHubService
-from app.config import settings
+from app.services.notifications import log_activity
 
 router = APIRouter(prefix="/api", tags=["backlog"])
 
@@ -26,8 +29,9 @@ def _auto_export_to_github(db: Session, item: BacklogItem):
     Uses the project's GitHubBoardConfig if available, otherwise falls back to
     the project's github_repo field with basic issue creation.
     """
+    from datetime import datetime
+
     from app.models.github_board_config import GitHubBoardConfig
-    from datetime import datetime, timezone
 
     project = db.query(Project).filter(Project.id == item.project_id).first()
     if not project:
@@ -83,7 +87,7 @@ def _auto_export_to_github(db: Session, item: BacklogItem):
         if issue:
             item.github_issue_number = issue["number"]
             item.github_issue_url = issue.get("html_url", "")
-            item.github_synced_at = datetime.now(timezone.utc).isoformat()
+            item.github_synced_at = datetime.now(UTC).isoformat()
     finally:
         gh.close()
 
@@ -107,11 +111,11 @@ def create_backlog_item(
     return db_item
 
 
-@router.get("/projects/{project_id}/backlog", response_model=List[BacklogItemResponse])
+@router.get("/projects/{project_id}/backlog", response_model=list[BacklogItemResponse])
 def list_backlog_items(
     project_id: int,
-    phase: Optional[str] = Query(None, description="Filter by phase"),
-    status: Optional[str] = Query(None, description="Filter by status"),
+    phase: str | None = Query(None, description="Filter by phase"),
+    status: str | None = Query(None, description="Filter by status"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -306,7 +310,7 @@ def remove_dependency(
     return item
 
 
-@router.get("/projects/{project_id}/backlog/available-dependencies/{exclude_id}", response_model=List[BacklogItemResponse])
+@router.get("/projects/{project_id}/backlog/available-dependencies/{exclude_id}", response_model=list[BacklogItemResponse])
 def list_available_dependencies(
     project_id: int,
     exclude_id: int,

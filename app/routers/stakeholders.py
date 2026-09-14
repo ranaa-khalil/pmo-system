@@ -1,23 +1,31 @@
 """Stakeholder + Roles API router."""
-from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.user import User
 from app.models.client import Client
 from app.models.project import Project
 from app.models.role import Role
 from app.models.role_assignment import RoleAssignment
 from app.models.stakeholder import Stakeholder
+from app.models.user import User
 from app.permissions import (
-    can_create_user, can_delete_user, can_set_system_role,
-    can_manage_stakeholders, can_assign_role, can_list_users,
+    can_assign_role,
+    can_create_user,
+    can_delete_user,
+    can_manage_stakeholders,
+    can_set_system_role,
 )
 from app.schemas.stakeholder import (
-    StakeholderCreate, StakeholderUpdate, StakeholderResponse,
-    RoleCreate, RoleUpdate, RoleResponse,
-    RoleAssignmentCreate, RoleAssignmentResponse,
+    RoleAssignmentCreate,
+    RoleCreate,
+    RoleResponse,
+    RoleUpdate,
+    StakeholderCreate,
+    StakeholderResponse,
+    StakeholderUpdate,
 )
 
 router = APIRouter(prefix="/api", tags=["stakeholders"])
@@ -45,7 +53,7 @@ def create_stakeholder(
     return db_stakeholder
 
 
-@router.get("/projects/{project_id}/stakeholders", response_model=List[StakeholderResponse])
+@router.get("/projects/{project_id}/stakeholders", response_model=list[StakeholderResponse])
 def list_stakeholders(
     project_id: int,
     db: Session = Depends(get_db),
@@ -89,7 +97,7 @@ def delete_stakeholder(
 
 # ===== Roles =====
 
-@router.get("/roles", response_model=List[RoleResponse])
+@router.get("/roles", response_model=list[RoleResponse])
 def list_roles(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -148,7 +156,7 @@ def delete_role(
 
 # ===== Role Assignments =====
 
-@router.get("/projects/{project_id}/assignments", response_model=List[dict])
+@router.get("/projects/{project_id}/assignments", response_model=list[dict])
 def list_assignments(
     project_id: int,
     db: Session = Depends(get_db),
@@ -222,12 +230,12 @@ def get_traceability(
     current_user: User = Depends(get_current_user),
 ):
     """Return the full traceability chain: Vision → KPIs → Milestones → Releases → Backlog Items."""
-    from app.models.project_vision import ProjectVision
-    from app.models.kpi import KPI
-    from app.models.roadmap import Roadmap
-    from app.models.milestone import Milestone
     from app.models.backlog_item import BacklogItem
+    from app.models.kpi import KPI
+    from app.models.milestone import Milestone
+    from app.models.project_vision import ProjectVision
     from app.models.release import Release, ReleaseItem
+    from app.models.roadmap import Roadmap
 
     # Vision
     vision = db.query(ProjectVision).filter(ProjectVision.project_id == project_id).first()
@@ -312,7 +320,7 @@ def get_traceability(
 
 # ===== User Management (Super Admin) =====
 
-@router.get("/users", response_model=List[dict])
+@router.get("/users", response_model=list[dict])
 def list_users(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -384,6 +392,6 @@ def delete_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     if not can_delete_user(current_user, user):
-        raise HTTPException(status_code=403, detail=f"You don't have permission to delete this user")
+        raise HTTPException(status_code=403, detail="You don't have permission to delete this user")
     db.delete(user)
     db.commit()

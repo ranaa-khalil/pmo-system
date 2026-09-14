@@ -7,10 +7,10 @@ Templates are based on the Obelion Release Process V2.0:
 - RCA (Root Cause Analysis)
 - Retrospective
 """
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, JSON
+from sqlalchemy import JSON, Column, ForeignKey, Integer, String, Text
 from sqlalchemy.sql import func
-from app.database import Base
 
+from app.database import Base
 
 # Valid form types
 FORM_TYPES = [

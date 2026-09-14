@@ -9,8 +9,8 @@ class TestKPIModel:
     def test_create_kpi_for_project(self, db_session):
         """A KPI can be created and linked to a project."""
         from app.models.client import Client
-        from app.models.project import Project
         from app.models.kpi import KPI
+        from app.models.project import Project
 
         client = Client(name="KPI Test", contact_email="k@k.sa")
         db_session.add(client)
@@ -47,8 +47,8 @@ class TestKPIModel:
     def test_kpi_name_is_required(self, db_session):
         """KPI cannot be created without a name."""
         from app.models.client import Client
-        from app.models.project import Project
         from app.models.kpi import KPI
+        from app.models.project import Project
 
         client = Client(name="K2", contact_email="k2@k.sa")
         db_session.add(client)
@@ -66,8 +66,8 @@ class TestKPIModel:
     def test_project_can_have_multiple_kpis(self, db_session):
         """A project can have many KPIs."""
         from app.models.client import Client
-        from app.models.project import Project
         from app.models.kpi import KPI
+        from app.models.project import Project
 
         client = Client(name="K3", contact_email="k3@k.sa")
         db_session.add(client)

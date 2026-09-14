@@ -1,5 +1,4 @@
 """Test the Projects API endpoints — TDD RED phase."""
-import pytest
 
 
 class TestProjectsAPI:

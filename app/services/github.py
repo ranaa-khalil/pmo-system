@@ -8,9 +8,8 @@ Requires a GitHub personal access token configured in settings.
 For GitHub Projects V2 (board integration), the token needs the 'project' scope
 in addition to 'repo'.
 """
+
 import httpx
-from typing import Optional, List
-from datetime import datetime, timezone
 
 
 class GitHubService:
@@ -19,7 +18,7 @@ class GitHubService:
     API_BASE = "https://api.github.com"
     GRAPHQL_URL = "https://api.github.com/graphql"
 
-    def __init__(self, token: Optional[str] = None):
+    def __init__(self, token: str | None = None):
         self.token = token
         self._client = None
 
@@ -48,8 +47,11 @@ class GitHubService:
         body: str = "",
         labels: list = None,
         assignees: list = None,
-    ) -> Optional[dict]:
-        """Create an issue in a GitHub repo. Returns the issue dict or None."""
+    ) -> dict | None:
+        """Create an issue in a GitHub repo. Returns the issue dict or None.
+
+        If label creation fails (no admin rights), retries without labels.
+        """
         if not self.token:
             return None
         try:
@@ -61,11 +63,17 @@ class GitHubService:
             resp = self.client.post(f"/repos/{repo}/issues", json=payload)
             if resp.status_code == 201:
                 return resp.json()
+            # If label permission error (403/422), retry without labels
+            if resp.status_code in (403, 422) and labels:
+                payload.pop("labels", None)
+                resp = self.client.post(f"/repos/{repo}/issues", json=payload)
+                if resp.status_code == 201:
+                    return resp.json()
         except Exception:
             pass
         return None
 
-    def get_issue(self, repo: str, issue_number: int) -> Optional[dict]:
+    def get_issue(self, repo: str, issue_number: int) -> dict | None:
         """Get an issue's status from GitHub."""
         if not self.token:
             return None
@@ -85,7 +93,7 @@ class GitHubService:
             pass
         return None
 
-    def sync_issue_status(self, repo: str, issue_number: int) -> Optional[str]:
+    def sync_issue_status(self, repo: str, issue_number: int) -> str | None:
         """Check if a GitHub issue is open or closed. Returns 'open', 'closed', or None."""
         issue = self.get_issue(repo, issue_number)
         if issue:
@@ -100,7 +108,7 @@ class GitHubService:
         body: str = None,
         labels: list = None,
         state: str = None,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Update an existing GitHub issue."""
         if not self.token:
             return None
@@ -136,7 +144,7 @@ class GitHubService:
 
     # ─── REST API: Labels ──────────────────────────────────────────
 
-    def list_labels(self, repo: str) -> List[dict]:
+    def list_labels(self, repo: str) -> list[dict]:
         """List all labels in a repo."""
         if not self.token:
             return []
@@ -166,7 +174,7 @@ class GitHubService:
 
     # ─── GraphQL API: Projects V2 ──────────────────────────────────
 
-    def _graphql(self, query: str, variables: dict = None) -> Optional[dict]:
+    def _graphql(self, query: str, variables: dict = None) -> dict | None:
         """Execute a GraphQL query against the GitHub API."""
         if not self.token:
             return None
@@ -190,7 +198,7 @@ class GitHubService:
             pass
         return None
 
-    def list_projects(self, repo: str) -> List[dict]:
+    def list_projects(self, repo: str) -> list[dict]:
         """List GitHub Projects V2 linked to a repo.
 
         Returns list of {id, title, url, number} dicts.
@@ -234,7 +242,7 @@ class GitHubService:
             if not n.get("closed", False)
         ]
 
-    def list_org_projects(self, org: str) -> List[dict]:
+    def list_org_projects(self, org: str) -> list[dict]:
         """List GitHub Projects V2 for an organization."""
         query = """
         query($org: String!) {
@@ -270,7 +278,7 @@ class GitHubService:
             if not n.get("closed", False)
         ]
 
-    def list_user_projects(self) -> List[dict]:
+    def list_user_projects(self) -> list[dict]:
         """List GitHub Projects V2 for the authenticated user."""
         query = """
         query {
@@ -306,6 +314,98 @@ class GitHubService:
             if not n.get("closed", False)
         ]
 
+    def resolve_project_url(self, url: str) -> dict | None:
+        """Resolve a GitHub Project V2 URL to its node ID and metadata.
+
+        Accepts URLs like:
+          https://github.com/users/{login}/projects/{number}/views/{view}
+          https://github.com/users/{login}/projects/{number}
+          https://github.com/orgs/{login}/projects/{number}
+          https://github.com/{owner}/{repo}/projects/{number}
+
+        Returns dict with: id, title, url, number, description, closed
+        or None if the URL can't be parsed or the project can't be found.
+        """
+        import re
+
+        url = url.strip().rstrip("/")
+        # Strip /views/N suffix
+        url = re.sub(r"/views/\d+$", "", url)
+
+        # Try user-level: /users/{login}/projects/{number}
+        m = re.match(r"https?://github\.com/users/([^/]+)/projects/(\d+)$", url)
+        if m:
+            login, number = m.group(1), int(m.group(2))
+            query = """
+            query($login: String!, $number: Int!) {
+              user(login: $login) {
+                projectV2(number: $number) {
+                  id title number url shortDescription closed
+                }
+              }
+            }
+            """
+            data = self._graphql(query, {"login": login, "number": number})
+            if data and data.get("user", {}).get("projectV2"):
+                p = data["user"]["projectV2"]
+                return {
+                    "id": p["id"], "title": p["title"],
+                    "number": p.get("number"), "url": p.get("url", ""),
+                    "description": p.get("shortDescription", ""),
+                    "closed": p.get("closed", False),
+                }
+            return None
+
+        # Try org-level: /orgs/{login}/projects/{number}
+        m = re.match(r"https?://github\.com/orgs/([^/]+)/projects/(\d+)$", url)
+        if m:
+            login, number = m.group(1), int(m.group(2))
+            query = """
+            query($login: String!, $number: Int!) {
+              organization(login: $login) {
+                projectV2(number: $number) {
+                  id title number url shortDescription closed
+                }
+              }
+            }
+            """
+            data = self._graphql(query, {"login": login, "number": number})
+            if data and data.get("organization", {}).get("projectV2"):
+                p = data["organization"]["projectV2"]
+                return {
+                    "id": p["id"], "title": p["title"],
+                    "number": p.get("number"), "url": p.get("url", ""),
+                    "description": p.get("shortDescription", ""),
+                    "closed": p.get("closed", False),
+                }
+            return None
+
+        # Try repo-level: /{owner}/{repo}/projects/{number}
+        m = re.match(r"https?://github\.com/([^/]+)/([^/]+)/projects/(\d+)$", url)
+        if m:
+            owner, repo_name, number = m.group(1), m.group(2), int(m.group(3))
+            query = """
+            query($owner: String!, $repo: String!, $number: Int!) {
+              repository(owner: $owner, name: $repo) {
+                projectV2(number: $number) {
+                  id title number url shortDescription closed
+                }
+              }
+            }
+            """
+            data = self._graphql(query, {"owner": owner, "repo": repo_name, "number": number})
+            if data and data.get("repository", {}).get("projectV2"):
+                p = data["repository"]["projectV2"]
+                return {
+                    "id": p["id"], "title": p["title"],
+                    "number": p.get("number"), "url": p.get("url", ""),
+                    "description": p.get("shortDescription", ""),
+                    "closed": p.get("closed", False),
+                }
+            return None
+
+        return None
+
     def add_issue_to_project(self, project_node_id: str, issue_node_id: str) -> bool:
         """Add an issue to a GitHub Project V2 board.
 
@@ -324,7 +424,7 @@ class GitHubService:
         data = self._graphql(mutation, {"projectId": project_node_id, "contentId": issue_node_id})
         return data is not None and "addProjectV2ItemById" in (data or {})
 
-    def get_issue_node_id(self, repo: str, issue_number: int) -> Optional[str]:
+    def get_issue_node_id(self, repo: str, issue_number: int) -> str | None:
         """Get the GraphQL node ID of an issue (needed for adding to project boards)."""
         owner, repo_name = repo.split("/") if "/" in repo else (repo, "")
         if not repo_name:
@@ -343,6 +443,105 @@ class GitHubService:
         if data and data.get("repository", {}).get("issue"):
             return data["repository"]["issue"]["id"]
         return None
+
+    # ─── GraphQL API: Project V2 items with status ─────────────────
+
+    def get_project_items_with_status(self, project_node_id: str) -> list[dict]:
+        """Fetch all items in a GitHub Project V2 board with their field values.
+
+        Returns a list of dicts with keys:
+          - issue_number: int or None
+          - state: 'open' or 'closed'
+          - title: str
+          - url: str
+          - labels: list of str
+          - assignees: list of str
+          - project_status: str or None (the "Status" single-select field value)
+          - all_fields: dict of field_name → value for all single-select fields
+
+        Requires 'project' scope on the token.
+        """
+        query = """
+        query($projectId: ID!, $first: Int!) {
+          node(id: $projectId) {
+            ... on ProjectV2 {
+              title
+              items(first: $first) {
+                nodes {
+                  id
+                  content {
+                    __typename
+                    ... on Issue {
+                      number
+                      state
+                      title
+                      url
+                      labels(first: 20) { nodes { name } }
+                      assignees(first: 10) { nodes { login } }
+                    }
+                  }
+                  fieldValues(first: 20) {
+                    nodes {
+                      ... on ProjectV2ItemFieldSingleSelectValue {
+                        name
+                        field {
+                          ... on ProjectV2SingleSelectField {
+                            name
+                          }
+                        }
+                      }
+                      ... on ProjectV2ItemFieldTextValue {
+                        text
+                        field {
+                          ... on ProjectV2FieldCommon {
+                            name
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        """
+        data = self._graphql(query, {"projectId": project_node_id, "first": 100})
+        if not data or not data.get("node"):
+            return []
+
+        items = data["node"].get("items", {}).get("nodes", [])
+        results = []
+        for item in items:
+            content = item.get("content")
+            if not content or content.get("__typename") != "Issue":
+                continue
+
+            # Parse field values
+            all_fields = {}
+            project_status = None
+            for fv in item.get("fieldValues", {}).get("nodes", []):
+                if "name" in fv and "field" in fv:
+                    field_name = fv["field"].get("name", "")
+                    field_value = fv["name"]
+                    all_fields[field_name] = field_value
+                    if field_name.lower() == "status":
+                        project_status = field_value
+
+            labels = [l["name"] for l in content.get("labels", {}).get("nodes", [])]
+            assignees = [a["login"] for a in content.get("assignees", {}).get("nodes", [])]
+
+            results.append({
+                "issue_number": content.get("number"),
+                "state": content.get("state", ""),
+                "title": content.get("title", ""),
+                "url": content.get("url", ""),
+                "labels": labels,
+                "assignees": assignees,
+                "project_status": project_status,
+                "all_fields": all_fields,
+            })
+        return results
 
     # ─── High-level: Export backlog items ──────────────────────────
 
@@ -364,7 +563,7 @@ class GitHubService:
         project_node_id: str = None,
         include_acceptance_criteria: bool = True,
         include_dependencies: bool = True,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Export a single backlog item to GitHub.
 
         Creates an issue with rich body, applies labels, and optionally

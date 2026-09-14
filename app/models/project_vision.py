@@ -1,7 +1,7 @@
 """ProjectVision model — one-to-one with Project."""
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, UniqueConstraint
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.sql import func
+
 from app.database import Base
 
 

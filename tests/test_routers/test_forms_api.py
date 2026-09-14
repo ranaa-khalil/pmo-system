@@ -1,5 +1,4 @@
 """Test the Forms API — TDD."""
-import pytest
 
 
 class TestFormsAPI:

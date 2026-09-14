@@ -1,21 +1,22 @@
 """Approval workflow API router — RACI gate approval chains."""
-from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.user import User
-from app.models.project import Project
 from app.models.approval import ApprovalRequest, ApprovalStep
-from app.services.notifications import (
-    notify_approval_created, notify_approval_result, log_activity,
-)
+from app.models.project import Project
+from app.models.user import User
 from app.schemas.approval import (
-    ApprovalRequestCreate,
-    ApprovalRequestResponse,
-    ApprovalRequestWithStepsResponse,
-    ApprovalStepResponse,
     ApprovalDecision,
+    ApprovalRequestCreate,
+    ApprovalRequestWithStepsResponse,
+)
+from app.services.notifications import (
+    log_activity,
+    notify_approval_created,
+    notify_approval_result,
 )
 
 router = APIRouter(prefix="/api", tags=["approvals"])
@@ -97,7 +98,7 @@ def create_approval_request(
     return result
 
 
-@router.get("/projects/{project_id}/approvals", response_model=List[ApprovalRequestWithStepsResponse])
+@router.get("/projects/{project_id}/approvals", response_model=list[ApprovalRequestWithStepsResponse])
 def list_project_approvals(
     project_id: int,
     db: Session = Depends(get_db),
@@ -168,9 +169,10 @@ def approve_step(
         # If this is a release phase-gate approval, advance the release to
         # the target phase and create the next phase's approval.
         if request.request_type == "release" and request.release_id and request.target_phase:
-            from app.models.release import Release
-            from app.routers.releases import V_CYCLE, PHASE_GATE_ROLES, _create_phase_approval
             from datetime import date as _date
+
+            from app.models.release import Release
+            from app.routers.releases import _create_phase_approval
 
             release = db.query(Release).filter(Release.id == request.release_id).first()
             if release and release.status != request.target_phase:

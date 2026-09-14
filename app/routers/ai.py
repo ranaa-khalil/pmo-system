@@ -1,19 +1,23 @@
 """AI router — LLM-powered suggestions for vision, features, and field filling."""
 import os
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+
+from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.user import User
+from app.models.backlog_item import BacklogItem
 from app.models.project import Project
 from app.models.project_vision import ProjectVision
-from app.models.backlog_item import BacklogItem
+from app.models.user import User
 from app.models.user_persona import UserPersona
-from app.config import settings
 from app.services.ai import (
-    is_ai_configured, suggest_vision_improvements,
-    suggest_features, fill_field,
+    fill_field,
+    is_ai_configured,
+    suggest_features,
+    suggest_vision_improvements,
 )
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])

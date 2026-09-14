@@ -3,8 +3,6 @@
 RoleAssignment links a User to a Role on a specific Project.
 This is the core of RBAC: a user can have different roles on different projects.
 """
-import pytest
-from sqlalchemy.exc import IntegrityError
 
 
 class TestRoleAssignmentModel:
@@ -14,9 +12,9 @@ class TestRoleAssignmentModel:
         """A user can be assigned a role on a project."""
         from app.models.client import Client
         from app.models.project import Project
-        from app.models.user import User
         from app.models.role import Role
         from app.models.role_assignment import RoleAssignment
+        from app.models.user import User
 
         # Create prerequisites
         client = Client(name="NITC / PNU", contact_email="AEalmuqrin@nitc.sa")
@@ -53,9 +51,9 @@ class TestRoleAssignmentModel:
         """RoleAssignment has relationships back to user, role, and project."""
         from app.models.client import Client
         from app.models.project import Project
-        from app.models.user import User
         from app.models.role import Role
         from app.models.role_assignment import RoleAssignment
+        from app.models.user import User
 
         client = Client(name="GO Telecom", contact_email="info@go.com.sa")
         db_session.add(client)
@@ -89,9 +87,9 @@ class TestRoleAssignmentModel:
         """A user can be Tech Lead on one project and QA Lead on another."""
         from app.models.client import Client
         from app.models.project import Project
-        from app.models.user import User
         from app.models.role import Role
         from app.models.role_assignment import RoleAssignment
+        from app.models.user import User
 
         client = Client(name="Test", contact_email="t@t.com")
         db_session.add(client)
@@ -142,9 +140,9 @@ class TestRoleAssignmentModel:
         """RoleAssignment has a readable string representation."""
         from app.models.client import Client
         from app.models.project import Project
-        from app.models.user import User
         from app.models.role import Role
         from app.models.role_assignment import RoleAssignment
+        from app.models.user import User
 
         client = Client(name="Test", contact_email="t@t.com")
         db_session.add(client)

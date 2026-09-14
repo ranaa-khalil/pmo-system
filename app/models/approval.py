@@ -8,10 +8,10 @@ The 12 RACI roles from Release Process V2.0:
 Product Owner, PM, Tech Lead, Dev Lead, Developer, QA Lead, QA Engineer,
 DevOps Lead, DevOps Engineer, Security Officer, Release Manager, Stakeholder
 """
-from sqlalchemy import Column, Integer, String, Text, ForeignKey
+from sqlalchemy import Column, ForeignKey, Integer, String, Text
 from sqlalchemy.sql import func
-from app.database import Base
 
+from app.database import Base
 
 # Valid request types
 REQUEST_TYPES = ["release", "hotfix", "rollback", "backlog_advance", "form_signoff"]

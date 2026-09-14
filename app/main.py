@@ -1,20 +1,55 @@
 """FastAPI application entry point."""
-import os
 import logging
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
-from app.config import settings
-from app.database import Base, engine, SessionLocal
-from app.routers import clients, projects, auth, planning, backlog, forms, approvals, dashboard, stakeholders, releases, user_tasks, personas, notifications, ai, github_sync
-from app.frontend import router as frontend_router
+
 import app.models  # noqa: F401 — register all models
+from app.config import settings
+from app.database import Base, SessionLocal, engine
+from app.frontend import router as frontend_router
+from app.routers import (
+    ai,
+    approvals,
+    auth,
+    backlog,
+    clients,
+    dashboard,
+    forms,
+    github_sync,
+    notifications,
+    personas,
+    planning,
+    projects,
+    releases,
+    stakeholders,
+    user_tasks,
+)
 
 logger = logging.getLogger("app.main")
 
 # Create tables on startup
 Base.metadata.create_all(bind=engine)
+
+# Auto-migrate: add columns that create_all can't handle on existing tables
+def _auto_migrate():
+    """Add new columns to existing tables (SQLite ALTER TABLE ADD COLUMN)."""
+    from sqlalchemy import inspect, text
+    inspector = inspect(engine)
+
+    def _has_column(table: str, column: str) -> bool:
+        return column in [c["name"] for c in inspector.get_columns(table)]
+
+    with engine.connect() as conn:
+        # github_board_configs.project_url
+        if inspector.has_table("github_board_configs") and not _has_column("github_board_configs", "project_url"):
+            conn.execute(text("ALTER TABLE github_board_configs ADD COLUMN project_url VARCHAR(500)"))
+            conn.commit()
+            logger.info("Migrated: added project_url column to github_board_configs")
+
+_auto_migrate()
 
 app = FastAPI(
     title=settings.app_name,

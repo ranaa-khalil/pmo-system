@@ -1,15 +1,13 @@
 # PMO System — Python dependencies
-# Note: using plain uvicorn (not [standard]) to avoid uvloop/httptools
-# compilation issues on Render free tier
+# Production dependencies
 fastapi>=0.104.0
 uvicorn>=0.24.0
-httpx>=0.27.0,<1.0.0
+gunicorn>=21.2.0
+httpx>=0.24.0
 sqlalchemy>=2.0.0
 python-jose[cryptography]>=3.3.0
 cryptography>=42.0.0
-passlib[bcrypt]>=1.7.4
-# passlib 1.7.4 relies on bcrypt's legacy backend API.
-bcrypt>=4.0.0,<4.1.0
+bcrypt>=4.0.0
 python-multipart>=0.0.6
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
@@ -18,4 +16,7 @@ jinja2>=3.1.0
 openpyxl>=3.1.0
 python-docx>=0.8.11
 fpdf2>=2.8.0
-httpx>=0.24.0
+# PostgreSQL driver (for SaaS / production)
+psycopg2-binary>=2.9.0
+# Redis (for caching, rate limiting, background queues — Phase 1+)
+# redis>=5.0.0

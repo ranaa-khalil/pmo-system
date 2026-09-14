@@ -1,15 +1,21 @@
 """Projects API router — CRUD endpoints with hierarchical RBAC."""
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
 
 from app.database import get_db
-from app.models.project import Project
-from app.models.client import Client
-from app.models.user import User
-from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectResponse
 from app.dependencies import get_current_user
-from app.permissions import can_create_project, can_manage_client, can_manage_project, can_assign_pm, get_visible_projects
+from app.models.client import Client
+from app.models.project import Project
+from app.models.user import User
+from app.permissions import (
+    can_assign_pm,
+    can_create_project,
+    can_manage_client,
+    can_manage_project,
+    get_visible_projects,
+)
+from app.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -40,9 +46,9 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db), curren
     return db_project
 
 
-@router.get("", response_model=List[ProjectResponse])
+@router.get("", response_model=list[ProjectResponse])
 def list_projects(
-    client_id: Optional[int] = Query(None, description="Filter by client ID"),
+    client_id: int | None = Query(None, description="Filter by client ID"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

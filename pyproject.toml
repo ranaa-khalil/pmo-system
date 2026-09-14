@@ -1,0 +1,37 @@
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "E701",   # multiple statements on one line (colon) — compact if-statements
+    "E712",   # avoid equality comparisons to False — SQLAlchemy requires ==
+    "E741",   # ambiguous variable name `l` — used for labels
+    "B008",   # do not perform function calls in argument defaults (FastAPI pattern)
+    "B017",   # do not assert blind exception — pytest.raises(Exception) in tests
+    "B904",   # raise from in except (not critical)
+    "C401",   # unnecessary generator — set comprehension (readability preference)
+    "F821",   # undefined name — false positive in seed.py conditional
+    "F841",   # local variable assigned but never used — auth validation pattern
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # unused imports in __init__.py
+"tests/*" = ["B011"]  # assert False in tests
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"

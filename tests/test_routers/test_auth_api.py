@@ -1,5 +1,4 @@
 """Test the Auth API endpoints — TDD RED phase."""
-import pytest
 
 
 class TestAuthAPI:
@@ -94,6 +93,7 @@ class TestAuthAPI:
     def test_get_me_without_token_returns_401(self, db_session):
         """GET /api/auth/me without token returns 401."""
         from fastapi.testclient import TestClient
+
         from app.main import app as fastapi_app
         raw_client = TestClient(fastapi_app)
         response = raw_client.get("/api/auth/me")
@@ -102,6 +102,7 @@ class TestAuthAPI:
     def test_get_me_with_invalid_token_returns_401(self, db_session):
         """GET /api/auth/me with invalid token returns 401."""
         from fastapi.testclient import TestClient
+
         from app.main import app as fastapi_app
         raw_client = TestClient(fastapi_app)
         response = raw_client.get("/api/auth/me", headers={"Authorization": "Bearer invalidtoken123"})

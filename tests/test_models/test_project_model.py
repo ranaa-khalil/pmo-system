@@ -1,6 +1,7 @@
 """Test the Project model — TDD RED phase."""
-import pytest
 from datetime import date
+
+import pytest
 from sqlalchemy.exc import IntegrityError
 
 

@@ -1,23 +1,33 @@
 """Planning API router — vision, KPIs, roadmaps, milestones."""
-from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.user import User
+from app.models.backlog_item import BacklogItem
+from app.models.kpi import KPI
+from app.models.milestone import Milestone
 from app.models.project import Project
 from app.models.project_vision import ProjectVision
-from app.models.kpi import KPI
-from app.models.roadmap import Roadmap
-from app.models.milestone import Milestone
-from app.models.user_task import UserTask
 from app.models.release import Release
-from app.models.backlog_item import BacklogItem
+from app.models.roadmap import Roadmap
+from app.models.user import User
+from app.models.user_task import UserTask
 from app.schemas.planning import (
-    VisionCreate, VisionUpdate, VisionResponse,
-    KPICreate, KPIUpdate, KPIResponse,
-    RoadmapCreate, RoadmapUpdate, RoadmapResponse, RoadmapWithMilestonesResponse,
-    MilestoneCreate, MilestoneUpdate, MilestoneResponse,
+    KPICreate,
+    KPIResponse,
+    KPIUpdate,
+    MilestoneCreate,
+    MilestoneResponse,
+    MilestoneUpdate,
+    RoadmapCreate,
+    RoadmapResponse,
+    RoadmapUpdate,
+    RoadmapWithMilestonesResponse,
+    VisionCreate,
+    VisionResponse,
+    VisionUpdate,
 )
 
 router = APIRouter(prefix="/api", tags=["planning"])
@@ -72,7 +82,7 @@ def create_kpi(project_id: int, kpi: KPICreate, db: Session = Depends(get_db), c
     db.refresh(db_kpi)
     return db_kpi
 
-@router.get("/projects/{project_id}/kpis", response_model=List[KPIResponse])
+@router.get("/projects/{project_id}/kpis", response_model=list[KPIResponse])
 def list_kpis(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return db.query(KPI).filter(KPI.project_id == project_id).all()
 
@@ -144,7 +154,7 @@ def create_roadmap(project_id: int, roadmap: RoadmapCreate, db: Session = Depend
     db.refresh(db_roadmap)
     return db_roadmap
 
-@router.get("/projects/{project_id}/roadmaps", response_model=List[RoadmapWithMilestonesResponse])
+@router.get("/projects/{project_id}/roadmaps", response_model=list[RoadmapWithMilestonesResponse])
 def list_roadmaps(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     roadmaps = db.query(Roadmap).filter(Roadmap.project_id == project_id).all()
     for rm in roadmaps:

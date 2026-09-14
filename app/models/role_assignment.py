@@ -3,10 +3,10 @@
 This is the core of RBAC: a user can have different roles on different projects.
 For example, someone can be Tech Lead on PNU Cloud but QA Lead on CloudGate.
 """
-from sqlalchemy import Column, Integer, ForeignKey, UniqueConstraint
-from sqlalchemy.sql import func
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, UniqueConstraint
 from sqlalchemy.orm import relationship
-from sqlalchemy import DateTime
+from sqlalchemy.sql import func
+
 from app.database import Base
 
 

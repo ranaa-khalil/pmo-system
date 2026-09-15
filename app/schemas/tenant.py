@@ -80,3 +80,10 @@ class UsageResponse(BaseModel):
     users_limit: int
     projects: int
     projects_limit: int
+
+
+class AdminCreateUserRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    email: EmailStr
+    password: str = Field(..., min_length=8, max_length=72)
+    role: str = Field("member", pattern=r"^(member|admin|owner)$")

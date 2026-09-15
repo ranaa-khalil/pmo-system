@@ -1147,6 +1147,23 @@ def seed():
     print(f"✅ Created {len(activity_entries)} activity log entries")
 
     db.close()
+
+    # --- Ensure all seeded data has tenant_id set ---
+    db = SessionLocal()
+    from sqlalchemy import inspect as sa_inspect, text as sa_text
+    inspector = sa_inspect(engine)
+    for table in inspector.get_table_names():
+        cols = [c['name'] for c in inspector.get_columns(table)]
+        if 'tenant_id' in cols:
+            try:
+                result = db.execute(sa_text(f'UPDATE {table} SET tenant_id = 1 WHERE tenant_id IS NULL'))
+                if result.rowcount > 0:
+                    print(f"   ↳ {table}: {result.rowcount} rows assigned to tenant 1")
+            except Exception:
+                pass
+    db.commit()
+    db.close()
+
     print("\n📊 COMPREHENSIVE SAMPLE DATA SUMMARY:")
     print(f"   {total_clients} clients | {total_projects} projects | {total_users} users")
     print(f"   {total_kpis} KPIs | {total_milestones} milestones | {total_releases} releases")

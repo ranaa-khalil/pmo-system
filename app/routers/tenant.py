@@ -1,8 +1,9 @@
-"""Tenant management router — registration, team management, invitations."""
+"""Tenant management router — admin tenant creation, team management, invitations."""
 import re
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -20,6 +21,7 @@ from app.models.tenant import (
 from app.models.user import User
 from app.schemas.tenant import (
     AcceptInviteRequest,
+    AdminCreateUserRequest,
     InvitationResponse,
     InviteRequest,
     RegisterRequest,
@@ -53,53 +55,116 @@ def _unique_slug(db: Session, name: str) -> str:
     return slug
 
 
-# ─── Registration ───────────────────────────────────────────
+# ─── Admin: Create Tenant (super_admin only, replaces self-registration) ───
 
-@router.post("/auth/register", response_model=dict, status_code=201)
-def register(req: RegisterRequest, db: Session = Depends(get_db)):
-    """Self-service registration: creates a tenant + owner user."""
+class CreateTenantRequest(BaseModel):
+    tenant_name: str = Field(..., min_length=1, max_length=255)
+    owner_name: str = Field(..., min_length=1, max_length=255)
+    owner_email: EmailStr
+    owner_password: str = Field(..., min_length=8, max_length=72)
+    plan: str = Field("free", pattern=r"^(free|team|business|enterprise)$")
+
+
+@router.post("/admin/tenants", status_code=201)
+def create_tenant(
+    req: CreateTenantRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create a new tenant with an owner user (super_admin only).
+
+    Replaces self-registration — only the super admin can create new tenants.
+    """
+    _require_super_admin(current_user)
+
     # Check if email already exists
-    existing = db.query(User).filter(User.email == req.email.lower()).first()
+    existing = db.query(User).filter(User.email == req.owner_email.lower()).first()
     if existing:
-        raise HTTPException(400, "An account with this email already exists. Please log in.")
+        raise HTTPException(400, f"An account with email {req.owner_email} already exists.")
 
     # Create tenant
     slug = _unique_slug(db, req.tenant_name)
-    tenant = Tenant(name=req.tenant_name, slug=slug, plan="free", status="active")
+    tenant = Tenant(name=req.tenant_name, slug=slug, plan=req.plan, status="active")
     db.add(tenant)
-    db.flush()  # get tenant.id
+    db.flush()
 
-    # Create user
+    # Create owner user
+    user = User(
+        email=req.owner_email.lower(),
+        name=req.owner_name,
+        hashed_password=hash_password(req.owner_password),
+        system_role="member",
+        is_active=True,
+        active_tenant_id=tenant.id,
+    )
+    db.add(user)
+    db.flush()
+
+    # Create owner membership
+    membership = TenantMembership(
+        user_id=user.id,
+        tenant_id=tenant.id,
+        role="owner",
+    )
+    db.add(membership)
+    db.commit()
+
+    return {
+        "tenant_id": tenant.id,
+        "tenant_name": tenant.name,
+        "tenant_slug": tenant.slug,
+        "plan": tenant.plan,
+        "owner_user_id": user.id,
+        "owner_email": user.email,
+        "message": f"Tenant '{tenant.name}' created with owner {user.email}.",
+    }
+
+
+@router.post("/admin/tenants/{tenant_id}/users", status_code=201)
+def admin_create_user(
+    tenant_id: int,
+    req: AdminCreateUserRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create a user directly in a tenant (super_admin only, no invite flow)."""
+    _require_super_admin(current_user)
+
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(404, "Tenant not found.")
+
+    existing = db.query(User).filter(User.email == req.email.lower()).first()
+    if existing:
+        raise HTTPException(400, f"An account with email {req.email} already exists.")
+
     user = User(
         email=req.email.lower(),
         name=req.name,
         hashed_password=hash_password(req.password),
         system_role="member",
         is_active=True,
-        active_tenant_id=tenant.id,
+        active_tenant_id=tenant_id,
     )
     db.add(user)
-    db.flush()  # get user.id
+    db.flush()
 
-    # Create owner membership
-    membership = TenantMembership(
-        user_id=user.id,
-        tenant_id=tenant.id,
-        role=MEMBER_ROLE_OWNER,
-    )
+    role = req.role if req.role in ("owner", "admin", "member") else "member"
+    membership = TenantMembership(user_id=user.id, tenant_id=tenant_id, role=role)
     db.add(membership)
     db.commit()
 
-    # Generate token
-    token = create_access_token({"sub": str(user.id)})
     return {
-        "token": token,
-        "token_type": "bearer",
-        "tenant_id": tenant.id,
-        "tenant_name": tenant.name,
         "user_id": user.id,
-        "user_name": user.name,
+        "email": user.email,
+        "name": user.name,
+        "role": role,
+        "tenant_id": tenant_id,
+        "message": f"User {user.email} added to {tenant.name} as {role}.",
     }
+
+
+# ─── Tenant info & management ───────────────────────────────
 
 
 # ─── Tenant Info ────────────────────────────────────────────

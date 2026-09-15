@@ -1420,308 +1420,374 @@
                     <h1 class="text-[28px] font-bold text-ink-900 tracking-tight">Settings</h1>
                     <p class="text-[14px] text-ink-500 mt-1.5">Manage your account and system configuration.</p>
                 </div>
-                <!-- Account card -->
-                <div class="surface rounded-2xl border border-ink-200/60 p-6">
-                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Account</h3>
-                    <div class="flex items-center gap-4 mb-5">
-                        <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-lg font-bold" :class="avatarColor(currentUser?.full_name || 'U')" x-text="currentUser?.full_name?.charAt(0) || 'U'"></div>
-                        <div>
-                            <div class="text-[14px] font-semibold text-ink-800" x-text="currentUser?.full_name || 'User'"></div>
-                            <div class="text-[12px] text-ink-400" x-text="currentUser?.email || ''"></div>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4 text-[13px]">
-                        <div class="bg-ink-100 rounded-xl p-3">
-                            <div class="text-[11px] text-ink-400 uppercase tracking-wider">User ID</div>
-                            <div class="font-medium text-ink-700 mt-0.5" x-text="currentUser?.id || '—'"></div>
-                        </div>
-                        <div class="bg-ink-100 rounded-xl p-3">
-                            <div class="text-[11px] text-ink-400 uppercase tracking-wider">Status</div>
-                            <div class="font-medium text-emerald-600 mt-0.5">Active</div>
-                        </div>
-                    </div>
-                </div>
-                <!-- System info card -->
-                <div class="surface rounded-2xl border border-ink-200/60 p-6">
-                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">System</h3>
-                    <div class="space-y-2 text-[13px]">
-                        <div class="flex justify-between py-2 border-b border-ink-100">
-                            <span class="text-ink-400">Version</span>
-                            <span class="font-medium text-ink-700">1.0.0</span>
-                        </div>
-                        <div class="flex justify-between py-2 border-b border-ink-100">
-                            <span class="text-ink-400">API Docs</span>
-                            <a href="/docs" target="_blank" class="font-medium text-brand-600 hover:text-brand-700">Swagger UI →</a>
-                        </div>
-                        <div class="flex justify-between py-2 border-b border-ink-100">
-                            <span class="text-ink-400">Models</span>
-                            <span class="font-medium text-ink-700">16</span>
-                        </div>
-                        <div class="flex justify-between py-2 border-b border-ink-100">
-                            <span class="text-ink-400">Tests</span>
-                            <span class="font-medium text-ink-700">146 passing</span>
-                        </div>
-                        <div class="flex justify-between py-2">
-                            <span class="text-ink-400">GitHub Sync</span>
-                            <span class="font-medium text-ink-700">Board export enabled</span>
-                        </div>
-                    </div>
-                </div>
-                <!-- RACI Roles card -->
-                <div class="surface rounded-2xl border border-ink-200/60 p-6">
-                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">RACI Roles <span class="text-[11px] text-ink-400 font-normal" x-text="'(' + roles.length + ' roles)'"></span></h3>
-                    <div class="grid grid-cols-2 gap-2">
-                        <template x-for="role in roles" :key="role.id">
-                            <div class="flex items-start gap-2 bg-ink-100 rounded-xl p-2.5">
-                                <div class="w-6 h-6 rounded-lg bg-brand-50 text-brand-600 text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5" x-text="role.name.charAt(0)"></div>
-                                <div>
-                                    <div class="text-[12px] font-medium text-ink-800" x-text="role.name"></div>
-                                    <div class="text-[10px] text-ink-400 line-clamp-1" x-text="role.description || ''"></div>
-                                </div>
-                            </div>
-                        </template>
-                    </div>
-                </div>
-                <!-- Team Management card -->
-                <div x-show="canManageUsers" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-[14px] font-semibold text-ink-800">Team Management</h3>
-                        <button @click="showAddUserForm = !showAddUserForm" class="text-[12px] font-medium text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-all" x-text="showAddUserForm ? 'Cancel' : '+ Add User'"></button>
-                    </div>
 
-                    <!-- Create new user (direct, not invite) -->
-                    <div x-show="showAddUserForm" x-cloak class="bg-ink-100/60 rounded-xl p-4 mb-4 border border-black/[0.04]">
-                        <div class="text-[12px] font-semibold text-ink-700 mb-3">Create New User</div>
-                        <div class="grid grid-cols-4 gap-2 mb-3">
-                            <input x-model="tenantCreateForm.name" class="input-premium text-[13px] rounded-[10px]" placeholder="Full name">
-                            <input x-model="tenantCreateForm.email" type="email" class="input-premium text-[13px] rounded-[10px]" placeholder="Email">
-                            <input x-model="tenantCreateForm.password" type="password" class="input-premium text-[13px] rounded-[10px]" placeholder="Password (min 8)">
-                            <select x-model="tenantCreateForm.role" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white">
+                <!-- Tab bar -->
+                <div class="flex items-center gap-1 border-b border-ink-200/60">
+                    <button @click="settingsTab = 'personal'"
+                            class="px-4 py-2.5 text-[13px] font-medium transition-all border-b-2 -mb-px"
+                            :class="settingsTab === 'personal' ? 'border-brand-600 text-brand-600' : 'border-transparent text-ink-400 hover:text-ink-600'">
+                        Personal
+                    </button>
+                    <button @click="settingsTab = 'users'"
+                            class="px-4 py-2.5 text-[13px] font-medium transition-all border-b-2 -mb-px"
+                            :class="settingsTab === 'users' ? 'border-brand-600 text-brand-600' : 'border-transparent text-ink-400 hover:text-ink-600'">
+                        Users
+                    </button>
+                    <button x-show="canManageUsers" @click="settingsTab = 'tenant'"
+                            class="px-4 py-2.5 text-[13px] font-medium transition-all border-b-2 -mb-px"
+                            :class="settingsTab === 'tenant' ? 'border-brand-600 text-brand-600' : 'border-transparent text-ink-400 hover:text-ink-600'">
+                        Tenant Settings
+                    </button>
+                </div>
+
+                <!-- ===== TAB: PERSONAL ===== -->
+                <div x-show="settingsTab === 'personal'" x-cloak class="space-y-6">
+                    <!-- Account card -->
+                    <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                        <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Account</h3>
+                        <div class="flex items-center gap-4 mb-5">
+                            <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-lg font-bold" :class="avatarColor(currentUser?.full_name || 'U')" x-text="currentUser?.full_name?.charAt(0) || 'U'"></div>
+                            <div>
+                                <div class="text-[14px] font-semibold text-ink-800" x-text="currentUser?.full_name || 'User'"></div>
+                                <div class="text-[12px] text-ink-400" x-text="currentUser?.email || ''"></div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 text-[13px]">
+                            <div class="bg-ink-100 rounded-xl p-3">
+                                <div class="text-[11px] text-ink-400 uppercase tracking-wider">User ID</div>
+                                <div class="font-medium text-ink-700 mt-0.5" x-text="currentUser?.id || '—'"></div>
+                            </div>
+                            <div class="bg-ink-100 rounded-xl p-3">
+                                <div class="text-[11px] text-ink-400 uppercase tracking-wider">Status</div>
+                                <div class="font-medium text-emerald-600 mt-0.5">Active</div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- System info card -->
+                    <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                        <h3 class="text-[14px] font-semibold text-ink-800 mb-4">System</h3>
+                        <div class="space-y-2 text-[13px]">
+                            <div class="flex justify-between py-2 border-b border-ink-100">
+                                <span class="text-ink-400">Version</span>
+                                <span class="font-medium text-ink-700">1.0.0</span>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-ink-100">
+                                <span class="text-ink-400">API Docs</span>
+                                <a href="/docs" target="_blank" class="font-medium text-brand-600 hover:text-brand-700">Swagger UI →</a>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-ink-100">
+                                <span class="text-ink-400">Models</span>
+                                <span class="font-medium text-ink-700">16</span>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-ink-100">
+                                <span class="text-ink-400">Tests</span>
+                                <span class="font-medium text-ink-700">146 passing</span>
+                            </div>
+                            <div class="flex justify-between py-2">
+                                <span class="text-ink-400">GitHub Sync</span>
+                                <span class="font-medium text-ink-700">Board export enabled</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- RACI Roles card -->
+                    <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                        <h3 class="text-[14px] font-semibold text-ink-800 mb-4">RACI Roles <span class="text-[11px] text-ink-400 font-normal" x-text="'(' + roles.length + ' roles)'"></span></h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <template x-for="role in roles" :key="role.id">
+                                <div class="flex items-start gap-2 bg-ink-100 rounded-xl p-2.5">
+                                    <div class="w-6 h-6 rounded-lg bg-brand-50 text-brand-600 text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5" x-text="role.name.charAt(0)"></div>
+                                    <div>
+                                        <div class="text-[12px] font-medium text-ink-800" x-text="role.name"></div>
+                                        <div class="text-[10px] text-ink-400 line-clamp-1" x-text="role.description || ''"></div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== TAB: USERS ===== -->
+                <div x-show="settingsTab === 'users'" x-cloak class="space-y-6">
+                    <!-- Team Management card -->
+                    <div x-show="canManageUsers" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-[14px] font-semibold text-ink-800">Team Management</h3>
+                            <button @click="showAddUserForm = !showAddUserForm" class="text-[12px] font-medium text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-all" x-text="showAddUserForm ? 'Cancel' : '+ Add User'"></button>
+                        </div>
+                        <!-- Create new user (direct, not invite) -->
+                        <div x-show="showAddUserForm" x-cloak class="bg-ink-100/60 rounded-xl p-4 mb-4 border border-black/[0.04]">
+                            <div class="text-[12px] font-semibold text-ink-700 mb-3">Create New User</div>
+                            <div class="grid grid-cols-4 gap-2 mb-3">
+                                <input x-model="tenantCreateForm.name" class="input-premium text-[13px] rounded-[10px]" placeholder="Full name">
+                                <input x-model="tenantCreateForm.email" type="email" class="input-premium text-[13px] rounded-[10px]" placeholder="Email">
+                                <input x-model="tenantCreateForm.password" type="password" class="input-premium text-[13px] rounded-[10px]" placeholder="Password (min 8)">
+                                <select x-model="tenantCreateForm.role" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white">
+                                    <option value="member">Member</option>
+                                    <option value="admin">Admin</option>
+                                    <option value="owner">Owner</option>
+                                </select>
+                            </div>
+                            <button @click="tenantCreateUser()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Create User</button>
+                        </div>
+                        <!-- Invite by email (existing flow) -->
+                        <div x-show="!showAddUserForm" class="grid grid-cols-3 gap-2 mb-4">
+                            <input x-model="inviteForm.email" type="email" class="input-premium text-[13px] rounded-[10px] col-span-2" placeholder="Email address to invite">
+                            <select x-model="inviteForm.role" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
                                 <option value="member">Member</option>
                                 <option value="admin">Admin</option>
                                 <option value="owner">Owner</option>
                             </select>
                         </div>
-                        <button @click="tenantCreateUser()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Create User</button>
-                    </div>
-
-                    <!-- Invite by email (existing flow) -->
-                    <div x-show="!showAddUserForm" class="grid grid-cols-3 gap-2 mb-4">
-                        <input x-model="inviteForm.email" type="email" class="input-premium text-[13px] rounded-[10px] col-span-2" placeholder="Email address to invite">
-                        <select x-model="inviteForm.role" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
-                            <option value="member">Member</option>
-                            <option value="admin">Admin</option>
-                            <option value="owner">Owner</option>
-                        </select>
-                    </div>
-                    <button x-show="!showAddUserForm" @click="inviteMember()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all mb-4">Invite Member</button>
-
-                    <!-- Members list -->
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-[13px]">
-                            <thead>
-                                <tr class="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider border-b border-ink-100">
-                                    <th class="pb-2 pr-3">User</th>
-                                    <th class="pb-2 pr-3">Email</th>
-                                    <th class="pb-2 pr-3">Role</th>
-                                    <th class="pb-2 pr-3">Status</th>
-                                    <th class="pb-2">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <template x-for="m in tenantMembers" :key="m.user_id || m.id">
-                                    <tr class="border-b border-ink-100/60 hover:bg-ink-50/50 transition-colors">
-                                        <td class="py-2.5 pr-3">
-                                            <div class="flex items-center gap-2">
-                                                <div class="w-8 h-8 rounded-lg bg-brand-600 text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0" x-text="(m.user_name || m.name || '?').charAt(0)"></div>
-                                                <span class="font-medium text-ink-900" x-text="m.user_name || m.name"></span>
-                                            </div>
-                                        </td>
-                                        <td class="py-2.5 pr-3 text-ink-600" x-text="m.user_email || m.email"></td>
-                                        <td class="py-2.5 pr-3">
-                                            <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider"
-                                                  :class="{'bg-rose-100 text-rose-700': m.role === 'owner', 'bg-orange-100 text-orange-700': m.role === 'admin', 'bg-blue-100 text-blue-700': m.role === 'member'}"
-                                                  x-text="m.role"></span>
-                                        </td>
-                                        <td class="py-2.5 pr-3">
-                                            <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider"
-                                                  :class="{'bg-emerald-100 text-emerald-700': m.is_active !== false, 'bg-rose-100 text-rose-700': m.is_active === false}"
-                                                  x-text="m.is_active === false ? 'Inactive' : 'Active'"></span>
-                                        </td>
-                                        <td class="py-2.5">
-                                            <div class="flex items-center gap-1.5">
-                                                <select x-show="m.role !== 'owner' && m.user_id !== currentUser.id"
-                                                        @change="changeMemberRole(m.user_id, $event.target.value)"
-                                                        class="text-[10px] border border-ink-200/60 rounded-lg px-2 py-1 bg-white">
-                                                    <option value="" selected disabled>Role…</option>
-                                                    <option value="member">Member</option>
-                                                    <option value="admin">Admin</option>
-                                                    <option value="owner">Owner</option>
-                                                </select>
-                                                <button x-show="m.user_id !== currentUser.id"
-                                                        @click="tenantResetPassword(m.user_id)"
-                                                        class="text-[10px] font-medium text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded-lg transition-all">Reset Pwd</button>
-                                                <button x-show="m.role !== 'owner' && m.user_id !== currentUser.id"
-                                                        @click="tenantToggleActive(m.user_id, m.is_active !== false)"
-                                                        class="text-[10px] font-medium transition-all px-2 py-1 rounded-lg"
-                                                        :class="m.is_active !== false ? 'text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100' : 'text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100'"
-                                                        x-text="m.is_active !== false ? 'Deactivate' : 'Activate'"></button>
-                                                <button x-show="m.role !== 'owner' && m.user_id !== currentUser.id"
-                                                        @click="removeMember(m.user_id)"
-                                                        class="text-[10px] font-medium text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded-lg transition-all">Remove</button>
-                                            </div>
-                                        </td>
+                        <button x-show="!showAddUserForm" @click="inviteMember()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all mb-4">Invite Member</button>
+                        <!-- Members list -->
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-[13px]">
+                                <thead>
+                                    <tr class="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider border-b border-ink-100">
+                                        <th class="pb-2 pr-3">User</th>
+                                        <th class="pb-2 pr-3">Email</th>
+                                        <th class="pb-2 pr-3">Role</th>
+                                        <th class="pb-2 pr-3">Status</th>
+                                        <th class="pb-2">Actions</th>
                                     </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="m in tenantMembers" :key="m.user_id || m.id">
+                                        <tr class="border-b border-ink-100/60 hover:bg-ink-50/50 transition-colors">
+                                            <td class="py-2.5 pr-3">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-8 h-8 rounded-lg bg-brand-600 text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0" x-text="(m.user_name || m.name || '?').charAt(0)"></div>
+                                                    <span class="font-medium text-ink-900" x-text="m.user_name || m.name"></span>
+                                                </div>
+                                            </td>
+                                            <td class="py-2.5 pr-3 text-ink-600" x-text="m.user_email || m.email"></td>
+                                            <td class="py-2.5 pr-3">
+                                                <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider"
+                                                      :class="{'bg-rose-100 text-rose-700': m.role === 'owner', 'bg-orange-100 text-orange-700': m.role === 'admin', 'bg-blue-100 text-blue-700': m.role === 'member'}"
+                                                      x-text="m.role"></span>
+                                            </td>
+                                            <td class="py-2.5 pr-3">
+                                                <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider"
+                                                      :class="{'bg-emerald-100 text-emerald-700': m.is_active !== false, 'bg-rose-100 text-rose-700': m.is_active === false}"
+                                                      x-text="m.is_active === false ? 'Inactive' : 'Active'"></span>
+                                            </td>
+                                            <td class="py-2.5">
+                                                <div class="flex items-center gap-1.5">
+                                                    <select x-show="m.role !== 'owner' && m.user_id !== currentUser.id"
+                                                            @change="changeMemberRole(m.user_id, $event.target.value)"
+                                                            class="text-[10px] border border-ink-200/60 rounded-lg px-2 py-1 bg-white">
+                                                        <option value="" selected disabled>Role…</option>
+                                                        <option value="member">Member</option>
+                                                        <option value="admin">Admin</option>
+                                                        <option value="owner">Owner</option>
+                                                    </select>
+                                                    <button x-show="m.user_id !== currentUser.id"
+                                                            @click="tenantResetPassword(m.user_id)"
+                                                            class="text-[10px] font-medium text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded-lg transition-all">Reset Pwd</button>
+                                                    <button x-show="m.role !== 'owner' && m.user_id !== currentUser.id"
+                                                            @click="tenantToggleActive(m.user_id, m.is_active !== false)"
+                                                            class="text-[10px] font-medium transition-all px-2 py-1 rounded-lg"
+                                                            :class="m.is_active !== false ? 'text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100' : 'text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100'"
+                                                            x-text="m.is_active !== false ? 'Deactivate' : 'Activate'"></button>
+                                                    <button x-show="m.role !== 'owner' && m.user_id !== currentUser.id"
+                                                            @click="removeMember(m.user_id)"
+                                                            class="text-[10px] font-medium text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded-lg transition-all">Remove</button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                            <div x-show="tenantMembers.length === 0" class="text-[12px] text-ink-400 text-center py-4">No members yet. Add a user or invite your team above.</div>
+                        </div>
+                    </div>
+                    <!-- Assign Account Manager card -->
+                    <div x-show="canAssignAM" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
+                        <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Assign Account Manager to Client</h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <select x-model="amForm.client_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
+                                <option value="">Select client...</option>
+                                <template x-for="c in clients" :key="c.id">
+                                    <option :value="c.id" x-text="c.name"></option>
                                 </template>
-                            </tbody>
-                        </table>
-                        <div x-show="tenantMembers.length === 0" class="text-[12px] text-ink-400 text-center py-4">No members yet. Add a user or invite your team above.</div>
-                    </div>
-                </div>
-                <!-- Assign Account Manager card -->
-                <div x-show="canAssignAM" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
-                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Assign Account Manager to Client</h3>
-                    <div class="grid grid-cols-2 gap-2">
-                        <select x-model="amForm.client_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
-                            <option value="">Select client...</option>
-                            <template x-for="c in clients" :key="c.id">
-                                <option :value="c.id" x-text="c.name"></option>
-                            </template>
-                        </select>
-                        <select x-model="amForm.user_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
-                            <option value="">Select user...</option>
-                            <template x-for="u in users" :key="u.id">
-                                <option :value="u.id" x-text="u.name"></option>
-                            </template>
-                        </select>
-                    </div>
-                    <button @click="assignAM()" class="mt-3 text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Assign</button>
-                </div>
-                <!-- Assign Project Manager card -->
-                <div x-show="canAssignPM" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
-                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Assign Project Manager to Project</h3>
-                    <div class="grid grid-cols-2 gap-2">
-                        <select x-model="pmForm.project_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
-                            <option value="">Select project...</option>
-                            <template x-for="p in projects" :key="p.id">
-                                <option :value="p.id" x-text="p.name"></option>
-                            </template>
-                        </select>
-                        <select x-model="pmForm.user_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
-                            <option value="">Select user...</option>
-                            <template x-for="u in users" :key="u.id">
-                                <option :value="u.id" x-text="u.name"></option>
-                            </template>
-                        </select>
-                    </div>
-                    <button @click="assignPM()" class="mt-3 text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Assign</button>
-                </div>
-                <!-- Assign Role card -->
-                <div x-show="canAssignRoles" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
-                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Assign RACI Role to User</h3>
-                    <div class="grid grid-cols-3 gap-2">
-                        <select x-model="assignmentForm.user_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
-                            <option value="">Select user...</option>
-                            <template x-for="u in users" :key="u.id">
-                                <option :value="u.id" x-text="u.name"></option>
-                            </template>
-                        </select>
-                        <select x-model="assignmentForm.role_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
-                            <option value="">Select role...</option>
-                            <template x-for="r in roles" :key="r.id">
-                                <option :value="r.id" x-text="r.name"></option>
-                            </template>
-                        </select>
-                        <select x-model="assignmentForm.project_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
-                            <option value="">Select project...</option>
-                            <template x-for="p in projects" :key="p.id">
-                                <option :value="p.id" x-text="p.name"></option>
-                            </template>
-                        </select>
-                    </div>
-                    <button @click="assignRole()" class="mt-3 text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Assign</button>
-                </div>
-
-                <!-- Tenant General card -->
-                <div class="surface rounded-2xl border border-ink-200/60 p-6">
-                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Tenant / Organization</h3>
-                    <div class="space-y-3 text-[13px]">
-                        <div class="flex justify-between py-2 border-b border-ink-100">
-                            <span class="text-ink-400">Organization Name</span>
-                            <span class="font-medium text-ink-700" x-text="currentTenant?.name || '—'"></span>
+                            </select>
+                            <select x-model="amForm.user_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
+                                <option value="">Select user...</option>
+                                <template x-for="u in users" :key="u.id">
+                                    <option :value="u.id" x-text="u.name"></option>
+                                </template>
+                            </select>
                         </div>
-                        <div class="flex justify-between py-2 border-b border-ink-100">
-                            <span class="text-ink-400">Slug</span>
-                            <span class="font-medium text-ink-700" x-text="currentTenant?.slug || '—'"></span>
-                        </div>
-                        <div class="flex justify-between py-2 border-b border-ink-100">
-                            <span class="text-ink-400">Plan</span>
-                            <span class="font-medium text-brand-600 capitalize" x-text="currentTenant?.plan || 'free'"></span>
-                        </div>
-                        <div class="flex justify-between py-2 border-b border-ink-100">
-                            <span class="text-ink-400">Status</span>
-                            <span class="font-medium text-emerald-600 capitalize" x-text="currentTenant?.status || 'active'"></span>
-                        </div>
+                        <button @click="assignAM()" class="mt-3 text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Assign</button>
                     </div>
-                    <!-- Edit tenant name -->
-                    <div x-show="canManageUsers" x-cloak class="mt-4 flex gap-2">
-                        <input x-model="tenantEditForm.name" class="input-premium text-[13px] rounded-[10px] flex-1" placeholder="Organization name">
-                        <button @click="saveTenant()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all whitespace-nowrap">Save</button>
+                    <!-- Assign Project Manager card -->
+                    <div x-show="canAssignPM" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
+                        <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Assign Project Manager to Project</h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <select x-model="pmForm.project_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
+                                <option value="">Select project...</option>
+                                <template x-for="p in projects" :key="p.id">
+                                    <option :value="p.id" x-text="p.name"></option>
+                                </template>
+                            </select>
+                            <select x-model="pmForm.user_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
+                                <option value="">Select user...</option>
+                                <template x-for="u in users" :key="u.id">
+                                    <option :value="u.id" x-text="u.name"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <button @click="assignPM()" class="mt-3 text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Assign</button>
+                    </div>
+                    <!-- Assign Role card -->
+                    <div x-show="canAssignRoles" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
+                        <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Assign RACI Role to User</h3>
+                        <div class="grid grid-cols-3 gap-2">
+                            <select x-model="assignmentForm.user_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
+                                <option value="">Select user...</option>
+                                <template x-for="u in users" :key="u.id">
+                                    <option :value="u.id" x-text="u.name"></option>
+                                </template>
+                            </select>
+                            <select x-model="assignmentForm.role_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
+                                <option value="">Select role...</option>
+                                <template x-for="r in roles" :key="r.id">
+                                    <option :value="r.id" x-text="r.name"></option>
+                                </template>
+                            </select>
+                            <select x-model="assignmentForm.project_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
+                                <option value="">Select project...</option>
+                                <template x-for="p in projects" :key="p.id">
+                                    <option :value="p.id" x-text="p.name"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <button @click="assignRole()" class="mt-3 text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Assign</button>
                     </div>
                 </div>
 
-                <!-- Usage & Billing card -->
-                <div class="surface rounded-2xl border border-ink-200/60 p-6">
-                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Usage & Billing</h3>
-                    <div class="space-y-4">
-                        <template x-for="metric in usageMetrics" :key="metric.key">
+                <!-- ===== TAB: TENANT SETTINGS (admin/owner only) ===== -->
+                <div x-show="settingsTab === 'tenant' && canManageUsers" x-cloak class="space-y-6">
+                    <!-- Tenant General card -->
+                    <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                        <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Organization</h3>
+                        <div class="space-y-3 text-[13px]">
+                            <div class="flex justify-between py-2 border-b border-ink-100">
+                                <span class="text-ink-400">Organization Name</span>
+                                <span class="font-medium text-ink-700" x-text="currentTenant?.name || '—'"></span>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-ink-100">
+                                <span class="text-ink-400">Slug / Subdomain</span>
+                                <span class="font-medium text-ink-700" x-text="(currentTenant?.slug || '—') + '.localhost:8000'"></span>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-ink-100">
+                                <span class="text-ink-400">Plan</span>
+                                <span class="font-medium text-brand-600 capitalize" x-text="currentTenant?.plan || 'free'"></span>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-ink-100">
+                                <span class="text-ink-400">Status</span>
+                                <span class="font-medium text-emerald-600 capitalize" x-text="currentTenant?.status || 'active'"></span>
+                            </div>
+                        </div>
+                        <!-- Edit tenant name -->
+                        <div class="mt-4 flex gap-2">
+                            <input x-model="tenantEditForm.name" class="input-premium text-[13px] rounded-[10px] flex-1" placeholder="Organization name">
+                            <button @click="saveTenant()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all whitespace-nowrap">Save Name</button>
+                        </div>
+                    </div>
+
+                    <!-- Branding & Identity card -->
+                    <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                        <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Branding & Identity</h3>
+                        <p class="text-[12px] text-ink-400 mb-4">Customize how the app looks for your organization. Changes apply on your subdomain.</p>
+                        <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <div class="flex justify-between text-[12px] mb-1">
-                                    <span class="text-ink-500" x-text="metric.label"></span>
-                                    <span class="font-medium text-ink-700" x-text="metric.current + ' / ' + (metric.limit >= 999999 ? '∞' : metric.limit)"></span>
-                                </div>
-                                <div class="h-2 bg-ink-100 rounded-full overflow-hidden">
-                                    <div class="h-full rounded-full transition-all"
-                                         :class="metric.limit >= 999999 ? 'bg-brand-400' : (metric.current / metric.limit > 0.9 ? 'bg-rose-500' : metric.current / metric.limit > 0.7 ? 'bg-amber-500' : 'bg-brand-500')"
-                                         :style="'width: ' + (metric.limit >= 999999 ? '100%' : Math.min(100, metric.current / metric.limit * 100) + '%')"></div>
+                                <label class="text-[11px] font-medium text-ink-500 block mb-1">App Name (title bar & login)</label>
+                                <input x-model="tenantBrandingForm.app_name" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="e.g. Acme PMO">
+                            </div>
+                            <div>
+                                <label class="text-[11px] font-medium text-ink-500 block mb-1">Primary Color</label>
+                                <div class="flex items-center gap-2">
+                                    <input x-model="tenantBrandingForm.primary_color" type="color" class="w-10 h-10 rounded-lg border border-ink-200/60 cursor-pointer">
+                                    <input x-model="tenantBrandingForm.primary_color" class="input-premium text-[13px] rounded-[10px] flex-1" placeholder="#7c3aed">
                                 </div>
                             </div>
-                        </template>
-                    </div>
-                    <div class="mt-4 pt-4 border-t border-ink-100">
-                        <p class="text-[11px] text-ink-400">Upgrade your plan to unlock more users, projects, and features. Billing management available in Phase 2.</p>
-                    </div>
-                </div>
-
-                <!-- Integrations card -->
-                <div x-show="canManageUsers" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
-                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Integrations</h3>
-
-                    <!-- GitHub Integration -->
-                    <div class="mb-5">
-                        <div class="flex items-center gap-2 mb-2">
-                            <svg class="w-4 h-4 text-ink-700" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.37 1.23-3.21-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.21 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-                            <h4 class="text-[13px] font-semibold text-ink-800">GitHub</h4>
-                            <span class="text-[10px] px-2 py-0.5 rounded-full" :class="integrations.github_token === '[SET]' || integrations.github_token === '[GLOBAL]' ? 'bg-emerald-50 text-emerald-600' : 'bg-ink-100 text-ink-400'" x-text="integrations.github_token === '[SET]' ? 'Configured' : integrations.github_token === '[GLOBAL]' ? 'Global' : 'Not set'"></span>
+                            <div class="col-span-2">
+                                <label class="text-[11px] font-medium text-ink-500 block mb-1">Logo URL (sidebar & login screen)</label>
+                                <input x-model="tenantBrandingForm.logo_url" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="https://example.com/logo.png">
+                            </div>
+                            <div class="col-span-2 flex items-center gap-2">
+                                <input type="checkbox" x-model="tenantBrandingForm.hide_powered_by" class="rounded border-ink-300">
+                                <label class="text-[12px] text-ink-600">Hide "Powered by" (Enterprise only)</label>
+                            </div>
                         </div>
-                        <input x-model="integrationForm.github_token" type="password" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="GitHub personal access token">
+                        <!-- Live preview -->
+                        <div class="mt-4 bg-ink-100/60 rounded-xl p-4 border border-black/[0.04]">
+                            <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-2">Preview</div>
+                            <div class="flex items-center gap-3">
+                                <template x-if="tenantBrandingForm.logo_url">
+                                    <img :src="tenantBrandingForm.logo_url" class="h-7" alt="Logo preview">
+                                </template>
+                                <template x-if="!tenantBrandingForm.logo_url">
+                                    <div class="h-7 w-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold" :style="'background:' + (tenantBrandingForm.primary_color || '#7c3aed')">PMO</div>
+                                </template>
+                                <span class="text-[14px] font-bold text-ink-900" x-text="tenantBrandingForm.app_name || currentTenant?.name || 'PMO System'"></span>
+                                <button class="text-[11px] font-medium text-white px-3 py-1.5 rounded-lg" :style="'background:' + (tenantBrandingForm.primary_color || '#7c3aed')">Sample Button</button>
+                            </div>
+                        </div>
+                        <button @click="saveTenantBranding()" class="mt-4 text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Branding</button>
                     </div>
 
-                    <!-- AI Integration -->
-                    <div class="mb-5">
-                        <div class="flex items-center gap-2 mb-2">
-                            <svg class="w-4 h-4 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-                            <h4 class="text-[13px] font-semibold text-ink-800">AI / LLM</h4>
-                            <span class="text-[10px] px-2 py-0.5 rounded-full" :class="integrations.ai_api_key === '[SET]' || integrations.ai_api_key === '[GLOBAL]' ? 'bg-emerald-50 text-emerald-600' : 'bg-ink-100 text-ink-400'" x-text="integrations.ai_api_key === '[SET]' ? 'Configured' : integrations.ai_api_key === '[GLOBAL]' ? 'Global' : 'Not set'"></span>
+                    <!-- Usage & Billing card -->
+                    <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                        <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Usage & Billing</h3>
+                        <div class="space-y-4">
+                            <template x-for="metric in usageMetrics" :key="metric.key">
+                                <div>
+                                    <div class="flex justify-between text-[12px] mb-1">
+                                        <span class="text-ink-500" x-text="metric.label"></span>
+                                        <span class="font-medium text-ink-700" x-text="metric.current + ' / ' + (metric.limit >= 999999 ? '∞' : metric.limit)"></span>
+                                    </div>
+                                    <div class="h-2 bg-ink-100 rounded-full overflow-hidden">
+                                        <div class="h-full rounded-full transition-all"
+                                             :class="metric.limit >= 999999 ? 'bg-brand-400' : (metric.current / metric.limit > 0.9 ? 'bg-rose-500' : metric.current / metric.limit > 0.7 ? 'bg-amber-500' : 'bg-brand-500')"
+                                             :style="'width: ' + (metric.limit >= 999999 ? '100%' : Math.min(100, metric.current / metric.limit * 100) + '%')"></div>
+                                    </div>
+                                </div>
+                            </template>
                         </div>
-                        <div class="space-y-2">
-                            <input x-model="integrationForm.ai_api_key" type="password" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="API key">
-                            <input x-model="integrationForm.ai_base_url" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="Base URL (e.g. https://api.openai.com/v1)">
-                            <input x-model="integrationForm.ai_model" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="Model (e.g. gpt-4o-mini)">
+                        <div class="mt-4 pt-4 border-t border-ink-100">
+                            <p class="text-[11px] text-ink-400">Upgrade your plan to unlock more users, projects, and features. Billing management available in Phase 2.</p>
                         </div>
                     </div>
 
-                    <button @click="saveIntegrations()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Integrations</button>
+                    <!-- Integrations card -->
+                    <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                        <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Integrations</h3>
+                        <!-- GitHub Integration -->
+                        <div class="mb-5">
+                            <div class="flex items-center gap-2 mb-2">
+                                <svg class="w-4 h-4 text-ink-700" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.37 1.23-3.21-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.21 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                                <h4 class="text-[13px] font-semibold text-ink-800">GitHub</h4>
+                                <span class="text-[10px] px-2 py-0.5 rounded-full" :class="integrations.github_token === '[SET]' || integrations.github_token === '[GLOBAL]' ? 'bg-emerald-50 text-emerald-600' : 'bg-ink-100 text-ink-400'" x-text="integrations.github_token === '[SET]' ? 'Configured' : integrations.github_token === '[GLOBAL]' ? 'Global' : 'Not set'"></span>
+                            </div>
+                            <input x-model="integrationForm.github_token" type="password" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="GitHub personal access token">
+                        </div>
+                        <!-- AI Integration -->
+                        <div class="mb-5">
+                            <div class="flex items-center gap-2 mb-2">
+                                <svg class="w-4 h-4 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                                <h4 class="text-[13px] font-semibold text-ink-800">AI / LLM</h4>
+                                <span class="text-[10px] px-2 py-0.5 rounded-full" :class="integrations.ai_api_key === '[SET]' || integrations.ai_api_key === '[GLOBAL]' ? 'bg-emerald-50 text-emerald-600' : 'bg-ink-100 text-ink-400'" x-text="integrations.ai_api_key === '[SET]' ? 'Configured' : integrations.ai_api_key === '[GLOBAL]' ? 'Global' : 'Not set'"></span>
+                            </div>
+                            <div class="space-y-2">
+                                <input x-model="integrationForm.ai_api_key" type="password" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="API key">
+                                <input x-model="integrationForm.ai_base_url" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="Base URL (e.g. https://api.openai.com/v1)">
+                                <input x-model="integrationForm.ai_model" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="Model (e.g. gpt-4o-mini)">
+                            </div>
+                        </div>
+                        <button @click="saveIntegrations()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Integrations</button>
+                    </div>
                 </div>
 
                 <!-- Super admin panel moved to dedicated dashboard view -->
@@ -5887,6 +5953,8 @@ function pmoApp() {
         loginError: '',
         // ===== Tenant branding =====
         tenantBranding: window.__TENANT_BRANDING || null,
+        settingsTab: 'personal',
+        tenantBrandingForm: { app_name: '', primary_color: '#7c3aed', logo_url: '', hide_powered_by: false },
         loginLoading: false,
         showRegister: false,
 
@@ -8396,6 +8464,15 @@ function pmoApp() {
             try {
                 this.currentTenant = await this.api('GET', '/tenant');
                 this.tenantEditForm.name = this.currentTenant.name || '';
+                // Populate branding form
+                const b = this.currentTenant?.branding || {};
+                const logo = this.currentTenant?.logo_url || '';
+                this.tenantBrandingForm = {
+                    app_name: b.app_name || '',
+                    primary_color: b.primary_color || '#7c3aed',
+                    logo_url: logo || b.logo_url || '',
+                    hide_powered_by: b.hide_powered_by || false,
+                };
             } catch { this.currentTenant = null; }
         },
 
@@ -8403,7 +8480,16 @@ function pmoApp() {
             try {
                 await this.api('PUT', '/tenant', { name: this.tenantEditForm.name });
                 await this.loadTenant();
-                this.showToast('Tenant updated', 'success');
+                this.showToast('Tenant name updated', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async saveTenantBranding() {
+            try {
+                await this.api('PUT', '/tenant/branding', this.tenantBrandingForm);
+                await this.loadTenant();
+                this.applyBranding();
+                this.showToast('Branding saved', 'success');
             } catch (e) { this.showToast(e.message, 'error'); }
         },
 

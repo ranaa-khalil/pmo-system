@@ -212,18 +212,24 @@ def update_tenant_branding(
     db: Session = Depends(get_db),
     _user: User = Depends(require_tenant_role(MEMBER_ROLE_OWNER, MEMBER_ROLE_ADMIN)),
 ):
-    """Update tenant branding (white-label, Enterprise only).
+    """Update tenant branding (available to all plans).
 
-    Branding fields: primary_color (hex), custom_domain, hide_powered_by (bool)
+    Branding fields: primary_color (hex), logo_url, app_name, hide_powered_by (bool)
+    hide_powered_by requires Enterprise plan.
     """
     import json as _json
-    from app.services.plan_enforcement import require_feature
-    require_feature(current_tenant.plan, "white_label")
 
     branding = _json.loads(current_tenant.branding) if current_tenant.branding else {}
-    for key in ("primary_color", "custom_domain", "hide_powered_by"):
+    for key in ("primary_color", "logo_url", "app_name"):
         if key in req:
             branding[key] = req[key]
+    # hide_powered_by is Enterprise only
+    if "hide_powered_by" in req:
+        if current_tenant.plan == "enterprise":
+            branding["hide_powered_by"] = req["hide_powered_by"]
+    # Also update logo_url column
+    if "logo_url" in req:
+        current_tenant.logo_url = req["logo_url"]
     current_tenant.branding = _json.dumps(branding)
     db.commit()
     return {"ok": True, "branding": branding}

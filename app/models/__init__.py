@@ -18,6 +18,7 @@ from app.models.role import Role
 from app.models.role_assignment import RoleAssignment
 from app.models.role_permission import RolePermission
 from app.models.stakeholder import Stakeholder
+from app.models.tenant import Invitation, Tenant, TenantMembership
 from app.models.user import User
 from app.models.user_persona import UserPersona
 from app.models.user_task import UserTask
@@ -35,4 +36,5 @@ __all__ = [
     "Notification", "NotificationPreference",
     "ActivityLog",
     "GitHubBoardConfig",
+    "Tenant", "TenantMembership", "Invitation",
 ]

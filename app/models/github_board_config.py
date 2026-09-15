@@ -20,6 +20,7 @@ class GitHubBoardConfig(Base):
     __tablename__ = "github_board_configs"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, unique=True)
 
     # Target repo in "owner/repo" format (e.g. "opexsa/cloudgate")

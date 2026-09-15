@@ -11,6 +11,7 @@ class UserPersona(Base):
     __tablename__ = "user_personas"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(100), nullable=False)            # e.g. "Platform Admin"
     role = Column(String(100), nullable=True)             # e.g. "System Administrator"

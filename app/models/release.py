@@ -29,6 +29,7 @@ class Release(Base):
     __tablename__ = "releases"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     version = Column(String(50), nullable=False)
     name = Column(String(255), nullable=False)

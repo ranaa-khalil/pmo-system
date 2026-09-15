@@ -12,6 +12,7 @@ class ActivityLog(Base):
     __tablename__ = "activity_logs"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)  # nullable for system actions
     user_name = Column(String(255), nullable=True)  # denormalized for quick display
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)

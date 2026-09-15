@@ -12,6 +12,7 @@ class Client(Base):
     __table_args__ = (UniqueConstraint("contact_email", name="uq_client_email"),)
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
     name = Column(String(255), nullable=False)
     contact_name = Column(String(255), nullable=True)
     contact_email = Column(String(255), nullable=True)

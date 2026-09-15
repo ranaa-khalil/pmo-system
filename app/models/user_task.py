@@ -23,6 +23,7 @@ class UserTask(Base):
     __tablename__ = "user_tasks"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
     title = Column(String(500), nullable=False)
     description = Column(Text, nullable=True)
     assigned_to = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)

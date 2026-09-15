@@ -12,6 +12,7 @@ class Notification(Base):
     __tablename__ = "notifications"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     type = Column(String(50), nullable=False)  # approval_request, task_due, task_overdue, release_advanced, item_sent_back, phase_changed, mention
     title = Column(String(255), nullable=False)

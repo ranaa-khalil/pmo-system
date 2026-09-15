@@ -25,6 +25,7 @@ from app.routers import (
     projects,
     releases,
     stakeholders,
+    tenant,
     user_tasks,
 )
 
@@ -33,21 +34,49 @@ logger = logging.getLogger("app.main")
 # Create tables on startup
 Base.metadata.create_all(bind=engine)
 
-# Auto-migrate: add columns that create_all can't handle on existing tables
+# Tables that should have tenant_id added (all tenant-scoped tables)
+_TENANT_TABLES = [
+    "clients", "projects", "backlog_items", "releases", "release_items",
+    "kpis", "roadmaps", "milestones", "stakeholders", "roles",
+    "role_assignments", "role_permissions", "permissions",
+    "approval_requests", "approval_steps", "user_tasks",
+    "form_templates", "form_instances", "user_personas",
+    "project_test_accounts", "project_visions", "github_board_configs",
+    "notifications", "notification_preferences", "activity_logs",
+]
+
+
 def _auto_migrate():
-    """Add new columns to existing tables (SQLite ALTER TABLE ADD COLUMN)."""
+    """Add new columns to existing tables."""
     from sqlalchemy import inspect, text
     inspector = inspect(engine)
 
     def _has_column(table: str, column: str) -> bool:
         return column in [c["name"] for c in inspector.get_columns(table)]
 
-    with engine.connect() as conn:
-        # github_board_configs.project_url
-        if inspector.has_table("github_board_configs") and not _has_column("github_board_configs", "project_url"):
-            conn.execute(text("ALTER TABLE github_board_configs ADD COLUMN project_url VARCHAR(500)"))
-            conn.commit()
-            logger.info("Migrated: added project_url column to github_board_configs")
+    def _add_column(table: str, column_def: str):
+        """Add a column using ALTER TABLE (works for both SQLite and PostgreSQL)."""
+        if inspector.has_table(table) and not _has_column(table, column_def.split()[0]):
+            conn = engine.connect()
+            try:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column_def}"))
+                conn.commit()
+                logger.info(f"Migrated: added {column_def.split()[0]} to {table}")
+            except Exception as e:
+                logger.warning(f"Migration skipped for {table}.{column_def.split()[0]}: {e}")
+            finally:
+                conn.close()
+
+    # Add project_url to github_board_configs (from earlier migration)
+    _add_column("github_board_configs", "project_url VARCHAR(500)")
+
+    # Add active_tenant_id to users
+    _add_column("users", "active_tenant_id INTEGER")
+
+    # Add tenant_id to all tenant-scoped tables
+    for table in _TENANT_TABLES:
+        _add_column(table, "tenant_id INTEGER")
+
 
 _auto_migrate()
 
@@ -73,6 +102,7 @@ app.add_middleware(
 
 # Register API routers
 app.include_router(auth.router)
+app.include_router(tenant.router)
 app.include_router(clients.router)
 app.include_router(projects.router)
 app.include_router(planning.router)

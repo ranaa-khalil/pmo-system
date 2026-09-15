@@ -16,6 +16,7 @@ class Stakeholder(Base):
     __tablename__ = "stakeholders"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
     name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=True)

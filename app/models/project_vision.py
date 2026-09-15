@@ -14,6 +14,7 @@ class ProjectVision(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     statement = Column(Text, nullable=False)
     strategic_objectives = Column(Text, nullable=True)

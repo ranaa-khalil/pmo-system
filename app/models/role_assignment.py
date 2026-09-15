@@ -19,6 +19,7 @@ class RoleAssignment(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)

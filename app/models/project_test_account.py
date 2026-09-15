@@ -11,6 +11,7 @@ class ProjectTestAccount(Base):
     __tablename__ = "project_test_accounts"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     environment = Column(String(50), nullable=False)      # "Development", "UAT", "Production"
     username = Column(String(200), nullable=False)        # e.g. "admin@pnu-cloud.opex.com.sa"

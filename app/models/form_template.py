@@ -33,6 +33,7 @@ class FormTemplate(Base):
     __tablename__ = "form_templates"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
     name = Column(String(255), nullable=False)
     form_type = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)

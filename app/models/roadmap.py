@@ -11,6 +11,7 @@ class Roadmap(Base):
     __tablename__ = "roadmaps"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     title = Column(String(255), nullable=False)
     start_date = Column(Date, nullable=True)

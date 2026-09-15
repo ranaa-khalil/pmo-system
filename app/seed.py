@@ -62,6 +62,25 @@ def seed():
         admin.system_role = "super_admin"
         print("ℹ️ Admin user already exists — password reset, role set to super_admin")
 
+    # --- Ensure admin has a tenant ---
+    from app.models.tenant import Tenant, TenantMembership
+    tenant = db.query(Tenant).first()
+    if not tenant:
+        tenant = Tenant(name="PMO Workspace", slug="pmo-workspace", plan="enterprise", status="active")
+        db.add(tenant)
+        db.flush()
+        print(f"✅ Created tenant: {tenant.name}")
+    # Make admin the owner if not already a member
+    existing_membership = db.query(TenantMembership).filter(
+        TenantMembership.user_id == admin.id,
+        TenantMembership.tenant_id == tenant.id,
+    ).first()
+    if not existing_membership:
+        db.add(TenantMembership(user_id=admin.id, tenant_id=tenant.id, role="owner"))
+        print(f"✅ Added admin as owner of tenant: {tenant.name}")
+    admin.active_tenant_id = tenant.id
+    db.commit()
+
     # --- RACI Roles ---
     for name, desc in RACI_ROLES:
         existing = db.query(Role).filter(Role.name == name).first()

@@ -17,7 +17,7 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 @router.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
     """Main dashboard page — SPA entry point."""
-    response = templates.TemplateResponse("index.html", {"request": request})
+    response = templates.TemplateResponse(request=request, name="index.html", context={})
     # Prevent browser caching — always serve the latest version
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"] = "no-cache"

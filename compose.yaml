@@ -1,0 +1,16 @@
+services:
+  app:
+    build: .
+    ports:
+      - "127.0.0.1:${PMO_PORT:-8000}:8000"
+    environment:
+      PMO_DATABASE_URL: sqlite:////app/data/pmo_system.db
+      PMO_SECRET_KEY: ${PMO_SECRET_KEY:?Set PMO_SECRET_KEY in .env}
+      PMO_DEBUG: "false"
+      PMO_GITHUB_TOKEN: ${PMO_GITHUB_TOKEN:-}
+    volumes:
+      - pmo_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  pmo_data:

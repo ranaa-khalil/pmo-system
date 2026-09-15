@@ -85,6 +85,9 @@ def get_github_config(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Get the GitHub board configuration for a project."""
+    from app.services.plan_enforcement import require_feature
+    require_feature(current_tenant.plan, "github_sync")
+
     if not db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first():
         raise HTTPException(status_code=404, detail="Project not found")
     config = _get_or_create_config(db, project_id, current_tenant.id)

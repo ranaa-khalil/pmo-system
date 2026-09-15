@@ -494,3 +494,172 @@ def delete_tenant_setting(
         raise HTTPException(404, f"Setting '{key}' not found.")
     return {"ok": True, "deleted": key}
 
+
+# ─── Admin: Tenant Management (super_admin only) ────────────
+
+def _require_super_admin(user: User):
+    if user.system_role != "super_admin":
+        raise HTTPException(403, "Super admin access required.")
+
+
+@router.get("/admin/tenants")
+def list_all_tenants(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List all tenants (super_admin only)."""
+    _require_super_admin(current_user)
+    tenants = db.query(Tenant).order_by(Tenant.created_at.desc()).all()
+    return [
+        {
+            "id": t.id,
+            "name": t.name,
+            "slug": t.slug,
+            "plan": t.plan,
+            "status": t.status,
+            "logo_url": t.logo_url,
+            "created_at": t.created_at.isoformat() if t.created_at else None,
+            "member_count": db.query(TenantMembership).filter(TenantMembership.tenant_id == t.id).count(),
+            "project_count": db.query(Project).filter(Project.tenant_id == t.id).count(),
+        }
+        for t in tenants
+    ]
+
+
+@router.put("/admin/tenants/{tenant_id}/plan")
+def update_tenant_plan(
+    tenant_id: int,
+    plan: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update a tenant's plan (super_admin only).
+
+    Plans: free, team, business, enterprise
+    """
+    _require_super_admin(current_user)
+    if plan not in ("free", "team", "business", "enterprise"):
+        raise HTTPException(400, "Invalid plan. Use: free, team, business, or enterprise.")
+
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(404, "Tenant not found.")
+
+    old_plan = tenant.plan
+    tenant.plan = plan
+    db.commit()
+    return {
+        "ok": True,
+        "tenant_id": tenant.id,
+        "tenant_name": tenant.name,
+        "old_plan": old_plan,
+        "new_plan": plan,
+    }
+
+
+@router.put("/admin/tenants/{tenant_id}/status")
+def update_tenant_status(
+    tenant_id: int,
+    status: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update a tenant's status (super_admin only).
+
+    Statuses: active, suspended, cancelled
+    """
+    _require_super_admin(current_user)
+    if status not in ("active", "suspended", "cancelled"):
+        raise HTTPException(400, "Invalid status. Use: active, suspended, or cancelled.")
+
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(404, "Tenant not found.")
+
+    tenant.status = status
+    db.commit()
+    return {
+        "ok": True,
+        "tenant_id": tenant.id,
+        "tenant_name": tenant.name,
+        "status": status,
+    }
+
+
+# ─── Data Export (Business+ feature) ─────────────────────────
+
+@router.get("/tenant/export")
+def export_tenant(
+    current_tenant: Tenant = Depends(get_current_tenant),
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_tenant_role(MEMBER_ROLE_OWNER, MEMBER_ROLE_ADMIN)),
+):
+    """Export all tenant data as JSON (Business+ feature)."""
+    from app.services.plan_enforcement import require_feature
+    require_feature(current_tenant.plan, "data_export")
+    from app.services.data_export import export_tenant_data
+    return export_tenant_data(db, current_tenant.id)
+
+
+@router.get("/tenant/export/projects/{project_id}")
+def export_project(
+    project_id: int,
+    current_tenant: Tenant = Depends(get_current_tenant),
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_tenant_role(MEMBER_ROLE_OWNER, MEMBER_ROLE_ADMIN)),
+):
+    """Export a single project's data as JSON."""
+    from app.services.plan_enforcement import require_feature
+    require_feature(current_tenant.plan, "data_export")
+    from app.services.data_export import export_project_data
+    data = export_project_data(db, current_tenant.id, project_id)
+    if data is None:
+        raise HTTPException(404, "Project not found.")
+    return data
+
+
+# ─── Audit Log (Enhanced) ────────────────────────────────────
+
+@router.get("/tenant/audit-log")
+def get_audit_log(
+    page: int = 1,
+    per_page: int = 50,
+    entity_type: str = None,
+    action: str = None,
+    current_tenant: Tenant = Depends(get_current_tenant),
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_tenant_role(MEMBER_ROLE_OWNER, MEMBER_ROLE_ADMIN)),
+):
+    """Paginated audit log with filters (owner/admin only)."""
+    from app.models.activity_log import ActivityLog
+    q = db.query(ActivityLog).filter(ActivityLog.tenant_id == current_tenant.id)
+    if entity_type:
+        q = q.filter(ActivityLog.entity_type == entity_type)
+    if action:
+        q = q.filter(ActivityLog.action == action)
+
+    total = q.count()
+    offset = (page - 1) * per_page
+    entries = q.order_by(ActivityLog.created_at.desc()).offset(offset).limit(per_page).all()
+
+    return {
+        "page": page,
+        "per_page": per_page,
+        "total": total,
+        "total_pages": (total + per_page - 1) // per_page,
+        "entries": [
+            {
+                "id": e.id,
+                "user_id": e.user_id,
+                "user_name": e.user_name,
+                "project_id": e.project_id,
+                "entity_type": e.entity_type,
+                "entity_id": e.entity_id,
+                "action": e.action,
+                "summary": e.summary,
+                "created_at": e.created_at.isoformat() if e.created_at else None,
+            }
+            for e in entries
+        ],
+    }
+

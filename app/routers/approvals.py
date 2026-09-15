@@ -48,6 +48,9 @@ def create_approval_request(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Create an approval request with a chain of RACI steps."""
+    from app.services.plan_enforcement import require_feature
+    require_feature(current_tenant.plan, "approvals")
+
     tid = current_tenant.id
     if not db.query(Project).filter(Project.id == project_id, Project.tenant_id == tid).first():
         raise HTTPException(status_code=404, detail="Project not found")

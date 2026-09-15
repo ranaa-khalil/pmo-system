@@ -61,6 +61,9 @@ def ai_status(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Check if AI is configured for this tenant."""
+    from app.services.plan_enforcement import require_feature
+    require_feature(current_tenant.plan, "ai_assistant")
+
     config = get_ai_config(db, current_tenant.id)
     return {
         "configured": bool(config["api_key"]),

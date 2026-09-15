@@ -13,6 +13,7 @@ from app.frontend import router as frontend_router
 from app.middleware import QuotaHeaderMiddleware, RateLimitMiddleware
 from app.routers import (
     ai,
+    api_keys,
     approvals,
     auth,
     backlog,
@@ -122,6 +123,7 @@ app.include_router(personas.router)
 app.include_router(notifications.router)
 app.include_router(ai.router)
 app.include_router(github_sync.router)
+app.include_router(api_keys.router)
 
 # Register frontend UI
 app.include_router(frontend_router)

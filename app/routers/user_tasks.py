@@ -8,15 +8,17 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.milestone import Milestone
 from app.models.project import Project
+from app.models.tenant import Tenant
 from app.models.user import User
 from app.models.user_task import TASK_PRIORITIES, TASK_STATUSES, UserTask
 from app.schemas.user_task import UserTaskCreate, UserTaskUpdate
 from app.services.notifications import log_activity
+from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["user-tasks"])
 
 
-def _enrich(task: UserTask, db: Session) -> dict:
+def _enrich(task: UserTask, db: Session, tenant_id: int) -> dict:
     """Add joined display fields to a task response."""
     data = {
         "id": task.id,
@@ -38,14 +40,14 @@ def _enrich(task: UserTask, db: Session) -> dict:
         "assignee_name": None,
     }
     if task.project_id:
-        proj = db.query(Project).filter(Project.id == task.project_id).first()
+        proj = db.query(Project).filter(Project.id == task.project_id, Project.tenant_id == tenant_id).first()
         if proj:
             data["project_name"] = proj.name
     if task.milestone_id:
-        ms = db.query(Milestone).filter(Milestone.id == task.milestone_id).first()
+        ms = db.query(Milestone).filter(Milestone.id == task.milestone_id, Milestone.tenant_id == tenant_id).first()
         if ms:
             data["milestone_title"] = ms.title
-    assignee = db.query(User).filter(User.id == task.assigned_to).first()
+    assignee = db.query(User).filter(User.id == task.assigned_to, User.tenant_id == tenant_id).first()
     if assignee:
         data["assignee_name"] = assignee.name
     return data
@@ -60,9 +62,10 @@ def list_tasks(
     upcoming: bool = Query(False, description="Only tasks due within reminder window"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List tasks for the current user, with optional filters."""
-    query = db.query(UserTask).filter(UserTask.assigned_to == current_user.id)
+    query = db.query(UserTask).filter(UserTask.assigned_to == current_user.id, UserTask.tenant_id == current_tenant.id)
     if status:
         query = query.filter(UserTask.status == status)
     if priority:
@@ -87,7 +90,7 @@ def list_tasks(
         UserTask.due_date,
         UserTask.priority.desc(),
     ).all()
-    return [_enrich(t, db) for t in tasks]
+    return [_enrich(t, db, current_tenant.id) for t in tasks]
 
 
 @router.post("/tasks")
@@ -95,16 +98,18 @@ def create_task(
     task: UserTaskCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Create a new task. Defaults to current user if assigned_to is not set."""
+    tid = current_tenant.id
     assigned_to = task.assigned_to or current_user.id
     # Validate project if set
     if task.project_id:
-        if not db.query(Project).filter(Project.id == task.project_id).first():
+        if not db.query(Project).filter(Project.id == task.project_id, Project.tenant_id == tid).first():
             raise HTTPException(status_code=404, detail="Project not found")
     # Validate milestone if set
     if task.milestone_id:
-        if not db.query(Milestone).filter(Milestone.id == task.milestone_id).first():
+        if not db.query(Milestone).filter(Milestone.id == task.milestone_id, Milestone.tenant_id == tid).first():
             raise HTTPException(status_code=404, detail="Milestone not found")
     # Validate status
     if task.status not in TASK_STATUSES:
@@ -123,6 +128,7 @@ def create_task(
         reminder_days=task.reminder_days,
         status=task.status,
         priority=task.priority,
+        tenant_id=tid,
     )
     db.add(db_task)
     db.commit()
@@ -132,7 +138,7 @@ def create_task(
                  "task", db_task.id, "created",
                  f"Created task: {db_task.title}")
 
-    return _enrich(db_task, db)
+    return _enrich(db_task, db, tid)
 
 
 @router.put("/tasks/{task_id}")
@@ -141,9 +147,10 @@ def update_task(
     task_update: UserTaskUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Update a task. Only the assigned user or a super_admin can update."""
-    task = db.query(UserTask).filter(UserTask.id == task_id).first()
+    task = db.query(UserTask).filter(UserTask.id == task_id, UserTask.tenant_id == current_tenant.id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     if task.assigned_to != current_user.id and current_user.system_role != "super_admin":
@@ -167,7 +174,7 @@ def update_task(
 
     db.commit()
     db.refresh(task)
-    return _enrich(task, db)
+    return _enrich(task, db, current_tenant.id)
 
 
 @router.delete("/tasks/{task_id}")
@@ -175,9 +182,10 @@ def delete_task(
     task_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Delete a task. Only the assigned user or a super_admin can delete."""
-    task = db.query(UserTask).filter(UserTask.id == task_id).first()
+    task = db.query(UserTask).filter(UserTask.id == task_id, UserTask.tenant_id == current_tenant.id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     if task.assigned_to != current_user.id and current_user.system_role != "super_admin":
@@ -191,9 +199,10 @@ def delete_task(
 def tasks_summary(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Get a summary of the current user's tasks — for dashboard widget and nav badge."""
-    base = db.query(UserTask).filter(UserTask.assigned_to == current_user.id)
+    base = db.query(UserTask).filter(UserTask.assigned_to == current_user.id, UserTask.tenant_id == current_tenant.id)
     total = base.count()
     pending = base.filter(UserTask.status == "Pending").count()
     in_progress = base.filter(UserTask.status == "In Progress").count()

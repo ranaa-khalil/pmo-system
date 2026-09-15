@@ -14,7 +14,9 @@ from app.models.project import Project
 from app.models.release import Release, ReleaseItem
 from app.models.roadmap import Roadmap
 from app.models.stakeholder import Stakeholder
+from app.models.tenant import Tenant
 from app.models.user import User
+from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
 
@@ -23,21 +25,24 @@ router = APIRouter(prefix="/api", tags=["dashboard"])
 def get_dashboard_stats(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Get aggregated dashboard statistics with chart data."""
+    tid = current_tenant.id
+
     # Counts
-    clients_count = db.query(Client).count()
-    projects_count = db.query(Project).count()
-    backlog_count = db.query(BacklogItem).count()
-    pending_approvals = db.query(ApprovalRequest).filter(ApprovalRequest.status == "Pending").count()
-    forms_count = db.query(FormInstance).count()
-    kpis_count = db.query(KPI).count()
-    releases_count = db.query(Release).count()
-    stakeholders_count = db.query(Stakeholder).count()
+    clients_count = db.query(Client).filter(Client.tenant_id == tid).count()
+    projects_count = db.query(Project).filter(Project.tenant_id == tid).count()
+    backlog_count = db.query(BacklogItem).filter(BacklogItem.tenant_id == tid).count()
+    pending_approvals = db.query(ApprovalRequest).filter(ApprovalRequest.status == "Pending", ApprovalRequest.tenant_id == tid).count()
+    forms_count = db.query(FormInstance).filter(FormInstance.tenant_id == tid).count()
+    kpis_count = db.query(KPI).filter(KPI.tenant_id == tid).count()
+    releases_count = db.query(Release).filter(Release.tenant_id == tid).count()
+    stakeholders_count = db.query(Stakeholder).filter(Stakeholder.tenant_id == tid).count()
 
     # Backlog phase distribution
     phase_distribution: dict[str, int] = {}
-    items = db.query(BacklogItem).all()
+    items = db.query(BacklogItem).filter(BacklogItem.tenant_id == tid).all()
     for item in items:
         phase_distribution[item.current_phase] = phase_distribution.get(item.current_phase, 0) + 1
 
@@ -53,7 +58,7 @@ def get_dashboard_stats(
 
     # Release status distribution (for donut chart)
     release_status_dist: dict[str, int] = {}
-    releases = db.query(Release).all()
+    releases = db.query(Release).filter(Release.tenant_id == tid).all()
     for rel in releases:
         release_status_dist[rel.status] = release_status_dist.get(rel.status, 0) + 1
 
@@ -62,9 +67,9 @@ def get_dashboard_stats(
     completed_release_items = 0
     done_phases = ["Pre-Release", "Release", "Post-Release", "Retrospective"]
     for rel in releases:
-        rel_items = db.query(ReleaseItem).filter(ReleaseItem.release_id == rel.id).all()
+        rel_items = db.query(ReleaseItem).filter(ReleaseItem.release_id == rel.id, ReleaseItem.tenant_id == tid).all()
         for ri in rel_items:
-            bi = db.query(BacklogItem).filter(BacklogItem.id == ri.backlog_item_id).first()
+            bi = db.query(BacklogItem).filter(BacklogItem.id == ri.backlog_item_id, BacklogItem.tenant_id == tid).first()
             if bi:
                 total_release_items += 1
                 if bi.current_phase in done_phases:
@@ -72,18 +77,18 @@ def get_dashboard_stats(
 
     # Per-project progress
     project_progress = []
-    all_projects = db.query(Project).all()
+    all_projects = db.query(Project).filter(Project.tenant_id == tid).all()
     for p in all_projects:
-        p_backlog = db.query(BacklogItem).filter(BacklogItem.project_id == p.id).all()
-        p_releases = db.query(Release).filter(Release.project_id == p.id).all()
-        p_kpis = db.query(KPI).filter(KPI.project_id == p.id).all()
-        p_stakeholders = db.query(Stakeholder).filter(Stakeholder.project_id == p.id).count()
+        p_backlog = db.query(BacklogItem).filter(BacklogItem.project_id == p.id, BacklogItem.tenant_id == tid).all()
+        p_releases = db.query(Release).filter(Release.project_id == p.id, Release.tenant_id == tid).all()
+        p_kpis = db.query(KPI).filter(KPI.project_id == p.id, KPI.tenant_id == tid).all()
+        p_stakeholders = db.query(Stakeholder).filter(Stakeholder.project_id == p.id, Stakeholder.tenant_id == tid).count()
         p_done = len([i for i in p_backlog if i.current_phase in done_phases])
         p_total = len(p_backlog)
         progress_pct = round((p_done / p_total * 100) if p_total > 0 else 0)
 
         # Client name
-        client = db.query(Client).filter(Client.id == p.client_id).first()
+        client = db.query(Client).filter(Client.id == p.client_id, Client.tenant_id == tid).first()
         client_name = client.name if client else "—"
 
         project_progress.append({
@@ -100,13 +105,13 @@ def get_dashboard_stats(
         })
 
     # Upcoming milestones (next 5 by target_date)
-    all_milestones = db.query(Milestone).all()
+    all_milestones = db.query(Milestone).filter(Milestone.tenant_id == tid).all()
     upcoming_milestones = []
     for ms in all_milestones:
         if ms.status != "Completed":
-            rm = db.query(Roadmap).filter(Roadmap.id == ms.roadmap_id).first()
+            rm = db.query(Roadmap).filter(Roadmap.id == ms.roadmap_id, Roadmap.tenant_id == tid).first()
             if rm:
-                p = db.query(Project).filter(Project.id == rm.project_id).first()
+                p = db.query(Project).filter(Project.id == rm.project_id, Project.tenant_id == tid).first()
                 upcoming_milestones.append({
                     "id": ms.id,
                     "title": ms.title,
@@ -128,15 +133,15 @@ def get_dashboard_stats(
             "client_id": p.client_id,
             "client_name": next((pp["client_name"] for pp in project_progress if pp["id"] == p.id), "—"),
         }
-        for p in db.query(Project).order_by(Project.created_at.desc()).limit(5).all()
+        for p in db.query(Project).filter(Project.tenant_id == tid).order_by(Project.created_at.desc()).limit(5).all()
     ]
 
     # Pending approvals with details
-    pending = db.query(ApprovalRequest).filter(ApprovalRequest.status == "Pending").limit(5).all()
+    pending = db.query(ApprovalRequest).filter(ApprovalRequest.status == "Pending", ApprovalRequest.tenant_id == tid).limit(5).all()
     pending_data = []
     for a in pending:
-        steps = db.query(ApprovalStep).filter(ApprovalStep.request_id == a.id).order_by(ApprovalStep.step_order).all()
-        p = db.query(Project).filter(Project.id == a.project_id).first()
+        steps = db.query(ApprovalStep).filter(ApprovalStep.request_id == a.id, ApprovalStep.tenant_id == tid).order_by(ApprovalStep.step_order).all()
+        p = db.query(Project).filter(Project.id == a.project_id, Project.tenant_id == tid).first()
         pending_data.append({
             "id": a.id,
             "title": a.title,
@@ -150,8 +155,8 @@ def get_dashboard_stats(
 
     # KPI progress summary (for gauge)
     kpi_progress = []
-    for kpi in db.query(KPI).all():
-        p = db.query(Project).filter(Project.id == kpi.project_id).first()
+    for kpi in db.query(KPI).filter(KPI.tenant_id == tid).all():
+        p = db.query(Project).filter(Project.id == kpi.project_id, Project.tenant_id == tid).first()
         kpi_progress.append({
             "id": kpi.id,
             "name": kpi.name,

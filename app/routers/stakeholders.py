@@ -10,6 +10,7 @@ from app.models.project import Project
 from app.models.role import Role
 from app.models.role_assignment import RoleAssignment
 from app.models.stakeholder import Stakeholder
+from app.models.tenant import Tenant
 from app.models.user import User
 from app.permissions import (
     can_assign_role,
@@ -27,6 +28,7 @@ from app.schemas.stakeholder import (
     StakeholderResponse,
     StakeholderUpdate,
 )
+from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["stakeholders"])
 
@@ -39,14 +41,15 @@ def create_stakeholder(
     stakeholder: StakeholderCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Add a stakeholder to a project (super admin, AM, or PM for this project)."""
-    project = db.query(Project).filter(Project.id == project_id).first()
+    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     if not can_manage_stakeholders(current_user, project, db):
         raise HTTPException(status_code=403, detail="You don't have permission to manage stakeholders on this project")
-    db_stakeholder = Stakeholder(project_id=project_id, **stakeholder.model_dump())
+    db_stakeholder = Stakeholder(project_id=project_id, tenant_id=current_tenant.id, **stakeholder.model_dump())
     db.add(db_stakeholder)
     db.commit()
     db.refresh(db_stakeholder)
@@ -58,9 +61,10 @@ def list_stakeholders(
     project_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List all stakeholders for a project."""
-    return db.query(Stakeholder).filter(Stakeholder.project_id == project_id).order_by(Stakeholder.role_name).all()
+    return db.query(Stakeholder).filter(Stakeholder.project_id == project_id, Stakeholder.tenant_id == current_tenant.id).order_by(Stakeholder.role_name).all()
 
 
 @router.put("/stakeholders/{stakeholder_id}", response_model=StakeholderResponse)
@@ -69,9 +73,10 @@ def update_stakeholder(
     update: StakeholderUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Update a stakeholder."""
-    s = db.query(Stakeholder).filter(Stakeholder.id == stakeholder_id).first()
+    s = db.query(Stakeholder).filter(Stakeholder.id == stakeholder_id, Stakeholder.tenant_id == current_tenant.id).first()
     if not s:
         raise HTTPException(status_code=404, detail="Stakeholder not found")
     for field, val in update.model_dump(exclude_unset=True).items():
@@ -86,9 +91,10 @@ def delete_stakeholder(
     stakeholder_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Delete a stakeholder."""
-    s = db.query(Stakeholder).filter(Stakeholder.id == stakeholder_id).first()
+    s = db.query(Stakeholder).filter(Stakeholder.id == stakeholder_id, Stakeholder.tenant_id == current_tenant.id).first()
     if not s:
         raise HTTPException(status_code=404, detail="Stakeholder not found")
     db.delete(s)
@@ -101,9 +107,10 @@ def delete_stakeholder(
 def list_roles(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List all RACI roles."""
-    return db.query(Role).order_by(Role.id).all()
+    return db.query(Role).filter(Role.tenant_id == current_tenant.id).order_by(Role.id).all()
 
 
 @router.post("/roles", response_model=RoleResponse, status_code=201)
@@ -111,11 +118,12 @@ def create_role(
     role: RoleCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Create a new role."""
-    if db.query(Role).filter(Role.name == role.name).first():
+    if db.query(Role).filter(Role.name == role.name, Role.tenant_id == current_tenant.id).first():
         raise HTTPException(status_code=400, detail="Role already exists")
-    db_role = Role(**role.model_dump())
+    db_role = Role(**role.model_dump(), tenant_id=current_tenant.id)
     db.add(db_role)
     db.commit()
     db.refresh(db_role)
@@ -128,9 +136,10 @@ def update_role(
     update: RoleUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Update a role."""
-    r = db.query(Role).filter(Role.id == role_id).first()
+    r = db.query(Role).filter(Role.id == role_id, Role.tenant_id == current_tenant.id).first()
     if not r:
         raise HTTPException(status_code=404, detail="Role not found")
     for field, val in update.model_dump(exclude_unset=True).items():
@@ -145,9 +154,10 @@ def delete_role(
     role_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Delete a role."""
-    r = db.query(Role).filter(Role.id == role_id).first()
+    r = db.query(Role).filter(Role.id == role_id, Role.tenant_id == current_tenant.id).first()
     if not r:
         raise HTTPException(status_code=404, detail="Role not found")
     db.delete(r)
@@ -161,13 +171,15 @@ def list_assignments(
     project_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List role assignments for a project — returns user + role info."""
-    assignments = db.query(RoleAssignment).filter(RoleAssignment.project_id == project_id).all()
+    tid = current_tenant.id
+    assignments = db.query(RoleAssignment).filter(RoleAssignment.project_id == project_id, RoleAssignment.tenant_id == tid).all()
     result = []
     for a in assignments:
-        user = db.query(User).filter(User.id == a.user_id).first()
-        role = db.query(Role).filter(Role.id == a.role_id).first()
+        user = db.query(User).filter(User.id == a.user_id, User.tenant_id == tid).first()
+        role = db.query(Role).filter(Role.id == a.role_id, Role.tenant_id == tid).first()
         result.append({
             "id": a.id,
             "user_id": a.user_id,
@@ -186,9 +198,10 @@ def create_assignment(
     assignment: RoleAssignmentCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Assign a user to a role on a project (super admin, AM, or PM for this project)."""
-    project = db.query(Project).filter(Project.id == project_id).first()
+    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     if not can_assign_role(current_user, project, db):
@@ -199,10 +212,11 @@ def create_assignment(
         RoleAssignment.user_id == assignment.user_id,
         RoleAssignment.role_id == assignment.role_id,
         RoleAssignment.project_id == project_id,
+        RoleAssignment.tenant_id == current_tenant.id,
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="Assignment already exists")
-    db_assignment = RoleAssignment(**assignment.model_dump())
+    db_assignment = RoleAssignment(**assignment.model_dump(), tenant_id=current_tenant.id)
     db.add(db_assignment)
     db.commit()
     db.refresh(db_assignment)
@@ -214,9 +228,10 @@ def delete_assignment(
     assignment_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Remove a role assignment."""
-    a = db.query(RoleAssignment).filter(RoleAssignment.id == assignment_id).first()
+    a = db.query(RoleAssignment).filter(RoleAssignment.id == assignment_id, RoleAssignment.tenant_id == current_tenant.id).first()
     if not a:
         raise HTTPException(status_code=404, detail="Assignment not found")
     db.delete(a)
@@ -228,8 +243,10 @@ def get_traceability(
     project_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Return the full traceability chain: Vision → KPIs → Milestones → Releases → Backlog Items."""
+    tid = current_tenant.id
     from app.models.backlog_item import BacklogItem
     from app.models.kpi import KPI
     from app.models.milestone import Milestone
@@ -238,7 +255,7 @@ def get_traceability(
     from app.models.roadmap import Roadmap
 
     # Vision
-    vision = db.query(ProjectVision).filter(ProjectVision.project_id == project_id).first()
+    vision = db.query(ProjectVision).filter(ProjectVision.project_id == project_id, ProjectVision.tenant_id == tid).first()
     vision_data = None
     if vision:
         vision_data = {
@@ -247,10 +264,10 @@ def get_traceability(
         }
 
     # KPIs (with linked backlog items)
-    kpis = db.query(KPI).filter(KPI.project_id == project_id).all()
+    kpis = db.query(KPI).filter(KPI.project_id == project_id, KPI.tenant_id == tid).all()
     kpi_data = []
     for k in kpis:
-        linked_items = db.query(BacklogItem).filter(BacklogItem.kpi_id == k.id).all()
+        linked_items = db.query(BacklogItem).filter(BacklogItem.kpi_id == k.id, BacklogItem.tenant_id == tid).all()
         kpi_data.append({
             "id": k.id,
             "name": k.name,
@@ -263,19 +280,19 @@ def get_traceability(
         })
 
     # Roadmaps → Milestones → Releases
-    roadmaps = db.query(Roadmap).filter(Roadmap.project_id == project_id).all()
+    roadmaps = db.query(Roadmap).filter(Roadmap.project_id == project_id, Roadmap.tenant_id == tid).all()
     roadmap_data = []
     for rm in roadmaps:
-        milestones = db.query(Milestone).filter(Milestone.roadmap_id == rm.id).all()
+        milestones = db.query(Milestone).filter(Milestone.roadmap_id == rm.id, Milestone.tenant_id == tid).all()
         milestone_list = []
         for ms in milestones:
-            linked_releases = db.query(Release).filter(Release.milestone_id == ms.id).all()
+            linked_releases = db.query(Release).filter(Release.milestone_id == ms.id, Release.tenant_id == tid).all()
             release_list = []
             for rel in linked_releases:
-                items = db.query(ReleaseItem).filter(ReleaseItem.release_id == rel.id).all()
+                items = db.query(ReleaseItem).filter(ReleaseItem.release_id == rel.id, ReleaseItem.tenant_id == tid).all()
                 backlog_items = []
                 for ri in items:
-                    bi = db.query(BacklogItem).filter(BacklogItem.id == ri.backlog_item_id).first()
+                    bi = db.query(BacklogItem).filter(BacklogItem.id == ri.backlog_item_id, BacklogItem.tenant_id == tid).first()
                     if bi:
                         backlog_items.append({
                             "id": bi.id, "title": bi.title, "phase": bi.current_phase,
@@ -299,13 +316,13 @@ def get_traceability(
 
     # Unlinked backlog items (no KPI)
     unlinked = db.query(BacklogItem).filter(
-        BacklogItem.project_id == project_id, BacklogItem.kpi_id.is_(None)
+        BacklogItem.project_id == project_id, BacklogItem.kpi_id.is_(None), BacklogItem.tenant_id == tid
     ).all()
     unlinked_data = [{"id": i.id, "title": i.title, "phase": i.current_phase, "status": i.status, "priority": i.priority} for i in unlinked]
 
     # Unlinked releases (no milestone)
     unlinked_releases = db.query(Release).filter(
-        Release.project_id == project_id, Release.milestone_id.is_(None)
+        Release.project_id == project_id, Release.milestone_id.is_(None), Release.tenant_id == tid
     ).all()
     unlinked_rel_data = [{"id": r.id, "version": r.version, "name": r.name, "status": r.status, "target_date": r.target_date} for r in unlinked_releases]
 
@@ -324,20 +341,22 @@ def get_traceability(
 def list_users(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List all users (super admin only)."""
-    users = db.query(User).order_by(User.created_at.desc()).all()
+    tid = current_tenant.id
+    users = db.query(User).filter(User.tenant_id == tid).order_by(User.created_at.desc()).all()
     result = []
     for u in users:
-        assignments = db.query(RoleAssignment).filter(RoleAssignment.user_id == u.id).all()
+        assignments = db.query(RoleAssignment).filter(RoleAssignment.user_id == u.id, RoleAssignment.tenant_id == tid).all()
         roles = []
         for a in assignments:
-            role = db.query(Role).filter(Role.id == a.role_id).first()
+            role = db.query(Role).filter(Role.id == a.role_id, Role.tenant_id == tid).first()
             if role:
                 roles.append({"role": role.name, "project_id": a.project_id})
         # Find managed clients and projects
-        managed_clients = db.query(Client).filter(Client.account_manager_id == u.id).all()
-        managed_projects = db.query(Project).filter(Project.project_manager_id == u.id).all()
+        managed_clients = db.query(Client).filter(Client.account_manager_id == u.id, Client.tenant_id == tid).all()
+        managed_projects = db.query(Project).filter(Project.project_manager_id == u.id, Project.tenant_id == tid).all()
         result.append({
             "id": u.id,
             "email": u.email,
@@ -357,6 +376,7 @@ def create_user(
     data: dict,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Create a new user (super admin, account manager, or project manager)."""
     if not can_create_user(current_user):
@@ -372,7 +392,7 @@ def create_user(
         raise HTTPException(status_code=403, detail=f"You don't have permission to create a user with role '{system_role}'")
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
-    user = User(email=email, name=name, hashed_password=hash_password(password), system_role=system_role)
+    user = User(email=email, name=name, hashed_password=hash_password(password), system_role=system_role, tenant_id=current_tenant.id)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -384,11 +404,12 @@ def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Delete a user (super admin, AM, or PM depending on target's role)."""
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == user_id, User.tenant_id == current_tenant.id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     if not can_delete_user(current_user, user):

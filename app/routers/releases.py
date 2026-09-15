@@ -13,9 +13,11 @@ from app.models.milestone import Milestone
 from app.models.project import Project
 from app.models.release import Release, ReleaseItem
 from app.models.role import Role
+from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.release import ReleaseCreate, ReleaseResponse, ReleaseUpdate
 from app.services.notifications import log_activity
+from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["releases"])
 
@@ -341,11 +343,13 @@ def create_release(
     release: ReleaseCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Create a new release for a project."""
-    if not db.query(Project).filter(Project.id == project_id).first():
+    if not db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first():
         raise HTTPException(status_code=404, detail="Project not found")
     db_release = Release(
+        tenant_id=current_tenant.id,
         project_id=project_id,
         created_by=current_user.id,
         **release.model_dump(),
@@ -366,9 +370,10 @@ def list_releases(
     project_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List all releases for a project."""
-    return db.query(Release).filter(Release.project_id == project_id).order_by(Release.created_at.desc()).all()
+    return db.query(Release).filter(Release.project_id == project_id, Release.tenant_id == current_tenant.id).order_by(Release.created_at.desc()).all()
 
 
 @router.get("/releases/{release_id}", response_model=dict)
@@ -376,9 +381,10 @@ def get_release(
     release_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Get release detail with linked backlog items, forms, approvals, milestone, and progress."""
-    release = db.query(Release).filter(Release.id == release_id).first()
+    release = db.query(Release).filter(Release.id == release_id, Release.tenant_id == current_tenant.id).first()
     if not release:
         raise HTTPException(status_code=404, detail="Release not found")
 
@@ -386,7 +392,7 @@ def get_release(
     items = []
     done_phases = ["Pre-Release", "Release", "Post-Release", "Retrospective"]
     for ri in release.items:
-        bi = db.query(BacklogItem).filter(BacklogItem.id == ri.backlog_item_id).first()
+        bi = db.query(BacklogItem).filter(BacklogItem.id == ri.backlog_item_id, BacklogItem.tenant_id == current_tenant.id).first()
         if bi:
             items.append({
                 "id": bi.id, "title": bi.title, "description": bi.description,
@@ -428,6 +434,7 @@ def get_release(
         ApprovalRequest.project_id == release.project_id,
         ApprovalRequest.request_type == "release",
         ApprovalRequest.release_id == release_id,
+        ApprovalRequest.tenant_id == current_tenant.id,
     ).all()
     pending_approval = None
     for ar in approval_requests:
@@ -504,9 +511,10 @@ def update_release(
     update: ReleaseUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Update a release."""
-    release = db.query(Release).filter(Release.id == release_id).first()
+    release = db.query(Release).filter(Release.id == release_id, Release.tenant_id == current_tenant.id).first()
     if not release:
         raise HTTPException(status_code=404, detail="Release not found")
     for field, val in update.model_dump(exclude_unset=True).items():
@@ -521,6 +529,7 @@ def advance_phase(
     release_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Request advancement to the next V-cycle phase.
 
@@ -532,7 +541,7 @@ def advance_phase(
     If the approval was already approved, advances the release immediately and
     creates the next phase's approval.
     """
-    release = db.query(Release).filter(Release.id == release_id).first()
+    release = db.query(Release).filter(Release.id == release_id, Release.tenant_id == current_tenant.id).first()
     if not release:
         raise HTTPException(status_code=404, detail="Release not found")
     if release.status == "Released":
@@ -555,6 +564,7 @@ def advance_phase(
     # Check if there's already an approval for this release + target phase
     existing = db.query(ApprovalRequest).filter(
         ApprovalRequest.release_id == release_id,
+        ApprovalRequest.tenant_id == current_tenant.id,
         ApprovalRequest.target_phase == next_phase,
     ).first()
 
@@ -585,7 +595,7 @@ def advance_phase(
             db.refresh(release)
 
             # Auto-create the next phase's approval (if there is one)
-            next_approval = _create_phase_approval(db, release, current_user)
+            next_approval = _create_phase_approval(db, release, current_user, current_tenant.id)
             result = {
                 "id": release.id,
                 "status": release.status,
@@ -620,6 +630,7 @@ def advance_phase(
 
     gate_role, gate_desc, gate_checklist = gate_info
     approval = ApprovalRequest(
+        tenant_id=tenant_id,
         project_id=release.project_id,
         title=f"Release {release.version}: {release.status} → {next_phase}",
         description=gate_desc + "\n\nChecklist:\n" + "\n".join(f"☐ {item}" for item in gate_checklist),
@@ -633,6 +644,7 @@ def advance_phase(
     db.refresh(approval)
 
     step = ApprovalStep(
+        tenant_id=tenant_id,
         request_id=approval.id,
         step_order=1,
         role_name=gate_role,
@@ -651,7 +663,7 @@ def advance_phase(
     }
 
 
-def _create_phase_approval(db: Session, release: Release, current_user: User):
+def _create_phase_approval(db: Session, release: Release, current_user: User, tenant_id: int = None):
     """Auto-create an approval request for the release's current phase gate-keeper.
     Returns {'id': approval_id, 'role': role_name} or None if no gate for this phase.
 
@@ -690,6 +702,7 @@ def _create_phase_approval(db: Session, release: Release, current_user: User):
             approver_id = assignment.user_id
 
     approval = ApprovalRequest(
+        tenant_id=tenant_id,
         project_id=release.project_id,
         title=f"Release {release.version}: {release.status} → {next_phase}",
         description=gate_desc + "\n\nChecklist:\n" + "\n".join(f"☐ {item}" for item in gate_checklist),
@@ -703,6 +716,7 @@ def _create_phase_approval(db: Session, release: Release, current_user: User):
     db.refresh(approval)
 
     step = ApprovalStep(
+        tenant_id=tenant_id,
         request_id=approval.id,
         step_order=1,
         role_name=gate_role,
@@ -719,9 +733,10 @@ def delete_release(
     release_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Delete a release."""
-    release = db.query(Release).filter(Release.id == release_id).first()
+    release = db.query(Release).filter(Release.id == release_id, Release.tenant_id == current_tenant.id).first()
     if not release:
         raise HTTPException(status_code=404, detail="Release not found")
     db.delete(release)
@@ -734,12 +749,13 @@ def add_item_to_release(
     backlog_item_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Link a backlog item to a release."""
-    release = db.query(Release).filter(Release.id == release_id).first()
+    release = db.query(Release).filter(Release.id == release_id, Release.tenant_id == current_tenant.id).first()
     if not release:
         raise HTTPException(status_code=404, detail="Release not found")
-    item = db.query(BacklogItem).filter(BacklogItem.id == backlog_item_id).first()
+    item = db.query(BacklogItem).filter(BacklogItem.id == backlog_item_id, BacklogItem.tenant_id == current_tenant.id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Backlog item not found")
     existing = db.query(ReleaseItem).filter(
@@ -748,7 +764,7 @@ def add_item_to_release(
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="Item already in this release")
-    ri = ReleaseItem(release_id=release_id, backlog_item_id=backlog_item_id)
+    ri = ReleaseItem(release_id=release_id, backlog_item_id=backlog_item_id, tenant_id=current_tenant.id)
     db.add(ri)
     db.commit()
     return {"message": "Item added to release"}
@@ -760,6 +776,7 @@ def remove_item_from_release(
     backlog_item_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Remove a backlog item from a release."""
     ri = db.query(ReleaseItem).filter(
@@ -778,6 +795,7 @@ def get_next_version(
     bump: str = "minor",  # "major", "minor", or "patch"
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Suggest the next SemVer version for a project based on existing releases.
 
@@ -788,11 +806,11 @@ def get_next_version(
 
     If project has version_prefix (e.g. "1.0"), the first release is 1.0.0.
     """
-    project = db.query(Project).filter(Project.id == project_id).first()
+    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    releases = db.query(Release).filter(Release.project_id == project_id).all()
+    releases = db.query(Release).filter(Release.project_id == project_id, Release.tenant_id == current_tenant.id).all()
 
     if not releases:
         # First release — use version_prefix if set, otherwise 1.0.0
@@ -1030,18 +1048,19 @@ def generate_release_notes(
     release_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Auto-generate structured release notes matching Release_Notes_Template_v1.1.docx."""
-    release = db.query(Release).filter(Release.id == release_id).first()
+    release = db.query(Release).filter(Release.id == release_id, Release.tenant_id == current_tenant.id).first()
     if not release:
         raise HTTPException(status_code=404, detail="Release not found")
 
-    project = db.query(Project).filter(Project.id == release.project_id).first()
+    project = db.query(Project).filter(Project.id == release.project_id, Project.tenant_id == current_tenant.id).first()
 
     # Gather backlog items
     items = []
     for ri in release.items:
-        bi = db.query(BacklogItem).filter(BacklogItem.id == ri.backlog_item_id).first()
+        bi = db.query(BacklogItem).filter(BacklogItem.id == ri.backlog_item_id, BacklogItem.tenant_id == current_tenant.id).first()
         if bi:
             items.append(bi)
 
@@ -1053,7 +1072,7 @@ def generate_release_notes(
             milestone = {"id": ms.id, "title": ms.title, "target_date": str(ms.target_date) if ms.target_date else None}
 
     # Find previous stable tag
-    all_releases = db.query(Release).filter(Release.project_id == release.project_id).all()
+    all_releases = db.query(Release).filter(Release.project_id == release.project_id, Release.tenant_id == current_tenant.id).all()
     prev_tag = None
     def parse_version(v):
         try:
@@ -1434,23 +1453,23 @@ def download_release_notes(
         raise HTTPException(status_code=401, detail="Not authenticated")
     current_user = get_current_user(token, db)
 
-    release = db.query(Release).filter(Release.id == release_id).first()
+    release = db.query(Release).filter(Release.id == release_id, Release.tenant_id == current_tenant.id).first()
     if not release:
         raise HTTPException(status_code=404, detail="Release not found")
     if not release.release_notes:
         raise HTTPException(status_code=400, detail="Generate release notes first")
 
-    project = db.query(Project).filter(Project.id == release.project_id).first()
+    project = db.query(Project).filter(Project.id == release.project_id, Project.tenant_id == current_tenant.id).first()
 
     # Gather items
     items = []
     for ri in release.items:
-        bi = db.query(BacklogItem).filter(BacklogItem.id == ri.backlog_item_id).first()
+        bi = db.query(BacklogItem).filter(BacklogItem.id == ri.backlog_item_id, BacklogItem.tenant_id == current_tenant.id).first()
         if bi:
             items.append(bi)
 
     # Find previous stable tag
-    all_releases = db.query(Release).filter(Release.project_id == release.project_id).all()
+    all_releases = db.query(Release).filter(Release.project_id == release.project_id, Release.tenant_id == current_tenant.id).all()
     prev_tag = None
     def parse_version(v):
         try:
@@ -1478,9 +1497,10 @@ def share_release_notes(
     release_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Mark release notes as shared with project stakeholders."""
-    release = db.query(Release).filter(Release.id == release_id).first()
+    release = db.query(Release).filter(Release.id == release_id, Release.tenant_id == current_tenant.id).first()
     if not release:
         raise HTTPException(status_code=404, detail="Release not found")
     if not release.release_notes:
@@ -1488,7 +1508,7 @@ def share_release_notes(
 
     # Get project stakeholders
     from app.models.stakeholder import Stakeholder
-    stakeholders = db.query(Stakeholder).filter(Stakeholder.project_id == release.project_id).all()
+    stakeholders = db.query(Stakeholder).filter(Stakeholder.project_id == release.project_id, Stakeholder.tenant_id == current_tenant.id).all()
 
     # Get assigned users (RACI roles)
     from app.models.role_assignment import RoleAssignment
@@ -1532,11 +1552,11 @@ def download_signoff_pdf(
         raise HTTPException(status_code=401, detail="Not authenticated")
     current_user = get_current_user(token, db)
 
-    release = db.query(Release).filter(Release.id == release_id).first()
+    release = db.query(Release).filter(Release.id == release_id, Release.tenant_id == current_tenant.id).first()
     if not release:
         raise HTTPException(status_code=404, detail="Release not found")
 
-    project = db.query(Project).filter(Project.id == release.project_id).first()
+    project = db.query(Project).filter(Project.id == release.project_id, Project.tenant_id == current_tenant.id).first()
 
     # Get items linked to this release
     from app.models.release import ReleaseItem

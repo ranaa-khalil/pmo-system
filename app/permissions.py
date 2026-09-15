@@ -125,12 +125,18 @@ def can_list_users(user: User) -> bool:
     return True
 
 
-def get_visible_clients(user: User, db: Session):
-    """Return clients the user can see."""
+def get_visible_clients(user: User, db: Session, tenant_id: int | None = None):
+    """Return clients the user can see (optionally filtered by tenant)."""
     if is_super_admin(user):
-        return db.query(Client).all()
+        q = db.query(Client)
+        if tenant_id:
+            q = q.filter(Client.tenant_id == tenant_id)
+        return q.all()
     if is_account_manager(user):
-        return db.query(Client).filter(Client.account_manager_id == user.id).all()
+        q = db.query(Client).filter(Client.account_manager_id == user.id)
+        if tenant_id:
+            q = q.filter(Client.tenant_id == tenant_id)
+        return q.all()
     # Members and PMs see clients of projects they're assigned to
     project_ids = db.query(RoleAssignment.project_id).filter(
         RoleAssignment.user_id == user.id
@@ -138,29 +144,48 @@ def get_visible_clients(user: User, db: Session):
     pids = [p[0] for p in project_ids]
     if not pids:
         return []
-    projects = db.query(Project).filter(Project.id.in_(pids)).all()
+    projects = db.query(Project).filter(Project.id.in_(pids))
+    if tenant_id:
+        projects = projects.filter(Project.tenant_id == tenant_id)
+    projects = projects.all()
     client_ids = list(set(p.client_id for p in projects))
     return db.query(Client).filter(Client.id.in_(client_ids)).all()
 
 
-def get_visible_projects(user: User, db: Session):
-    """Return projects the user can see."""
+def get_visible_projects(user: User, db: Session, tenant_id: int | None = None):
+    """Return projects the user can see (optionally filtered by tenant)."""
     if is_super_admin(user):
-        return db.query(Project).all()
+        q = db.query(Project)
+        if tenant_id:
+            q = q.filter(Project.tenant_id == tenant_id)
+        return q.all()
     if is_account_manager(user):
-        client_ids = [c.id for c in db.query(Client).filter(
-            Client.account_manager_id == user.id
-        ).all()]
+        q = db.query(Client).filter(Client.account_manager_id == user.id)
+        if tenant_id:
+            q = q.filter(Client.tenant_id == tenant_id)
+        client_ids = [c.id for c in q.all()]
         if not client_ids:
             return []
-        return db.query(Project).filter(Project.client_id.in_(client_ids)).all()
+        pq = db.query(Project).filter(Project.client_id.in_(client_ids))
+        if tenant_id:
+            pq = pq.filter(Project.tenant_id == tenant_id)
+        return pq.all()
     # PMs and members see projects they're assigned to
     if is_project_manager(user):
-        managed = db.query(Project).filter(Project.project_manager_id == user.id).all()
+        q = db.query(Project).filter(Project.project_manager_id == user.id)
+        if tenant_id:
+            q = q.filter(Project.tenant_id == tenant_id)
+        managed = q.all()
         assigned_ids = [p[0] for p in db.query(RoleAssignment.project_id).filter(
             RoleAssignment.user_id == user.id
         ).all()]
-        assigned = db.query(Project).filter(Project.id.in_(assigned_ids)).all() if assigned_ids else []
+        if assigned_ids:
+            aq = db.query(Project).filter(Project.id.in_(assigned_ids))
+            if tenant_id:
+                aq = aq.filter(Project.tenant_id == tenant_id)
+            assigned = aq.all()
+        else:
+            assigned = []
         # Merge and dedupe
         seen = set()
         result = []
@@ -176,4 +201,7 @@ def get_visible_projects(user: User, db: Session):
     pids = [p[0] for p in project_ids]
     if not pids:
         return []
-    return db.query(Project).filter(Project.id.in_(pids)).all()
+    q = db.query(Project).filter(Project.id.in_(pids))
+    if tenant_id:
+        q = q.filter(Project.tenant_id == tenant_id)
+    return q.all()

@@ -11,6 +11,7 @@ from app.dependencies import get_current_user
 from app.models.backlog_item import BacklogItem
 from app.models.project import Project
 from app.models.project_vision import ProjectVision
+from app.models.tenant import Tenant
 from app.models.user import User
 from app.models.user_persona import UserPersona
 from app.services.ai import (
@@ -19,6 +20,7 @@ from app.services.ai import (
     suggest_features,
     suggest_vision_improvements,
 )
+from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -46,6 +48,7 @@ class AIConfigRequest(BaseModel):
 @router.get("/status")
 def ai_status(
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Check if AI is configured."""
     return {
@@ -59,6 +62,7 @@ def ai_status(
 def update_ai_config(
     req: AIConfigRequest,
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Update AI configuration (super_admin only)."""
     if current_user.system_role != "super_admin":
@@ -80,16 +84,17 @@ def ai_suggest_vision(
     req: VisionSuggestionRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Suggest improvements to a project's vision statement."""
     if not is_ai_configured():
         raise HTTPException(400, "AI is not configured. Set the API key in Settings.")
 
-    project = db.query(Project).filter(Project.id == req.project_id).first()
+    project = db.query(Project).filter(Project.id == req.project_id, Project.tenant_id == current_tenant.id).first()
     if not project:
         raise HTTPException(404, "Project not found")
 
-    vision = db.query(ProjectVision).filter(ProjectVision.project_id == req.project_id).first()
+    vision = db.query(ProjectVision).filter(ProjectVision.project_id == req.project_id, ProjectVision.tenant_id == current_tenant.id).first()
 
     try:
         return suggest_vision_improvements(
@@ -107,22 +112,23 @@ def ai_suggest_features(
     req: FeatureSuggestionRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Suggest epics and features for a project."""
     if not is_ai_configured():
         raise HTTPException(400, "AI is not configured. Set the API key in Settings.")
 
-    project = db.query(Project).filter(Project.id == req.project_id).first()
+    project = db.query(Project).filter(Project.id == req.project_id, Project.tenant_id == current_tenant.id).first()
     if not project:
         raise HTTPException(404, "Project not found")
 
-    vision = db.query(ProjectVision).filter(ProjectVision.project_id == req.project_id).first()
-    items = db.query(BacklogItem).filter(BacklogItem.project_id == req.project_id).all()
+    vision = db.query(ProjectVision).filter(ProjectVision.project_id == req.project_id, ProjectVision.tenant_id == current_tenant.id).first()
+    items = db.query(BacklogItem).filter(BacklogItem.project_id == req.project_id, BacklogItem.tenant_id == current_tenant.id).all()
 
     existing_epics = list(set(i.epic for i in items if i.epic))
     existing_features = [i.title for i in items if i.item_type != "Epic"]
 
-    personas = db.query(UserPersona).filter(UserPersona.project_id == req.project_id).all()
+    personas = db.query(UserPersona).filter(UserPersona.project_id == req.project_id, UserPersona.tenant_id == current_tenant.id).all()
     persona_list = [{"name": p.name, "role": p.role or ""} for p in personas]
 
     try:
@@ -143,17 +149,18 @@ def ai_fill_field(
     req: FillFieldRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Fill an empty field on a backlog item using AI."""
     if not is_ai_configured():
         raise HTTPException(400, "AI is not configured. Set the API key in Settings.")
 
-    item = db.query(BacklogItem).filter(BacklogItem.id == req.item_id).first()
+    item = db.query(BacklogItem).filter(BacklogItem.id == req.item_id, BacklogItem.tenant_id == current_tenant.id).first()
     if not item:
         raise HTTPException(404, "Backlog item not found")
 
-    project = db.query(Project).filter(Project.id == item.project_id).first()
-    vision = db.query(ProjectVision).filter(ProjectVision.project_id == item.project_id).first()
+    project = db.query(Project).filter(Project.id == item.project_id, Project.tenant_id == current_tenant.id).first()
+    vision = db.query(ProjectVision).filter(ProjectVision.project_id == item.project_id, ProjectVision.tenant_id == current_tenant.id).first()
 
     field_labels = {
         "description": "A detailed description of what this item does and why it's needed",

@@ -19,6 +19,7 @@ from app.dependencies import get_current_user
 from app.models.backlog_item import ITEM_PHASES, BacklogItem
 from app.models.github_board_config import GitHubBoardConfig
 from app.models.project import Project
+from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.github_sync import (
     GitHubBoardConfigResponse,
@@ -32,17 +33,19 @@ from app.schemas.github_sync import (
 )
 from app.services.github import GitHubService
 from app.services.notifications import log_activity
+from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["github-sync"])
 
 
-def _get_or_create_config(db: Session, project_id: int) -> GitHubBoardConfig:
+def _get_or_create_config(db: Session, project_id: int, tenant_id: int) -> GitHubBoardConfig:
     """Get existing config or create a new default one."""
     config = db.query(GitHubBoardConfig).filter(
-        GitHubBoardConfig.project_id == project_id
+        GitHubBoardConfig.project_id == project_id,
+        GitHubBoardConfig.tenant_id == tenant_id,
     ).first()
     if not config:
-        config = GitHubBoardConfig(project_id=project_id)
+        config = GitHubBoardConfig(project_id=project_id, tenant_id=tenant_id)
         db.add(config)
         db.commit()
         db.refresh(config)
@@ -68,11 +71,12 @@ def get_github_config(
     project_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Get the GitHub board configuration for a project."""
-    if not db.query(Project).filter(Project.id == project_id).first():
+    if not db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first():
         raise HTTPException(status_code=404, detail="Project not found")
-    config = _get_or_create_config(db, project_id)
+    config = _get_or_create_config(db, project_id, current_tenant.id)
     return config
 
 
@@ -82,13 +86,14 @@ def update_github_config(
     config_update: GitHubBoardConfigUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Create or update the GitHub board configuration for a project."""
-    project = db.query(Project).filter(Project.id == project_id).first()
+    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    config = _get_or_create_config(db, project_id)
+    config = _get_or_create_config(db, project_id, current_tenant.id)
     updates = config_update.model_dump(exclude_unset=True)
     for field, val in updates.items():
         setattr(config, field, val)
@@ -112,6 +117,7 @@ def list_github_projects(
     project_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List available GitHub Project V2 boards.
 
@@ -119,14 +125,14 @@ def list_github_projects(
     Also lists repo-level and org-level projects if a repo is configured.
     Requires 'project' scope on the GitHub token.
     """
-    project = db.query(Project).filter(Project.id == project_id).first()
+    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
     if not settings.github_token:
         raise HTTPException(status_code=400, detail="GitHub token not configured. Set PMO_GITHUB_TOKEN environment variable.")
 
-    config = _get_or_create_config(db, project_id)
+    config = _get_or_create_config(db, project_id, current_tenant.id)
     repo = _resolve_repo(config, project)
 
     gh = _get_gh_service()
@@ -165,6 +171,7 @@ def resolve_board_url(
     req: GitHubResolveBoardRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Resolve a GitHub Project V2 board URL to its node ID and metadata.
 
@@ -177,7 +184,7 @@ def resolve_board_url(
     Returns the project's node ID, title, URL, etc.
     Requires 'project' scope on the GitHub token.
     """
-    if not db.query(Project).filter(Project.id == project_id).first():
+    if not db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first():
         raise HTTPException(status_code=404, detail="Project not found")
 
     if not settings.github_token:
@@ -198,13 +205,14 @@ def list_github_labels(
     project_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List available labels in the project's GitHub repo."""
-    project = db.query(Project).filter(Project.id == project_id).first()
+    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    config = _get_or_create_config(db, project_id)
+    config = _get_or_create_config(db, project_id, current_tenant.id)
     repo = _resolve_repo(config, project)
     if not repo:
         raise HTTPException(status_code=400, detail="No GitHub repo configured")
@@ -226,6 +234,7 @@ def export_to_github(
     export_req: GitHubExportRequest = GitHubExportRequest(),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Export approved backlog items to GitHub.
 
@@ -240,11 +249,12 @@ def export_to_github(
     3. Optionally adds the issue to a GitHub Project V2 board
     4. Records the issue number, URL, and sync timestamp on the backlog item
     """
-    project = db.query(Project).filter(Project.id == project_id).first()
+    tid = current_tenant.id
+    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == tid).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    config = _get_or_create_config(db, project_id)
+    config = _get_or_create_config(db, project_id, tid)
     repo = _resolve_repo(config, project)
     if not repo:
         if config.project_node_id:
@@ -264,6 +274,7 @@ def export_to_github(
         items = db.query(BacklogItem).filter(
             BacklogItem.project_id == project_id,
             BacklogItem.id.in_(export_req.item_ids),
+            BacklogItem.tenant_id == tid,
         ).all()
     else:
         # Export all items past Requirements that aren't synced yet
@@ -273,6 +284,7 @@ def export_to_github(
             BacklogItem.current_phase.in_(exportable_phases),
             BacklogItem.github_issue_number.is_(None),
             BacklogItem.status != "Cancelled",
+            BacklogItem.tenant_id == tid,
         ).all()
 
     # Parse labels
@@ -361,17 +373,20 @@ def get_sync_status(
     project_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Check the GitHub sync status of a project's backlog items."""
-    project = db.query(Project).filter(Project.id == project_id).first()
+    tid = current_tenant.id
+    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == tid).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    config = _get_or_create_config(db, project_id)
+    config = _get_or_create_config(db, project_id, tid)
 
     all_items = db.query(BacklogItem).filter(
         BacklogItem.project_id == project_id,
         BacklogItem.status != "Cancelled",
+        BacklogItem.tenant_id == tid,
     ).all()
 
     synced = [i for i in all_items if i.github_issue_number]
@@ -394,6 +409,7 @@ def import_from_github(
     project_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Pull issue status from GitHub and update backlog items.
 
@@ -407,11 +423,12 @@ def import_from_github(
     - If project_node_id is set: single GraphQL call for all board items (fast)
     - Otherwise: individual REST calls per issue (works without project board)
     """
-    project = db.query(Project).filter(Project.id == project_id).first()
+    tid = current_tenant.id
+    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == tid).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    config = _get_or_create_config(db, project_id)
+    config = _get_or_create_config(db, project_id, tid)
     repo = _resolve_repo(config, project)
     if not repo:
         raise HTTPException(status_code=400, detail="No GitHub repo configured. Set the repo in the board config or project settings.")

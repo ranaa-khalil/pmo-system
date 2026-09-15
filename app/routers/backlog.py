@@ -10,6 +10,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.backlog_item import BacklogItem
 from app.models.project import Project
+from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.backlog import (
     BacklogItemCreate,
@@ -19,11 +20,12 @@ from app.schemas.backlog import (
 )
 from app.services.github import GitHubService
 from app.services.notifications import log_activity
+from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["backlog"])
 
 
-def _auto_export_to_github(db: Session, item: BacklogItem):
+def _auto_export_to_github(db: Session, item: BacklogItem, tenant_id: int):
     """Auto-export a backlog item to GitHub when it reaches the configured trigger phase.
 
     Uses the project's GitHubBoardConfig if available, otherwise falls back to
@@ -33,13 +35,14 @@ def _auto_export_to_github(db: Session, item: BacklogItem):
 
     from app.models.github_board_config import GitHubBoardConfig
 
-    project = db.query(Project).filter(Project.id == item.project_id).first()
+    project = db.query(Project).filter(Project.id == item.project_id, Project.tenant_id == tenant_id).first()
     if not project:
         return
 
     # Check for board config
     config = db.query(GitHubBoardConfig).filter(
-        GitHubBoardConfig.project_id == item.project_id
+        GitHubBoardConfig.project_id == item.project_id,
+        GitHubBoardConfig.tenant_id == tenant_id,
     ).first()
 
     # Determine the repo to use
@@ -98,13 +101,14 @@ def create_backlog_item(
     item: BacklogItemCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Create a new backlog item for a project."""
-    if not db.query(Project).filter(Project.id == project_id).first():
+    if not db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first():
         raise HTTPException(status_code=404, detail="Project not found")
     if item.project_id != project_id:
         raise HTTPException(status_code=400, detail="project_id mismatch")
-    db_item = BacklogItem(**item.model_dump())
+    db_item = BacklogItem(**item.model_dump(), tenant_id=current_tenant.id)
     db.add(db_item)
     db.commit()
     db.refresh(db_item)
@@ -118,9 +122,10 @@ def list_backlog_items(
     status: str | None = Query(None, description="Filter by status"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List backlog items for a project, optionally filtered by phase or status."""
-    query = db.query(BacklogItem).filter(BacklogItem.project_id == project_id)
+    query = db.query(BacklogItem).filter(BacklogItem.project_id == project_id, BacklogItem.tenant_id == current_tenant.id)
     if phase:
         query = query.filter(BacklogItem.current_phase == phase)
     if status:
@@ -134,9 +139,10 @@ def update_backlog_item(
     item_update: BacklogItemUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Update a backlog item. If phase changes to Development, sync to GitHub."""
-    item = db.query(BacklogItem).filter(BacklogItem.id == item_id).first()
+    item = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Backlog item not found")
 
@@ -148,7 +154,7 @@ def update_backlog_item(
 
     # GitHub sync: when item enters Development, create issue if not already synced
     if item.current_phase == "Development" and old_phase != "Development" and not item.github_issue_number:
-        _auto_export_to_github(db, item)
+        _auto_export_to_github(db, item, current_tenant.id)
 
     db.commit()
     db.refresh(item)
@@ -160,16 +166,12 @@ def advance_backlog_phase(
     item_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
-    """Advance a backlog item to the next item-level phase.
-
-    Items advance through: Requirements → Design → Development → Testing → Ready for UAT.
-    After Ready for UAT, items must be bundled into a release — the release then
-    goes through UAT → Pre-Release → Release → Post-Release → Retrospective.
-    """
+    """Advance a backlog item to the next item-level phase."""
     from app.models.backlog_item import ITEM_PHASES
 
-    item = db.query(BacklogItem).filter(BacklogItem.id == item_id).first()
+    item = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Backlog item not found")
 
@@ -188,7 +190,7 @@ def advance_backlog_phase(
 
     # GitHub sync on entering Development
     if item.current_phase == "Development" and not item.github_issue_number:
-        _auto_export_to_github(db, item)
+        _auto_export_to_github(db, item, current_tenant.id)
 
     db.commit()
     db.refresh(item)
@@ -205,13 +207,10 @@ def send_back_to_development(
     item_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
-    """Send a backlog item back from Testing to Development (rework).
-
-    Only items currently in Testing can be sent back. Sets status to 'In Progress'
-    and phase to 'Development'.
-    """
-    item = db.query(BacklogItem).filter(BacklogItem.id == item_id).first()
+    """Send a backlog item back from Testing to Development (rework)."""
+    item = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Backlog item not found")
 
@@ -238,9 +237,10 @@ def delete_backlog_item(
     item_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Delete a backlog item."""
-    item = db.query(BacklogItem).filter(BacklogItem.id == item_id).first()
+    item = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Backlog item not found")
     db.delete(item)
@@ -257,13 +257,15 @@ def add_dependency(
     dep: DependencyAdd,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
-    """Mark item_id as depending on depends_on_id (item_id cannot start until depends_on_id is done)."""
-    item = db.query(BacklogItem).filter(BacklogItem.id == item_id).first()
+    """Mark item_id as depending on depends_on_id."""
+    tid = current_tenant.id
+    item = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == tid).first()
     if not item:
         raise HTTPException(status_code=404, detail="Backlog item not found")
 
-    target = db.query(BacklogItem).filter(BacklogItem.id == dep.depends_on_id).first()
+    target = db.query(BacklogItem).filter(BacklogItem.id == dep.depends_on_id, BacklogItem.tenant_id == tid).first()
     if not target:
         raise HTTPException(status_code=404, detail="Dependency target item not found")
 
@@ -271,7 +273,7 @@ def add_dependency(
     if item_id == dep.depends_on_id:
         raise HTTPException(status_code=400, detail="An item cannot depend on itself")
 
-    # Prevent circular dependency (simple check: if target already depends on item, it's circular)
+    # Prevent circular dependency
     if item in target.depends_on:
         raise HTTPException(status_code=400, detail="Circular dependency detected — the target item already depends on this item")
 
@@ -291,13 +293,15 @@ def remove_dependency(
     depends_on_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Remove a dependency link."""
-    item = db.query(BacklogItem).filter(BacklogItem.id == item_id).first()
+    tid = current_tenant.id
+    item = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == tid).first()
     if not item:
         raise HTTPException(status_code=404, detail="Backlog item not found")
 
-    target = db.query(BacklogItem).filter(BacklogItem.id == depends_on_id).first()
+    target = db.query(BacklogItem).filter(BacklogItem.id == depends_on_id, BacklogItem.tenant_id == tid).first()
     if not target:
         raise HTTPException(status_code=404, detail="Dependency target item not found")
 
@@ -316,15 +320,17 @@ def list_available_dependencies(
     exclude_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
-    """List backlog items in a project that can be used as dependencies (excludes the item itself and its existing dependencies)."""
-    item = db.query(BacklogItem).filter(BacklogItem.id == exclude_id).first()
+    """List backlog items in a project that can be used as dependencies."""
+    tid = current_tenant.id
+    item = db.query(BacklogItem).filter(BacklogItem.id == exclude_id, BacklogItem.tenant_id == tid).first()
     existing_dep_ids = {d.id for d in item.depends_on} if item else set()
     existing_dep_ids.add(exclude_id)
 
     items = (
         db.query(BacklogItem)
-        .filter(BacklogItem.project_id == project_id)
+        .filter(BacklogItem.project_id == project_id, BacklogItem.tenant_id == tid)
         .filter(~BacklogItem.id.in_(existing_dep_ids))
         .order_by(BacklogItem.created_at.desc())
         .all()

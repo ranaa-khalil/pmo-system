@@ -7,6 +7,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.client import Client
 from app.models.project import Project
+from app.models.tenant import Tenant
 from app.models.user import User
 from app.permissions import (
     can_assign_pm,
@@ -16,14 +17,15 @@ from app.permissions import (
     get_visible_projects,
 )
 from app.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
+from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
 @router.post("", response_model=ProjectResponse, status_code=201)
-def create_project(project: ProjectCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def create_project(project: ProjectCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
     """Create a new project (super admin or account manager for this client)."""
-    client = db.query(Client).filter(Client.id == project.client_id).first()
+    client = db.query(Client).filter(Client.id == project.client_id, Client.tenant_id == current_tenant.id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
     if not can_create_project(current_user, client):
@@ -39,6 +41,7 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db), curren
         dev_url=project.dev_url,
         uat_url=project.uat_url,
         prod_url=project.prod_url,
+        tenant_id=current_tenant.id,
     )
     db.add(db_project)
     db.commit()
@@ -51,27 +54,28 @@ def list_projects(
     client_id: int | None = Query(None, description="Filter by client ID"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List projects visible to the current user."""
-    projects = get_visible_projects(current_user, db)
+    projects = get_visible_projects(current_user, db, tenant_id=current_tenant.id)
     if client_id is not None:
         projects = [p for p in projects if p.client_id == client_id]
     return projects
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)
-def get_project(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_project(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
     """Get a specific project by ID."""
-    project = db.query(Project).filter(Project.id == project_id).first()
+    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     return project
 
 
 @router.put("/{project_id}", response_model=ProjectResponse)
-def update_project(project_id: int, project_update: ProjectUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def update_project(project_id: int, project_update: ProjectUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
     """Update a project (super admin, AM, or PM)."""
-    project = db.query(Project).filter(Project.id == project_id).first()
+    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     if not can_manage_project(current_user, project, db):
@@ -90,16 +94,17 @@ def assign_project_manager(
     data: dict,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Assign a project manager to a project (super admin, AM, or current PM)."""
-    project = db.query(Project).filter(Project.id == project_id).first()
+    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     if not can_assign_pm(current_user, project, db):
         raise HTTPException(status_code=403, detail="You don't have permission to assign a PM to this project")
     pm_id = data.get("project_manager_id")
     if pm_id:
-        pm = db.query(User).filter(User.id == pm_id).first()
+        pm = db.query(User).filter(User.id == pm_id, User.tenant_id == current_tenant.id).first()
         if not pm:
             raise HTTPException(status_code=404, detail="User not found")
         if pm.system_role == "member":
@@ -111,12 +116,12 @@ def assign_project_manager(
 
 
 @router.delete("/{project_id}", status_code=204)
-def delete_project(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def delete_project(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
     """Delete a project (super admin or AM)."""
-    project = db.query(Project).filter(Project.id == project_id).first()
+    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    client = db.query(Client).filter(Client.id == project.client_id).first()
+    client = db.query(Client).filter(Client.id == project.client_id, Client.tenant_id == current_tenant.id).first()
     if not can_manage_client(current_user, client):
         raise HTTPException(status_code=403, detail="Only super admins or the account manager can delete projects")
     db.delete(project)

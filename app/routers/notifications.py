@@ -16,10 +16,12 @@ from app.models.backlog_item import BacklogItem
 from app.models.kpi import KPI
 from app.models.notification import Notification
 from app.models.project import Project
+from app.models.tenant import Tenant
 from app.models.user import User
 from app.models.user import User as UserModel
 from app.models.user_task import UserTask
 from app.services.notifications import ensure_preferences
+from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["notifications"])
 
@@ -37,6 +39,19 @@ def _get_user_from_token(token: str, db: Session) -> User:
     return user
 
 
+def _resolve_tenant_id(user: User, db: Session) -> int:
+    """Resolve the user's active tenant ID for token-based endpoints."""
+    if user.active_tenant_id:
+        return user.active_tenant_id
+    from app.models.tenant import TenantMembership
+    membership = db.query(TenantMembership).filter(TenantMembership.user_id == user.id).first()
+    if membership:
+        user.active_tenant_id = membership.tenant_id
+        db.commit()
+        return membership.tenant_id
+    raise HTTPException(403, "User is not a member of any tenant.")
+
+
 # ==================== NOTIFICATIONS ====================
 
 @router.get("/notifications")
@@ -45,15 +60,18 @@ def get_notifications(
     limit: int = 50,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Get current user's notifications."""
-    q = db.query(Notification).filter(Notification.user_id == current_user.id)
+    tid = current_tenant.id
+    q = db.query(Notification).filter(Notification.user_id == current_user.id, Notification.tenant_id == tid)
     if unread_only:
         q = q.filter(Notification.read == False)
     notifs = q.order_by(Notification.created_at.desc()).limit(limit).all()
     unread_count = db.query(Notification).filter(
         Notification.user_id == current_user.id,
         Notification.read == False,
+        Notification.tenant_id == tid,
     ).count()
     return {
         "notifications": [
@@ -78,11 +96,13 @@ def mark_notification_read(
     notification_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Mark a single notification as read."""
     notif = db.query(Notification).filter(
         Notification.id == notification_id,
         Notification.user_id == current_user.id,
+        Notification.tenant_id == current_tenant.id,
     ).first()
     if not notif:
         raise HTTPException(404, "Notification not found")
@@ -95,11 +115,13 @@ def mark_notification_read(
 def mark_all_read(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Mark all notifications as read."""
     db.query(Notification).filter(
         Notification.user_id == current_user.id,
         Notification.read == False,
+        Notification.tenant_id == current_tenant.id,
     ).update({"read": True})
     db.commit()
     return {"ok": True}
@@ -110,11 +132,13 @@ def delete_notification(
     notification_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Delete a notification."""
     notif = db.query(Notification).filter(
         Notification.id == notification_id,
         Notification.user_id == current_user.id,
+        Notification.tenant_id == current_tenant.id,
     ).first()
     if not notif:
         raise HTTPException(404, "Notification not found")
@@ -129,6 +153,7 @@ def delete_notification(
 def get_preferences(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Get current user's notification preferences."""
     pref = ensure_preferences(db, current_user.id)
@@ -148,6 +173,7 @@ def update_preferences(
     prefs: dict,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Update current user's notification preferences."""
     pref = ensure_preferences(db, current_user.id)
@@ -169,9 +195,10 @@ def get_activity(
     limit: int = 50,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Get activity log entries (global or per-project)."""
-    q = db.query(ActivityLog)
+    q = db.query(ActivityLog).filter(ActivityLog.tenant_id == current_tenant.id)
     if project_id:
         q = q.filter(ActivityLog.project_id == project_id)
     entries = q.order_by(ActivityLog.created_at.desc()).limit(limit).all()
@@ -204,7 +231,8 @@ def export_backlog(
     if not token:
         raise HTTPException(401, "Token required")
     current_user = _get_user_from_token(token, db)
-    items = db.query(BacklogItem).filter(BacklogItem.project_id == project_id).all()
+    tid = _resolve_tenant_id(current_user, db)
+    items = db.query(BacklogItem).filter(BacklogItem.project_id == project_id, BacklogItem.tenant_id == tid).all()
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -220,7 +248,7 @@ def export_backlog(
         ])
 
     output.seek(0)
-    project = db.query(Project).filter(Project.id == project_id).first()
+    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == tid).first()
     filename = f"backlog_{project.name.replace(' ', '_').lower()}.csv" if project else "backlog.csv"
 
     return StreamingResponse(
@@ -239,7 +267,8 @@ def export_tasks(
     if not token:
         raise HTTPException(401, "Token required")
     current_user = _get_user_from_token(token, db)
-    tasks = db.query(UserTask).filter(UserTask.assigned_to == current_user.id).all()
+    tid = _resolve_tenant_id(current_user, db)
+    tasks = db.query(UserTask).filter(UserTask.assigned_to == current_user.id, UserTask.tenant_id == tid).all()
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -273,7 +302,8 @@ def export_kpis(
     if not token:
         raise HTTPException(401, "Token required")
     current_user = _get_user_from_token(token, db)
-    kpis = db.query(KPI).filter(KPI.project_id == project_id).all()
+    tid = _resolve_tenant_id(current_user, db)
+    kpis = db.query(KPI).filter(KPI.project_id == project_id, KPI.tenant_id == tid).all()
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -293,7 +323,7 @@ def export_kpis(
         ])
 
     output.seek(0)
-    project = db.query(Project).filter(Project.id == project_id).first()
+    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == tid).first()
     filename = f"kpis_{project.name.replace(' ', '_').lower()}.csv" if project else "kpis.csv"
 
     return StreamingResponse(
@@ -310,13 +340,15 @@ def get_project_health(
     project_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Get composite project health score and breakdown."""
+    tid = current_tenant.id
     from app.models.approval import ApprovalRequest
     from app.models.release import Release, ReleaseItem
 
     # Phase distribution
-    items = db.query(BacklogItem).filter(BacklogItem.project_id == project_id).all()
+    items = db.query(BacklogItem).filter(BacklogItem.project_id == project_id, BacklogItem.tenant_id == tid).all()
     phase_dist = {}
     for item in items:
         phase_dist[item.current_phase] = phase_dist.get(item.current_phase, 0) + 1
@@ -325,24 +357,25 @@ def get_project_health(
     completed_items = sum(1 for i in items if i.current_phase == "Ready for UAT" or i.target_release)
 
     # Active releases
-    releases = db.query(Release).filter(Release.project_id == project_id).all()
+    releases = db.query(Release).filter(Release.project_id == project_id, Release.tenant_id == tid).all()
     active_releases = [r for r in releases if r.status not in ("Post-Release",)]
     releases_with_items = []
     for r in active_releases:
-        release_items = db.query(ReleaseItem).filter(ReleaseItem.release_id == r.id).all()
+        release_items = db.query(ReleaseItem).filter(ReleaseItem.release_id == r.id, ReleaseItem.tenant_id == tid).all()
         releases_with_items.append({
             "id": r.id,
             "version": r.version,
             "name": r.name,
             "status": r.status,
             "item_count": len(release_items),
-            "progress": min(100, len(release_items) * 20),  # simplified
+            "progress": min(100, len(release_items) * 20),
         })
 
     # Pending approvals
     pending_approvals = db.query(ApprovalRequest).filter(
         ApprovalRequest.project_id == project_id,
         ApprovalRequest.status == "Pending",
+        ApprovalRequest.tenant_id == tid,
     ).count()
 
     # Overdue tasks
@@ -352,10 +385,11 @@ def get_project_health(
         UserTask.project_id == project_id,
         UserTask.status != "Completed",
         UserTask.due_date < today,
+        UserTask.tenant_id == tid,
     ).count()
 
     # KPIs below target
-    kpis = db.query(KPI).filter(KPI.project_id == project_id).all()
+    kpis = db.query(KPI).filter(KPI.project_id == project_id, KPI.tenant_id == tid).all()
     kpis_below = 0
     kpi_progress = []
     for k in kpis:

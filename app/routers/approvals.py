@@ -7,6 +7,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.approval import ApprovalRequest, ApprovalStep
 from app.models.project import Project
+from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.approval import (
     ApprovalDecision,
@@ -18,19 +19,21 @@ from app.services.notifications import (
     notify_approval_created,
     notify_approval_result,
 )
+from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["approvals"])
 
 
-def _enrich_steps(db: Session, request: ApprovalRequest):
+def _enrich_steps(db: Session, request: ApprovalRequest, tenant_id: int):
     """Add approver_name to each step by resolving the FK."""
     steps = db.query(ApprovalStep).filter(
-        ApprovalStep.request_id == request.id
+        ApprovalStep.request_id == request.id,
+        ApprovalStep.tenant_id == tenant_id,
     ).order_by(ApprovalStep.step_order).all()
     for s in steps:
         s.approver_name = None
         if s.approver_id:
-            user = db.query(User).filter(User.id == s.approver_id).first()
+            user = db.query(User).filter(User.id == s.approver_id, User.tenant_id == tenant_id).first()
             s.approver_name = user.name if user else None
     request.steps = steps
     return request
@@ -42,9 +45,11 @@ def create_approval_request(
     req: ApprovalRequestCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Create an approval request with a chain of RACI steps."""
-    if not db.query(Project).filter(Project.id == project_id).first():
+    tid = current_tenant.id
+    if not db.query(Project).filter(Project.id == project_id, Project.tenant_id == tid).first():
         raise HTTPException(status_code=404, detail="Project not found")
     if req.project_id != project_id:
         raise HTTPException(status_code=400, detail="project_id mismatch")
@@ -59,6 +64,7 @@ def create_approval_request(
         requested_by=current_user.id,
         release_id=req.release_id,
         target_phase=req.target_phase,
+        tenant_id=tid,
     )
     db.add(request)
     db.commit()
@@ -70,13 +76,14 @@ def create_approval_request(
             step_order=step_data.step_order,
             role_name=step_data.role_name,
             approver_id=step_data.approver_id,
+            tenant_id=tid,
         )
         db.add(step)
     db.commit()
     db.refresh(request)
 
     # Load steps for response (with approver names)
-    result = _enrich_steps(db, request)
+    result = _enrich_steps(db, request, tid)
 
     # Notify the first approver
     first_step = result.steps[0] if result.steps else None
@@ -84,7 +91,7 @@ def create_approval_request(
         release_name = ""
         if request.release_id:
             from app.models.release import Release
-            rel = db.query(Release).filter(Release.id == request.release_id).first()
+            rel = db.query(Release).filter(Release.id == request.release_id, Release.tenant_id == tid).first()
             release_name = f"{rel.version} — {rel.name}" if rel else ""
         notify_approval_created(
             db, request.id, first_step.role_name,
@@ -103,11 +110,13 @@ def list_project_approvals(
     project_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List all approval requests for a project."""
-    requests = db.query(ApprovalRequest).filter(ApprovalRequest.project_id == project_id).all()
+    tid = current_tenant.id
+    requests = db.query(ApprovalRequest).filter(ApprovalRequest.project_id == project_id, ApprovalRequest.tenant_id == tid).all()
     for r in requests:
-        _enrich_steps(db, r)
+        _enrich_steps(db, r, tid)
     return requests
 
 
@@ -116,12 +125,13 @@ def get_approval_request(
     approval_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Get an approval request with its steps."""
-    request = db.query(ApprovalRequest).filter(ApprovalRequest.id == approval_id).first()
+    request = db.query(ApprovalRequest).filter(ApprovalRequest.id == approval_id, ApprovalRequest.tenant_id == current_tenant.id).first()
     if not request:
         raise HTTPException(status_code=404, detail="Approval request not found")
-    return _enrich_steps(db, request)
+    return _enrich_steps(db, request, current_tenant.id)
 
 
 @router.post("/approvals/{approval_id}/steps/{step_id}/approve", response_model=ApprovalRequestWithStepsResponse)
@@ -131,20 +141,17 @@ def approve_step(
     decision: ApprovalDecision = ApprovalDecision(),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
-    """Approve a step in the approval chain. Advances to next step or completes.
-
-    If this is a release phase-gate approval and this is the last step, the
-    release is auto-advanced to the target phase and the next phase's approval
-    is auto-created.
-    """
-    request = db.query(ApprovalRequest).filter(ApprovalRequest.id == approval_id).first()
+    """Approve a step in the approval chain. Advances to next step or completes."""
+    tid = current_tenant.id
+    request = db.query(ApprovalRequest).filter(ApprovalRequest.id == approval_id, ApprovalRequest.tenant_id == tid).first()
     if not request:
         raise HTTPException(status_code=404, detail="Approval request not found")
     if request.status != "Pending":
         raise HTTPException(status_code=400, detail=f"Cannot approve: request is '{request.status}'")
 
-    step = db.query(ApprovalStep).filter(ApprovalStep.id == step_id, ApprovalStep.request_id == approval_id).first()
+    step = db.query(ApprovalStep).filter(ApprovalStep.id == step_id, ApprovalStep.request_id == approval_id, ApprovalStep.tenant_id == tid).first()
     if not step:
         raise HTTPException(status_code=404, detail="Approval step not found")
     if step.status != "Pending":
@@ -160,21 +167,19 @@ def approve_step(
     step.decided_at = func.now()
 
     # Check if this was the last step
-    all_steps = db.query(ApprovalStep).filter(ApprovalStep.request_id == approval_id).order_by(ApprovalStep.step_order).all()
+    all_steps = db.query(ApprovalStep).filter(ApprovalStep.request_id == approval_id, ApprovalStep.tenant_id == tid).order_by(ApprovalStep.step_order).all()
     if step.step_order >= all_steps[-1].step_order:
         # Last step approved — request is fully approved
         request.status = "Approved"
 
-        # ── AUTO-ADVANCE RELEASE ───────────────────────────────────────────
-        # If this is a release phase-gate approval, advance the release to
-        # the target phase and create the next phase's approval.
+        # AUTO-ADVANCE RELEASE
         if request.request_type == "release" and request.release_id and request.target_phase:
             from datetime import date as _date
 
             from app.models.release import Release
             from app.routers.releases import _create_phase_approval
 
-            release = db.query(Release).filter(Release.id == request.release_id).first()
+            release = db.query(Release).filter(Release.id == request.release_id, Release.tenant_id == tid).first()
             if release and release.status != request.target_phase:
                 release.status = request.target_phase
                 if request.target_phase == "Released":
@@ -183,14 +188,14 @@ def approve_step(
                 db.refresh(release)
 
                 # Auto-create the next phase's approval
-                _create_phase_approval(db, release, current_user)
+                _create_phase_approval(db, release, current_user, tid)
 
         # Notify the PM (requested_by) that the approval was approved
         if request.requested_by:
             release_name = ""
             if request.release_id:
                 from app.models.release import Release
-                rel = db.query(Release).filter(Release.id == request.release_id).first()
+                rel = db.query(Release).filter(Release.id == request.release_id, Release.tenant_id == tid).first()
                 release_name = f"{rel.version} — {rel.name}" if rel else ""
             notify_approval_result(
                 db, True, current_user.name, release_name,
@@ -205,7 +210,7 @@ def approve_step(
 
     db.commit()
     db.refresh(request)
-    return _enrich_steps(db, request)
+    return _enrich_steps(db, request, tid)
 
 
 @router.post("/approvals/{approval_id}/steps/{step_id}/reject", response_model=ApprovalRequestWithStepsResponse)
@@ -215,19 +220,23 @@ def reject_step(
     decision: ApprovalDecision = ApprovalDecision(),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Reject a step. This rejects the entire approval request."""
-    request = db.query(ApprovalRequest).filter(ApprovalRequest.id == approval_id).first()
+    tid = current_tenant.id
+    request = db.query(ApprovalRequest).filter(ApprovalRequest.id == approval_id, ApprovalRequest.tenant_id == tid).first()
     if not request:
         raise HTTPException(status_code=404, detail="Approval request not found")
     if request.status != "Pending":
         raise HTTPException(status_code=400, detail=f"Cannot reject: request is '{request.status}'")
 
-    step = db.query(ApprovalStep).filter(ApprovalStep.id == step_id, ApprovalStep.request_id == approval_id).first()
+    step = db.query(ApprovalStep).filter(ApprovalStep.id == step_id, ApprovalStep.request_id == approval_id, ApprovalStep.tenant_id == tid).first()
     if not step:
         raise HTTPException(status_code=404, detail="Approval step not found")
     if step.status != "Pending":
         raise HTTPException(status_code=400, detail=f"Step is already '{step.status}'")
+    if step.step_order != request.current_step:
+        raise HTTPException(status_code=400, detail=f"This step is not the current step (current: step {request.current_step})")
 
     step.status = "Rejected"
     step.comment = decision.comment
@@ -235,38 +244,24 @@ def reject_step(
     from sqlalchemy.sql import func
     step.decided_at = func.now()
 
-    # Reject the entire request
     request.status = "Rejected"
 
-    # Notify the PM that the approval was rejected
+    # Notify the PM
     if request.requested_by:
         release_name = ""
         if request.release_id:
             from app.models.release import Release
-            rel = db.query(Release).filter(Release.id == request.release_id).first()
+            rel = db.query(Release).filter(Release.id == request.release_id, Release.tenant_id == tid).first()
             release_name = f"{rel.version} — {rel.name}" if rel else ""
         notify_approval_result(
             db, False, current_user.name, release_name,
             step.role_name, request.requested_by, request.project_id,
         )
+
     log_activity(db, current_user.id, current_user.name, request.project_id,
                  "approval", request.id, "rejected",
                  f"Rejected: {request.title} ({step.role_name})")
 
     db.commit()
     db.refresh(request)
-    return _enrich_steps(db, request)
-
-
-@router.delete("/approvals/{approval_id}", status_code=204)
-def delete_approval_request(
-    approval_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Delete an approval request and all its steps."""
-    request = db.query(ApprovalRequest).filter(ApprovalRequest.id == approval_id).first()
-    if not request:
-        raise HTTPException(status_code=404, detail="Approval request not found")
-    db.delete(request)
-    db.commit()
+    return _enrich_steps(db, request, tid)

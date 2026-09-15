@@ -8,9 +8,9 @@ class Settings(BaseSettings):
     # Environment: development, staging, production
     env: str = "development"
 
-    # Database — SQLite for dev, PostgreSQL for staging/prod
-    # Set PMO_DATABASE_URL=postgresql://user:pass@host:5432/dbname for prod
-    database_url: str = "sqlite:///./pmo_system.db"
+    # Database — PostgreSQL (default), SQLite for tests
+    # Set PMO_DATABASE_URL=sqlite:///./pmo_system.db for local dev without Docker
+    database_url: str = "postgresql://pmo:pmo_pass@localhost:5432/pmo_system"
 
     # Auth
     secret_key: str = "dev-secret-key-change-in-production"

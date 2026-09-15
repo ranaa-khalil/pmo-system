@@ -24,10 +24,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # HSTS (only in production with HTTPS)
         # response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
-        # Basic CSP (allow inline for Alpine.js + Tailwind CDN)
+        # Basic CSP (allow inline + eval for Alpine.js, Tailwind CDN)
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; "
             "img-src 'self' data: https:; "

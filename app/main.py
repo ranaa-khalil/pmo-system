@@ -10,9 +10,10 @@ import app.models  # noqa: F401 — register all models
 from app.config import settings
 from app.database import Base, SessionLocal, engine
 from app.frontend import router as frontend_router
-from app.middleware import QuotaHeaderMiddleware, RateLimitMiddleware
+from app.middleware import QuotaHeaderMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware
 from app.routers import (
     ai,
+    analytics,
     api_keys,
     approvals,
     auth,
@@ -79,6 +80,48 @@ def _auto_migrate():
     for table in _TENANT_TABLES:
         _add_column(table, "tenant_id INTEGER")
 
+    # Add branding column to tenants (Phase 3.2 white-labeling)
+    _add_column("tenants", "branding TEXT")
+
+    # Create indexes on tenant_id for all tenant-scoped tables (Phase 3.6)
+    def _has_index(table: str, index_name: str) -> bool:
+        if not inspector.has_table(table):
+            return True
+        return index_name in [i["name"] for i in inspector.get_indexes(table)]
+
+    for table in _TENANT_TABLES:
+        idx_name = f"idx_{table}_tenant"
+        if not _has_index(table, idx_name):
+            conn = engine.connect()
+            try:
+                conn.execute(text(f"CREATE INDEX {idx_name} ON {table} (tenant_id)"))
+                conn.commit()
+                logger.info(f"Index created: {idx_name}")
+            except Exception as e:
+                logger.warning(f"Index skipped for {table}: {e}")
+            finally:
+                conn.close()
+
+    # Composite indexes for common query patterns
+    _composite_indexes = [
+        ("idx_backlog_tenant_project", "backlog_items", "tenant_id, project_id"),
+        ("idx_releases_tenant_project", "releases", "tenant_id, project_id"),
+        ("idx_stakeholders_tenant_project", "stakeholders", "tenant_id, project_id"),
+        ("idx_kpis_tenant_project", "kpis", "tenant_id, project_id"),
+        ("idx_notifications_tenant_user", "notifications", "tenant_id, user_id"),
+    ]
+    for idx_name, table, columns in _composite_indexes:
+        if not _has_index(table, idx_name) and inspector.has_table(table):
+            conn = engine.connect()
+            try:
+                conn.execute(text(f"CREATE INDEX {idx_name} ON {table} ({columns})"))
+                conn.commit()
+                logger.info(f"Composite index created: {idx_name}")
+            except Exception as e:
+                logger.warning(f"Composite index skipped for {table}: {e}")
+            finally:
+                conn.close()
+
 
 _auto_migrate()
 
@@ -102,7 +145,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Add quota header middleware and rate limiting
+# Add middleware (order matters: security → rate limit → quota)
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(QuotaHeaderMiddleware)
 app.add_middleware(RateLimitMiddleware)
 
@@ -124,6 +168,7 @@ app.include_router(notifications.router)
 app.include_router(ai.router)
 app.include_router(github_sync.router)
 app.include_router(api_keys.router)
+app.include_router(analytics.router)
 
 # Register frontend UI
 app.include_router(frontend_router)

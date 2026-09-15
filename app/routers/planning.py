@@ -231,7 +231,7 @@ def get_milestone_detail(milestone_id: int, db: Session = Depends(get_db), curre
 
 # ===== Traceability =====
 @router.get("/projects/{project_id}/traceability")
-def get_traceability(
+def get_traceability_matrix(
     project_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),

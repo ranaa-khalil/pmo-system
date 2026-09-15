@@ -109,7 +109,18 @@ def get_tenant(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Get the current tenant's info."""
-    return current_tenant
+    import json as _json
+    resp = {
+        "id": current_tenant.id,
+        "name": current_tenant.name,
+        "slug": current_tenant.slug,
+        "plan": current_tenant.plan,
+        "status": current_tenant.status,
+        "logo_url": current_tenant.logo_url,
+        "branding": _json.loads(current_tenant.branding) if current_tenant.branding else {},
+        "created_at": current_tenant.created_at.isoformat() if current_tenant.created_at else None,
+    }
+    return resp
 
 
 @router.put("/tenant", response_model=TenantResponse)
@@ -127,6 +138,30 @@ def update_tenant(
     db.commit()
     db.refresh(current_tenant)
     return current_tenant
+
+
+@router.put("/tenant/branding")
+def update_tenant_branding(
+    req: dict,
+    current_tenant: Tenant = Depends(get_current_tenant),
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_tenant_role(MEMBER_ROLE_OWNER, MEMBER_ROLE_ADMIN)),
+):
+    """Update tenant branding (white-label, Enterprise only).
+
+    Branding fields: primary_color (hex), custom_domain, hide_powered_by (bool)
+    """
+    import json as _json
+    from app.services.plan_enforcement import require_feature
+    require_feature(current_tenant.plan, "white_label")
+
+    branding = _json.loads(current_tenant.branding) if current_tenant.branding else {}
+    for key in ("primary_color", "custom_domain", "hide_powered_by"):
+        if key in req:
+            branding[key] = req[key]
+    current_tenant.branding = _json.dumps(branding)
+    db.commit()
+    return {"ok": True, "branding": branding}
 
 
 @router.post("/auth/switch-tenant", response_model=dict)
@@ -662,4 +697,103 @@ def get_audit_log(
             for e in entries
         ],
     }
+
+
+# ─── GDPR Data Deletion ──────────────────────────────────────
+
+@router.delete("/tenant/data")
+def delete_tenant_data(
+    confirm: str = "DELETE",
+    current_tenant: Tenant = Depends(get_current_tenant),
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_tenant_role(MEMBER_ROLE_OWNER)),
+):
+    """Delete ALL tenant data (GDPR right to erasure). Owner only.
+
+    This permanently deletes all projects, backlog items, releases, etc.
+    The tenant itself and its memberships are preserved (use admin to delete tenant).
+    Pass confirm=DELETE to proceed.
+    """
+    if confirm != "DELETE":
+        raise HTTPException(400, "Pass confirm=DELETE to confirm data deletion.")
+
+    tid = current_tenant.id
+    deleted = {}
+
+    # Delete in dependency order
+    from app.models.release import ReleaseItem, Release
+    from app.models.approval import ApprovalRequest, ApprovalStep
+    from app.models.backlog_item import BacklogItem, backlog_dependencies
+    from app.models.form_template import FormInstance, FormTemplate
+    from app.models.kpi import KPI
+    from app.models.milestone import Milestone
+    from app.models.roadmap import Roadmap
+    from app.models.stakeholder import Stakeholder
+    from app.models.user_persona import UserPersona
+    from app.models.project_test_account import ProjectTestAccount
+    from app.models.project_vision import ProjectVision
+    from app.models.github_board_config import GitHubBoardConfig
+    from app.models.user_task import UserTask
+    from app.models.notification import Notification
+    from app.models.activity_log import ActivityLog
+
+    deleted["release_items"] = db.query(ReleaseItem).filter(ReleaseItem.tenant_id == tid).delete()
+    deleted["releases"] = db.query(Release).filter(Release.tenant_id == tid).delete()
+    deleted["approval_steps"] = db.query(ApprovalStep).filter(ApprovalStep.tenant_id == tid).delete()
+    deleted["approval_requests"] = db.query(ApprovalRequest).filter(ApprovalRequest.tenant_id == tid).delete()
+    deleted["backlog_items"] = db.query(BacklogItem).filter(BacklogItem.tenant_id == tid).delete()
+    deleted["form_instances"] = db.query(FormInstance).filter(FormInstance.tenant_id == tid).delete()
+    deleted["form_templates"] = db.query(FormTemplate).filter(FormTemplate.tenant_id == tid).delete()
+    deleted["kpis"] = db.query(KPI).filter(KPI.tenant_id == tid).delete()
+    deleted["milestones"] = db.query(Milestone).filter(Milestone.tenant_id == tid).delete()
+    deleted["roadmaps"] = db.query(Roadmap).filter(Roadmap.tenant_id == tid).delete()
+    deleted["stakeholders"] = db.query(Stakeholder).filter(Stakeholder.tenant_id == tid).delete()
+    deleted["personas"] = db.query(UserPersona).filter(UserPersona.tenant_id == tid).delete()
+    deleted["test_accounts"] = db.query(ProjectTestAccount).filter(ProjectTestAccount.tenant_id == tid).delete()
+    deleted["visions"] = db.query(ProjectVision).filter(ProjectVision.tenant_id == tid).delete()
+    deleted["github_configs"] = db.query(GitHubBoardConfig).filter(GitHubBoardConfig.tenant_id == tid).delete()
+    deleted["user_tasks"] = db.query(UserTask).filter(UserTask.tenant_id == tid).delete()
+    deleted["notifications"] = db.query(Notification).filter(Notification.tenant_id == tid).delete()
+    deleted["activity_logs"] = db.query(ActivityLog).filter(ActivityLog.tenant_id == tid).delete()
+    deleted["projects"] = db.query(Project).filter(Project.tenant_id == tid).delete()
+
+    db.commit()
+    return {"ok": True, "deleted": deleted}
+
+
+# ─── SSO (OIDC) — structure only, local ──────────────────────
+
+@router.get("/auth/sso/providers")
+def list_sso_providers(
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """List available SSO providers (Business+ feature)."""
+    from app.services.plan_enforcement import require_feature
+    from app.services.sso_service import list_available_providers
+    require_feature(current_tenant.plan, "sso_oidc")
+    return {"providers": list_available_providers()}
+
+
+@router.get("/auth/sso/{provider}/initiate")
+def initiate_sso(
+    provider: str,
+    redirect_uri: str = "http://localhost:8000/api/auth/sso/callback",
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Initiate SSO login flow (Business+ feature).
+
+    Returns the authorization URL to redirect the user to.
+    Requires PMO_SSO_{PROVIDER}_CLIENT_ID and PMO_SSO_{PROVIDER}_CLIENT_SECRET env vars.
+    """
+    from app.services.plan_enforcement import require_feature
+    from app.services.sso_service import get_authorization_url
+    require_feature(current_tenant.plan, "sso_oidc")
+
+    try:
+        url = get_authorization_url(provider, redirect_uri)
+        return {"authorization_url": url, "provider": provider}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 

@@ -50,6 +50,7 @@ class FormInstance(Base):
     __tablename__ = "form_instances"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
     template_id = Column(Integer, ForeignKey("form_templates.id", ondelete="CASCADE"), nullable=False)
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     backlog_item_id = Column(Integer, ForeignKey("backlog_items.id", ondelete="SET NULL"), nullable=True)

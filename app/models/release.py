@@ -60,6 +60,7 @@ class ReleaseItem(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
     release_id = Column(Integer, ForeignKey("releases.id", ondelete="CASCADE"), nullable=False)
     backlog_item_id = Column(Integer, ForeignKey("backlog_items.id", ondelete="CASCADE"), nullable=False)
 

@@ -50,6 +50,7 @@ class ApprovalStep(Base):
     __tablename__ = "approval_steps"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
     request_id = Column(Integer, ForeignKey("approval_requests.id", ondelete="CASCADE"), nullable=False)
     step_order = Column(Integer, nullable=False)
     role_name = Column(String(100), nullable=False)

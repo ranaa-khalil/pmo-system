@@ -31,6 +31,7 @@ class NotificationPreference(Base):
     __tablename__ = "notification_preferences"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
     email_enabled = Column(Boolean, default=True, nullable=False)
     in_app_enabled = Column(Boolean, default=True, nullable=False)

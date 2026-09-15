@@ -10,6 +10,7 @@ import app.models  # noqa: F401 — register all models
 from app.config import settings
 from app.database import Base, SessionLocal, engine
 from app.frontend import router as frontend_router
+from app.middleware import QuotaHeaderMiddleware, RateLimitMiddleware
 from app.routers import (
     ai,
     approvals,
@@ -99,6 +100,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add quota header middleware and rate limiting
+app.add_middleware(QuotaHeaderMiddleware)
+app.add_middleware(RateLimitMiddleware)
 
 # Register API routers
 app.include_router(auth.router)

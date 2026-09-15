@@ -1568,6 +1568,88 @@
                     </div>
                     <button @click="assignRole()" class="mt-3 text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Assign</button>
                 </div>
+
+                <!-- Tenant General card -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Tenant / Organization</h3>
+                    <div class="space-y-3 text-[13px]">
+                        <div class="flex justify-between py-2 border-b border-ink-100">
+                            <span class="text-ink-400">Organization Name</span>
+                            <span class="font-medium text-ink-700" x-text="currentTenant?.name || '—'"></span>
+                        </div>
+                        <div class="flex justify-between py-2 border-b border-ink-100">
+                            <span class="text-ink-400">Slug</span>
+                            <span class="font-medium text-ink-700" x-text="currentTenant?.slug || '—'"></span>
+                        </div>
+                        <div class="flex justify-between py-2 border-b border-ink-100">
+                            <span class="text-ink-400">Plan</span>
+                            <span class="font-medium text-brand-600 capitalize" x-text="currentTenant?.plan || 'free'"></span>
+                        </div>
+                        <div class="flex justify-between py-2 border-b border-ink-100">
+                            <span class="text-ink-400">Status</span>
+                            <span class="font-medium text-emerald-600 capitalize" x-text="currentTenant?.status || 'active'"></span>
+                        </div>
+                    </div>
+                    <!-- Edit tenant name -->
+                    <div x-show="canManageUsers" x-cloak class="mt-4 flex gap-2">
+                        <input x-model="tenantEditForm.name" class="input-premium text-[13px] rounded-[10px] flex-1" placeholder="Organization name">
+                        <button @click="saveTenant()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all whitespace-nowrap">Save</button>
+                    </div>
+                </div>
+
+                <!-- Usage & Billing card -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Usage & Billing</h3>
+                    <div class="space-y-4">
+                        <template x-for="metric in usageMetrics" :key="metric.key">
+                            <div>
+                                <div class="flex justify-between text-[12px] mb-1">
+                                    <span class="text-ink-500" x-text="metric.label"></span>
+                                    <span class="font-medium text-ink-700" x-text="metric.current + ' / ' + (metric.limit >= 999999 ? '∞' : metric.limit)"></span>
+                                </div>
+                                <div class="h-2 bg-ink-100 rounded-full overflow-hidden">
+                                    <div class="h-full rounded-full transition-all"
+                                         :class="metric.limit >= 999999 ? 'bg-brand-400' : (metric.current / metric.limit > 0.9 ? 'bg-rose-500' : metric.current / metric.limit > 0.7 ? 'bg-amber-500' : 'bg-brand-500')"
+                                         :style="'width: ' + (metric.limit >= 999999 ? '100%' : Math.min(100, metric.current / metric.limit * 100) + '%')"></div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-ink-100">
+                        <p class="text-[11px] text-ink-400">Upgrade your plan to unlock more users, projects, and features. Billing management available in Phase 2.</p>
+                    </div>
+                </div>
+
+                <!-- Integrations card -->
+                <div x-show="canManageUsers" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Integrations</h3>
+
+                    <!-- GitHub Integration -->
+                    <div class="mb-5">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-4 h-4 text-ink-700" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.37 1.23-3.21-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.21 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                            <h4 class="text-[13px] font-semibold text-ink-800">GitHub</h4>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full" :class="integrations.github_token === '[SET]' || integrations.github_token === '[GLOBAL]' ? 'bg-emerald-50 text-emerald-600' : 'bg-ink-100 text-ink-400'" x-text="integrations.github_token === '[SET]' ? 'Configured' : integrations.github_token === '[GLOBAL]' ? 'Global' : 'Not set'"></span>
+                        </div>
+                        <input x-model="integrationForm.github_token" type="password" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="GitHub personal access token">
+                    </div>
+
+                    <!-- AI Integration -->
+                    <div class="mb-5">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-4 h-4 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                            <h4 class="text-[13px] font-semibold text-ink-800">AI / LLM</h4>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full" :class="integrations.ai_api_key === '[SET]' || integrations.ai_api_key === '[GLOBAL]' ? 'bg-emerald-50 text-emerald-600' : 'bg-ink-100 text-ink-400'" x-text="integrations.ai_api_key === '[SET]' ? 'Configured' : integrations.ai_api_key === '[GLOBAL]' ? 'Global' : 'Not set'"></span>
+                        </div>
+                        <div class="space-y-2">
+                            <input x-model="integrationForm.ai_api_key" type="password" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="API key">
+                            <input x-model="integrationForm.ai_base_url" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="Base URL (e.g. https://api.openai.com/v1)">
+                            <input x-model="integrationForm.ai_model" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="Model (e.g. gpt-4o-mini)">
+                        </div>
+                    </div>
+
+                    <button @click="saveIntegrations()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Integrations</button>
+                </div>
             </div>
 
             <!-- ============ DOCUMENTATION VIEW ============ -->
@@ -5405,6 +5487,13 @@ function pmoApp() {
         unreadCount: 0,
         notifPanelOpen: false,
         activityFeed: [],
+
+        // ===== Tenant state =====
+        currentTenant: null,
+        tenantEditForm: { name: '' },
+        integrations: {},
+        integrationForm: { github_token: '', ai_api_key: '', ai_base_url: '', ai_model: '' },
+        usageMetrics: [],
         projectHealth: null,
 
         // ===== AI assistant state =====
@@ -6563,6 +6652,7 @@ function pmoApp() {
             if (route === 'roadmap') { this.loadAllRoadmaps(); }
             if (route === 'dashboard') { setTimeout(() => this.renderCharts(), 150); this.refreshTaskSummary(); }
             if (route === 'tasks') { this.loadTasks(); }
+            if (route === 'settings') { this.loadTenant(); this.loadIntegrations(); this.loadUsage(); }
         },
 
         async loadAllRoadmaps() {
@@ -7805,6 +7895,57 @@ function pmoApp() {
             try {
                 this.users = await this.api('GET', '/users');
             } catch { this.users = []; }
+        },
+
+        // ===== Tenant management methods =====
+        async loadTenant() {
+            try {
+                this.currentTenant = await this.api('GET', '/api/tenant');
+                this.tenantEditForm.name = this.currentTenant.name || '';
+            } catch { this.currentTenant = null; }
+        },
+
+        async saveTenant() {
+            try {
+                await this.api('PUT', '/api/tenant', { name: this.tenantEditForm.name });
+                await this.loadTenant();
+                this.showToast('Tenant updated', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async loadIntegrations() {
+            try {
+                this.integrations = await this.api('GET', '/api/tenant/settings');
+            } catch { this.integrations = {}; }
+        },
+
+        async saveIntegrations() {
+            try {
+                const payload = {};
+                if (this.integrationForm.github_token) payload.github_token = this.integrationForm.github_token;
+                if (this.integrationForm.ai_api_key) payload.ai_api_key = this.integrationForm.ai_api_key;
+                if (this.integrationForm.ai_base_url) payload.ai_base_url = this.integrationForm.ai_base_url;
+                if (this.integrationForm.ai_model) payload.ai_model = this.integrationForm.ai_model;
+                await this.api('PUT', '/api/tenant/settings', payload);
+                await this.loadIntegrations();
+                this.integrationForm = { github_token: '', ai_api_key: '', ai_base_url: '', ai_model: '' };
+                this.showToast('Integrations saved', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async loadUsage() {
+            try {
+                const data = await this.api('GET', '/api/tenant/usage');
+                const limits = await this.api('GET', '/api/tenant/usage/history?days=1');
+                const current = limits.current || {};
+                const lim = limits.limits || {};
+                this.usageMetrics = [
+                    { key: 'users', label: 'Team Members', current: current.users || 0, limit: lim.users || 3 },
+                    { key: 'projects', label: 'Projects', current: current.projects || 0, limit: lim.projects || 1 },
+                    { key: 'releases', label: 'Releases', current: current.releases || 0, limit: lim.releases || 999999 },
+                    { key: 'backlog_items', label: 'Backlog Items', current: current.backlog_items || 0, limit: lim.backlog_items || 999999 },
+                ];
+            } catch { this.usageMetrics = []; }
         },
 
         async createUser() {

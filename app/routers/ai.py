@@ -20,7 +20,16 @@ from app.services.ai import (
     suggest_features,
     suggest_vision_improvements,
 )
-from app.services.tenant import get_current_tenant
+from app.services.settings_service import (
+    SETTING_AI_API_KEY,
+    SETTING_AI_BASE_URL,
+    SETTING_AI_MODEL,
+    SETTING_GITHUB_TOKEN,
+    get_ai_config,
+    is_ai_configured_for_tenant,
+    set_setting,
+)
+from app.services.tenant import get_current_tenant, require_tenant_role
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -47,36 +56,43 @@ class AIConfigRequest(BaseModel):
 
 @router.get("/status")
 def ai_status(
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
-    """Check if AI is configured."""
+    """Check if AI is configured for this tenant."""
+    config = get_ai_config(db, current_tenant.id)
     return {
-        "configured": is_ai_configured(),
-        "base_url": settings.ai_base_url,
-        "model": settings.ai_model,
+        "configured": bool(config["api_key"]),
+        "base_url": config["base_url"],
+        "model": config["model"],
     }
 
 
 @router.put("/config")
 def update_ai_config(
     req: AIConfigRequest,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_tenant: Tenant = Depends(get_current_tenant),
+    _user: User = Depends(require_tenant_role("owner", "admin")),
 ):
-    """Update AI configuration (super_admin only)."""
-    if current_user.system_role != "super_admin":
-        raise HTTPException(403, "Only super admins can configure AI settings.")
+    """Update AI configuration for this tenant (owner/admin only)."""
     if req.api_key:
-        os.environ["PMO_AI_API_KEY"] = req.api_key
-        settings.ai_api_key = req.api_key
+        set_setting(db, current_tenant.id, SETTING_AI_API_KEY, req.api_key)
     if req.base_url:
-        os.environ["PMO_AI_BASE_URL"] = req.base_url
-        settings.ai_base_url = req.base_url
+        set_setting(db, current_tenant.id, SETTING_AI_BASE_URL, req.base_url)
     if req.model:
-        os.environ["PMO_AI_MODEL"] = req.model
-        settings.ai_model = req.model
-    return {"configured": is_ai_configured(), "message": "AI configuration updated."}
+        set_setting(db, current_tenant.id, SETTING_AI_MODEL, req.model)
+    db.commit()
+
+    config = get_ai_config(db, current_tenant.id)
+    return {
+        "configured": bool(config["api_key"]),
+        "base_url": config["base_url"],
+        "model": config["model"],
+        "message": "AI configuration updated.",
+    }
 
 
 @router.post("/suggest-vision")
@@ -87,7 +103,8 @@ def ai_suggest_vision(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Suggest improvements to a project's vision statement."""
-    if not is_ai_configured():
+    tenant_config = get_ai_config(db, current_tenant.id)
+    if not tenant_config["api_key"]:
         raise HTTPException(400, "AI is not configured. Set the API key in Settings.")
 
     project = db.query(Project).filter(Project.id == req.project_id, Project.tenant_id == current_tenant.id).first()
@@ -102,6 +119,7 @@ def ai_suggest_vision(
             project_description=project.description or "",
             current_vision=vision.statement if vision else "",
             objectives=vision.strategic_objectives if vision else "",
+            tenant_config=tenant_config,
         )
     except Exception as e:
         raise HTTPException(502, f"AI request failed: {str(e)}")
@@ -115,7 +133,8 @@ def ai_suggest_features(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Suggest epics and features for a project."""
-    if not is_ai_configured():
+    tenant_config = get_ai_config(db, current_tenant.id)
+    if not tenant_config["api_key"]:
         raise HTTPException(400, "AI is not configured. Set the API key in Settings.")
 
     project = db.query(Project).filter(Project.id == req.project_id, Project.tenant_id == current_tenant.id).first()
@@ -139,6 +158,7 @@ def ai_suggest_features(
             existing_epics=existing_epics,
             existing_features=existing_features,
             personas=persona_list,
+            tenant_config=tenant_config,
         )
     except Exception as e:
         raise HTTPException(502, f"AI request failed: {str(e)}")
@@ -152,7 +172,8 @@ def ai_fill_field(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Fill an empty field on a backlog item using AI."""
-    if not is_ai_configured():
+    tenant_config = get_ai_config(db, current_tenant.id)
+    if not tenant_config["api_key"]:
         raise HTTPException(400, "AI is not configured. Set the API key in Settings.")
 
     item = db.query(BacklogItem).filter(BacklogItem.id == req.item_id, BacklogItem.tenant_id == current_tenant.id).first()
@@ -162,21 +183,16 @@ def ai_fill_field(
     project = db.query(Project).filter(Project.id == item.project_id, Project.tenant_id == current_tenant.id).first()
     vision = db.query(ProjectVision).filter(ProjectVision.project_id == item.project_id, ProjectVision.tenant_id == current_tenant.id).first()
 
-    field_labels = {
-        "description": "A detailed description of what this item does and why it's needed",
-        "acceptance_criteria": "Clear, testable acceptance criteria (as a bullet list)",
-        "primary_actor": "The primary user persona who benefits from this feature",
-    }
-
     try:
         return fill_field(
             item_title=item.title,
-            item_type=item.item_type or "Feature",
+            item_type=item.item_type or "",
             field_name=req.field_name,
-            field_context=field_labels.get(req.field_name, req.field_context),
+            field_context=req.field_context,
             project_name=project.name if project else "",
             vision=vision.statement if vision else "",
             existing_description=item.description or "",
+            tenant_config=tenant_config,
         )
     except Exception as e:
         raise HTTPException(502, f"AI request failed: {str(e)}")

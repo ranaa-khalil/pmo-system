@@ -11,8 +11,14 @@ import httpx
 from app.config import settings
 
 
-def is_ai_configured() -> bool:
-    """Check if AI is configured (API key set)."""
+def is_ai_configured(tenant_config: dict | None = None) -> bool:
+    """Check if AI is configured (API key set).
+
+    If tenant_config is provided (from settings_service.get_ai_config),
+    checks the per-tenant key. Otherwise checks the global config.
+    """
+    if tenant_config:
+        return bool(tenant_config.get("api_key"))
     return bool(settings.ai_api_key)
 
 
@@ -51,17 +57,30 @@ def _extract_json(raw: str) -> dict | None:
     return None
 
 
-def _call_llm(system_prompt: str, user_prompt: str, max_tokens: int = 1500, json_mode: bool = False) -> str:
-    """Call the LLM API and return the response text."""
-    if not is_ai_configured():
+def _call_llm(system_prompt: str, user_prompt: str, max_tokens: int = 1500, json_mode: bool = False, tenant_config: dict | None = None) -> str:
+    """Call the LLM API and return the response text.
+
+    If tenant_config is provided, uses per-tenant AI settings.
+    Otherwise falls back to global config.
+    """
+    if tenant_config:
+        api_key = tenant_config.get("api_key", "")
+        base_url = tenant_config.get("base_url", settings.ai_base_url)
+        model = tenant_config.get("model", settings.ai_model)
+    else:
+        api_key = settings.ai_api_key
+        base_url = settings.ai_base_url
+        model = settings.ai_model
+
+    if not api_key:
         raise ValueError("AI is not configured. Set the API key in Settings.")
 
     headers = {
-        "Authorization": f"Bearer {settings.ai_api_key}",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
     payload = {
-        "model": settings.ai_model,
+        "model": model,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -74,7 +93,7 @@ def _call_llm(system_prompt: str, user_prompt: str, max_tokens: int = 1500, json
 
     with httpx.Client(timeout=120.0) as client:
         resp = client.post(
-            f"{settings.ai_base_url}/chat/completions",
+            f"{base_url}/chat/completions",
             headers=headers,
             json=payload,
         )
@@ -88,6 +107,7 @@ def suggest_vision_improvements(
     project_description: str,
     current_vision: str,
     objectives: str = "",
+    tenant_config: dict | None = None,
 ) -> dict:
     """Suggest improvements to a project vision statement."""
     system = (
@@ -109,7 +129,7 @@ def suggest_vision_improvements(
         '  "suggested_objectives": ["3-5 strategic objectives that align with the vision"]\n'
         '}'
     )
-    raw = _call_llm(system, user, json_mode=True)
+    raw = _call_llm(system, user, json_mode=True, tenant_config=tenant_config)
     parsed = _extract_json(raw)
     if parsed:
         return parsed
@@ -123,6 +143,7 @@ def suggest_features(
     existing_epics: list,
     existing_features: list,
     personas: list,
+    tenant_config: dict | None = None,
 ) -> dict:
     """Suggest epics and features for a project based on context."""
     system = (
@@ -163,7 +184,7 @@ def suggest_features(
         "Respond as JSON:\n"
         '{"suggested_epics":[{"title":"...","description":"..."}],"suggested_features":[{...all fields...}],"summary":"2-3 sentence assessment"}'
     )
-    raw = _call_llm(system, user, max_tokens=6000, json_mode=True)
+    raw = _call_llm(system, user, max_tokens=6000, json_mode=True, tenant_config=tenant_config)
     parsed = _extract_json(raw)
     if parsed:
         return parsed
@@ -178,6 +199,7 @@ def fill_field(
     project_name: str,
     vision: str,
     existing_description: str = "",
+    tenant_config: dict | None = None,
 ) -> dict:
     """Fill an empty field on a backlog item using AI."""
     system = (
@@ -199,7 +221,7 @@ def fill_field(
         '  "explanation": "Brief explanation of why this content is appropriate"\n'
         '}'
     )
-    raw = _call_llm(system, user, max_tokens=800)
+    raw = _call_llm(system, user, max_tokens=800, tenant_config=tenant_config)
     parsed = _extract_json(raw)
     if parsed:
         return parsed

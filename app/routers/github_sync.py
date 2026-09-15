@@ -34,6 +34,7 @@ from app.schemas.github_sync import (
 from app.services.github import GitHubService
 from app.services.notifications import log_activity
 from app.services.tenant import get_current_tenant
+from app.services.settings_service import get_github_token
 
 router = APIRouter(prefix="/api", tags=["github-sync"])
 
@@ -57,9 +58,19 @@ def _resolve_repo(config: GitHubBoardConfig, project: Project) -> str:
     return config.repo or project.github_repo or ""
 
 
-def _get_gh_service() -> GitHubService:
-    """Create a GitHubService instance with the configured token."""
-    return GitHubService(token=settings.github_token or None)
+def _get_gh_service(db: Session = None, tenant_id: int = None) -> GitHubService:
+    """Create a GitHubService instance with the configured token.
+
+    If db and tenant_id are provided, uses the per-tenant GitHub token.
+    Falls back to the global config token otherwise.
+    """
+    token = None
+    if db and tenant_id:
+        from app.services.settings_service import get_github_token
+        token = get_github_token(db, tenant_id)
+    if not token:
+        token = settings.github_token or None
+    return GitHubService(token=token)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -129,13 +140,13 @@ def list_github_projects(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    if not settings.github_token:
+    if not get_github_token(db, current_tenant.id) and not settings.github_token:
         raise HTTPException(status_code=400, detail="GitHub token not configured. Set PMO_GITHUB_TOKEN environment variable.")
 
     config = _get_or_create_config(db, project_id, current_tenant.id)
     repo = _resolve_repo(config, project)
 
-    gh = _get_gh_service()
+    gh = _get_gh_service(db, current_tenant.id)
     try:
         projects = []
 
@@ -187,10 +198,10 @@ def resolve_board_url(
     if not db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first():
         raise HTTPException(status_code=404, detail="Project not found")
 
-    if not settings.github_token:
+    if not get_github_token(db, current_tenant.id) and not settings.github_token:
         raise HTTPException(status_code=400, detail="GitHub token not configured. Set PMO_GITHUB_TOKEN environment variable.")
 
-    gh = _get_gh_service()
+    gh = _get_gh_service(db, current_tenant.id)
     try:
         result = gh.resolve_project_url(req.url)
         if not result:
@@ -217,7 +228,7 @@ def list_github_labels(
     if not repo:
         raise HTTPException(status_code=400, detail="No GitHub repo configured")
 
-    gh = _get_gh_service()
+    gh = _get_gh_service(db, current_tenant.id)
     try:
         return gh.list_labels(repo)
     finally:
@@ -266,7 +277,7 @@ def export_to_github(
             )
         raise HTTPException(status_code=400, detail="No GitHub repo configured. Set the repo in the board config or project settings.")
 
-    if not settings.github_token:
+    if not get_github_token(db, current_tenant.id) and not settings.github_token:
         raise HTTPException(status_code=400, detail="GitHub token not configured. Set PMO_GITHUB_TOKEN environment variable.")
 
     # Determine which items to export
@@ -292,7 +303,7 @@ def export_to_github(
     if config.default_labels:
         labels = [l.strip() for l in config.default_labels.split(",") if l.strip()]
 
-    gh = _get_gh_service()
+    gh = _get_gh_service(db, current_tenant.id)
     result = GitHubExportResult(total=len(items))
 
     try:
@@ -433,7 +444,7 @@ def import_from_github(
     if not repo:
         raise HTTPException(status_code=400, detail="No GitHub repo configured. Set the repo in the board config or project settings.")
 
-    if not settings.github_token:
+    if not get_github_token(db, current_tenant.id) and not settings.github_token:
         raise HTTPException(status_code=400, detail="GitHub token not configured. Set PMO_GITHUB_TOKEN environment variable.")
 
     # Get all items that have been exported to GitHub
@@ -446,7 +457,7 @@ def import_from_github(
     if not synced_items:
         return GitHubImportResult(total=0)
 
-    gh = _get_gh_service()
+    gh = _get_gh_service(db, current_tenant.id)
     result = GitHubImportResult(total=len(synced_items))
     now_iso = datetime.now(UTC).isoformat()
 

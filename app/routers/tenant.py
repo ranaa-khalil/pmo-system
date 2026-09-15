@@ -203,12 +203,8 @@ def create_invitation(
 ):
     """Invite a new member to the tenant (owner/admin only)."""
     # Check quota
-    limits = PLAN_LIMITS.get(current_tenant.plan, PLAN_LIMITS["free"])
-    current_count = db.query(TenantMembership).filter(
-        TenantMembership.tenant_id == current_tenant.id
-    ).count()
-    if current_count >= limits["users"]:
-        raise HTTPException(403, f"User limit reached for {current_tenant.plan} plan ({limits['users']} users). Upgrade to add more.")
+    from app.services.usage_service import check_quota, METRIC_USERS
+    check_quota(db, current_tenant, METRIC_USERS)
 
     # Check if already invited
     existing = db.query(Invitation).filter(
@@ -409,17 +405,92 @@ def get_usage(
     _user: User = Depends(get_current_user),
 ):
     """Get current usage metrics for the tenant."""
-    limits = PLAN_LIMITS.get(current_tenant.plan, PLAN_LIMITS["free"])
-    user_count = db.query(TenantMembership).filter(
-        TenantMembership.tenant_id == current_tenant.id
-    ).count()
-    project_count = db.query(Project).filter(
-        Project.tenant_id == current_tenant.id
-    ).count()
+    from app.services.usage_service import get_usage_counts, get_limits, METRIC_USERS, METRIC_PROJECTS
+    counts = get_usage_counts(db, current_tenant.id)
+    limits = get_limits(current_tenant.plan)
     return UsageResponse(
         plan=current_tenant.plan,
-        users=user_count,
-        users_limit=limits["users"],
-        projects=project_count,
-        projects_limit=limits["projects"],
+        users=counts[METRIC_USERS],
+        users_limit=limits[METRIC_USERS],
+        projects=counts[METRIC_PROJECTS],
+        projects_limit=limits[METRIC_PROJECTS],
     )
+
+
+@router.get("/tenant/usage/history")
+def get_usage_history_endpoint(
+    days: int = 30,
+    current_tenant: Tenant = Depends(get_current_tenant),
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_tenant_role(MEMBER_ROLE_OWNER, MEMBER_ROLE_ADMIN)),
+):
+    """Get usage history for the last N days (for charts)."""
+    from app.services.usage_service import get_usage_history, get_usage_counts, get_limits
+    history = get_usage_history(db, current_tenant.id, days)
+    counts = get_usage_counts(db, current_tenant.id)
+    limits = get_limits(current_tenant.plan)
+    return {
+        "current": counts,
+        "limits": limits,
+        "history": history,
+    }
+
+
+# ─── Per-Tenant Settings (Integrations) ──────────────────────
+
+@router.get("/tenant/settings")
+def get_tenant_settings(
+    current_tenant: Tenant = Depends(get_current_tenant),
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_tenant_role(MEMBER_ROLE_OWNER, MEMBER_ROLE_ADMIN)),
+):
+    """Get all per-tenant settings (secrets are masked)."""
+    from app.services.settings_service import get_all_settings
+    return get_all_settings(db, current_tenant.id)
+
+
+@router.put("/tenant/settings")
+def update_tenant_settings(
+    req: dict,
+    current_tenant: Tenant = Depends(get_current_tenant),
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_tenant_role(MEMBER_ROLE_OWNER, MEMBER_ROLE_ADMIN)),
+):
+    """Update per-tenant settings (GitHub token, AI config, etc.).
+
+    Accepts a dict of key-value pairs. Secret keys (github_token, ai_api_key)
+    are encrypted at rest. Empty values clear the setting.
+    """
+    from app.models.tenant_setting import SECRET_KEYS
+    from app.services.settings_service import set_setting, delete_setting
+
+    updated = []
+    for key, value in req.items():
+        if key not in SECRET_KEYS and key not in ("ai_base_url", "ai_model"):
+            continue  # Only allow known setting keys
+        if value:
+            set_setting(db, current_tenant.id, key, str(value))
+            updated.append(key)
+        else:
+            delete_setting(db, current_tenant.id, key)
+            updated.append(f"{key} (cleared)")
+
+    db.commit()
+    return {"ok": True, "updated": updated}
+
+
+@router.delete("/tenant/settings/{key}")
+def delete_tenant_setting(
+    key: str,
+    current_tenant: Tenant = Depends(get_current_tenant),
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_tenant_role(MEMBER_ROLE_OWNER, MEMBER_ROLE_ADMIN)),
+):
+    """Delete a per-tenant setting."""
+    from app.services.settings_service import delete_setting
+    deleted = delete_setting(db, current_tenant.id, key)
+    db.commit()
+    if not deleted:
+        raise HTTPException(404, f"Setting '{key}' not found.")
+    return {"ok": True, "deleted": key}
+

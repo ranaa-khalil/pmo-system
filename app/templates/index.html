@@ -266,15 +266,18 @@
                 </div>
 
                 <form x-show="showRegister" @submit.prevent="register()" x-cloak class="mt-4 space-y-3 pt-4 border-t border-black/[0.06]">
+                    <input x-model="registerForm.tenant_name" type="text" required
+                           class="input-premium w-full text-[14px] border rounded-xl px-4 py-3 placeholder-ink-300 transition-all"
+                           placeholder="Company / Workspace name">
                     <input x-model="registerForm.full_name" type="text" required
                            class="input-premium w-full text-[14px] border rounded-xl px-4 py-3 placeholder-ink-300 transition-all"
-                           placeholder="Full name">
+                           placeholder="Your full name">
                     <input x-model="registerForm.email" type="email" required
                            class="input-premium w-full text-[14px] border rounded-xl px-4 py-3 placeholder-ink-300 transition-all"
                            placeholder="Email">
                     <input x-model="registerForm.password" type="password" required
                            class="input-premium w-full text-[14px] border rounded-xl px-4 py-3 placeholder-ink-300 transition-all"
-                           placeholder="Password">
+                           placeholder="Password (min 8 chars)">
                     <button type="submit" class="w-full text-[13px] font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 px-4 py-3 rounded-xl transition-all">Create Account</button>
                 </form>
             </div>
@@ -1441,68 +1444,50 @@
                 <!-- Team Management card -->
                 <div x-show="canManageUsers" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
                     <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Team Management</h3>
-                    <!-- Create user -->
-                    <div class="grid grid-cols-4 gap-2 mb-4">
-                        <input x-model="userForm.name" class="input-premium text-[13px] rounded-[10px]" placeholder="Full name">
-                        <input x-model="userForm.email" class="input-premium text-[13px] rounded-[10px]" placeholder="Email">
-                        <input x-model="userForm.password" type="password" class="input-premium text-[13px] rounded-[10px]" placeholder="Password">
-                        <select x-model="userForm.system_role" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
-                            <template x-for="role in allowedRoles()" :key="role">
-                                <option :value="role" x-text="role.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())"></option>
-                            </template>
+                    <!-- Invite member -->
+                    <div class="grid grid-cols-3 gap-2 mb-4">
+                        <input x-model="inviteForm.email" type="email" class="input-premium text-[13px] rounded-[10px] col-span-2" placeholder="Email address">
+                        <select x-model="inviteForm.role" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
+                            <option value="member">Member</option>
+                            <option value="admin">Admin</option>
+                            <option value="owner">Owner</option>
                         </select>
                     </div>
-                    <button @click="createUser()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all mb-4">Add User</button>
-                    <!-- Users list -->
+                    <button @click="inviteMember()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all mb-4">Invite Member</button>
+                    <!-- Members list -->
                     <div class="space-y-3">
-                        <template x-for="u in users" :key="u.id">
+                        <template x-for="m in tenantMembers" :key="m.user_id || m.id">
                             <div class="bg-ink-100/60 rounded-2xl p-4 border border-black/[0.04]">
                                 <div class="flex items-start justify-between gap-3">
                                     <div class="flex items-center gap-3 min-w-0">
-                                        <div class="w-10 h-10 rounded-xl bg-brand-600 text-white text-[13px] font-bold flex items-center justify-center flex-shrink-0" x-text="u.name.charAt(0)"></div>
+                                        <div class="w-10 h-10 rounded-xl bg-brand-600 text-white text-[13px] font-bold flex items-center justify-center flex-shrink-0" x-text="(m.user_name || m.name || '?').charAt(0)"></div>
                                         <div class="min-w-0">
                                             <div class="text-[13px] font-semibold text-ink-900 flex items-center gap-2">
-                                                <span x-text="u.name"></span>
+                                                <span x-text="m.user_name || m.name"></span>
                                                 <span class="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider"
-                                                      :class="{'bg-rose-100 text-rose-700': u.system_role === 'super_admin', 'bg-orange-100 text-orange-700': u.system_role === 'account_manager', 'bg-blue-100 text-blue-700': u.system_role === 'project_manager', 'bg-ink-200 text-ink-500': u.system_role === 'member'}"
-                                                      x-text="u.system_role.replace('_', ' ')"></span>
+                                                      :class="{'bg-rose-100 text-rose-700': m.role === 'owner', 'bg-orange-100 text-orange-700': m.role === 'admin', 'bg-blue-100 text-blue-700': m.role === 'member'}"
+                                                      x-text="m.role"></span>
                                             </div>
-                                            <div class="text-[11px] text-ink-400" x-text="u.email"></div>
+                                            <div class="text-[11px] text-ink-400" x-text="m.user_email || m.email"></div>
                                         </div>
                                     </div>
-                                    <button x-show="u.id !== currentUser.id" @click="deleteUser(u.id)" class="text-[11px] text-ink-400 hover:text-rose-500 transition-colors flex-shrink-0 px-2 py-1 rounded-lg hover:bg-rose-50">Remove</button>
+                                    <div class="flex items-center gap-2 flex-shrink-0">
+                                        <select x-show="m.role !== 'owner' && m.user_id !== currentUser.id"
+                                                @change="changeMemberRole(m.user_id, $event.target.value)"
+                                                class="text-[11px] border border-ink-200/60 rounded-lg px-2 py-1 bg-white">
+                                            <option value="" selected disabled>Role…</option>
+                                            <option value="member">Member</option>
+                                            <option value="admin">Admin</option>
+                                            <option value="owner">Owner</option>
+                                        </select>
+                                        <button x-show="m.role !== 'owner' && m.user_id !== currentUser.id"
+                                                @click="removeMember(m.user_id)"
+                                                class="text-[11px] text-ink-400 hover:text-rose-500 transition-colors px-2 py-1 rounded-lg hover:bg-rose-50">Remove</button>
+                                    </div>
                                 </div>
-                                <!-- Managed clients & projects -->
-                                <template x-if="u.managed_clients && u.managed_clients.length > 0">
-                                    <div class="mt-3 flex items-start gap-2 text-[11px]">
-                                        <span class="text-ink-400 font-medium flex-shrink-0">Clients:</span>
-                                        <span class="text-ink-600" x-text="u.managed_clients.map(c => c.name).join(', ')"></span>
-                                    </div>
-                                </template>
-                                <template x-if="u.managed_projects && u.managed_projects.length > 0">
-                                    <div class="mt-1 flex items-start gap-2 text-[11px]">
-                                        <span class="text-ink-400 font-medium flex-shrink-0">Projects:</span>
-                                        <span class="text-ink-600" x-text="u.managed_projects.map(p => p.name).join(', ')"></span>
-                                    </div>
-                                </template>
-                                <!-- RACI roles — grouped by role name with count -->
-                                <template x-if="u.roles && u.roles.length > 0">
-                                    <div class="mt-3 pt-3 border-t border-black/[0.06]">
-                                        <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-2">RACI Assignments</div>
-                                        <div class="flex flex-wrap gap-1.5">
-                                            <template x-for="roleGroup in Object.entries(u.roles.reduce((acc, r) => { (acc[r.role] = acc[r.role] || []).push(r); return acc; }, {}))" :key="roleGroup[0]">
-                                                <div class="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-lg bg-white border border-black/[0.06] text-ink-700">
-                                                    <span x-text="roleGroup[0]"></span>
-                                                    <template x-if="roleGroup[1].length > 1">
-                                                        <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-brand-100 text-brand-700" x-text="roleGroup[1].length"></span>
-                                                    </template>
-                                                </div>
-                                            </template>
-                                        </div>
-                                    </div>
-                                </template>
                             </div>
                         </template>
+                        <div x-show="tenantMembers.length === 0" class="text-[12px] text-ink-400 text-center py-4">No members yet. Invite your team above.</div>
                     </div>
                 </div>
                 <!-- Assign Account Manager card -->
@@ -5465,7 +5450,7 @@ function pmoApp() {
         currentUser: null,
         loginForm: { email: '', password: '' },
         showPassword: false,
-        registerForm: { full_name: '', email: '', password: '' },
+        registerForm: { full_name: '', email: '', password: '', tenant_name: '' },
         loginError: '',
         loginLoading: false,
         showRegister: false,
@@ -5491,6 +5476,8 @@ function pmoApp() {
         // ===== Tenant state =====
         currentTenant: null,
         tenantEditForm: { name: '' },
+        tenantMembers: [],
+        inviteForm: { email: '', role: 'member' },
         integrations: {},
         integrationForm: { github_token: '', ai_api_key: '', ai_base_url: '', ai_model: '' },
         usageMetrics: [],
@@ -6621,16 +6608,26 @@ function pmoApp() {
         },
 
         async register() {
+            this.loginError = '';
             try {
-                await fetch('/api/auth/register', {
+                const res = await fetch('/api/auth/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(this.registerForm),
+                    body: JSON.stringify({
+                        name: this.registerForm.full_name,
+                        email: this.registerForm.email,
+                        password: this.registerForm.password,
+                        tenant_name: this.registerForm.tenant_name,
+                    }),
                 });
+                if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.detail || 'Registration failed');
+                }
                 // Auto-login after register
                 this.loginForm.email = this.registerForm.email;
                 this.loginForm.password = this.registerForm.password;
-                this.registerForm = { full_name: '', email: '', password: '' };
+                this.registerForm = { full_name: '', email: '', password: '', tenant_name: '' };
                 this.showRegister = false;
                 await this.login();
             } catch (e) {
@@ -6652,7 +6649,7 @@ function pmoApp() {
             if (route === 'roadmap') { this.loadAllRoadmaps(); }
             if (route === 'dashboard') { setTimeout(() => this.renderCharts(), 150); this.refreshTaskSummary(); }
             if (route === 'tasks') { this.loadTasks(); }
-            if (route === 'settings') { this.loadTenant(); this.loadIntegrations(); this.loadUsage(); }
+            if (route === 'settings') { this.loadTenant(); this.loadMembers(); this.loadIntegrations(); this.loadUsage(); }
         },
 
         async loadAllRoadmaps() {
@@ -7910,6 +7907,38 @@ function pmoApp() {
                 await this.api('PUT', '/api/tenant', { name: this.tenantEditForm.name });
                 await this.loadTenant();
                 this.showToast('Tenant updated', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async loadMembers() {
+            try {
+                this.tenantMembers = await this.api('GET', '/api/tenant/members');
+            } catch { this.tenantMembers = []; }
+        },
+
+        async inviteMember() {
+            try {
+                await this.api('POST', '/api/tenant/invite', this.inviteForm);
+                this.inviteForm = { email: '', role: 'member' };
+                await this.loadMembers();
+                this.showToast('Invitation sent', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async removeMember(userId) {
+            if (!confirm('Remove this member from the workspace?')) return;
+            try {
+                await this.api('DELETE', `/api/tenant/members/${userId}`);
+                await this.loadMembers();
+                this.showToast('Member removed', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async changeMemberRole(userId, newRole) {
+            try {
+                await this.api('PUT', `/api/tenant/members/${userId}`, { role: newRole });
+                await this.loadMembers();
+                this.showToast('Role updated', 'success');
             } catch (e) { this.showToast(e.message, 'error'); }
         },
 

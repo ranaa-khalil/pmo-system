@@ -30,10 +30,34 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)):
     return TokenResponse(access_token=token)
 
 
-@router.get("/me", response_model=UserResponse)
-def get_me(current_user: User = Depends(get_current_user)):
+@router.get("/me")
+def get_me(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Get the current authenticated user."""
-    return UserResponse.from_user(current_user)
+    from app.models.tenant import TenantMembership
+    # Get the user's role in their active tenant
+    tenant_role = None
+    if current_user.active_tenant_id:
+        membership = db.query(TenantMembership).filter(
+            TenantMembership.user_id == current_user.id,
+            TenantMembership.tenant_id == current_user.active_tenant_id,
+        ).first()
+        if membership:
+            tenant_role = membership.role
+
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "full_name": current_user.name,
+        "name": current_user.name,
+        "system_role": current_user.system_role,
+        "tenant_role": tenant_role,
+        "is_active": current_user.is_active,
+        "active_tenant_id": current_user.active_tenant_id,
+        "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
+    }
 
 
 @router.get("/me/tenants")

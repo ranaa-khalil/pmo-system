@@ -47,20 +47,35 @@ def seed():
     db = SessionLocal()
 
     # --- Admin user ---
+    # --- Admin user (tenant owner — Rana) ---
     admin = db.query(User).filter(User.email == "rana@opex.com.sa").first()
     if not admin:
         admin = User(
             email="rana@opex.com.sa",
             name="Rana Khalil",
             hashed_password=hash_password("Pmo@2026"),
-            system_role="super_admin",
+            system_role="member",
         )
         db.add(admin)
-        print("✅ Created super admin: rana@opex.com.sa")
+        print("✅ Created tenant owner: rana@opex.com.sa")
     else:
         admin.hashed_password = hash_password("Pmo@2026")
-        admin.system_role = "super_admin"
-        print("ℹ️ Admin user already exists — password reset, role set to super_admin")
+        admin.system_role = "member"
+        print("ℹ️ Tenant owner already exists — password reset")
+
+    # --- Super admin user (manages all tenants) ---
+    sys_admin = db.query(User).filter(User.email == "admin@pmosystem.app").first()
+    if not sys_admin:
+        sys_admin = User(
+            email="admin@pmosystem.app",
+            name="System Administrator",
+            hashed_password=hash_password("Pmo@2026"),
+            system_role="super_admin",
+            is_active=True,
+            active_tenant_id=None,
+        )
+        db.add(sys_admin)
+        print("✅ Created super admin: admin@pmosystem.app")
 
     # --- Ensure admin has a tenant ---
     from app.models.tenant import Tenant, TenantMembership

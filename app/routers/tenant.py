@@ -686,6 +686,75 @@ def update_tenant_status(
     }
 
 
+@router.get("/admin/insights")
+def get_admin_insights(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get system-wide insights (super_admin only).
+
+    Returns aggregate stats across all tenants.
+    """
+    _require_super_admin(current_user)
+
+    from app.models.backlog_item import BacklogItem
+    from app.models.project import Project
+    from app.models.release import Release
+    from app.models.api_key import ApiKey
+
+    tenants = db.query(Tenant).all()
+    active_tenants = [t for t in tenants if t.status == "active"]
+    suspended = [t for t in tenants if t.status == "suspended"]
+    cancelled = [t for t in tenants if t.status == "cancelled"]
+
+    total_members = db.query(TenantMembership).count()
+    total_projects = db.query(Project).count()
+    total_backlog = db.query(BacklogItem).count()
+    total_releases = db.query(Release).count()
+    total_api_keys = db.query(ApiKey).count()
+
+    # Plan distribution
+    plans = {"free": 0, "team": 0, "business": 0, "enterprise": 0}
+    for t in tenants:
+        plans[t.plan] = plans.get(t.plan, 0) + 1
+
+    # Per-tenant breakdown
+    tenant_details = []
+    for t in tenants:
+        members = db.query(TenantMembership).filter(TenantMembership.tenant_id == t.id).count()
+        projects = db.query(Project).filter(Project.tenant_id == t.id).count()
+        backlog = db.query(BacklogItem).filter(BacklogItem.tenant_id == t.id).count()
+        releases = db.query(Release).filter(Release.tenant_id == t.id).count()
+        tenant_details.append({
+            "id": t.id,
+            "name": t.name,
+            "slug": t.slug,
+            "plan": t.plan,
+            "status": t.status,
+            "members": members,
+            "projects": projects,
+            "backlog_items": backlog,
+            "releases": releases,
+            "created_at": t.created_at.isoformat() if t.created_at else None,
+        })
+
+    return {
+        "totals": {
+            "tenants": len(tenants),
+            "active_tenants": len(active_tenants),
+            "suspended_tenants": len(suspended),
+            "cancelled_tenants": len(cancelled),
+            "members": total_members,
+            "projects": total_projects,
+            "backlog_items": total_backlog,
+            "releases": total_releases,
+            "api_keys": total_api_keys,
+        },
+        "plan_distribution": plans,
+        "tenants": tenant_details,
+    }
+
+
 # ─── Data Export (Business+ feature) ─────────────────────────
 
 @router.get("/tenant/export")

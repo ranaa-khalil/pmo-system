@@ -276,6 +276,24 @@
 
         <!-- Navigation -->
         <nav class="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+            <!-- Super admin nav -->
+            <template x-if="isSuperAdmin">
+                <div>
+                    <div class="px-3 pb-2 text-[10px] font-semibold text-ink-400 uppercase tracking-wider">Admin</div>
+                    <template x-for="item in navItems.filter(i => i.group === 'admin')" :key="item.id">
+                        <a href="#"
+                           @click.prevent="navigate(item.id)"
+                           :class="route === item.id ? 'nav-active' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'"
+                           class="group flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-150">
+                            <span x-html="item.icon" class="w-[18px] h-[18px] flex-shrink-0"></span>
+                            <span x-text="item.label"></span>
+                        </a>
+                    </template>
+                </div>
+            </template>
+            <!-- Regular user nav -->
+            <template x-if="!isSuperAdmin">
+                <div>
             <div class="px-3 pb-2 text-[10px] font-semibold text-ink-400 uppercase tracking-wider">Workspace</div>
             <template x-for="item in navItems.filter(i => i.group === 'workspace')" :key="item.id">
                 <a href="#"
@@ -301,6 +319,8 @@
                     <span x-html="item.icon" class="w-[18px] h-[18px] flex-shrink-0"></span>
                     <span x-text="item.label"></span>
                 </a>
+            </template>
+                </div>
             </template>
         </nav>
 
@@ -1613,91 +1633,7 @@
                     <button @click="saveIntegrations()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Integrations</button>
                 </div>
 
-                <!-- Super Admin: Tenant Management card -->
-                <div x-show="currentUser && currentUser.system_role === 'super_admin'" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
-                    <h3 class="text-[14px] font-semibold text-ink-800 mb-1">Super Admin — Tenant Management</h3>
-                    <p class="text-[12px] text-ink-400 mb-4">Create and manage all tenants on this instance.</p>
-
-                    <!-- Create new tenant -->
-                    <div class="bg-ink-100/60 rounded-2xl p-4 mb-4 border border-black/[0.04]">
-                        <div class="text-[12px] font-semibold text-ink-700 mb-3">Create New Tenant</div>
-                        <div class="grid grid-cols-2 gap-2 mb-2">
-                            <input x-model="newTenantForm.tenant_name" class="input-premium text-[13px] rounded-[10px]" placeholder="Company name">
-                            <input x-model="newTenantForm.owner_name" class="input-premium text-[13px] rounded-[10px]" placeholder="Owner name">
-                            <input x-model="newTenantForm.owner_email" type="email" class="input-premium text-[13px] rounded-[10px]" placeholder="Owner email">
-                            <input x-model="newTenantForm.owner_password" type="password" class="input-premium text-[13px] rounded-[10px]" placeholder="Password (min 8 chars)">
-                            <select x-model="newTenantForm.plan" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white col-span-2">
-                                <option value="free">Free</option>
-                                <option value="team">Team ($12/mo)</option>
-                                <option value="business">Business ($25/mo)</option>
-                                <option value="enterprise">Enterprise</option>
-                            </select>
-                        </div>
-                        <button @click="createTenant()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Create Tenant</button>
-                    </div>
-
-                    <!-- Add user to tenant -->
-                    <div class="bg-ink-100/60 rounded-2xl p-4 mb-4 border border-black/[0.04]">
-                        <div class="text-[12px] font-semibold text-ink-700 mb-3">Add User to a Tenant</div>
-                        <div class="grid grid-cols-2 gap-2 mb-2">
-                            <select x-model="newUserForm.tenant_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white">
-                                <option value="">Select tenant...</option>
-                                <template x-for="t in allTenants" :key="t.id">
-                                    <option :value="t.id" x-text="t.name"></option>
-                                </template>
-                            </select>
-                            <input x-model="newUserForm.name" class="input-premium text-[13px] rounded-[10px]" placeholder="Full name">
-                            <input x-model="newUserForm.email" type="email" class="input-premium text-[13px] rounded-[10px]" placeholder="Email">
-                            <input x-model="newUserForm.password" type="password" class="input-premium text-[13px] rounded-[10px]" placeholder="Password (min 8 chars)">
-                            <select x-model="newUserForm.role" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white col-span-2">
-                                <option value="member">Member</option>
-                                <option value="admin">Admin</option>
-                                <option value="owner">Owner</option>
-                            </select>
-                        </div>
-                        <button @click="createUserInTenant()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Add User</button>
-                    </div>
-
-                    <!-- All tenants list -->
-                    <div class="text-[12px] font-semibold text-ink-700 mb-2">All Tenants</div>
-                    <div class="space-y-2">
-                        <template x-for="t in allTenants" :key="t.id">
-                            <div class="bg-ink-100/60 rounded-xl p-3 border border-black/[0.04] flex items-center justify-between gap-3">
-                                <div class="min-w-0">
-                                    <div class="text-[13px] font-semibold text-ink-900 flex items-center gap-2">
-                                        <span x-text="t.name"></span>
-                                        <span class="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider"
-                                              :class="{'bg-violet-100 text-violet-700': t.plan === 'enterprise', 'bg-indigo-100 text-indigo-700': t.plan === 'business', 'bg-blue-100 text-blue-700': t.plan === 'team', 'bg-ink-200 text-ink-500': t.plan === 'free'}"
-                                              x-text="t.plan"></span>
-                                        <span class="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider"
-                                              :class="{'bg-emerald-100 text-emerald-700': t.status === 'active', 'bg-rose-100 text-rose-700': t.status === 'suspended', 'bg-ink-200 text-ink-500': t.status === 'cancelled'}"
-                                              x-text="t.status"></span>
-                                    </div>
-                                    <div class="text-[11px] text-ink-400">
-                                        <span x-text="t.member_count"></span> members ·
-                                        <span x-text="t.project_count"></span> projects ·
-                                        <span x-text="new Date(t.created_at).toLocaleDateString()"></span>
-                                    </div>
-                                </div>
-                                <div class="flex items-center gap-1 flex-shrink-0">
-                                    <select @change="updateTenantPlan(t.id, $event.target.value)" class="text-[10px] border border-ink-200/60 rounded-lg px-2 py-1 bg-white">
-                                        <option value="" selected disabled>Plan…</option>
-                                        <option value="free">Free</option>
-                                        <option value="team">Team</option>
-                                        <option value="business">Business</option>
-                                        <option value="enterprise">Enterprise</option>
-                                    </select>
-                                    <select @change="updateTenantStatus(t.id, $event.target.value)" class="text-[10px] border border-ink-200/60 rounded-lg px-2 py-1 bg-white">
-                                        <option value="" selected disabled>Status…</option>
-                                        <option value="active">Active</option>
-                                        <option value="suspended">Suspend</option>
-                                        <option value="cancelled">Cancel</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </template>
-                    </div>
-                </div>
+                <!-- Super admin panel moved to dedicated dashboard view -->
             </div>
 
             <!-- ============ DOCUMENTATION VIEW ============ -->
@@ -4847,6 +4783,163 @@
 </div>
 </div>
 
+            <!-- ============ SUPER ADMIN DASHBOARD ============ -->
+            <div x-show="route === 'super-admin'" x-cloak class="view-enter space-y-6 max-w-7xl">
+                <!-- Header -->
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-[28px] font-bold text-ink-900 tracking-tight">Tenant Management</h1>
+                        <p class="text-[14px] text-ink-500 mt-1.5">Manage all tenants, users, and plans on this instance.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button @click="loadAdminInsights()" class="text-[13px] font-medium text-ink-600 hover:text-ink-800 bg-ink-100 hover:bg-ink-200 px-4 py-2 rounded-xl transition-all">Refresh</button>
+                    </div>
+                </div>
+
+                <!-- Stats cards -->
+                <div class="grid grid-cols-4 gap-4" x-show="adminInsights">
+                    <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                        <div class="text-[12px] font-semibold text-ink-400 uppercase tracking-wider">Total Tenants</div>
+                        <div class="text-[32px] font-bold text-ink-900 mt-1" x-text="adminInsights?.totals?.tenants || 0"></div>
+                        <div class="text-[11px] text-emerald-600 mt-1"><span x-text="adminInsights?.totals?.active_tenants || 0"></span> active</div>
+                    </div>
+                    <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                        <div class="text-[12px] font-semibold text-ink-400 uppercase tracking-wider">Total Users</div>
+                        <div class="text-[32px] font-bold text-ink-900 mt-1" x-text="adminInsights?.totals?.members || 0"></div>
+                        <div class="text-[11px] text-ink-400 mt-1">across all tenants</div>
+                    </div>
+                    <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                        <div class="text-[12px] font-semibold text-ink-400 uppercase tracking-wider">Total Projects</div>
+                        <div class="text-[32px] font-bold text-ink-900 mt-1" x-text="adminInsights?.totals?.projects || 0"></div>
+                        <div class="text-[11px] text-ink-400 mt-1"><span x-text="adminInsights?.totals?.releases || 0"></span> releases</div>
+                    </div>
+                    <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                        <div class="text-[12px] font-semibold text-ink-400 uppercase tracking-wider">Backlog Items</div>
+                        <div class="text-[32px] font-bold text-ink-900 mt-1" x-text="adminInsights?.totals?.backlog_items || 0"></div>
+                        <div class="text-[11px] text-ink-400 mt-1"><span x-text="adminInsights?.totals?.api_keys || 0"></span> API keys</div>
+                    </div>
+                </div>
+
+                <!-- Plan distribution -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-5" x-show="adminInsights">
+                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Plan Distribution</h3>
+                    <div class="grid grid-cols-4 gap-3">
+                        <template x-for="(count, plan) in (adminInsights?.plan_distribution || {})" :key="plan">
+                            <div class="bg-ink-100/60 rounded-xl p-3 text-center">
+                                <div class="text-[11px] font-bold uppercase tracking-wider"
+                                     :class="{'text-violet-700': plan === 'enterprise', 'text-indigo-700': plan === 'business', 'text-blue-700': plan === 'team', 'text-ink-500': plan === 'free'}"
+                                     x-text="plan"></div>
+                                <div class="text-[24px] font-bold text-ink-900 mt-1" x-text="count"></div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Create new tenant -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Create New Tenant</h3>
+                    <div class="grid grid-cols-3 gap-3">
+                        <input x-model="newTenantForm.tenant_name" class="input-premium text-[13px] rounded-[10px]" placeholder="Company name">
+                        <input x-model="newTenantForm.owner_name" class="input-premium text-[13px] rounded-[10px]" placeholder="Owner name">
+                        <input x-model="newTenantForm.owner_email" type="email" class="input-premium text-[13px] rounded-[10px]" placeholder="Owner email">
+                        <input x-model="newTenantForm.owner_password" type="password" class="input-premium text-[13px] rounded-[10px]" placeholder="Password (min 8 chars)">
+                        <select x-model="newTenantForm.plan" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white">
+                            <option value="free">Free</option>
+                            <option value="team">Team</option>
+                            <option value="business">Business</option>
+                            <option value="enterprise">Enterprise</option>
+                        </select>
+                        <button @click="createTenant()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Create Tenant</button>
+                    </div>
+                </div>
+
+                <!-- Add user to tenant -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Add User to a Tenant</h3>
+                    <div class="grid grid-cols-3 gap-3">
+                        <select x-model="newUserForm.tenant_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white">
+                            <option value="">Select tenant...</option>
+                            <template x-for="t in (adminInsights?.tenants || [])" :key="t.id">
+                                <option :value="t.id" x-text="t.name"></option>
+                            </template>
+                        </select>
+                        <input x-model="newUserForm.name" class="input-premium text-[13px] rounded-[10px]" placeholder="Full name">
+                        <input x-model="newUserForm.email" type="email" class="input-premium text-[13px] rounded-[10px]" placeholder="Email">
+                        <input x-model="newUserForm.password" type="password" class="input-premium text-[13px] rounded-[10px]" placeholder="Password (min 8 chars)">
+                        <select x-model="newUserForm.role" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white">
+                            <option value="member">Member</option>
+                            <option value="admin">Admin</option>
+                            <option value="owner">Owner</option>
+                        </select>
+                        <button @click="createUserInTenant()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Add User</button>
+                    </div>
+                </div>
+
+                <!-- All tenants table -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">All Tenants</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-[13px]">
+                            <thead>
+                                <tr class="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider border-b border-ink-100">
+                                    <th class="pb-3 pr-4">Tenant</th>
+                                    <th class="pb-3 pr-4">Plan</th>
+                                    <th class="pb-3 pr-4">Status</th>
+                                    <th class="pb-3 pr-4 text-center">Members</th>
+                                    <th class="pb-3 pr-4 text-center">Projects</th>
+                                    <th class="pb-3 pr-4 text-center">Releases</th>
+                                    <th class="pb-3 pr-4 text-center">Backlog</th>
+                                    <th class="pb-3 pr-4">Created</th>
+                                    <th class="pb-3">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="t in (adminInsights?.tenants || [])" :key="t.id">
+                                    <tr class="border-b border-ink-100/60 hover:bg-ink-50/50 transition-colors">
+                                        <td class="py-3 pr-4">
+                                            <div class="font-semibold text-ink-900" x-text="t.name"></div>
+                                            <div class="text-[11px] text-ink-400" x-text="t.slug"></div>
+                                        </td>
+                                        <td class="py-3 pr-4">
+                                            <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider"
+                                                  :class="{'bg-violet-100 text-violet-700': t.plan === 'enterprise', 'bg-indigo-100 text-indigo-700': t.plan === 'business', 'bg-blue-100 text-blue-700': t.plan === 'team', 'bg-ink-200 text-ink-500': t.plan === 'free'}"
+                                                  x-text="t.plan"></span>
+                                        </td>
+                                        <td class="py-3 pr-4">
+                                            <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider"
+                                                  :class="{'bg-emerald-100 text-emerald-700': t.status === 'active', 'bg-rose-100 text-rose-700': t.status === 'suspended', 'bg-ink-200 text-ink-500': t.status === 'cancelled'}"
+                                                  x-text="t.status"></span>
+                                        </td>
+                                        <td class="py-3 pr-4 text-center font-medium text-ink-700" x-text="t.members"></td>
+                                        <td class="py-3 pr-4 text-center font-medium text-ink-700" x-text="t.projects"></td>
+                                        <td class="py-3 pr-4 text-center font-medium text-ink-700" x-text="t.releases"></td>
+                                        <td class="py-3 pr-4 text-center font-medium text-ink-700" x-text="t.backlog_items"></td>
+                                        <td class="py-3 pr-4 text-[11px] text-ink-400" x-text="t.created_at ? new Date(t.created_at).toLocaleDateString() : ''"></td>
+                                        <td class="py-3">
+                                            <div class="flex items-center gap-1">
+                                                <select @change="updateTenantPlan(t.id, $event.target.value); $event.target.value=''" class="text-[10px] border border-ink-200/60 rounded-lg px-2 py-1 bg-white" x-cloak>
+                                                    <option value="" selected disabled>Plan</option>
+                                                    <option value="free">Free</option>
+                                                    <option value="team">Team</option>
+                                                    <option value="business">Business</option>
+                                                    <option value="enterprise">Enterprise</option>
+                                                </select>
+                                                <select @change="updateTenantStatus(t.id, $event.target.value); $event.target.value=''" class="text-[10px] border border-ink-200/60 rounded-lg px-2 py-1 bg-white" x-cloak>
+                                                    <option value="" selected disabled>Status</option>
+                                                    <option value="active">Activate</option>
+                                                    <option value="suspended">Suspend</option>
+                                                    <option value="cancelled">Cancel</option>
+                                                </select>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
         </main>
     </div>
 
@@ -5546,6 +5639,7 @@ function pmoApp() {
 
         // ===== Super Admin state =====
         allTenants: [],
+        adminInsights: null,
         newTenantForm: { tenant_name: '', owner_name: '', owner_email: '', owner_password: '', plan: 'free' },
         newUserForm: { tenant_id: '', name: '', email: '', password: '', role: 'member' },
         projectHealth: null,
@@ -5739,11 +5833,12 @@ function pmoApp() {
         get isSuperAdmin() { return this.currentUser?.system_role === 'super_admin'; },
         get isAccountManager() { return this.currentUser?.system_role === 'account_manager' || this.isSuperAdmin; },
         get isProjectManager() { return this.currentUser?.system_role === 'project_manager' || this.isAccountManager; },
-        get canManageUsers() { return this.isProjectManager; },  // super_admin, AM, PM
-        get canManageClients() { return this.isSuperAdmin; },     // super_admin only
-        get canAssignAM() { return this.isSuperAdmin || this.currentUser?.system_role === 'account_manager'; },
-        get canAssignPM() { return this.isProjectManager; },
-        get canAssignRoles() { return this.isProjectManager; },
+        get canManageUsers() { return this.currentUser?.tenant_role === 'owner' || this.currentUser?.tenant_role === 'admin'; },
+        get canManageClients() { return this.canManageUsers; },
+        get canAssignAM() { return this.canManageUsers; },
+        get canAssignPM() { return this.canManageUsers; },
+        get canAssignRoles() { return this.canManageUsers; },
+
         allowedRoles() {
             if (this.isSuperAdmin) return ['member', 'project_manager', 'account_manager', 'super_admin'];
             if (this.isAccountManager) return ['member', 'project_manager', 'account_manager'];
@@ -5756,6 +5851,7 @@ function pmoApp() {
         monthWidth: 80,  // base px per month at zoom=1
 
         navItems: [
+            { id: 'super-admin', label: 'Tenant Management', group: 'admin', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>' },
             { id: 'dashboard', label: 'Dashboard', group: 'workspace', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>' },
             { id: 'clients', label: 'Clients', group: 'workspace', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>' },
             { id: 'projects', label: 'Projects', group: 'workspace', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/></svg>' },
@@ -5764,6 +5860,11 @@ function pmoApp() {
             { id: 'docs', label: 'Documentation', group: 'planning', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>' },
             { id: 'settings', label: 'Settings', group: 'planning', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>' },
         ],
+
+        get visibleNavItems() {
+            if (this.isSuperAdmin) return this.navItems.filter(i => i.group === 'admin');
+            return this.navItems.filter(i => i.group !== 'admin');
+        },
 
         get pageTitle() {
             return { dashboard: 'Dashboard', clients: 'Clients', 'client-detail': 'Client Detail', projects: 'Projects', 'project-detail': 'Project Detail', tasks: 'My Tasks', roadmap: 'Roadmaps', docs: 'Documentation', settings: 'Settings' }[this.route] || '';
@@ -5913,9 +6014,16 @@ function pmoApp() {
                 }
             }
             if (this.isLoggedIn) {
-                await Promise.all([this.loadClients(), this.loadProjects(), this.loadDashboard(), this.loadRoles(), this.loadUsers(), this.loadNotifications(), this.loadActivity(), this.checkAIStatus()]);
-                // Poll notifications every 30 seconds
-                setInterval(() => this.loadNotifications(), 30000);
+                if (this.isSuperAdmin) {
+                    // Super admin: load admin dashboard, skip tenant data
+                    this.route = 'super-admin';
+                    await this.loadAdminInsights();
+                } else {
+                    // Tenant user: load workspace data
+                    await Promise.all([this.loadClients(), this.loadProjects(), this.loadDashboard(), this.loadRoles(), this.loadUsers(), this.loadNotifications(), this.loadActivity(), this.checkAIStatus()]);
+                    // Poll notifications every 30 seconds
+                    setInterval(() => this.loadNotifications(), 30000);
+                }
             }
             setInterval(() => {
                 this.currentTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -6666,7 +6774,14 @@ function pmoApp() {
                 this.currentUser = user;
                 this.isLoggedIn = true;
                 this.loginForm = { email: '', password: '' };
-                await Promise.all([this.loadClients(), this.loadProjects(), this.loadDashboard(), this.loadRoles()]);
+                if (user.system_role === 'super_admin') {
+                    this.route = 'super-admin';
+                    await this.loadAdminInsights();
+                } else {
+                    this.route = 'dashboard';
+                    await Promise.all([this.loadClients(), this.loadProjects(), this.loadDashboard(), this.loadRoles(), this.loadNotifications(), this.loadActivity(), this.checkAIStatus()]);
+                    setInterval(() => this.loadNotifications(), 30000);
+                }
             } catch (e) {
                 this.loginError = e.message;
             } finally {
@@ -6716,7 +6831,8 @@ function pmoApp() {
             if (route === 'roadmap') { this.loadAllRoadmaps(); }
             if (route === 'dashboard') { setTimeout(() => this.renderCharts(), 150); this.refreshTaskSummary(); }
             if (route === 'tasks') { this.loadTasks(); }
-            if (route === 'settings') { this.loadTenant(); this.loadMembers(); this.loadIntegrations(); this.loadUsage(); if (this.currentUser && this.currentUser.system_role === 'super_admin') { this.loadAllTenants(); } }
+            if (route === 'settings') { this.loadTenant(); this.loadMembers(); this.loadIntegrations(); this.loadUsage(); }
+            if (route === 'super-admin') { this.loadAdminInsights(); }
         },
 
         async loadAllRoadmaps() {
@@ -8010,17 +8126,22 @@ function pmoApp() {
         },
 
         // ===== Super Admin methods =====
-        async loadAllTenants() {
+        async loadAdminInsights() {
             try {
-                this.allTenants = await this.api('GET', '/api/admin/tenants');
-            } catch { this.allTenants = []; }
+                this.adminInsights = await this.api('GET', '/admin/insights');
+                this.allTenants = this.adminInsights?.tenants || [];
+            } catch (e) { this.showToast('Failed to load insights', 'error'); }
+        },
+
+        async loadAllTenants() {
+            await this.loadAdminInsights();
         },
 
         async createTenant() {
             try {
                 await this.api('POST', '/api/admin/tenants', this.newTenantForm);
                 this.newTenantForm = { tenant_name: '', owner_name: '', owner_email: '', owner_password: '', plan: 'free' };
-                await this.loadAllTenants();
+                await this.loadAdminInsights();
                 this.showToast('Tenant created', 'success');
             } catch (e) { this.showToast(e.message, 'error'); }
         },
@@ -8029,7 +8150,7 @@ function pmoApp() {
             try {
                 await this.api('POST', `/api/admin/tenants/${this.newUserForm.tenant_id}/users`, this.newUserForm);
                 this.newUserForm = { tenant_id: '', name: '', email: '', password: '', role: 'member' };
-                await this.loadAllTenants();
+                await this.loadAdminInsights();
                 this.showToast('User created', 'success');
             } catch (e) { this.showToast(e.message, 'error'); }
         },
@@ -8037,7 +8158,7 @@ function pmoApp() {
         async updateTenantPlan(tenantId, plan) {
             try {
                 await this.api('PUT', `/api/admin/tenants/${tenantId}/plan?plan=${plan}`);
-                await this.loadAllTenants();
+                await this.loadAdminInsights();
                 this.showToast(`Plan updated to ${plan}`, 'success');
             } catch (e) { this.showToast(e.message, 'error'); }
         },
@@ -8045,7 +8166,7 @@ function pmoApp() {
         async updateTenantStatus(tenantId, status) {
             try {
                 await this.api('PUT', `/api/admin/tenants/${tenantId}/status?status=${status}`);
-                await this.loadAllTenants();
+                await this.loadAdminInsights();
                 this.showToast(`Status updated to ${status}`, 'success');
             } catch (e) { this.showToast(e.message, 'error'); }
         },

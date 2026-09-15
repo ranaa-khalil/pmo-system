@@ -1440,51 +1440,98 @@
                 </div>
                 <!-- Team Management card -->
                 <div x-show="canManageUsers" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
-                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Team Management</h3>
-                    <!-- Invite member -->
-                    <div class="grid grid-cols-3 gap-2 mb-4">
-                        <input x-model="inviteForm.email" type="email" class="input-premium text-[13px] rounded-[10px] col-span-2" placeholder="Email address">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-[14px] font-semibold text-ink-800">Team Management</h3>
+                        <button @click="showAddUserForm = !showAddUserForm" class="text-[12px] font-medium text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-all" x-text="showAddUserForm ? 'Cancel' : '+ Add User'"></button>
+                    </div>
+
+                    <!-- Create new user (direct, not invite) -->
+                    <div x-show="showAddUserForm" x-cloak class="bg-ink-100/60 rounded-xl p-4 mb-4 border border-black/[0.04]">
+                        <div class="text-[12px] font-semibold text-ink-700 mb-3">Create New User</div>
+                        <div class="grid grid-cols-4 gap-2 mb-3">
+                            <input x-model="tenantCreateForm.name" class="input-premium text-[13px] rounded-[10px]" placeholder="Full name">
+                            <input x-model="tenantCreateForm.email" type="email" class="input-premium text-[13px] rounded-[10px]" placeholder="Email">
+                            <input x-model="tenantCreateForm.password" type="password" class="input-premium text-[13px] rounded-[10px]" placeholder="Password (min 8)">
+                            <select x-model="tenantCreateForm.role" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white">
+                                <option value="member">Member</option>
+                                <option value="admin">Admin</option>
+                                <option value="owner">Owner</option>
+                            </select>
+                        </div>
+                        <button @click="tenantCreateUser()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Create User</button>
+                    </div>
+
+                    <!-- Invite by email (existing flow) -->
+                    <div x-show="!showAddUserForm" class="grid grid-cols-3 gap-2 mb-4">
+                        <input x-model="inviteForm.email" type="email" class="input-premium text-[13px] rounded-[10px] col-span-2" placeholder="Email address to invite">
                         <select x-model="inviteForm.role" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
                             <option value="member">Member</option>
                             <option value="admin">Admin</option>
                             <option value="owner">Owner</option>
                         </select>
                     </div>
-                    <button @click="inviteMember()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all mb-4">Invite Member</button>
+                    <button x-show="!showAddUserForm" @click="inviteMember()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all mb-4">Invite Member</button>
+
                     <!-- Members list -->
-                    <div class="space-y-3">
-                        <template x-for="m in tenantMembers" :key="m.user_id || m.id">
-                            <div class="bg-ink-100/60 rounded-2xl p-4 border border-black/[0.04]">
-                                <div class="flex items-start justify-between gap-3">
-                                    <div class="flex items-center gap-3 min-w-0">
-                                        <div class="w-10 h-10 rounded-xl bg-brand-600 text-white text-[13px] font-bold flex items-center justify-center flex-shrink-0" x-text="(m.user_name || m.name || '?').charAt(0)"></div>
-                                        <div class="min-w-0">
-                                            <div class="text-[13px] font-semibold text-ink-900 flex items-center gap-2">
-                                                <span x-text="m.user_name || m.name"></span>
-                                                <span class="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider"
-                                                      :class="{'bg-rose-100 text-rose-700': m.role === 'owner', 'bg-orange-100 text-orange-700': m.role === 'admin', 'bg-blue-100 text-blue-700': m.role === 'member'}"
-                                                      x-text="m.role"></span>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-[13px]">
+                            <thead>
+                                <tr class="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider border-b border-ink-100">
+                                    <th class="pb-2 pr-3">User</th>
+                                    <th class="pb-2 pr-3">Email</th>
+                                    <th class="pb-2 pr-3">Role</th>
+                                    <th class="pb-2 pr-3">Status</th>
+                                    <th class="pb-2">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="m in tenantMembers" :key="m.user_id || m.id">
+                                    <tr class="border-b border-ink-100/60 hover:bg-ink-50/50 transition-colors">
+                                        <td class="py-2.5 pr-3">
+                                            <div class="flex items-center gap-2">
+                                                <div class="w-8 h-8 rounded-lg bg-brand-600 text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0" x-text="(m.user_name || m.name || '?').charAt(0)"></div>
+                                                <span class="font-medium text-ink-900" x-text="m.user_name || m.name"></span>
                                             </div>
-                                            <div class="text-[11px] text-ink-400" x-text="m.user_email || m.email"></div>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center gap-2 flex-shrink-0">
-                                        <select x-show="m.role !== 'owner' && m.user_id !== currentUser.id"
-                                                @change="changeMemberRole(m.user_id, $event.target.value)"
-                                                class="text-[11px] border border-ink-200/60 rounded-lg px-2 py-1 bg-white">
-                                            <option value="" selected disabled>Role…</option>
-                                            <option value="member">Member</option>
-                                            <option value="admin">Admin</option>
-                                            <option value="owner">Owner</option>
-                                        </select>
-                                        <button x-show="m.role !== 'owner' && m.user_id !== currentUser.id"
-                                                @click="removeMember(m.user_id)"
-                                                class="text-[11px] text-ink-400 hover:text-rose-500 transition-colors px-2 py-1 rounded-lg hover:bg-rose-50">Remove</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </template>
-                        <div x-show="tenantMembers.length === 0" class="text-[12px] text-ink-400 text-center py-4">No members yet. Invite your team above.</div>
+                                        </td>
+                                        <td class="py-2.5 pr-3 text-ink-600" x-text="m.user_email || m.email"></td>
+                                        <td class="py-2.5 pr-3">
+                                            <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider"
+                                                  :class="{'bg-rose-100 text-rose-700': m.role === 'owner', 'bg-orange-100 text-orange-700': m.role === 'admin', 'bg-blue-100 text-blue-700': m.role === 'member'}"
+                                                  x-text="m.role"></span>
+                                        </td>
+                                        <td class="py-2.5 pr-3">
+                                            <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider"
+                                                  :class="{'bg-emerald-100 text-emerald-700': m.is_active !== false, 'bg-rose-100 text-rose-700': m.is_active === false}"
+                                                  x-text="m.is_active === false ? 'Inactive' : 'Active'"></span>
+                                        </td>
+                                        <td class="py-2.5">
+                                            <div class="flex items-center gap-1.5">
+                                                <select x-show="m.role !== 'owner' && m.user_id !== currentUser.id"
+                                                        @change="changeMemberRole(m.user_id, $event.target.value)"
+                                                        class="text-[10px] border border-ink-200/60 rounded-lg px-2 py-1 bg-white">
+                                                    <option value="" selected disabled>Role…</option>
+                                                    <option value="member">Member</option>
+                                                    <option value="admin">Admin</option>
+                                                    <option value="owner">Owner</option>
+                                                </select>
+                                                <button x-show="m.user_id !== currentUser.id"
+                                                        @click="tenantResetPassword(m.user_id)"
+                                                        class="text-[10px] font-medium text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded-lg transition-all">Reset Pwd</button>
+                                                <button x-show="m.role !== 'owner' && m.user_id !== currentUser.id"
+                                                        @click="tenantToggleActive(m.user_id, m.is_active !== false)"
+                                                        class="text-[10px] font-medium transition-all px-2 py-1 rounded-lg"
+                                                        :class="m.is_active !== false ? 'text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100' : 'text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100'"
+                                                        x-text="m.is_active !== false ? 'Deactivate' : 'Activate'"></button>
+                                                <button x-show="m.role !== 'owner' && m.user_id !== currentUser.id"
+                                                        @click="removeMember(m.user_id)"
+                                                        class="text-[10px] font-medium text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded-lg transition-all">Remove</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                        <div x-show="tenantMembers.length === 0" class="text-[12px] text-ink-400 text-center py-4">No members yet. Add a user or invite your team above.</div>
                     </div>
                 </div>
                 <!-- Assign Account Manager card -->
@@ -4783,7 +4830,7 @@
             </div><!-- close project-detail view -->
 
             <!-- ============ SUPER ADMIN DASHBOARD ============ -->
-            <div x-show="route === 'super-admin'" x-cloak class="view-enter space-y-6 max-w-7xl">
+            <div x-show="route === 'super-admin' && !selectedTenantDetail" x-cloak class="view-enter space-y-6 max-w-7xl">
                 <!-- Header -->
                 <div class="flex items-center justify-between">
                     <div>
@@ -4852,28 +4899,6 @@
                     </div>
                 </div>
 
-                <!-- Add user to tenant -->
-                <div class="surface rounded-2xl border border-ink-200/60 p-6">
-                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Add User to a Tenant</h3>
-                    <div class="grid grid-cols-3 gap-3">
-                        <select x-model="newUserForm.tenant_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white">
-                            <option value="">Select tenant...</option>
-                            <template x-for="t in (adminInsights?.tenants || [])" :key="t.id">
-                                <option :value="t.id" x-text="t.name"></option>
-                            </template>
-                        </select>
-                        <input x-model="newUserForm.name" class="input-premium text-[13px] rounded-[10px]" placeholder="Full name">
-                        <input x-model="newUserForm.email" type="email" class="input-premium text-[13px] rounded-[10px]" placeholder="Email">
-                        <input x-model="newUserForm.password" type="password" class="input-premium text-[13px] rounded-[10px]" placeholder="Password (min 8 chars)">
-                        <select x-model="newUserForm.role" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white">
-                            <option value="member">Member</option>
-                            <option value="admin">Admin</option>
-                            <option value="owner">Owner</option>
-                        </select>
-                        <button @click="createUserInTenant()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Add User</button>
-                    </div>
-                </div>
-
                 <!-- All tenants table -->
                 <div class="surface rounded-2xl border border-ink-200/60 p-6">
                     <h3 class="text-[14px] font-semibold text-ink-800 mb-4">All Tenants</h3>
@@ -4894,7 +4919,7 @@
                             </thead>
                             <tbody>
                                 <template x-for="t in (adminInsights?.tenants || [])" :key="t.id">
-                                    <tr class="border-b border-ink-100/60 hover:bg-ink-50/50 transition-colors">
+                                    <tr class="border-b border-ink-100/60 hover:bg-ink-50/50 transition-colors cursor-pointer" @click="loadTenantDetail(t.id)">
                                         <td class="py-3 pr-4">
                                             <div class="font-semibold text-ink-900" x-text="t.name"></div>
                                             <div class="text-[11px] text-ink-400" x-text="t.slug"></div>
@@ -4914,7 +4939,7 @@
                                         <td class="py-3 pr-4 text-center font-medium text-ink-700" x-text="t.releases"></td>
                                         <td class="py-3 pr-4 text-center font-medium text-ink-700" x-text="t.backlog_items"></td>
                                         <td class="py-3 pr-4 text-[11px] text-ink-400" x-text="t.created_at ? new Date(t.created_at).toLocaleDateString() : ''"></td>
-                                        <td class="py-3">
+                                        <td class="py-3" @click.stop>
                                             <div class="flex items-center gap-1">
                                                 <select @change="updateTenantPlan(t.id, $event.target.value); $event.target.value=''" class="text-[10px] border border-ink-200/60 rounded-lg px-2 py-1 bg-white" x-cloak>
                                                     <option value="" selected disabled>Plan</option>
@@ -4935,6 +4960,183 @@
                                 </template>
                             </tbody>
                         </table>
+                    </div>
+                    <div class="text-[11px] text-ink-400 mt-3 text-center">Click a tenant row to view full details</div>
+                </div>
+            </div>
+
+            <!-- ============ SUPER ADMIN: TENANT DETAIL ============ -->
+            <div x-show="route === 'super-admin' && selectedTenantDetail" x-cloak class="view-enter space-y-6 max-w-7xl">
+                <!-- Back button -->
+                <button @click="selectedTenantDetail = null" class="text-[13px] font-medium text-brand-600 hover:text-brand-700 flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    Back to all tenants
+                </button>
+
+                <!-- Tenant header -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <div class="flex items-center gap-3">
+                                <h1 class="text-[28px] font-bold text-ink-900 tracking-tight" x-text="selectedTenantDetail?.tenant?.name"></h1>
+                                <span class="text-[10px] font-bold px-2.5 py-1 rounded uppercase tracking-wider"
+                                      :class="{'bg-violet-100 text-violet-700': selectedTenantDetail?.tenant?.plan === 'enterprise', 'bg-indigo-100 text-indigo-700': selectedTenantDetail?.tenant?.plan === 'business', 'bg-blue-100 text-blue-700': selectedTenantDetail?.tenant?.plan === 'team', 'bg-ink-200 text-ink-500': selectedTenantDetail?.tenant?.plan === 'free'}"
+                                      x-text="selectedTenantDetail?.tenant?.plan"></span>
+                                <span class="text-[10px] font-bold px-2.5 py-1 rounded uppercase tracking-wider"
+                                      :class="{'bg-emerald-100 text-emerald-700': selectedTenantDetail?.tenant?.status === 'active', 'bg-rose-100 text-rose-700': selectedTenantDetail?.tenant?.status === 'suspended', 'bg-ink-200 text-ink-500': selectedTenantDetail?.tenant?.status === 'cancelled'}"
+                                      x-text="selectedTenantDetail?.tenant?.status"></span>
+                            </div>
+                            <div class="text-[13px] text-ink-500 mt-1.5">
+                                Slug: <span class="font-medium text-ink-700" x-text="selectedTenantDetail?.tenant?.slug"></span>
+                                · Created: <span class="font-medium text-ink-700" x-text="selectedTenantDetail?.tenant?.created_at ? new Date(selectedTenantDetail.tenant.created_at).toLocaleDateString() : ''"></span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <select @change="updateTenantPlan(selectedTenantDetail.tenant.id, $event.target.value); $event.target.value=''" class="text-[12px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white">
+                                <option value="" selected disabled>Change Plan</option>
+                                <option value="free">Free</option>
+                                <option value="team">Team</option>
+                                <option value="business">Business</option>
+                                <option value="enterprise">Enterprise</option>
+                            </select>
+                            <select @change="updateTenantStatus(selectedTenantDetail.tenant.id, $event.target.value); $event.target.value=''" class="text-[12px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white">
+                                <option value="" selected disabled>Change Status</option>
+                                <option value="active">Activate</option>
+                                <option value="suspended">Suspend</option>
+                                <option value="cancelled">Cancel</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Stats row -->
+                    <div class="grid grid-cols-5 gap-3 mt-5">
+                        <div class="bg-ink-100/60 rounded-xl p-3 text-center">
+                            <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider">Members</div>
+                            <div class="text-[22px] font-bold text-ink-900" x-text="selectedTenantDetail?.stats?.members || 0"></div>
+                        </div>
+                        <div class="bg-ink-100/60 rounded-xl p-3 text-center">
+                            <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider">Projects</div>
+                            <div class="text-[22px] font-bold text-ink-900" x-text="selectedTenantDetail?.stats?.projects || 0"></div>
+                        </div>
+                        <div class="bg-ink-100/60 rounded-xl p-3 text-center">
+                            <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider">Backlog</div>
+                            <div class="text-[22px] font-bold text-ink-900" x-text="selectedTenantDetail?.stats?.backlog_items || 0"></div>
+                        </div>
+                        <div class="bg-ink-100/60 rounded-xl p-3 text-center">
+                            <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider">Releases</div>
+                            <div class="text-[22px] font-bold text-ink-900" x-text="selectedTenantDetail?.stats?.releases || 0"></div>
+                        </div>
+                        <div class="bg-ink-100/60 rounded-xl p-3 text-center">
+                            <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider">API Keys</div>
+                            <div class="text-[22px] font-bold text-ink-900" x-text="selectedTenantDetail?.stats?.api_keys || 0"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add user to this tenant -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Add User to This Tenant</h3>
+                    <div class="grid grid-cols-5 gap-3 items-end">
+                        <div>
+                            <label class="text-[11px] font-medium text-ink-500 block mb-1">Name</label>
+                            <input x-model="adminAddUserForm.name" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="Full name">
+                        </div>
+                        <div>
+                            <label class="text-[11px] font-medium text-ink-500 block mb-1">Email</label>
+                            <input x-model="adminAddUserForm.email" type="email" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="Email">
+                        </div>
+                        <div>
+                            <label class="text-[11px] font-medium text-ink-500 block mb-1">Password</label>
+                            <input x-model="adminAddUserForm.password" type="password" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="Min 8 chars">
+                        </div>
+                        <div>
+                            <label class="text-[11px] font-medium text-ink-500 block mb-1">Role</label>
+                            <select x-model="adminAddUserForm.role" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white w-full">
+                                <option value="member">Member</option>
+                                <option value="admin">Admin</option>
+                                <option value="owner">Owner</option>
+                            </select>
+                        </div>
+                        <button @click="adminAddMember(selectedTenantDetail.tenant.id)" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Add User</button>
+                    </div>
+                </div>
+
+                <!-- Members table -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Members (<span x-text="selectedTenantDetail?.members?.length || 0"></span>)</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-[13px]">
+                            <thead>
+                                <tr class="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider border-b border-ink-100">
+                                    <th class="pb-3 pr-4">User</th>
+                                    <th class="pb-3 pr-4">Email</th>
+                                    <th class="pb-3 pr-4">Role</th>
+                                    <th class="pb-3 pr-4">Status</th>
+                                    <th class="pb-3 pr-4">Joined</th>
+                                    <th class="pb-3">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="m in (selectedTenantDetail?.members || [])" :key="m.id">
+                                    <tr class="border-b border-ink-100/60 hover:bg-ink-50/50 transition-colors">
+                                        <td class="py-3 pr-4 font-medium text-ink-900" x-text="m.name"></td>
+                                        <td class="py-3 pr-4 text-ink-600" x-text="m.email"></td>
+                                        <td class="py-3 pr-4">
+                                            <select @change="adminChangeMemberRole(selectedTenantDetail.tenant.id, m.id, $event.target.value)" class="text-[11px] border border-ink-200/60 rounded-lg px-2 py-1 bg-white">
+                                                <option value="member" :selected="m.role === 'member'">Member</option>
+                                                <option value="admin" :selected="m.role === 'admin'">Admin</option>
+                                                <option value="owner" :selected="m.role === 'owner'">Owner</option>
+                                            </select>
+                                        </td>
+                                        <td class="py-3 pr-4">
+                                            <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider"
+                                                  :class="{'bg-emerald-100 text-emerald-700': m.is_active, 'bg-rose-100 text-rose-700': !m.is_active}"
+                                                  x-text="m.is_active ? 'Active' : 'Inactive'"></span>
+                                        </td>
+                                        <td class="py-3 pr-4 text-[11px] text-ink-400" x-text="m.created_at ? new Date(m.created_at).toLocaleDateString() : ''"></td>
+                                        <td class="py-3">
+                                            <div class="flex items-center gap-1.5">
+                                                <button @click="adminResetPassword(selectedTenantDetail.tenant.id, m.id)" class="text-[10px] font-medium text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-lg transition-all">Reset Pwd</button>
+                                                <button @click="adminToggleMemberActive(selectedTenantDetail.tenant.id, m.id, m.is_active)" class="text-[10px] font-medium transition-all px-2.5 py-1 rounded-lg"
+                                                        :class="m.is_active ? 'text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100' : 'text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100'"
+                                                        x-text="m.is_active ? 'Deactivate' : 'Activate'"></button>
+                                                <button x-show="m.role !== 'owner'" @click="adminRemoveMember(selectedTenantDetail.tenant.id, m.id)" class="text-[10px] font-medium text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-lg transition-all">Remove</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Projects list -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Projects (<span x-text="selectedTenantDetail?.projects?.length || 0"></span>)</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <template x-for="p in (selectedTenantDetail?.projects || [])" :key="p.id">
+                            <div class="bg-ink-100/60 rounded-xl p-3 border border-black/[0.04]">
+                                <div class="text-[13px] font-semibold text-ink-900" x-text="p.name"></div>
+                                <div class="text-[11px] text-ink-400 mt-0.5">
+                                    Status: <span class="font-medium" x-text="p.status"></span>
+                                </div>
+                            </div>
+                        </template>
+                        <div x-show="!selectedTenantDetail?.projects?.length" class="text-[12px] text-ink-400 col-span-2 text-center py-4">No projects in this tenant.</div>
+                    </div>
+                </div>
+
+                <!-- Settings keys -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Integration Settings (<span x-text="selectedTenantDetail?.settings_keys?.length || 0"></span>)</h3>
+                    <div class="space-y-1.5">
+                        <template x-for="s in (selectedTenantDetail?.settings_keys || [])" :key="s.key">
+                            <div class="flex items-center justify-between bg-ink-100/60 rounded-lg px-3 py-2">
+                                <span class="text-[12px] font-medium text-ink-700" x-text="s.key"></span>
+                                <span class="text-[10px] font-semibold uppercase tracking-wider" :class="s.is_secret ? 'text-rose-600' : 'text-ink-400'" x-text="s.is_secret ? 'Secret' : 'Plain'"></span>
+                            </div>
+                        </template>
+                        <div x-show="!selectedTenantDetail?.settings_keys?.length" class="text-[12px] text-ink-400 text-center py-3">No custom settings configured.</div>
                     </div>
                 </div>
             </div>
@@ -5640,8 +5842,13 @@ function pmoApp() {
         // ===== Super Admin state =====
         allTenants: [],
         adminInsights: null,
+        selectedTenantDetail: null,
+        adminAddUserForm: { name: '', email: '', password: '', role: 'member' },
+        adminResetPasswordForm: { user_id: null, new_password: '' },
         newTenantForm: { tenant_name: '', owner_name: '', owner_email: '', owner_password: '', plan: 'free' },
         newUserForm: { tenant_id: '', name: '', email: '', password: '', role: 'member' },
+        tenantCreateForm: { name: '', email: '', password: '', role: 'member' },
+        showAddUserForm: false,
         projectHealth: null,
 
         // ===== AI assistant state =====
@@ -8080,14 +8287,14 @@ function pmoApp() {
         // ===== Tenant management methods =====
         async loadTenant() {
             try {
-                this.currentTenant = await this.api('GET', '/api/tenant');
+                this.currentTenant = await this.api('GET', '/tenant');
                 this.tenantEditForm.name = this.currentTenant.name || '';
             } catch { this.currentTenant = null; }
         },
 
         async saveTenant() {
             try {
-                await this.api('PUT', '/api/tenant', { name: this.tenantEditForm.name });
+                await this.api('PUT', '/tenant', { name: this.tenantEditForm.name });
                 await this.loadTenant();
                 this.showToast('Tenant updated', 'success');
             } catch (e) { this.showToast(e.message, 'error'); }
@@ -8095,13 +8302,13 @@ function pmoApp() {
 
         async loadMembers() {
             try {
-                this.tenantMembers = await this.api('GET', '/api/tenant/members');
+                this.tenantMembers = await this.api('GET', '/tenant/members');
             } catch { this.tenantMembers = []; }
         },
 
         async inviteMember() {
             try {
-                await this.api('POST', '/api/tenant/invite', this.inviteForm);
+                await this.api('POST', '/tenant/invite', this.inviteForm);
                 this.inviteForm = { email: '', role: 'member' };
                 await this.loadMembers();
                 this.showToast('Invitation sent', 'success');
@@ -8139,7 +8346,7 @@ function pmoApp() {
 
         async createTenant() {
             try {
-                await this.api('POST', '/api/admin/tenants', this.newTenantForm);
+                await this.api('POST', '/admin/tenants', this.newTenantForm);
                 this.newTenantForm = { tenant_name: '', owner_name: '', owner_email: '', owner_password: '', plan: 'free' };
                 await this.loadAdminInsights();
                 this.showToast('Tenant created', 'success');
@@ -8165,15 +8372,96 @@ function pmoApp() {
 
         async updateTenantStatus(tenantId, status) {
             try {
-                await this.api('PUT', `/api/admin/tenants/${tenantId}/status?status=${status}`);
+                await this.api('PUT', `/admin/tenants/${tenantId}/status?status=${status}`);
                 await this.loadAdminInsights();
+                if (this.selectedTenantDetail?.tenant?.id === tenantId) await this.loadTenantDetail(tenantId);
                 this.showToast(`Status updated to ${status}`, 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async loadTenantDetail(tenantId) {
+            try {
+                this.selectedTenantDetail = await this.api('GET', `/admin/tenants/${tenantId}`);
+            } catch (e) { this.showToast('Failed to load tenant detail', 'error'); }
+        },
+
+        async adminAddMember(tenantId) {
+            try {
+                await this.api('POST', `/admin/tenants/${tenantId}/members?name=${encodeURIComponent(this.adminAddUserForm.name)}&email=${encodeURIComponent(this.adminAddUserForm.email)}&password=${encodeURIComponent(this.adminAddUserForm.password)}&role=${this.adminAddUserForm.role}`);
+                this.adminAddUserForm = { name: '', email: '', password: '', role: 'member' };
+                await this.loadTenantDetail(tenantId);
+                await this.loadAdminInsights();
+                this.showToast('User added', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async adminRemoveMember(tenantId, userId) {
+            if (!confirm('Remove this user from the tenant?')) return;
+            try {
+                await this.api('DELETE', `/admin/tenants/${tenantId}/members/${userId}`);
+                await this.loadTenantDetail(tenantId);
+                await this.loadAdminInsights();
+                this.showToast('User removed', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async adminChangeMemberRole(tenantId, userId, newRole) {
+            try {
+                await this.api('PUT', `/admin/tenants/${tenantId}/members/${userId}?role=${newRole}`);
+                await this.loadTenantDetail(tenantId);
+                this.showToast('Role updated', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async adminResetPassword(tenantId, userId) {
+            const pwd = prompt('Enter new password (min 8 characters):');
+            if (!pwd || pwd.length < 8) { if (pwd) this.showToast('Password too short', 'error'); return; }
+            try {
+                await this.api('PUT', `/admin/tenants/${tenantId}/members/${userId}/reset-password?new_password=${encodeURIComponent(pwd)}`);
+                this.showToast('Password reset', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async adminToggleMemberActive(tenantId, userId, currentActive) {
+            try {
+                await this.api('PUT', `/admin/tenants/${tenantId}/members/${userId}?is_active=${!currentActive}`);
+                await this.loadTenantDetail(tenantId);
+                this.showToast(`User ${!currentActive ? 'activated' : 'deactivated'}`, 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        // ===== Tenant Admin: User Management =====
+        async tenantCreateUser() {
+            try {
+                await this.api('POST', `/tenant/users?name=${encodeURIComponent(this.tenantCreateForm.name)}&email=${encodeURIComponent(this.tenantCreateForm.email)}&password=${encodeURIComponent(this.tenantCreateForm.password)}&role=${this.tenantCreateForm.role}`);
+                this.tenantCreateForm = { name: '', email: '', password: '', role: 'member' };
+                this.showAddUserForm = false;
+                await this.loadMembers();
+                await this.loadUsage();
+                this.showToast('User created', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async tenantResetPassword(userId) {
+            const pwd = prompt('Enter new password (min 8 characters):');
+            if (!pwd || pwd.length < 8) { if (pwd) this.showToast('Password too short', 'error'); return; }
+            try {
+                await this.api('PUT', `/tenant/members/${userId}/reset-password?new_password=${encodeURIComponent(pwd)}`);
+                this.showToast('Password reset', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async tenantToggleActive(userId, currentActive) {
+            try {
+                await this.api('PUT', `/tenant/members/${userId}/toggle-active`);
+                await this.loadMembers();
+                this.showToast(`User ${!currentActive ? 'activated' : 'deactivated'}`, 'success');
             } catch (e) { this.showToast(e.message, 'error'); }
         },
 
         async loadIntegrations() {
             try {
-                this.integrations = await this.api('GET', '/api/tenant/settings');
+                this.integrations = await this.api('GET', '/tenant/settings');
             } catch { this.integrations = {}; }
         },
 
@@ -8184,7 +8472,7 @@ function pmoApp() {
                 if (this.integrationForm.ai_api_key) payload.ai_api_key = this.integrationForm.ai_api_key;
                 if (this.integrationForm.ai_base_url) payload.ai_base_url = this.integrationForm.ai_base_url;
                 if (this.integrationForm.ai_model) payload.ai_model = this.integrationForm.ai_model;
-                await this.api('PUT', '/api/tenant/settings', payload);
+                await this.api('PUT', '/tenant/settings', payload);
                 await this.loadIntegrations();
                 this.integrationForm = { github_token: '', ai_api_key: '', ai_base_url: '', ai_model: '' };
                 this.showToast('Integrations saved', 'success');
@@ -8193,8 +8481,8 @@ function pmoApp() {
 
         async loadUsage() {
             try {
-                const data = await this.api('GET', '/api/tenant/usage');
-                const limits = await this.api('GET', '/api/tenant/usage/history?days=1');
+                const data = await this.api('GET', '/tenant/usage');
+                const limits = await this.api('GET', '/tenant/usage/history?days=1');
                 const current = limits.current || {};
                 const lim = limits.limits || {};
                 this.usageMetrics = [

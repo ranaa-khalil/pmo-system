@@ -290,6 +290,7 @@ def list_members(
             joined_at=m.joined_at,
             user_email=user.email if user else "",
             user_name=user.name if user else "",
+            is_active=user.is_active if user else True,
         ))
     return result
 
@@ -753,6 +754,343 @@ def get_admin_insights(
         "plan_distribution": plans,
         "tenants": tenant_details,
     }
+
+
+# ─── Admin: Tenant Detail (super_admin only) ─────────────────
+
+@router.get("/admin/tenants/{tenant_id}")
+def get_tenant_detail(
+    tenant_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get detailed info about a specific tenant (super_admin only)."""
+    _require_super_admin(current_user)
+
+    from app.models.backlog_item import BacklogItem
+    from app.models.project import Project
+    from app.models.release import Release
+    from app.models.api_key import ApiKey
+
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(404, "Tenant not found.")
+
+    # Members with user details
+    memberships = db.query(TenantMembership).filter(
+        TenantMembership.tenant_id == tenant_id
+    ).all()
+    members = []
+    for m in memberships:
+        u = db.query(User).filter(User.id == m.user_id).first()
+        if u:
+            members.append({
+                "id": u.id,
+                "name": u.name,
+                "email": u.email,
+                "role": m.role,
+                "is_active": u.is_active,
+                "system_role": u.system_role,
+                "created_at": u.created_at.isoformat() if u.created_at else None,
+            })
+
+    # Projects
+    projects = db.query(Project).filter(Project.tenant_id == tenant_id).all()
+    project_list = []
+    for p in projects:
+        project_list.append({
+            "id": p.id,
+            "name": p.name,
+            "status": getattr(p, "status", "unknown"),
+            "client_id": getattr(p, "client_id", None),
+        })
+
+    # Stats
+    backlog_count = db.query(BacklogItem).filter(BacklogItem.tenant_id == tenant_id).count()
+    release_count = db.query(Release).filter(Release.tenant_id == tenant_id).count()
+    api_key_count = db.query(ApiKey).filter(ApiKey.tenant_id == tenant_id).count()
+
+    # Settings
+    from app.models.tenant_setting import TenantSetting
+    settings_list = db.query(TenantSetting).filter(TenantSetting.tenant_id == tenant_id).all()
+    settings_keys = [{"key": s.key, "is_secret": s.is_secret} for s in settings_list]
+
+    return {
+        "tenant": {
+            "id": tenant.id,
+            "name": tenant.name,
+            "slug": tenant.slug,
+            "plan": tenant.plan,
+            "status": tenant.status,
+            "branding": tenant.branding,
+            "created_at": tenant.created_at.isoformat() if tenant.created_at else None,
+        },
+        "members": members,
+        "projects": project_list,
+        "stats": {
+            "members": len(members),
+            "projects": len(project_list),
+            "backlog_items": backlog_count,
+            "releases": release_count,
+            "api_keys": api_key_count,
+            "settings": len(settings_keys),
+        },
+        "settings_keys": settings_keys,
+    }
+
+
+@router.post("/admin/tenants/{tenant_id}/members")
+def admin_add_member(
+    tenant_id: int,
+    name: str = "",
+    email: str = "",
+    password: str = "",
+    role: str = "member",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Add a user to a tenant (super_admin only)."""
+    _require_super_admin(current_user)
+
+    if not email or not password:
+        raise HTTPException(400, "Email and password are required.")
+    if len(password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters.")
+
+    existing = db.query(User).filter(User.email == email).first()
+    if existing:
+        # User already exists — add membership if not already a member
+        mem = db.query(TenantMembership).filter(
+            TenantMembership.user_id == existing.id,
+            TenantMembership.tenant_id == tenant_id,
+        ).first()
+        if mem:
+            raise HTTPException(400, "User is already a member of this tenant.")
+        db.add(TenantMembership(user_id=existing.id, tenant_id=tenant_id, role=role))
+        db.commit()
+        return {"ok": True, "message": f"Added existing user {email} to tenant."}
+
+    new_user = User(
+        email=email,
+        name=name or email.split("@")[0],
+        hashed_password=hash_password(password),
+        system_role="member",
+        is_active=True,
+        active_tenant_id=tenant_id,
+    )
+    db.add(new_user)
+    db.flush()
+    db.add(TenantMembership(user_id=new_user.id, tenant_id=tenant_id, role=role))
+    db.commit()
+    return {"ok": True, "user_id": new_user.id, "message": f"Created user {email}."}
+
+
+@router.put("/admin/tenants/{tenant_id}/members/{user_id}")
+def admin_update_member(
+    tenant_id: int,
+    user_id: int,
+    role: str = "",
+    is_active: bool = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update a tenant member (super_admin only)."""
+    _require_super_admin(current_user)
+
+    mem = db.query(TenantMembership).filter(
+        TenantMembership.user_id == user_id,
+        TenantMembership.tenant_id == tenant_id,
+    ).first()
+    if not mem:
+        raise HTTPException(404, "Membership not found.")
+
+    if role:
+        mem.role = role
+    if is_active is not None:
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            user.is_active = is_active
+
+    db.commit()
+    return {"ok": True, "message": "Member updated."}
+
+
+@router.delete("/admin/tenants/{tenant_id}/members/{user_id}")
+def admin_remove_member(
+    tenant_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Remove a user from a tenant (super_admin only)."""
+    _require_super_admin(current_user)
+
+    mem = db.query(TenantMembership).filter(
+        TenantMembership.user_id == user_id,
+        TenantMembership.tenant_id == tenant_id,
+    ).first()
+    if not mem:
+        raise HTTPException(404, "Membership not found.")
+    if mem.role == "owner":
+        raise HTTPException(400, "Cannot remove the tenant owner.")
+
+    db.delete(mem)
+    # Clear active_tenant_id if it was this tenant
+    user = db.query(User).filter(User.id == user_id).first()
+    if user and user.active_tenant_id == tenant_id:
+        user.active_tenant_id = None
+    db.commit()
+    return {"ok": True, "message": "Member removed."}
+
+
+@router.put("/admin/tenants/{tenant_id}/members/{user_id}/reset-password")
+def admin_reset_password(
+    tenant_id: int,
+    user_id: int,
+    new_password: str = "",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Reset a user's password (super_admin only)."""
+    _require_super_admin(current_user)
+
+    if len(new_password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters.")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "User not found.")
+
+    user.hashed_password = hash_password(new_password)
+    db.commit()
+    return {"ok": True, "message": f"Password reset for {user.email}."}
+
+
+# ─── Tenant Admin: User Management ───────────────────────────
+
+@router.post("/tenant/users")
+def tenant_admin_create_user(
+    name: str = "",
+    email: str = "",
+    password: str = "",
+    role: str = "member",
+    db: Session = Depends(get_db),
+    current_tenant: Tenant = Depends(get_current_tenant),
+    current_user: User = Depends(get_current_user),
+):
+    """Create a new user in the current tenant (tenant admin/owner only)."""
+    from app.services.usage_service import check_quota, METRIC_USERS
+    from app.services.plan_enforcement import require_feature
+    require_feature(current_tenant.plan, "team_management")
+
+    # Check role
+    mem = db.query(TenantMembership).filter(
+        TenantMembership.user_id == current_user.id,
+        TenantMembership.tenant_id == current_tenant.id,
+    ).first()
+    if not mem or mem.role not in ("owner", "admin"):
+        raise HTTPException(403, "Only tenant admins and owners can create users.")
+
+    if not email or not password:
+        raise HTTPException(400, "Email and password are required.")
+    if len(password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters.")
+
+    check_quota(db, current_tenant, METRIC_USERS)
+
+    existing = db.query(User).filter(User.email == email).first()
+    if existing:
+        em = db.query(TenantMembership).filter(
+            TenantMembership.user_id == existing.id,
+            TenantMembership.tenant_id == current_tenant.id,
+        ).first()
+        if em:
+            raise HTTPException(400, "User is already a member of this tenant.")
+        db.add(TenantMembership(user_id=existing.id, tenant_id=current_tenant.id, role=role))
+        db.commit()
+        return {"ok": True, "message": f"Added existing user {email} to tenant."}
+
+    new_user = User(
+        email=email,
+        name=name or email.split("@")[0],
+        hashed_password=hash_password(password),
+        system_role="member",
+        is_active=True,
+        active_tenant_id=current_tenant.id,
+    )
+    db.add(new_user)
+    db.flush()
+    db.add(TenantMembership(user_id=new_user.id, tenant_id=current_tenant.id, role=role))
+    db.commit()
+    return {"ok": True, "user_id": new_user.id, "message": f"Created user {email}."}
+
+
+@router.put("/tenant/members/{user_id}/reset-password")
+def tenant_admin_reset_password(
+    user_id: int,
+    new_password: str = "",
+    db: Session = Depends(get_db),
+    current_tenant: Tenant = Depends(get_current_tenant),
+    current_user: User = Depends(get_current_user),
+):
+    """Reset a user's password (tenant admin/owner only)."""
+    mem = db.query(TenantMembership).filter(
+        TenantMembership.user_id == current_user.id,
+        TenantMembership.tenant_id == current_tenant.id,
+    ).first()
+    if not mem or mem.role not in ("owner", "admin"):
+        raise HTTPException(403, "Only tenant admins and owners can reset passwords.")
+
+    if len(new_password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters.")
+
+    target_mem = db.query(TenantMembership).filter(
+        TenantMembership.user_id == user_id,
+        TenantMembership.tenant_id == current_tenant.id,
+    ).first()
+    if not target_mem:
+        raise HTTPException(404, "User is not a member of this tenant.")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "User not found.")
+
+    user.hashed_password = hash_password(new_password)
+    db.commit()
+    return {"ok": True, "message": f"Password reset for {user.email}."}
+
+
+@router.put("/tenant/members/{user_id}/toggle-active")
+def tenant_admin_toggle_active(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_tenant: Tenant = Depends(get_current_tenant),
+    current_user: User = Depends(get_current_user),
+):
+    """Activate/deactivate a user (tenant admin/owner only)."""
+    mem = db.query(TenantMembership).filter(
+        TenantMembership.user_id == current_user.id,
+        TenantMembership.tenant_id == current_tenant.id,
+    ).first()
+    if not mem or mem.role not in ("owner", "admin"):
+        raise HTTPException(403, "Only tenant admins and owners can toggle user status.")
+
+    target_mem = db.query(TenantMembership).filter(
+        TenantMembership.user_id == user_id,
+        TenantMembership.tenant_id == current_tenant.id,
+    ).first()
+    if not target_mem:
+        raise HTTPException(404, "User is not a member of this tenant.")
+    if target_mem.role == "owner":
+        raise HTTPException(400, "Cannot deactivate the tenant owner.")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "User not found.")
+
+    user.is_active = not user.is_active
+    db.commit()
+    return {"ok": True, "is_active": user.is_active, "message": f"User {'activated' if user.is_active else 'deactivated'}."}
 
 
 # ─── Data Export (Business+ feature) ─────────────────────────

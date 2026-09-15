@@ -36,6 +36,7 @@ class TenantMembershipResponse(BaseModel):
     joined_at: datetime
     user_email: str
     user_name: str
+    is_active: bool = True
 
     model_config = {"from_attributes": True}
 

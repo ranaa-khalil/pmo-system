@@ -10,7 +10,7 @@ import app.models  # noqa: F401 — register all models
 from app.config import settings
 from app.database import Base, SessionLocal, engine
 from app.frontend import router as frontend_router
-from app.middleware import QuotaHeaderMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware
+from app.middleware import QuotaHeaderMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware, SubdomainMiddleware
 from app.routers import (
     ai,
     analytics,
@@ -145,7 +145,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Add middleware (order matters: security → rate limit → quota)
+# Add middleware (order matters: subdomain → security → rate limit → quota)
+app.add_middleware(SubdomainMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(QuotaHeaderMiddleware)
 app.add_middleware(RateLimitMiddleware)

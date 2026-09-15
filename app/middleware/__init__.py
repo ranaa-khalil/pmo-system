@@ -1,7 +1,8 @@
-"""Middleware package — quota headers, rate limiting, security headers."""
+"""Middleware package — quota headers, rate limiting, security headers, subdomain."""
 
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
+from app.middleware.subdomain import SubdomainMiddleware
 from app.middleware import rate_limit as rate_limit_module
 
 # Keep the QuotaHeaderMiddleware from the original __init__.py
@@ -28,4 +29,4 @@ class QuotaHeaderMiddleware(BaseHTTPMiddleware):
         return response
 
 
-__all__ = ["QuotaHeaderMiddleware", "RateLimitMiddleware", "SecurityHeadersMiddleware"]
+__all__ = ["QuotaHeaderMiddleware", "RateLimitMiddleware", "SecurityHeadersMiddleware", "SubdomainMiddleware"]

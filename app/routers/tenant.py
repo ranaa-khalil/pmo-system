@@ -229,6 +229,36 @@ def update_tenant_branding(
     return {"ok": True, "branding": branding}
 
 
+@router.put("/admin/tenants/{tenant_id}/branding")
+def admin_update_tenant_branding(
+    tenant_id: int,
+    req: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update tenant branding (super_admin only).
+
+    Branding fields: primary_color, logo_url, app_name, hide_powered_by
+    """
+    _require_super_admin(current_user)
+
+    import json as _json2
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(404, "Tenant not found.")
+
+    branding = _json2.loads(tenant.branding) if tenant.branding else {}
+    for key in ("primary_color", "logo_url", "app_name", "hide_powered_by"):
+        if key in req:
+            branding[key] = req[key]
+    # Also update the logo_url column directly if provided
+    if "logo_url" in req:
+        tenant.logo_url = req["logo_url"]
+    tenant.branding = _json2.dumps(branding)
+    db.commit()
+    return {"ok": True, "branding": branding}
+
+
 @router.post("/auth/switch-tenant", response_model=dict)
 def switch_tenant(
     req: SwitchTenantRequest,
@@ -767,6 +797,7 @@ def get_tenant_detail(
     """Get detailed info about a specific tenant (super_admin only)."""
     _require_super_admin(current_user)
 
+    import json as _json
     from app.models.backlog_item import BacklogItem
     from app.models.project import Project
     from app.models.release import Release
@@ -822,7 +853,8 @@ def get_tenant_detail(
             "slug": tenant.slug,
             "plan": tenant.plan,
             "status": tenant.status,
-            "branding": tenant.branding,
+            "branding": _json.loads(tenant.branding) if tenant.branding else {},
+            "logo_url": tenant.logo_url or (_json.loads(tenant.branding).get("logo_url", "") if tenant.branding else ""),
             "created_at": tenant.created_at.isoformat() if tenant.created_at else None,
         },
         "members": members,

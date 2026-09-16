@@ -4,13 +4,29 @@ services:
     ports:
       - "127.0.0.1:${PMO_PORT:-8000}:8000"
     environment:
-      PMO_DATABASE_URL: sqlite:////app/data/pmo_system.db
+      PMO_DATABASE_URL: postgresql://${PMO_POSTGRES_USER:-pmo}:${PMO_POSTGRES_PASSWORD:?Set PMO_POSTGRES_PASSWORD in .env}@db:5432/${PMO_POSTGRES_DB:-pmo_system}
       PMO_SECRET_KEY: ${PMO_SECRET_KEY:?Set PMO_SECRET_KEY in .env}
       PMO_DEBUG: "false"
       PMO_GITHUB_TOKEN: ${PMO_GITHUB_TOKEN:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${PMO_POSTGRES_USER:-pmo}
+      POSTGRES_PASSWORD: ${PMO_POSTGRES_PASSWORD:?Set PMO_POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${PMO_POSTGRES_DB:-pmo_system}
     volumes:
-      - pmo_data:/app/data
+      - pmo_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
 volumes:
-  pmo_data:
+  pmo_postgres_data:

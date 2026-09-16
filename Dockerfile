@@ -31,5 +31,7 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
 
-CMD ["gunicorn", "app.main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", \
+# Application startup currently creates/migrates/seeds the database, so keep a
+# single worker to ensure those operations run exactly once per container.
+CMD ["gunicorn", "app.main:app", "-w", "1", "-k", "uvicorn.workers.UvicornWorker", \
      "-b", "0.0.0.0:8000", "--access-logfile", "-", "--error-logfile", "-"]

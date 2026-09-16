@@ -8,7 +8,8 @@ Requires Docker and Docker Compose.
 cp .env.example .env
 ```
 
-Set `PMO_SECRET_KEY` in `.env` to a random secret. Generate one with
+Set both `PMO_SECRET_KEY` and `PMO_POSTGRES_PASSWORD` in `.env` to random
+secrets. Generate each one with
 `python3 -c 'import secrets; print(secrets.token_hex(32))'`.
 
 ```bash
@@ -32,5 +33,7 @@ docker compose logs -f app
 docker compose down
 ```
 
-SQLite data is stored in the `pmo_data` Docker volume and survives container
-rebuilds and `docker compose down`. `docker compose down -v` deletes that data.
+PostgreSQL data is stored in the `pmo_postgres_data` Docker volume and survives
+container rebuilds and `docker compose down`. PostgreSQL is available only to
+the application over the internal Compose network; it is not published on the
+host. `docker compose down -v` deletes the database volume.

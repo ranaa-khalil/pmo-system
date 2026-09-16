@@ -47,7 +47,7 @@ def _enrich(task: UserTask, db: Session, tenant_id: int) -> dict:
         ms = db.query(Milestone).filter(Milestone.id == task.milestone_id, Milestone.tenant_id == tenant_id).first()
         if ms:
             data["milestone_title"] = ms.title
-    assignee = db.query(User).filter(User.id == task.assigned_to, User.tenant_id == tenant_id).first()
+    assignee = db.query(User).filter(User.id == task.assigned_to).first()
     if assignee:
         data["assignee_name"] = assignee.name
     return data

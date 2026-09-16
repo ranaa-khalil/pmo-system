@@ -82,7 +82,7 @@ def assign_account_manager(
         raise HTTPException(status_code=403, detail="You don't have permission to assign an account manager")
     am_id = data.get("account_manager_id")
     if am_id:
-        am = db.query(User).filter(User.id == am_id, User.tenant_id == current_tenant.id).first()
+        am = db.query(User).filter(User.id == am_id).first()
         if not am:
             raise HTTPException(status_code=404, detail="User not found")
         am.system_role = "account_manager"

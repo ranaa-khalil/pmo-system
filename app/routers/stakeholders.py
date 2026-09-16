@@ -178,7 +178,7 @@ def list_assignments(
     assignments = db.query(RoleAssignment).filter(RoleAssignment.project_id == project_id, RoleAssignment.tenant_id == tid).all()
     result = []
     for a in assignments:
-        user = db.query(User).filter(User.id == a.user_id, User.tenant_id == tid).first()
+        user = db.query(User).filter(User.id == a.user_id).first()
         role = db.query(Role).filter(Role.id == a.role_id, Role.tenant_id == tid).first()
         result.append({
             "id": a.id,
@@ -345,7 +345,7 @@ def list_users(
 ):
     """List all users (super admin only)."""
     tid = current_tenant.id
-    users = db.query(User).filter(User.tenant_id == tid).order_by(User.created_at.desc()).all()
+    users = db.query(User).filter(User.active_tenant_id == tid).order_by(User.created_at.desc()).all()
     result = []
     for u in users:
         assignments = db.query(RoleAssignment).filter(RoleAssignment.user_id == u.id, RoleAssignment.tenant_id == tid).all()
@@ -409,7 +409,7 @@ def delete_user(
     """Delete a user (super admin, AM, or PM depending on target's role)."""
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
-    user = db.query(User).filter(User.id == user_id, User.tenant_id == current_tenant.id).first()
+    user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     if not can_delete_user(current_user, user, db):

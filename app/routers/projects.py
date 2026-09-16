@@ -108,7 +108,7 @@ def assign_project_manager(
         raise HTTPException(status_code=403, detail="You don't have permission to assign a PM to this project")
     pm_id = data.get("project_manager_id")
     if pm_id:
-        pm = db.query(User).filter(User.id == pm_id, User.tenant_id == current_tenant.id).first()
+        pm = db.query(User).filter(User.id == pm_id).first()
         if not pm:
             raise HTTPException(status_code=404, detail="User not found")
         if pm.system_role == "member":

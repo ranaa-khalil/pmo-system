@@ -6413,6 +6413,16 @@ function pmoApp() {
             }
         },
 
+        resetBranding() {
+            // Clear tenant branding — restore PMO System defaults
+            this.tenantBranding = null;
+            document.documentElement.style.removeProperty('--brand-r');
+            document.documentElement.style.removeProperty('--brand-g');
+            document.documentElement.style.removeProperty('--brand-b');
+            document.documentElement.style.removeProperty('--brand-color');
+            document.title = 'PMO System';
+        },
+
         async init() {
             // Load tenant branding from subdomain (if not already injected by server)
             if (!this.tenantBranding) {
@@ -6440,6 +6450,7 @@ function pmoApp() {
             if (this.isLoggedIn) {
                 if (this.isSuperAdmin) {
                     // Super admin: load admin dashboard, skip tenant data
+                    this.resetBranding();  // Super admin: no tenant branding
                     this.route = 'super-admin';
                     await this.loadAdminInsights();
                 } else {
@@ -7201,6 +7212,7 @@ function pmoApp() {
                 this.isLoggedIn = true;
                 this.loginForm = { email: '', password: '' };
                 if (user.system_role === 'super_admin') {
+                    this.resetBranding();  // Super admin: no tenant branding
                     this.route = 'super-admin';
                     await this.loadAdminInsights();
                 } else {
@@ -7251,6 +7263,7 @@ function pmoApp() {
             this.currentUser = null;
             this.isLoggedIn = false;
             this.route = 'dashboard';
+            this.resetBranding();
         },
 
         navigate(route) {

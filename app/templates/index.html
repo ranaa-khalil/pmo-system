@@ -275,7 +275,7 @@
                         <label class="block text-[12px] font-medium text-ink-700 mb-1.5">Email</label>
                         <input x-model="loginForm.email" type="email" required
                                class="input-premium w-full text-[14px] rounded-xl px-4 py-3 placeholder-ink-300 transition-all"
-                               placeholder="rana@opex.com.sa">
+                               placeholder="you@company.com">
                     </div>
                     <div>
                         <label class="block text-[12px] font-medium text-ink-700 mb-1.5">Password</label>
@@ -4450,7 +4450,7 @@
                             <div class="flex gap-2">
                                 <input x-model="githubBoardUrlInput" type="text"
                                        class="input-premium w-full text-[13px] px-3 py-2 font-mono"
-                                       placeholder="Paste board URL: https://github.com/users/ranaa-khalil/projects/1"
+                                       placeholder="Paste board URL: https://github.com/orgs/your-org/projects/1"
                                        @keydown.enter="resolveBoardUrl()">
                                 <button @click="resolveBoardUrl()"
                                         :disabled="githubResolvingBoard || !githubBoardUrlInput"

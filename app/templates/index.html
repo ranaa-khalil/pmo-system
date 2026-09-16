@@ -1761,10 +1761,10 @@
                         <button @click="saveTenantBranding()" class="mt-4 text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Branding</button>
                     </div>
 
-                    <!-- Resource Limits card -->
+                    <!-- Resource Limits card (read-only — set by super admin) -->
                     <div class="surface rounded-2xl border border-ink-200/60 p-6">
                         <h3 class="text-[14px] font-semibold text-ink-800 mb-1">Resource Limits</h3>
-                        <p class="text-[11px] text-ink-400 mb-4">Set the maximum number of users and projects for your organization. Leave empty for unlimited.</p>
+                        <p class="text-[11px] text-ink-400 mb-4">Set by your system administrator. Contact them to adjust these limits.</p>
                         <div class="space-y-4">
                             <!-- Max Users -->
                             <div>
@@ -1772,13 +1772,10 @@
                                     <span class="text-ink-500">Team Members</span>
                                     <span class="font-medium text-ink-700" x-text="(tenantLimitsForm.max_users >= 999999 || !tenantLimitsForm.max_users ? '∞' : tenantLimitsForm.max_users) + ' limit · ' + (usageCurrent.users || 0) + ' used'"></span>
                                 </div>
-                                <div class="flex gap-2 items-center">
-                                    <input x-model.number="tenantLimitsForm.max_users" type="number" min="1" class="input-premium text-[13px] rounded-[10px] w-24" placeholder="∞">
-                                    <div class="flex-1 h-2 bg-ink-100 rounded-full overflow-hidden">
-                                        <div class="h-full rounded-full transition-all"
-                                             :class="(tenantLimitsForm.max_users >= 999999 || !tenantLimitsForm.max_users) ? 'bg-brand-400' : ((usageCurrent.users || 0) / tenantLimitsForm.max_users > 0.9 ? 'bg-rose-500' : (usageCurrent.users || 0) / tenantLimitsForm.max_users > 0.7 ? 'bg-amber-500' : 'bg-brand-500')"
-                                             :style="'width: ' + ((tenantLimitsForm.max_users >= 999999 || !tenantLimitsForm.max_users) ? '100%' : Math.min(100, (usageCurrent.users || 0) / tenantLimitsForm.max_users * 100) + '%')"></div>
-                                    </div>
+                                <div class="h-2 bg-ink-100 rounded-full overflow-hidden">
+                                    <div class="h-full rounded-full transition-all"
+                                         :class="(tenantLimitsForm.max_users >= 999999 || !tenantLimitsForm.max_users) ? 'bg-brand-400' : ((usageCurrent.users || 0) / tenantLimitsForm.max_users > 0.9 ? 'bg-rose-500' : (usageCurrent.users || 0) / tenantLimitsForm.max_users > 0.7 ? 'bg-amber-500' : 'bg-brand-500')"
+                                         :style="'width: ' + ((tenantLimitsForm.max_users >= 999999 || !tenantLimitsForm.max_users) ? '100%' : Math.min(100, (usageCurrent.users || 0) / tenantLimitsForm.max_users * 100) + '%')"></div>
                                 </div>
                             </div>
                             <!-- Max Projects -->
@@ -1787,19 +1784,12 @@
                                     <span class="text-ink-500">Projects</span>
                                     <span class="font-medium text-ink-700" x-text="(tenantLimitsForm.max_projects >= 999999 || !tenantLimitsForm.max_projects ? '∞' : tenantLimitsForm.max_projects) + ' limit · ' + (usageCurrent.projects || 0) + ' used'"></span>
                                 </div>
-                                <div class="flex gap-2 items-center">
-                                    <input x-model.number="tenantLimitsForm.max_projects" type="number" min="1" class="input-premium text-[13px] rounded-[10px] w-24" placeholder="∞">
-                                    <div class="flex-1 h-2 bg-ink-100 rounded-full overflow-hidden">
-                                        <div class="h-full rounded-full transition-all"
-                                             :class="(tenantLimitsForm.max_projects >= 999999 || !tenantLimitsForm.max_projects) ? 'bg-brand-400' : ((usageCurrent.projects || 0) / tenantLimitsForm.max_projects > 0.9 ? 'bg-rose-500' : (usageCurrent.projects || 0) / tenantLimitsForm.max_projects > 0.7 ? 'bg-amber-500' : 'bg-brand-500')"
-                                             :style="'width: ' + ((tenantLimitsForm.max_projects >= 999999 || !tenantLimitsForm.max_projects) ? '100%' : Math.min(100, (usageCurrent.projects || 0) / tenantLimitsForm.max_projects * 100) + '%')"></div>
-                                    </div>
+                                <div class="h-2 bg-ink-100 rounded-full overflow-hidden">
+                                    <div class="h-full rounded-full transition-all"
+                                         :class="(tenantLimitsForm.max_projects >= 999999 || !tenantLimitsForm.max_projects) ? 'bg-brand-400' : ((usageCurrent.projects || 0) / tenantLimitsForm.max_projects > 0.9 ? 'bg-rose-500' : (usageCurrent.projects || 0) / tenantLimitsForm.max_projects > 0.7 ? 'bg-amber-500' : 'bg-brand-500')"
+                                         :style="'width: ' + ((tenantLimitsForm.max_projects >= 999999 || !tenantLimitsForm.max_projects) ? '100%' : Math.min(100, (usageCurrent.projects || 0) / tenantLimitsForm.max_projects * 100) + '%')"></div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="mt-4 flex items-center gap-3">
-                            <button @click="saveTenantLimits()" class="btn-primary text-white text-[12px] font-medium px-4 py-2 rounded-lg">Save Limits</button>
-                            <p class="text-[11px] text-ink-400">Existing items keep working. Only new additions are blocked when the limit is reached.</p>
                         </div>
                     </div>
 
@@ -5343,6 +5333,25 @@
                             Subdomain: <span class="font-medium text-ink-700" x-text="selectedTenantDetail?.tenant?.slug"></span>.localhost:8000
                         </div>
                     </div>
+
+                    <!-- Super admin: Resource Limits editor -->
+                    <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                        <h3 class="text-[14px] font-semibold text-ink-800 mb-1">Resource Limits</h3>
+                        <p class="text-[11px] text-ink-400 mb-4">Set the maximum number of users and projects for this tenant. Leave empty for unlimited.</p>
+                        <div class="space-y-4">
+                            <div class="flex items-center gap-3">
+                                <label class="text-[12px] text-ink-500 w-24">Max Users</label>
+                                <input x-model.number="adminLimitsForm.max_users" type="number" min="1" class="input-premium text-[13px] rounded-[10px] w-28" placeholder="∞">
+                                <span class="text-[11px] text-ink-400" x-text="(selectedTenantDetail?.stats?.member_count || 0) + ' currently used'"></span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <label class="text-[12px] text-ink-500 w-24">Max Projects</label>
+                                <input x-model.number="adminLimitsForm.max_projects" type="number" min="1" class="input-premium text-[13px] rounded-[10px] w-28" placeholder="∞">
+                                <span class="text-[11px] text-ink-400" x-text="(selectedTenantDetail?.stats?.project_count || 0) + ' currently used'"></span>
+                            </div>
+                        </div>
+                        <button @click="adminUpdateLimits(selectedTenantDetail.tenant.id)" class="mt-4 text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Limits</button>
+                    </div>
                 </div>
             </div>
 
@@ -6057,6 +6066,7 @@ function pmoApp() {
         adminAddUserForm: { name: '', email: '', password: '', role: 'member' },
         adminResetPasswordForm: { user_id: null, new_password: '' },
         adminBrandingForm: { app_name: '', primary_color: '#7c3aed', logo_url: '', hide_powered_by: false },
+        adminLimitsForm: { max_users: 999999, max_projects: 999999 },
         newTenantForm: { tenant_name: '', owner_name: '', owner_email: '', owner_password: '', plan: 'free' },
         newUserForm: { tenant_id: '', name: '', email: '', password: '', role: 'member' },
         tenantCreateForm: { name: '', email: '', password: '', role: 'member' },
@@ -8747,6 +8757,12 @@ function pmoApp() {
                     logo_url: logo || b.logo_url || '',
                     hide_powered_by: b.hide_powered_by || false,
                 };
+                // Populate limits form from tenant data
+                const l = this.selectedTenantDetail?.tenant?.limits || {};
+                this.adminLimitsForm = {
+                    max_users: l.max_users || 999999,
+                    max_projects: l.max_projects || 999999,
+                };
             } catch (e) { this.showToast('Failed to load tenant detail', 'error'); }
         },
 
@@ -8800,6 +8816,14 @@ function pmoApp() {
                 await this.api('PUT', `/admin/tenants/${tenantId}/branding`, this.adminBrandingForm);
                 await this.loadTenantDetail(tenantId);
                 this.showToast('Branding updated', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async adminUpdateLimits(tenantId) {
+            try {
+                await this.api('PUT', `/admin/tenants/${tenantId}/limits`, this.adminLimitsForm);
+                await this.loadTenantDetail(tenantId);
+                this.showToast('Limits updated', 'success');
             } catch (e) { this.showToast(e.message, 'error'); }
         },
 

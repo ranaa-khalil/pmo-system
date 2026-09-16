@@ -426,19 +426,24 @@ def get_tenant_limits(
     }
 
 
-@router.put("/tenant/limits")
-def update_tenant_limits(
+@router.put("/admin/tenants/{tenant_id}/limits")
+def admin_update_tenant_limits(
+    tenant_id: int,
     req: dict,
-    current_tenant: Tenant = Depends(get_current_tenant),
     db: Session = Depends(get_db),
-    _user: User = Depends(require_tenant_role(MEMBER_ROLE_OWNER, MEMBER_ROLE_ADMIN)),
+    current_user: User = Depends(get_current_user),
 ):
-    """Update tenant resource limits (owner/admin only).
+    """Update tenant resource limits (super admin only).
 
     Fields: max_users (int), max_projects (int)
     """
+    _require_super_admin(current_user)
     import json as _json
-    limits = _json.loads(current_tenant.limits) if current_tenant.limits else {}
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(404, "Tenant not found.")
+
+    limits = _json.loads(tenant.limits) if tenant.limits else {}
 
     if "max_users" in req:
         val = req["max_users"]
@@ -447,7 +452,7 @@ def update_tenant_limits(
         val = req["max_projects"]
         limits["max_projects"] = int(val) if val and int(val) > 0 else 999999
 
-    current_tenant.limits = _json.dumps(limits)
+    tenant.limits = _json.dumps(limits)
     db.commit()
     return {"ok": True, "limits": limits}
 
@@ -1010,13 +1015,14 @@ def get_tenant_detail(
             "status": tenant.status,
             "branding": _json.loads(tenant.branding) if tenant.branding else {},
             "logo_url": tenant.logo_url or (_json.loads(tenant.branding).get("logo_url", "") if tenant.branding else ""),
+            "limits": _json.loads(tenant.limits) if tenant.limits else {"max_users": 999999, "max_projects": 999999},
             "created_at": tenant.created_at.isoformat() if tenant.created_at else None,
         },
         "members": members,
         "projects": project_list,
         "stats": {
-            "members": len(members),
-            "projects": len(project_list),
+            "member_count": len(members),
+            "project_count": len(project_list),
             "backlog_items": backlog_count,
             "releases": release_count,
             "api_keys": api_key_count,

@@ -626,10 +626,10 @@ def change_member_role(
     user_id: int,
     role: str,
     current_tenant: Tenant = Depends(get_current_tenant),
-    current_user: User = Depends(require_tenant_role(MEMBER_ROLE_OWNER)),
+    current_user: User = Depends(require_tenant_role(MEMBER_ROLE_OWNER, MEMBER_ROLE_ADMIN)),
     db: Session = Depends(get_db),
 ):
-    """Change a member's role (owner only)."""
+    """Change a member's role (owner or admin only)."""
     if role not in (MEMBER_ROLE_OWNER, MEMBER_ROLE_ADMIN, MEMBER_ROLE_MEMBER):
         raise HTTPException(400, f"Invalid role. Must be one of: {MEMBER_ROLE_OWNER}, {MEMBER_ROLE_ADMIN}, {MEMBER_ROLE_MEMBER}")
 

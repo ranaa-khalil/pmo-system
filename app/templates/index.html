@@ -8692,7 +8692,7 @@ function pmoApp() {
 
         async changeMemberRole(userId, newRole) {
             try {
-                await this.api('PUT', `/api/tenant/members/${userId}`, { role: newRole });
+                await this.api('PUT', `/tenant/members/${userId}?role=${newRole}`);
                 await this.loadMembers();
                 this.showToast('Role updated', 'success');
             } catch (e) { this.showToast(e.message, 'error'); }

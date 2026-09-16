@@ -17,13 +17,13 @@ from app.models.tenant import PLAN_FREE
 
 # Rate limits per plan (requests per minute)
 RATE_LIMITS = {
-    PLAN_FREE: 100,       # 100 req/min
-    "team": 1000,         # 1000 req/min
-    "business": 2000,     # 2000 req/min
-    "enterprise": 5000,   # 5000 req/min
+    PLAN_FREE: 500,       # 500 req/min
+    "team": 2000,         # 2000 req/min
+    "business": 5000,     # 5000 req/min
+    "enterprise": 10000,  # 10000 req/min
 }
 
-DEFAULT_LIMIT = 100  # Default for unknown plans
+DEFAULT_LIMIT = 500  # Default for unknown plans
 
 
 class InMemoryRateLimiter:

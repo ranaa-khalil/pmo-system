@@ -274,7 +274,7 @@
                     <div>
                         <label class="block text-[12px] font-medium text-ink-700 mb-1.5">Email</label>
                         <input x-model="loginForm.email" type="email" required
-                               class="input-premium w-full text-[14px] border rounded-xl px-4 py-3 placeholder-ink-300 transition-all"
+                               class="input-premium w-full text-[14px] rounded-xl px-4 py-3 placeholder-ink-300 transition-all"
                                placeholder="rana@opex.com.sa">
                     </div>
                     <div>
@@ -1044,7 +1044,7 @@
                     </div>
                     <div class="flex items-center gap-3">
                         <div class="relative">
-                            <select x-model="projectFilter" @change="loadProjects()" class="appearance-none text-[12px] font-medium border border-ink-200/60 rounded-xl pl-3 pr-8 py-2 bg-white text-ink-600 focus:outline-none focus:ring-2 focus:ring-brand-500/10 cursor-pointer">
+                            <select x-model="projectFilter" @change="loadProjects()" class="appearance-none input-premium text-[12px] font-medium rounded-[10px] pl-3 pr-8 py-2 bg-white text-ink-600 cursor-pointer">
                                 <option value="">All Clients</option>
                                 <template x-for="c in clients" :key="c.id">
                                     <option :value="c.id" x-text="c.name"></option>
@@ -1530,10 +1530,10 @@
                         <div x-show="showAddUserForm" x-cloak class="bg-ink-100/60 rounded-xl p-4 mb-4 border border-black/[0.04]">
                             <div class="text-[12px] font-semibold text-ink-700 mb-3">Add New User</div>
                             <div class="grid grid-cols-4 gap-2 mb-3">
-                                <input x-model="tenantCreateForm.name" class="input-premium text-[13px] rounded-[10px]" placeholder="Full name">
-                                <input x-model="tenantCreateForm.email" type="email" class="input-premium text-[13px] rounded-[10px]" placeholder="Email">
-                                <input x-model="tenantCreateForm.password" type="password" class="input-premium text-[13px] rounded-[10px]" placeholder="Password (min 8)">
-                                <select x-model="tenantCreateForm.role" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white">
+                                <input x-model="tenantCreateForm.name" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Full name">
+                                <input x-model="tenantCreateForm.email" type="email" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Email">
+                                <input x-model="tenantCreateForm.password" type="password" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Password (min 8)">
+                                <select x-model="tenantCreateForm.role" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
                                     <option value="member">Member</option>
                                     <option value="admin">Admin</option>
                                     <option value="owner">Owner</option>
@@ -1577,7 +1577,7 @@
                                                 <div class="flex items-center gap-1.5">
                                                     <select x-show="m.role !== 'owner' && m.user_id !== currentUser.id"
                                                             @change="changeMemberRole(m.user_id, $event.target.value)"
-                                                            class="text-[10px] border border-ink-200/60 rounded-lg px-2 py-1 bg-white">
+                                                            class="input-premium text-[10px] rounded-lg px-2 py-1 bg-white">
                                                         <option value="" selected disabled>Role…</option>
                                                         <option value="member">Member</option>
                                                         <option value="admin">Admin</option>
@@ -1607,13 +1607,13 @@
                     <div x-show="canAssignAM" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
                         <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Assign Account Manager to Client</h3>
                         <div class="grid grid-cols-2 gap-2">
-                            <select x-model="amForm.client_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
+                            <select x-model="amForm.client_id" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
                                 <option value="">Select client...</option>
                                 <template x-for="c in clients" :key="c.id">
                                     <option :value="c.id" x-text="c.name"></option>
                                 </template>
                             </select>
-                            <select x-model="amForm.user_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
+                            <select x-model="amForm.user_id" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
                                 <option value="">Select user...</option>
                                 <template x-for="u in users" :key="u.id">
                                     <option :value="u.id" x-text="u.name"></option>
@@ -1626,13 +1626,13 @@
                     <div x-show="canAssignPM" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
                         <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Assign Project Manager to Project</h3>
                         <div class="grid grid-cols-2 gap-2">
-                            <select x-model="pmForm.project_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
+                            <select x-model="pmForm.project_id" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
                                 <option value="">Select project...</option>
                                 <template x-for="p in projects" :key="p.id">
                                     <option :value="p.id" x-text="p.name"></option>
                                 </template>
                             </select>
-                            <select x-model="pmForm.user_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
+                            <select x-model="pmForm.user_id" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
                                 <option value="">Select user...</option>
                                 <template x-for="u in users" :key="u.id">
                                     <option :value="u.id" x-text="u.name"></option>
@@ -1645,19 +1645,19 @@
                     <div x-show="canAssignRoles" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
                         <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Assign RACI Role to User</h3>
                         <div class="grid grid-cols-3 gap-2">
-                            <select x-model="assignmentForm.user_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
+                            <select x-model="assignmentForm.user_id" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
                                 <option value="">Select user...</option>
                                 <template x-for="u in users" :key="u.id">
                                     <option :value="u.id" x-text="u.name"></option>
                                 </template>
                             </select>
-                            <select x-model="assignmentForm.role_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
+                            <select x-model="assignmentForm.role_id" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
                                 <option value="">Select role...</option>
                                 <template x-for="r in roles" :key="r.id">
                                     <option :value="r.id" x-text="r.name"></option>
                                 </template>
                             </select>
-                            <select x-model="assignmentForm.project_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
+                            <select x-model="assignmentForm.project_id" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
                                 <option value="">Select project...</option>
                                 <template x-for="p in projects" :key="p.id">
                                     <option :value="p.id" x-text="p.name"></option>
@@ -1693,7 +1693,7 @@
                         </div>
                         <!-- Edit tenant name -->
                         <div class="mt-4 flex gap-2">
-                            <input x-model="tenantEditForm.name" class="input-premium text-[13px] rounded-[10px] flex-1" placeholder="Organization name">
+                            <input x-model="tenantEditForm.name" class="input-premium text-[13px] rounded-[10px] px-3 py-2 flex-1" placeholder="Organization name">
                             <button @click="saveTenant()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all whitespace-nowrap">Save Name</button>
                         </div>
                     </div>
@@ -1705,13 +1705,13 @@
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="text-[11px] font-medium text-ink-500 block mb-1">App Name (title bar & login)</label>
-                                <input x-model="tenantBrandingForm.app_name" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="e.g. Acme PMO">
+                                <input x-model="tenantBrandingForm.app_name" class="input-premium text-[13px] rounded-[10px] px-3 py-2 w-full" placeholder="App name">
                             </div>
                             <div>
                                 <label class="text-[11px] font-medium text-ink-500 block mb-1">Primary Color</label>
                                 <div class="flex items-center gap-2">
                                     <input x-model="tenantBrandingForm.primary_color" type="color" class="w-10 h-10 rounded-lg border border-ink-200/60 cursor-pointer">
-                                    <input x-model="tenantBrandingForm.primary_color" class="input-premium text-[13px] rounded-[10px] flex-1" placeholder="#7c3aed">
+                                    <input x-model="tenantBrandingForm.primary_color" class="input-premium text-[13px] rounded-[10px] px-3 py-2 flex-1" placeholder="Hex color">
                                 </div>
                             </div>
                             <div class="col-span-2">
@@ -1804,7 +1804,7 @@
                                 <h4 class="text-[13px] font-semibold text-ink-800">GitHub</h4>
                                 <span class="text-[10px] px-2 py-0.5 rounded-full" :class="integrations.github_token === '[SET]' || integrations.github_token === '[GLOBAL]' ? 'bg-emerald-50 text-emerald-600' : 'bg-ink-100 text-ink-400'" x-text="integrations.github_token === '[SET]' ? 'Configured' : integrations.github_token === '[GLOBAL]' ? 'Global' : 'Not set'"></span>
                             </div>
-                            <input x-model="integrationForm.github_token" type="password" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="GitHub personal access token">
+                            <input x-model="integrationForm.github_token" type="password" class="input-premium text-[13px] rounded-[10px] px-3 py-2 w-full" placeholder="GitHub personal access token">
                         </div>
                         <!-- AI Integration -->
                         <div class="mb-5">
@@ -1814,9 +1814,9 @@
                                 <span class="text-[10px] px-2 py-0.5 rounded-full" :class="integrations.ai_api_key === '[SET]' || integrations.ai_api_key === '[GLOBAL]' ? 'bg-emerald-50 text-emerald-600' : 'bg-ink-100 text-ink-400'" x-text="integrations.ai_api_key === '[SET]' ? 'Configured' : integrations.ai_api_key === '[GLOBAL]' ? 'Global' : 'Not set'"></span>
                             </div>
                             <div class="space-y-2">
-                                <input x-model="integrationForm.ai_api_key" type="password" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="API key">
-                                <input x-model="integrationForm.ai_base_url" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="Base URL (e.g. https://api.openai.com/v1)">
-                                <input x-model="integrationForm.ai_model" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="Model (e.g. gpt-4o-mini)">
+                                <input x-model="integrationForm.ai_api_key" type="password" class="input-premium text-[13px] rounded-[10px] px-3 py-2 w-full" placeholder="API key">
+                                <input x-model="integrationForm.ai_base_url" class="input-premium text-[13px] rounded-[10px] px-3 py-2 w-full" placeholder="Base URL">
+                                <input x-model="integrationForm.ai_model" class="input-premium text-[13px] rounded-[10px] px-3 py-2 w-full" placeholder="Model name">
                             </div>
                         </div>
                         <button @click="saveIntegrations()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Integrations</button>
@@ -2413,9 +2413,9 @@
                         <div class="surface rounded-2xl border border-ink-200/60 p-5">
                             <h3 class="text-[13px] font-semibold text-ink-800 mb-3">Create Vision</h3>
                             <div class="space-y-3">
-                                <textarea x-model="visionForm.statement" rows="3" class="input-premium w-full text-[14px]" placeholder="e.g., Become the leading cloud platform for Saudi universities by 2030"></textarea>
+                                <textarea x-model="visionForm.statement" rows="3" class="input-premium w-full text-[14px] px-3 py-2" placeholder="Vision statement"></textarea>
                                     <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
-                                <textarea x-model="visionForm.strategic_objectives" rows="4" class="input-premium w-full text-[14px]" placeholder="1. Objective one&#10;2. Objective two"></textarea>
+                                <textarea x-model="visionForm.strategic_objectives" rows="4" class="input-premium w-full text-[14px] px-3 py-2" placeholder="List strategic objectives"></textarea>
                                 <div class="flex items-center gap-2">
                                     <button @click="saveVision()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Vision</button>
                                     <button @click="aiSuggestVision()" :disabled="aiLoading" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-600 hover:text-white hover:bg-brand-600 px-3 py-2 rounded-xl border border-brand-200 transition-all disabled:opacity-50">
@@ -2477,30 +2477,30 @@
                         <div class="grid grid-cols-2 gap-3 mb-3">
                             <div>
                                 <label class="block text-[11px] font-medium text-ink-500 mb-1.5">KPI Name</label>
-                                <input x-model="kpiForm.name" class="input-premium text-[13px] w-full" placeholder="e.g., Service Uptime">
+                                <input x-model="kpiForm.name" class="input-premium text-[13px] px-3 py-2 w-full" placeholder="KPI name">
                             </div>
                             <div>
                                 <label class="block text-[11px] font-medium text-ink-500 mb-1.5">Category</label>
-                                <input x-model="kpiForm.category" class="input-premium text-[13px] w-full" placeholder="e.g., Availability">
+                                <input x-model="kpiForm.category" class="input-premium text-[13px] px-3 py-2 w-full" placeholder="Category">
                             </div>
                         </div>
                         <div class="grid grid-cols-3 gap-3 mb-3">
                             <div>
                                 <label class="block text-[11px] font-medium text-ink-500 mb-1.5">Target Value</label>
-                                <input x-model="kpiForm.target_value" class="input-premium text-[13px] w-full" placeholder="99.9">
+                                <input x-model="kpiForm.target_value" class="input-premium text-[13px] px-3 py-2 w-full" placeholder="99.9">
                             </div>
                             <div>
                                 <label class="block text-[11px] font-medium text-ink-500 mb-1.5">Current Value</label>
-                                <input x-model="kpiForm.current_value" class="input-premium text-[13px] w-full" placeholder="99.5">
+                                <input x-model="kpiForm.current_value" class="input-premium text-[13px] px-3 py-2 w-full" placeholder="99.5">
                             </div>
                             <div>
                                 <label class="block text-[11px] font-medium text-ink-500 mb-1.5">Unit</label>
-                                <input x-model="kpiForm.unit" class="input-premium text-[13px] w-full" placeholder="%">
+                                <input x-model="kpiForm.unit" class="input-premium text-[13px] px-3 py-2 w-full" placeholder="%">
                             </div>
                         </div>
                         <div class="mb-3">
                             <label class="block text-[11px] font-medium text-ink-500 mb-1.5">Linked Vision Objective</label>
-                            <input x-model="kpiForm.vision_objective" class="input-premium w-full text-[13px]" placeholder="e.g., 'Achieve 99.9% uptime'">
+                            <input x-model="kpiForm.vision_objective" class="input-premium w-full text-[13px] px-3 py-2" placeholder="Linked objective">
                         </div>
                         <button @click="saveKPI()" class="btn-primary text-[13px] font-medium text-white px-4 py-2 rounded-xl transition-all" x-text="editingKPIId ? 'Update KPI' : 'Add KPI'"></button>
                         <button @click="showKpiForm = false; editingKPIId = null" class="text-[13px] text-ink-500 hover:text-ink-800 px-3 py-2">Cancel</button>
@@ -2667,9 +2667,9 @@
         </div>
         <div x-show="showRoadmapForm" x-cloak x-collapse class="surface rounded-2xl border border-ink-200/60 p-5">
                 <div class="grid grid-cols-4 gap-3">
-                    <input x-model="roadmapForm.title" class="input-premium text-[13px] col-span-2" placeholder="Roadmap title (e.g., 2026 Plan)">
-                    <input x-model="roadmapForm.start_date" type="date" class="input-premium text-[13px] rounded-[10px]">
-                    <input x-model="roadmapForm.end_date" type="date" class="input-premium text-[13px] rounded-[10px]">
+                    <input x-model="roadmapForm.title" class="input-premium text-[13px] px-3 py-2 col-span-2" placeholder="Roadmap title">
+                    <input x-model="roadmapForm.start_date" type="date" class="input-premium text-[13px] rounded-[10px] px-3 py-2">
+                    <input x-model="roadmapForm.end_date" type="date" class="input-premium text-[13px] rounded-[10px] px-3 py-2">
                 </div>
                 <div class="flex items-center gap-2 mt-3">
                     <button @click="saveRoadmap()" class="btn-primary text-[13px] font-medium text-white px-4 py-2 rounded-xl transition-all">Create Roadmap</button>
@@ -2721,16 +2721,16 @@
                             <button @click="editingMilestoneId = null; milestoneForm = { title: '', target_date: '', status: 'On Track', description: '' }" class="text-[11px] text-ink-400 hover:text-ink-600">Cancel</button>
                         </div>
                         <div class="flex items-center gap-2">
-                            <input x-model="milestoneForm.title" @keydown.enter="saveMilestone(rm.id)" class="input-premium flex-1 text-[12px]" :placeholder="editingMilestoneId ? 'Edit title...' : 'New milestone title...'">
-                            <input x-model="milestoneForm.target_date" type="date" class="input-premium text-[12px] w-[140px]">
-                            <select x-model="milestoneForm.status" class="input-premium text-[12px] w-[120px]">
+                            <input x-model="milestoneForm.title" @keydown.enter="saveMilestone(rm.id)" class="input-premium flex-1 text-[12px] px-3 py-2" :placeholder="editingMilestoneId ? 'Edit title...' : 'New milestone title...'">
+                            <input x-model="milestoneForm.target_date" type="date" class="input-premium text-[12px] px-3 py-2 w-[140px]">
+                            <select x-model="milestoneForm.status" class="input-premium text-[12px] px-3 py-2 w-[120px]">
                                 <option value="On Track">On Track</option>
                                 <option value="At Risk">At Risk</option>
                                 <option value="Completed">Completed</option>
                             </select>
                             <button @click="saveMilestone(rm.id)" class="btn-primary text-[12px] font-medium text-white px-3 py-2 rounded-lg transition-all whitespace-nowrap" x-text="editingMilestoneId ? 'Update' : '+ Add'"></button>
                         </div>
-                        <input x-model="milestoneForm.description" class="input-premium flex-1 text-[11px] w-full mt-2" placeholder="Description (optional)...">
+                        <input x-model="milestoneForm.description" class="input-premium flex-1 text-[11px] px-3 py-2 w-full mt-2" placeholder="Description (optional)...">
                     </div>
                 </div>
             </div>
@@ -2777,8 +2777,8 @@
             <!-- Epic form -->
             <template x-if="backlogFormMode === 'epic'">
                 <div class="space-y-3">
-                    <input x-model="epicForm.name" class="input-premium text-[13px] rounded-[10px]" placeholder="Epic name (e.g., RBAC & Identity)">
-                    <textarea x-model="epicForm.description" rows="2" class="w-full input-premium text-[13px]" placeholder="Epic description (optional)…"></textarea>
+                    <input x-model="epicForm.name" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Epic name">
+                    <textarea x-model="epicForm.description" rows="2" class="w-full input-premium text-[13px] px-3 py-2" placeholder="Epic description (optional)…"></textarea>
                                     <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
                     <div class="flex items-center gap-2">
                         <button @click="saveBacklogItem(false)" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Epic</button>
@@ -2792,15 +2792,15 @@
             <template x-if="backlogFormMode === 'feature'">
                 <div class="space-y-3">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <input x-model="backlogForm.title" class="input-premium text-[13px] rounded-[10px]" placeholder="Feature / Story title…">
+                        <input x-model="backlogForm.title" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Feature / Story title…">
                         <div class="flex items-center gap-2">
-                            <select x-model="backlogForm.epic" class="input-premium text-[12px] bg-white flex-1">
+                            <select x-model="backlogForm.epic" class="input-premium text-[12px] px-3 py-2 bg-white flex-1">
                                 <option value="">— No epic —</option>
                                 <template x-for="ep in epicOptions" :key="ep">
                                     <option :value="ep" x-text="ep"></option>
                                 </template>
                             </select>
-                            <input x-model="backlogForm.epic" list="epic-list" class="input-premium text-[12px] flex-1" placeholder="or type new epic…">
+                            <input x-model="backlogForm.epic" list="epic-list" class="input-premium text-[12px] px-3 py-2 flex-1" placeholder="or type new epic…">
                             <datalist id="epic-list">
                                 <template x-for="ep in epicOptions" :key="ep">
                                     <option :value="ep"></option>
@@ -2808,28 +2808,28 @@
                             </datalist>
                         </div>
                     </div>
-                    <textarea x-model="backlogForm.description" rows="2" class="w-full input-premium text-[13px]" placeholder="Details / Acceptance Criteria…"></textarea>
+                    <textarea x-model="backlogForm.description" rows="2" class="w-full input-premium text-[13px] px-3 py-2" placeholder="Details / Acceptance Criteria…"></textarea>
                                     <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
                     <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
-                        <select x-model="backlogForm.item_type" class="input-premium text-[12px] bg-white">
+                        <select x-model="backlogForm.item_type" class="input-premium text-[12px] px-3 py-2 bg-white">
                             <option value="Feature">Feature</option>
                             <option value="Bug">Bug</option>
                             <option value="Enhancement">Enhancement</option>
                         </select>
-                        <select x-model="backlogForm.primary_actor" class="input-premium text-[12px] bg-white">
+                        <select x-model="backlogForm.primary_actor" class="input-premium text-[12px] px-3 py-2 bg-white">
                             <option value="">Primary Actor</option>
                             <template x-for="p in personas" :key="p.id">
                                 <option :value="p.name" x-text="p.name"></option>
                             </template>
                         </select>
-                        <select x-model="backlogForm.priority" class="input-premium text-[12px] bg-white">
+                        <select x-model="backlogForm.priority" class="input-premium text-[12px] px-3 py-2 bg-white">
                             <option value="Critical">Critical</option>
                             <option value="High">High</option>
                             <option value="Medium">Medium</option>
                             <option value="Low">Low</option>
                         </select>
-                        <input x-model="backlogForm.story_points" type="number" min="1" class="input-premium text-[12px] rounded-[10px]" placeholder="Est. (pts)">
-                        <input x-model="backlogForm.target_release" class="input-premium text-[12px] rounded-[10px]" placeholder="Target Release">
+                        <input x-model="backlogForm.story_points" type="number" min="1" class="input-premium text-[12px] px-3 py-2 rounded-[10px]" placeholder="Est. (pts)">
+                        <input x-model="backlogForm.target_release" class="input-premium text-[12px] px-3 py-2 rounded-[10px]" placeholder="Target Release">
                     </div>
                     <div class="flex items-center gap-3">
                         <!-- Dependency selector with autocomplete search -->
@@ -2873,7 +2873,7 @@
                                 </div>
                             </div>
                         </div>
-                        <select x-model="backlogForm.kpi_id" class="text-[12px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white flex-1 focus:outline-none focus:ring-2 focus:ring-brand-500/10">
+                        <select x-model="backlogForm.kpi_id" class="input-premium text-[12px] rounded-[10px] px-3 py-2 bg-white flex-1">
                             <option value="">Link to KPI (optional)…</option>
                             <template x-for="kpi in kpis" :key="kpi.id">
                                 <option :value="kpi.id" x-text="kpi.name"></option>
@@ -3272,18 +3272,18 @@
             <h3 class="text-[13px] font-semibold text-ink-800 mb-3">Plan New Release</h3>
             <div class="grid grid-cols-4 gap-3">
                 <div class="relative">
-                    <input x-model="releaseForm.version" @focus="loadNextVersion('minor')" class="input-premium text-[13px] font-mono" placeholder="Version">
+                    <input x-model="releaseForm.version" @focus="loadNextVersion('minor')" class="input-premium text-[13px] px-3 py-2 font-mono" placeholder="Version">
                     <template x-if="suggestedVersion">
                         <button @click="releaseForm.version = suggestedVersion" class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 px-2 py-1 rounded-md transition-all">
                             Use <span x-text="suggestedVersion"></span>
                         </button>
                     </template>
                 </div>
-                <input x-model="releaseForm.name" class="input-premium text-[13px] col-span-2" placeholder="Release name">
-                <input x-model="releaseForm.target_date" type="date" class="input-premium text-[13px] rounded-[10px]">
+                <input x-model="releaseForm.name" class="input-premium text-[13px] px-3 py-2 col-span-2" placeholder="Release name">
+                <input x-model="releaseForm.target_date" type="date" class="input-premium text-[13px] rounded-[10px] px-3 py-2">
             </div>
-            <textarea x-model="releaseForm.description" rows="2" class="input-premium w-full text-[13px] mt-2" placeholder="Release description..."></textarea>
-            <select x-model="releaseForm.milestone_id" class="w-full text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 mt-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
+            <textarea x-model="releaseForm.description" rows="2" class="input-premium w-full text-[13px] px-3 py-2 mt-2" placeholder="Release description..."></textarea>
+            <select x-model="releaseForm.milestone_id" class="input-premium w-full text-[13px] rounded-[10px] px-3 py-2 mt-2 bg-white">
                 <option value="">Link to milestone (optional)...</option>
                 <template x-for="rm in roadmaps" :key="rm.id">
                     <template x-for="ms in (rm.milestones || [])" :key="ms.id">
@@ -3526,28 +3526,28 @@
             <template x-if="backlogEditMode">
                 <div class="px-6 py-4 space-y-3">
                     <h4 class="text-[14px] font-bold text-brand-600">✎ Edit Backlog Item</h4>
-                    <input x-model="backlogEditForm.title" class="input-premium text-[13px] w-full" placeholder="Title">
-                    <textarea x-model="backlogEditForm.description" rows="2" class="input-premium text-[13px] w-full" placeholder="Description"></textarea>
+                    <input x-model="backlogEditForm.title" class="input-premium text-[13px] px-3 py-2 w-full" placeholder="Title">
+                    <textarea x-model="backlogEditForm.description" rows="2" class="input-premium text-[13px] px-3 py-2 w-full" placeholder="Description"></textarea>
                                     <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
-                    <textarea x-model="backlogEditForm.acceptance_criteria" rows="2" class="input-premium text-[13px] w-full" placeholder="Acceptance criteria"></textarea>
+                    <textarea x-model="backlogEditForm.acceptance_criteria" rows="2" class="input-premium text-[13px] px-3 py-2 w-full" placeholder="Acceptance criteria"></textarea>
                                     <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
                     <div class="grid grid-cols-3 gap-3">
-                        <select x-model="backlogEditForm.priority" class="input-premium text-[12px] rounded-[10px]">
+                        <select x-model="backlogEditForm.priority" class="input-premium text-[12px] px-3 py-2 rounded-[10px]">
                             <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
                         </select>
-                        <select x-model="backlogEditForm.item_type" class="input-premium text-[12px] rounded-[10px]">
+                        <select x-model="backlogEditForm.item_type" class="input-premium text-[12px] px-3 py-2 rounded-[10px]">
                             <option>Feature</option><option>Enhancement</option><option>Bug</option><option>Story</option><option>Task</option>
                         </select>
-                        <input x-model="backlogEditForm.story_points" type="number" class="input-premium text-[12px] rounded-[10px]" placeholder="Story points">
+                        <input x-model="backlogEditForm.story_points" type="number" class="input-premium text-[12px] px-3 py-2 rounded-[10px]" placeholder="Story points">
                     </div>
                     <div class="grid grid-cols-2 gap-3">
-                        <select x-model="backlogEditForm.primary_actor" class="input-premium text-[12px] bg-white">
+                        <select x-model="backlogEditForm.primary_actor" class="input-premium text-[12px] px-3 py-2 bg-white">
                             <option value="">Primary Actor</option>
                             <template x-for="p in personas" :key="p.id">
                                 <option :value="p.name" x-text="p.name"></option>
                             </template>
                         </select>
-                        <input x-model="backlogEditForm.target_release" class="input-premium text-[12px] rounded-[10px]" placeholder="Target release">
+                        <input x-model="backlogEditForm.target_release" class="input-premium text-[12px] px-3 py-2 rounded-[10px]" placeholder="Target release">
                     </div>
                     <div class="flex gap-2 pt-2">
                         <button @click="saveBacklogEdit()" class="flex-1 text-[12px] font-medium text-white btn-primary px-3 py-2 rounded-lg transition-all">Save Changes</button>
@@ -3687,20 +3687,20 @@
                     <div class="space-y-3">
                         <div>
                             <label class="block text-[11px] font-medium text-ink-500 mb-1.5">Title</label>
-                            <input x-model="milestoneForm.title" class="input-premium text-[13px] w-full">
+                            <input x-model="milestoneForm.title" class="input-premium text-[13px] px-3 py-2 w-full">
                         </div>
                         <div>
                             <label class="block text-[11px] font-medium text-ink-500 mb-1.5">Description</label>
-                            <textarea x-model="milestoneForm.description" rows="2" class="input-premium text-[13px] w-full"></textarea>
+                            <textarea x-model="milestoneForm.description" rows="2" class="input-premium text-[13px] px-3 py-2 w-full"></textarea>
                         </div>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label class="block text-[11px] font-medium text-ink-500 mb-1.5">Target Date</label>
-                                <input x-model="milestoneForm.target_date" type="date" class="input-premium text-[13px] w-full">
+                                <input x-model="milestoneForm.target_date" type="date" class="input-premium text-[13px] px-3 py-2 w-full">
                             </div>
                             <div>
                                 <label class="block text-[11px] font-medium text-ink-500 mb-1.5">Status</label>
-                                <select x-model="milestoneForm.status" class="input-premium text-[13px] w-full">
+                                <select x-model="milestoneForm.status" class="input-premium text-[13px] px-3 py-2 w-full">
                                     <option value="On Track">On Track</option>
                                     <option value="At Risk">At Risk</option>
                                     <option value="Completed">Completed</option>
@@ -3826,30 +3826,30 @@
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label class="block text-[11px] font-medium text-ink-500 mb-1.5">KPI Name</label>
-                                <input x-model="kpiForm.name" class="input-premium text-[13px] w-full">
+                                <input x-model="kpiForm.name" class="input-premium text-[13px] px-3 py-2 w-full">
                             </div>
                             <div>
                                 <label class="block text-[11px] font-medium text-ink-500 mb-1.5">Category</label>
-                                <input x-model="kpiForm.category" class="input-premium text-[13px] w-full">
+                                <input x-model="kpiForm.category" class="input-premium text-[13px] px-3 py-2 w-full">
                             </div>
                         </div>
                         <div class="grid grid-cols-3 gap-3">
                             <div>
                                 <label class="block text-[11px] font-medium text-ink-500 mb-1.5">Target Value</label>
-                                <input x-model="kpiForm.target_value" class="input-premium text-[13px] w-full">
+                                <input x-model="kpiForm.target_value" class="input-premium text-[13px] px-3 py-2 w-full">
                             </div>
                             <div>
                                 <label class="block text-[11px] font-medium text-ink-500 mb-1.5">Current Value</label>
-                                <input x-model="kpiForm.current_value" class="input-premium text-[13px] w-full">
+                                <input x-model="kpiForm.current_value" class="input-premium text-[13px] px-3 py-2 w-full">
                             </div>
                             <div>
                                 <label class="block text-[11px] font-medium text-ink-500 mb-1.5">Unit</label>
-                                <input x-model="kpiForm.unit" class="input-premium text-[13px] w-full">
+                                <input x-model="kpiForm.unit" class="input-premium text-[13px] px-3 py-2 w-full">
                             </div>
                         </div>
                         <div>
                             <label class="block text-[11px] font-medium text-ink-500 mb-1.5">Linked Vision Objective</label>
-                            <input x-model="kpiForm.vision_objective" class="input-premium text-[13px] w-full">
+                            <input x-model="kpiForm.vision_objective" class="input-premium text-[13px] px-3 py-2 w-full">
                         </div>
                         <div class="flex gap-2 pt-2">
                             <button @click="saveKPIEdit()" class="flex-1 text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-all">Save Changes</button>
@@ -4255,16 +4255,16 @@
             <h3 class="text-[13px] font-semibold text-ink-800 mb-1">③ Add External Stakeholder</h3>
             <p class="text-[10px] text-ink-400 mb-3">Add people outside the system (clients, partners, sponsors) who need to be Consulted or Informed about this project. They won't have system access but will be listed in the RACI matrix and can receive shared release notes.</p>
             <div class="grid grid-cols-3 gap-3">
-                <input x-model="stakeholderForm.name" class="input-premium text-[13px] rounded-[10px]" placeholder="Full name *">
-                <input x-model="stakeholderForm.email" class="input-premium text-[13px] rounded-[10px]" placeholder="Email">
-                <input x-model="stakeholderForm.phone" class="input-premium text-[13px] rounded-[10px]" placeholder="Phone">
-                <input x-model="stakeholderForm.company" class="input-premium text-[13px] rounded-[10px]" placeholder="Company (e.g., Obelion, NITC)">
-                <select x-model="stakeholderForm.role_name" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
+                <input x-model="stakeholderForm.name" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Full name *">
+                <input x-model="stakeholderForm.email" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Email">
+                <input x-model="stakeholderForm.phone" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Phone">
+                <input x-model="stakeholderForm.company" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Company">
+                <select x-model="stakeholderForm.role_name" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
                     <template x-for="role in raciRoles" :key="role">
                         <option :value="role" x-text="role"></option>
                     </template>
                 </select>
-                <select x-model="stakeholderForm.raci_type" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
+                <select x-model="stakeholderForm.raci_type" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
                     <option value="R">R — Responsible</option>
                     <option value="A">A — Accountable</option>
                     <option value="C">C — Consulted</option>
@@ -4419,7 +4419,7 @@
                             <!-- URL input -->
                             <div class="flex gap-2">
                                 <input x-model="githubBoardUrlInput" type="text"
-                                       class="input-premium w-full text-[13px] font-mono"
+                                       class="input-premium w-full text-[13px] px-3 py-2 font-mono"
                                        placeholder="Paste board URL: https://github.com/users/ranaa-khalil/projects/1"
                                        @keydown.enter="resolveBoardUrl()">
                                 <button @click="resolveBoardUrl()"
@@ -4474,7 +4474,7 @@
                     <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Issue Title Prefix (optional)</label>
                     <input x-model="githubBoardConfig.issue_title_prefix" type="text"
                            class="input-premium w-full text-[14px] font-mono text-[13px]"
-                           placeholder="e.g., [CG] for CloudGate"
+                           placeholder="Code prefix"
                            maxlength="20">
                     <p class="text-[10px] text-ink-400 mt-1">Prefix added to GitHub issue titles for easy identification.</p>
                 </div>
@@ -4862,11 +4862,11 @@
         <div class="surface rounded-2xl border border-ink-200/60 p-5 mb-4">
             <h3 class="text-[13px] font-semibold text-ink-800 mb-3">New Approval Request</h3>
             <div class="space-y-2">
-                <input x-model="approvalForm.title" class="w-full input-premium text-[13px]" placeholder="Approval title (e.g., Release v1.2.0 Approval)">
-                <textarea x-model="approvalForm.description" rows="2" class="w-full input-premium text-[13px]" placeholder="Description..."></textarea>
+                <input x-model="approvalForm.title" class="w-full input-premium text-[13px] px-3 py-2" placeholder="Approval title">
+                <textarea x-model="approvalForm.description" rows="2" class="w-full input-premium text-[13px] px-3 py-2" placeholder="Description..."></textarea>
                                     <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
                 <div class="flex items-center gap-3">
-                    <select x-model="approvalForm.request_type" class="input-premium text-[12px] bg-white">
+                    <select x-model="approvalForm.request_type" class="input-premium text-[12px] px-3 py-2 bg-white">
                         <option value="release">Release</option>
                         <option value="hotfix">Hotfix</option>
                         <option value="rollback">Rollback</option>
@@ -4880,7 +4880,7 @@
                     <template x-for="(step, idx) in approvalForm.steps" :key="idx">
                         <div class="flex items-center gap-2 mb-1.5">
                             <div class="w-6 h-6 rounded-lg bg-brand-50 text-brand-600 text-[11px] font-bold flex items-center justify-center flex-shrink-0" x-text="idx + 1"></div>
-                            <select x-model="step.role_name" class="flex-1 text-[12px] border border-ink-200/60 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/10">
+                            <select x-model="step.role_name" class="flex-1 input-premium text-[12px] rounded-lg px-2.5 py-1.5 bg-white">
                                 <option value="">Select role...</option>
                                 <template x-for="role in raciRoles" :key="role">
                                     <option :value="role" x-text="role"></option>
@@ -5109,11 +5109,11 @@
                 <div x-show="showCreateTenantForm" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
                     <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Create New Tenant</h3>
                     <div class="grid grid-cols-3 gap-3">
-                        <input x-model="newTenantForm.tenant_name" class="input-premium text-[13px] rounded-[10px]" placeholder="Company name">
-                        <input x-model="newTenantForm.owner_name" class="input-premium text-[13px] rounded-[10px]" placeholder="Owner name">
-                        <input x-model="newTenantForm.owner_email" type="email" class="input-premium text-[13px] rounded-[10px]" placeholder="Owner email">
-                        <input x-model="newTenantForm.owner_password" type="password" class="input-premium text-[13px] rounded-[10px]" placeholder="Password (min 8 chars)">
-                        <select x-model="newTenantForm.plan_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white">
+                        <input x-model="newTenantForm.tenant_name" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Company name">
+                        <input x-model="newTenantForm.owner_name" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Owner name">
+                        <input x-model="newTenantForm.owner_email" type="email" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Owner email">
+                        <input x-model="newTenantForm.owner_password" type="password" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Password (min 8 chars)">
+                        <select x-model="newTenantForm.plan_id" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
                             <option value="" selected disabled>Select Plan</option>
                             <template x-for="p in (adminPlans || [])" :key="p.id">
                                 <option :value="p.id" x-text="p.name + ' (' + p.max_users + 'u / ' + p.max_projects + 'p / ' + p.max_clients + 'c)'"></option>
@@ -5163,13 +5163,13 @@
                                         <td class="py-3 pr-4 text-[11px] text-ink-400" x-text="t.created_at ? new Date(t.created_at).toLocaleDateString() : ''"></td>
                                         <td class="py-3" @click.stop>
                                             <div class="flex items-center gap-1">
-                                                <select @change="assignTenantPlan(t.id, $event.target.value); $event.target.value=''" class="text-[10px] border border-ink-200/60 rounded-lg px-2 py-1 bg-white" x-cloak>
+                                                <select @change="assignTenantPlan(t.id, $event.target.value); $event.target.value=''" class="input-premium text-[10px] rounded-lg px-2 py-1 bg-white" x-cloak>
                                                     <option value="" selected disabled>Plan</option>
                                                     <template x-for="p in (adminPlans || [])" :key="p.id">
                                                         <option :value="p.id" x-text="p.name"></option>
                                                     </template>
                                                 </select>
-                                                <select @change="updateTenantStatus(t.id, $event.target.value); $event.target.value=''" class="text-[10px] border border-ink-200/60 rounded-lg px-2 py-1 bg-white" x-cloak>
+                                                <select @change="updateTenantStatus(t.id, $event.target.value); $event.target.value=''" class="input-premium text-[10px] rounded-lg px-2 py-1 bg-white" x-cloak>
                                                     <option value="" selected disabled>Status</option>
                                                     <option value="active">Activate</option>
                                                     <option value="suspended">Suspend</option>
@@ -5207,14 +5207,14 @@
                 <div x-show="showPlanForm" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
                     <h3 class="text-[14px] font-semibold text-ink-800 mb-4" x-text="editingPlanId ? 'Edit Plan' : 'Create New Plan'"></h3>
                     <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        <input x-model="planForm.name" class="input-premium text-[13px] rounded-[10px]" placeholder="Plan name (e.g., Free, Team)">
-                        <input x-model="planForm.description" class="input-premium text-[13px] rounded-[10px]" placeholder="Description">
-                        <input x-model="planForm.price_monthly" type="number" min="0" class="input-premium text-[13px] rounded-[10px]" placeholder="Monthly price (SAR)">
-                        <input x-model="planForm.price_yearly" type="number" min="0" class="input-premium text-[13px] rounded-[10px]" placeholder="Yearly price (SAR)">
-                        <input x-model="planForm.max_users" type="number" min="1" class="input-premium text-[13px] rounded-[10px]" placeholder="Max users (999999 = unlimited)">
-                        <input x-model="planForm.max_projects" type="number" min="1" class="input-premium text-[13px] rounded-[10px]" placeholder="Max projects (999999 = unlimited)">
-                        <input x-model="planForm.max_clients" type="number" min="1" class="input-premium text-[13px] rounded-[10px]" placeholder="Max clients (999999 = unlimited)">
-                        <input x-model="planForm.sort_order" type="number" min="0" class="input-premium text-[13px] rounded-[10px]" placeholder="Sort order">
+                        <input x-model="planForm.name" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Plan name">
+                        <input x-model="planForm.description" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Description">
+                        <input x-model="planForm.price_monthly" type="number" min="0" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Monthly price (SAR)">
+                        <input x-model="planForm.price_yearly" type="number" min="0" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Yearly price (SAR)">
+                        <input x-model="planForm.max_users" type="number" min="1" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Max users">
+                        <input x-model="planForm.max_projects" type="number" min="1" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Max projects">
+                        <input x-model="planForm.max_clients" type="number" min="1" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Max clients">
+                        <input x-model="planForm.sort_order" type="number" min="0" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Sort order">
                         <label class="flex items-center gap-2 text-[12px] text-ink-600">
                             <input type="checkbox" x-model="planForm.is_active" class="rounded"> Active
                         </label>
@@ -5303,14 +5303,14 @@
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
-                            <select @change="updateTenantPlan(selectedTenantDetail.tenant.id, $event.target.value); $event.target.value=''" class="text-[12px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white">
+                            <select @change="updateTenantPlan(selectedTenantDetail.tenant.id, $event.target.value); $event.target.value=''" class="input-premium text-[12px] rounded-[10px] px-3 py-2 bg-white">
                                 <option value="" selected disabled>Change Plan</option>
                                 <option value="free">Free</option>
                                 <option value="team">Team</option>
                                 <option value="business">Business</option>
                                 <option value="enterprise">Enterprise</option>
                             </select>
-                            <select @change="updateTenantStatus(selectedTenantDetail.tenant.id, $event.target.value); $event.target.value=''" class="text-[12px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white">
+                            <select @change="updateTenantStatus(selectedTenantDetail.tenant.id, $event.target.value); $event.target.value=''" class="input-premium text-[12px] rounded-[10px] px-3 py-2 bg-white">
                                 <option value="" selected disabled>Change Status</option>
                                 <option value="active">Activate</option>
                                 <option value="suspended">Suspend</option>
@@ -5350,19 +5350,19 @@
                     <div class="grid grid-cols-5 gap-3 items-end">
                         <div>
                             <label class="text-[11px] font-medium text-ink-500 block mb-1">Name</label>
-                            <input x-model="adminAddUserForm.name" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="Full name">
+                            <input x-model="adminAddUserForm.name" class="input-premium text-[13px] rounded-[10px] px-3 py-2 w-full" placeholder="Full name">
                         </div>
                         <div>
                             <label class="text-[11px] font-medium text-ink-500 block mb-1">Email</label>
-                            <input x-model="adminAddUserForm.email" type="email" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="Email">
+                            <input x-model="adminAddUserForm.email" type="email" class="input-premium text-[13px] rounded-[10px] px-3 py-2 w-full" placeholder="Email">
                         </div>
                         <div>
                             <label class="text-[11px] font-medium text-ink-500 block mb-1">Password</label>
-                            <input x-model="adminAddUserForm.password" type="password" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="Min 8 chars">
+                            <input x-model="adminAddUserForm.password" type="password" class="input-premium text-[13px] rounded-[10px] px-3 py-2 w-full" placeholder="Password (min 8 chars)">
                         </div>
                         <div>
                             <label class="text-[11px] font-medium text-ink-500 block mb-1">Role</label>
-                            <select x-model="adminAddUserForm.role" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white w-full">
+                            <select x-model="adminAddUserForm.role" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white w-full">
                                 <option value="member">Member</option>
                                 <option value="admin">Admin</option>
                                 <option value="owner">Owner</option>
@@ -5393,7 +5393,7 @@
                                         <td class="py-3 pr-4 font-medium text-ink-900" x-text="m.name"></td>
                                         <td class="py-3 pr-4 text-ink-600" x-text="m.email"></td>
                                         <td class="py-3 pr-4">
-                                            <select @change="adminChangeMemberRole(selectedTenantDetail.tenant.id, m.id, $event.target.value)" class="text-[11px] border border-ink-200/60 rounded-lg px-2 py-1 bg-white">
+                                            <select @change="adminChangeMemberRole(selectedTenantDetail.tenant.id, m.id, $event.target.value)" class="input-premium text-[11px] rounded-lg px-2 py-1 bg-white">
                                                 <option value="member" :selected="m.role === 'member'">Member</option>
                                                 <option value="admin" :selected="m.role === 'admin'">Admin</option>
                                                 <option value="owner" :selected="m.role === 'owner'">Owner</option>
@@ -5457,13 +5457,13 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="text-[11px] font-medium text-ink-500 block mb-1">App Name (shows in title bar & login)</label>
-                            <input x-model="adminBrandingForm.app_name" class="input-premium text-[13px] rounded-[10px] w-full" placeholder="e.g. Acme PMO">
+                            <input x-model="adminBrandingForm.app_name" class="input-premium text-[13px] rounded-[10px] px-3 py-2 w-full" placeholder="App name">
                         </div>
                         <div>
                             <label class="text-[11px] font-medium text-ink-500 block mb-1">Primary Color (hex)</label>
                             <div class="flex items-center gap-2">
                                 <input x-model="adminBrandingForm.primary_color" type="color" class="w-10 h-10 rounded-lg border border-ink-200/60 cursor-pointer">
-                                <input x-model="adminBrandingForm.primary_color" class="input-premium text-[13px] rounded-[10px] flex-1" placeholder="#6366f1">
+                                <input x-model="adminBrandingForm.primary_color" class="input-premium text-[13px] rounded-[10px] px-3 py-2 flex-1" placeholder="Hex color">
                             </div>
                         </div>
                         <div class="col-span-2">
@@ -5882,7 +5882,7 @@ x-init="init()">
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-[12px] font-medium text-ink-600 mb-1.5">Project <span class="text-ink-400 font-normal">(optional)</span></label>
-                        <select x-model="taskForm.project_id" class="w-full px-3.5 py-2.5 rounded-xl border border-ink-200 text-[14px] focus:ring-2 focus:ring-brand-400 focus:border-brand-400 outline-none transition-all bg-white">
+                        <select x-model="taskForm.project_id" class="input-premium w-full px-3.5 py-2.5 rounded-[10px] text-[14px] bg-white">
                             <option :value="null">— General (no project) —</option>
                             <template x-for="p in projects" :key="p.id">
                                 <option :value="p.id" x-text="p.name"></option>
@@ -5891,7 +5891,7 @@ x-init="init()">
                     </div>
                     <div>
                         <label class="block text-[12px] font-medium text-ink-600 mb-1.5">Milestone <span class="text-ink-400 font-normal">(optional)</span></label>
-                        <select x-model="taskForm.milestone_id" class="w-full px-3.5 py-2.5 rounded-xl border border-ink-200 text-[14px] focus:ring-2 focus:ring-brand-400 focus:border-brand-400 outline-none transition-all bg-white" :disabled="!taskForm.project_id">
+                        <select x-model="taskForm.milestone_id" class="input-premium w-full px-3.5 py-2.5 rounded-[10px] text-[14px] bg-white" :disabled="!taskForm.project_id">
                             <option :value="null">— None —</option>
                             <template x-for="m in milestoneOptions" :key="m.id">
                                 <option :value="m.id" x-text="m.title"></option>
@@ -5908,7 +5908,7 @@ x-init="init()">
                     </div>
                     <div>
                         <label class="block text-[12px] font-medium text-ink-600 mb-1.5">Priority</label>
-                        <select x-model="taskForm.priority" class="w-full px-3.5 py-2.5 rounded-xl border border-ink-200 text-[14px] focus:ring-2 focus:ring-brand-400 focus:border-brand-400 outline-none transition-all bg-white">
+                        <select x-model="taskForm.priority" class="input-premium w-full px-3.5 py-2.5 rounded-[10px] text-[14px] bg-white">
                             <option value="Low">Low</option>
                             <option value="Medium">Medium</option>
                             <option value="High">High</option>
@@ -5925,7 +5925,7 @@ x-init="init()">
                     </div>
                     <div x-show="editingTask">
                         <label class="block text-[12px] font-medium text-ink-600 mb-1.5">Status</label>
-                        <select x-model="taskForm.status" class="w-full px-3.5 py-2.5 rounded-xl border border-ink-200 text-[14px] focus:ring-2 focus:ring-brand-400 focus:border-brand-400 outline-none transition-all bg-white">
+                        <select x-model="taskForm.status" class="input-premium w-full px-3.5 py-2.5 rounded-[10px] text-[14px] bg-white">
                             <option value="Pending">Pending</option>
                             <option value="In Progress">In Progress</option>
                             <option value="Completed">Completed</option>
@@ -5959,23 +5959,23 @@ x-init="init()">
             <form @submit.prevent="savePersona()" class="p-6 space-y-4">
                 <div>
                     <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Name <span class="text-rose-400">*</span></label>
-                    <input x-model="editingPersona.name" required class="input-premium w-full text-[13px]" placeholder="e.g. Platform Admin">
+                    <input x-model="editingPersona.name" required class="input-premium w-full text-[13px] px-3 py-2" placeholder="Persona name">
                 </div>
                 <div>
                     <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Role</label>
-                    <input x-model="editingPersona.role" class="input-premium w-full text-[13px]" placeholder="e.g. System Administrator">
+                    <input x-model="editingPersona.role" class="input-premium w-full text-[13px] px-3 py-2" placeholder="Role">
                 </div>
                 <div>
                     <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Description</label>
-                    <textarea x-model="editingPersona.description" rows="2" class="input-premium w-full text-[13px]" placeholder="What does this persona do?"></textarea>
+                    <textarea x-model="editingPersona.description" rows="2" class="input-premium w-full text-[13px] px-3 py-2" placeholder="What does this persona do?"></textarea>
                 </div>
                 <div>
                     <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Goals</label>
-                    <textarea x-model="editingPersona.goals" rows="2" class="input-premium w-full text-[13px]" placeholder="What does this persona want to achieve?"></textarea>
+                    <textarea x-model="editingPersona.goals" rows="2" class="input-premium w-full text-[13px] px-3 py-2" placeholder="What does this persona want to achieve?"></textarea>
                 </div>
                 <div>
                     <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Pain Points</label>
-                    <textarea x-model="editingPersona.pain_points" rows="2" class="input-premium w-full text-[13px]" placeholder="What challenges does this persona face?"></textarea>
+                    <textarea x-model="editingPersona.pain_points" rows="2" class="input-premium w-full text-[13px] px-3 py-2" placeholder="What challenges does this persona face?"></textarea>
                 </div>
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" @click="personaModalOpen = false" class="text-[13px] font-medium text-ink-600 px-4 py-2.5 rounded-xl hover:bg-ink-100 transition-colors">Cancel</button>
@@ -6000,7 +6000,7 @@ x-init="init()">
             <form @submit.prevent="saveTestAccount()" class="p-6 space-y-4">
                 <div>
                     <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Environment <span class="text-rose-400">*</span></label>
-                    <select x-model="editingTestAccount.environment" class="input-premium w-full text-[13px] bg-white">
+                    <select x-model="editingTestAccount.environment" class="input-premium w-full text-[13px] px-3 py-2 bg-white">
                         <option value="Development">Development</option>
                         <option value="UAT">UAT</option>
                         <option value="Production">Production</option>
@@ -6008,15 +6008,15 @@ x-init="init()">
                 </div>
                 <div>
                     <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Username <span class="text-rose-400">*</span></label>
-                    <input x-model="editingTestAccount.username" required class="input-premium w-full text-[13px]" placeholder="e.g. admin@uat.pnu-cloud.opex.com.sa">
+                    <input x-model="editingTestAccount.username" required class="input-premium w-full text-[13px] px-3 py-2" placeholder="Username">
                 </div>
                 <div>
                     <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Password Hint</label>
-                    <input x-model="editingTestAccount.password_hint" class="input-premium w-full text-[13px] font-mono" placeholder="e.g. Admin@2026">
+                    <input x-model="editingTestAccount.password_hint" class="input-premium w-full text-[13px] px-3 py-2 font-mono" placeholder="Password hint">
                 </div>
                 <div>
                     <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Persona</label>
-                    <select x-model="editingTestAccount.role" class="input-premium w-full text-[13px] bg-white">
+                    <select x-model="editingTestAccount.role" class="input-premium w-full text-[13px] px-3 py-2 bg-white">
                         <option value="">Select persona...</option>
                         <template x-for="p in personas" :key="p.id">
                             <option :value="p.name" x-text="p.name"></option>
@@ -6025,7 +6025,7 @@ x-init="init()">
                 </div>
                 <div>
                     <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Notes</label>
-                    <textarea x-model="editingTestAccount.notes" rows="2" class="input-premium w-full text-[13px]" placeholder="Any extra info for testers..."></textarea>
+                    <textarea x-model="editingTestAccount.notes" rows="2" class="input-premium w-full text-[13px] px-3 py-2" placeholder="Any extra info for testers..."></textarea>
                 </div>
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" @click="testAccountModalOpen = false" class="text-[13px] font-medium text-ink-600 px-4 py-2.5 rounded-xl hover:bg-ink-100 transition-colors">Cancel</button>
@@ -6054,20 +6054,20 @@ x-init="init()">
                 <div>
                     <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Name *</label>
                     <input x-model="editingClient.name" type="text" required
-                           class="input-premium w-full text-[14px]"
-                           placeholder="e.g., NITC / PNU">
+                           class="input-premium w-full text-[14px] px-3 py-2"
+                           placeholder="Client name">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Contact Name</label>
                         <input x-model="editingClient.contact_name" type="text"
-                               class="input-premium w-full text-[14px]"
+                               class="input-premium w-full text-[14px] px-3 py-2"
                                placeholder="Aldaana Almuqrin">
                     </div>
                     <div>
                         <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Email</label>
                         <input x-model="editingClient.contact_email" type="email"
-                               class="input-premium w-full text-[14px]"
+                               class="input-premium w-full text-[14px] px-3 py-2"
                                placeholder="contact@org.com">
                     </div>
                 </div>
@@ -6104,8 +6104,8 @@ x-init="init()">
                 <div>
                     <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Name *</label>
                     <input x-model="editingProject.name" type="text" required
-                           class="input-premium w-full text-[14px]"
-                           placeholder="e.g., PNU Cloud">
+                           class="input-premium w-full text-[14px] px-3 py-2"
+                           placeholder="Project name">
                 </div>
                 <div>
                     <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Client *</label>
@@ -6138,7 +6138,7 @@ x-init="init()">
                     <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Starting Version (SemVer prefix)</label>
                     <input x-model="editingProject.version_prefix" type="text"
                            class="input-premium w-full text-[14px] font-mono text-[13px]"
-                           placeholder="e.g., 1.0 — first release will be 1.0.0">
+                           placeholder="Version">
                     <p class="text-[10px] text-ink-400 mt-1">Set the base version. Releases auto-increment: 1.0.0 → 1.1.0 → 1.2.0 (minor), 1.0.1 (patch), 2.0.0 (major).</p>
                 </div>
                 <div>
@@ -6151,19 +6151,19 @@ x-init="init()">
                     <div>
                         <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Dev URL</label>
                         <input x-model="editingProject.dev_url" type="url"
-                               class="input-premium w-full text-[13px]"
+                               class="input-premium w-full text-[13px] px-3 py-2"
                                placeholder="https://dev...">
                     </div>
                     <div>
                         <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">UAT URL</label>
                         <input x-model="editingProject.uat_url" type="url"
-                               class="input-premium w-full text-[13px]"
+                               class="input-premium w-full text-[13px] px-3 py-2"
                                placeholder="https://uat...">
                     </div>
                     <div>
                         <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Prod URL</label>
                         <input x-model="editingProject.prod_url" type="url"
-                               class="input-premium w-full text-[13px]"
+                               class="input-premium w-full text-[13px] px-3 py-2"
                                placeholder="https://prod...">
                     </div>
                 </div>

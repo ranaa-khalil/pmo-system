@@ -4657,42 +4657,35 @@
 
     <!-- ============ ENV & PERSONAS TAB ============ -->
     <div x-show="projectTab==='env'" class="max-w-5xl space-y-5">
-        <!-- Environment URLs -->
+        <!-- Environments (from Infrastructure module) -->
         <div class="surface rounded-2xl border border-ink-200/60 p-5">
             <div class="flex items-center justify-between mb-4">
                 <div>
-                    <h3 class="text-[14px] font-bold text-ink-800">Environment URLs</h3>
-                    <p class="text-[11px] text-ink-400 mt-0.5">Links to Dev, UAT, and Production environments for this project.</p>
+                    <h3 class="text-[14px] font-bold text-ink-800">Environments</h3>
+                    <p class="text-[11px] text-ink-400 mt-0.5">Managed in the Infrastructure tab. Click an environment URL to open it.</p>
                 </div>
-                <button @click="envEditMode = !envEditMode" class="text-[12px] font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 px-3 py-2 rounded-xl transition-colors">
-                    <span x-text="envEditMode ? 'Cancel' : 'Edit'"></span>
-                </button>
+                <button @click="projectTab='infrastructure'; infraSubTab='environments'" class="text-[12px] font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 px-3 py-2 rounded-xl transition-colors">Manage in Infrastructure →</button>
             </div>
+            <template x-if="infraEnvironments.length === 0">
+                <div class="text-center py-8 text-[13px] text-ink-400">No environments configured yet. Add them in the Infrastructure tab.</div>
+            </template>
             <div class="grid grid-cols-3 gap-4">
-                <template x-for="env in [
-                    {key:'dev_url', label:'Development', icon:'⚙️', color:'bg-blue-50 text-blue-700 border-blue-200'},
-                    {key:'uat_url', label:'UAT', icon:'🧪', color:'bg-purple-50 text-purple-700 border-purple-200'},
-                    {key:'prod_url', label:'Production', icon:'🚀', color:'bg-emerald-50 text-emerald-700 border-emerald-200'}
-                ]" :key="env.key">
-                    <div class="rounded-xl border p-4" :class="env.color">
+                <template x-for="env in infraEnvironments" :key="env.id">
+                    <div class="rounded-xl border p-4"
+                         :class="env.type === 'production' ? 'bg-emerald-50/50 border-emerald-200' : env.type === 'staging' ? 'bg-amber-50/50 border-amber-200' : env.type === 'uat' ? 'bg-purple-50/50 border-purple-200' : 'bg-blue-50/50 border-blue-200'">
                         <div class="flex items-center gap-2 mb-2">
-                            <span class="text-[16px]" x-text="env.icon"></span>
-                            <span class="text-[11px] font-bold uppercase tracking-wider" x-text="env.label"></span>
+                            <span class="text-[16px]" x-text="env.type === 'production' ? '🚀' : env.type === 'staging' ? '⚠️' : env.type === 'uat' ? '🧪' : '⚙️'"></span>
+                            <span class="text-[11px] font-bold uppercase tracking-wider" x-text="env.name"></span>
+                            <span class="text-[9px] px-1.5 py-0.5 rounded-full font-medium ml-auto"
+                                  :class="env.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-ink-100 text-ink-500'"
+                                  x-text="env.status"></span>
                         </div>
-                        <template x-if="!envEditMode">
-                            <a :href="selectedProject?.[env.key] || '#'" target="_blank" x-show="selectedProject?.[env.key]"
-                               class="text-[12px] font-medium underline break-all" x-text="selectedProject?.[env.key] || 'Not configured'"></a>
-                            <span x-show="!selectedProject?.[env.key]" class="text-[12px] text-ink-400">Not configured</span>
-                        </template>
-                        <template x-if="envEditMode">
-                            <input x-model="envForm[env.key]" type="url" placeholder="https://..."
-                                   class="w-full text-[12px] px-3 py-2 rounded-lg border border-ink-200 focus:outline-none focus:ring-2 focus:ring-brand-500/10 bg-white">
-                        </template>
+                        <a x-show="env.url" :href="env.url" target="_blank"
+                           class="text-[12px] font-medium text-brand-600 hover:underline break-all" x-text="env.url"></a>
+                        <span x-show="!env.url" class="text-[12px] text-ink-400">No URL configured</span>
+                        <div x-show="env.description" class="text-[10px] text-ink-400 mt-1 line-clamp-2" x-text="env.description"></div>
                     </div>
                 </template>
-            </div>
-            <div x-show="envEditMode" class="mt-4 flex justify-end">
-                <button @click="saveEnvUrls()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-colors">Save URLs</button>
             </div>
         </div>
 
@@ -4787,7 +4780,7 @@
                             <tr class="group hover:bg-ink-100/30 transition-colors">
                                 <td class="py-2.5 px-3">
                                     <span class="text-[10px] font-semibold px-2 py-1 rounded-lg"
-                                          :class="ta.environment === 'Development' ? 'bg-blue-50 text-blue-600' : ta.environment === 'UAT' ? 'bg-purple-50 text-purple-600' : 'bg-emerald-50 text-emerald-600'"
+                                          :class="(infraEnvironments.find(e => e.name === ta.environment)?.type === 'production') ? 'bg-emerald-50 text-emerald-600' : (infraEnvironments.find(e => e.name === ta.environment)?.type === 'staging') ? 'bg-amber-50 text-amber-600' : (infraEnvironments.find(e => e.name === ta.environment)?.type === 'uat') ? 'bg-purple-50 text-purple-600' : 'bg-blue-50 text-blue-600'"
                                           x-text="ta.environment"></span>
                                 </td>
                                 <td class="py-2.5 px-3 text-[12px] font-medium text-ink-700" x-text="ta.username"></td>
@@ -6413,9 +6406,10 @@ x-init="init()">
                 <div>
                     <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Environment <span class="text-rose-400">*</span></label>
                     <select x-model="editingTestAccount.environment" class="input-premium w-full text-[13px] px-3 py-2 bg-white">
-                        <option value="Development">Development</option>
-                        <option value="UAT">UAT</option>
-                        <option value="Production">Production</option>
+                        <option value="">Select environment...</option>
+                        <template x-for="env in infraEnvironments" :key="env.id">
+                            <option :value="env.name" x-text="env.name + ' (' + env.type + ')'"></option>
+                        </template>
                     </select>
                 </div>
                 <div>
@@ -9039,22 +9033,13 @@ function pmoApp() {
         // ===== Infrastructure =====
         async loadInfrastructure() {
             const pid = this.selectedProject.id;
-            try {
-                const [overview, envs, secrets, assets, services, databases] = await Promise.all([
-                    this.api('GET', `/projects/${pid}/infra/overview`),
-                    this.api('GET', `/projects/${pid}/infra/environments`),
-                    this.api('GET', `/projects/${pid}/infra/secrets`),
-                    this.api('GET', `/projects/${pid}/infra/assets`),
-                    this.api('GET', `/projects/${pid}/infra/services`),
-                    this.api('GET', `/projects/${pid}/infra/databases`),
-                ]);
-                this.infraOverview = overview;
-                this.infraEnvironments = envs;
-                this.infraSecrets = secrets;
-                this.infraAssets = assets;
-                this.infraServices = services;
-                this.infraDatabases = databases;
-            } catch (e) { this.showToast('Failed to load infrastructure', 'error'); }
+            // Load each independently so a rate-limit on one doesn't block the others
+            try { this.infraOverview = await this.api('GET', `/projects/${pid}/infra/overview`); } catch { this.infraOverview = null; }
+            try { this.infraEnvironments = await this.api('GET', `/projects/${pid}/infra/environments`); } catch { this.infraEnvironments = []; }
+            try { this.infraSecrets = await this.api('GET', `/projects/${pid}/infra/secrets`); } catch { this.infraSecrets = []; }
+            try { this.infraAssets = await this.api('GET', `/projects/${pid}/infra/assets`); } catch { this.infraAssets = []; }
+            try { this.infraServices = await this.api('GET', `/projects/${pid}/infra/services`); } catch { this.infraServices = []; }
+            try { this.infraDatabases = await this.api('GET', `/projects/${pid}/infra/databases`); } catch { this.infraDatabases = []; }
         },
 
         // Environments

@@ -273,6 +273,15 @@
                 <h2 class="text-[24px] font-bold text-ink-900 tracking-tight mb-1">Welcome back</h2>
                 <p class="text-[14px] text-ink-500 mb-7 font-normal">Sign in to your workspace to continue.</p>
 
+                <!-- Reset token banner (from email link) -->
+                <div x-show="hasResetTokenFromUrl" x-cloak x-transition
+                     class="mb-5 p-4 rounded-xl bg-brand-50 border border-brand-200 flex items-center justify-between gap-3">
+                    <p class="text-[13px] text-brand-700 font-medium">You clicked a password reset link.</p>
+                    <button @click="useUrlResetToken()" class="text-[12px] font-semibold text-white bg-brand-600 hover:bg-brand-700 px-4 py-2 rounded-lg transition-colors whitespace-nowrap">
+                        Set New Password
+                    </button>
+                </div>
+
                 <form @submit.prevent="login()" class="space-y-4">
                     <div>
                         <label class="block text-[12px] font-medium text-ink-700 mb-1.5">Email</label>
@@ -6747,7 +6756,8 @@ function pmoApp() {
         loginError: '',
         // ===== Forgot password =====
         showForgotPassword: false,
-        forgotPasswordStep: 'request',  // 'request' | 'reset' | 'success'
+        forgotPasswordStep: 'request',  // 'request' | 'email_sent' | 'reset' | 'success'
+        hasResetTokenFromUrl: false,
         forgotPasswordEmail: '',
         forgotPasswordToken: '',
         forgotPasswordNewPassword: '',
@@ -7228,27 +7238,13 @@ function pmoApp() {
         },
 
         async init() {
-            // Check for reset token in URL (from email link)
+            // Check for reset token in URL (from email link) — store it but DON'T auto-open
             const urlParams = new URLSearchParams(window.location.search);
             const resetToken = urlParams.get('reset_token');
             if (resetToken) {
-                // Validate the token before showing the reset form
-                try {
-                    const res = await fetch('/api/auth/validate-reset-token', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ token: resetToken }),
-                    });
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data.valid) {
-                            this.forgotPasswordToken = resetToken;
-                            this.forgotPasswordStep = 'reset';
-                            this.showForgotPassword = true;
-                        }
-                    }
-                } catch { /* invalid token — don't open modal */ }
-                // Clean the URL regardless
+                this.forgotPasswordToken = resetToken;
+                this.hasResetTokenFromUrl = true;
+                // Clean the URL
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
 
@@ -8062,6 +8058,12 @@ function pmoApp() {
             } finally {
                 this.loginLoading = false;
             }
+        },
+
+        useUrlResetToken() {
+            this.forgotPasswordStep = 'reset';
+            this.showForgotPassword = true;
+            this.hasResetTokenFromUrl = false;
         },
 
         async requestPasswordReset() {

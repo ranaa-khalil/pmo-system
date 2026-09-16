@@ -518,7 +518,7 @@
                 <!-- Stats cards -->
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <template x-for="stat in stats" :key="stat.label">
-                        <div class="relative surface stat-glow rounded-2xl border border-ink-200/60 p-5 card-lift cursor-default overflow-hidden">
+                        <div @click="navigate(stat.route)" class="relative surface stat-glow rounded-2xl border border-ink-200/60 p-5 card-lift cursor-pointer overflow-hidden hover:border-brand-300 hover:shadow-md transition-all group">
                             <div class="absolute top-0 right-0 w-24 h-24 rounded-full blur-2xl opacity-15" :class="stat.glow"></div>
                             <div class="relative flex items-center justify-between mb-4">
                                 <div class="w-10 h-10 rounded-xl flex items-center justify-center" :class="stat.bg">
@@ -532,7 +532,7 @@
                                 </template>
                             </div>
                             <div class="relative">
-                                <div class="text-[28px] font-bold text-ink-900 tracking-tight tabular-nums" x-text="dashLoading ? '—' : (stat.value ?? '—')"></div>
+                                <div class="text-[28px] font-bold text-ink-900 tracking-tight tabular-nums group-hover:text-brand-600 transition-colors" x-text="dashLoading ? '—' : (stat.value ?? '—')"></div>
                                 <div class="text-[12px] text-ink-500 font-medium mt-0.5" x-text="stat.label"></div>
                             </div>
                         </div>
@@ -5421,24 +5421,24 @@
 
                 <!-- Stats cards -->
                 <div class="grid grid-cols-4 gap-4" x-show="adminInsights">
-                    <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                    <div @click="route = 'admin-tenants'" class="surface rounded-2xl border border-ink-200/60 p-5 cursor-pointer hover:border-brand-300 hover:shadow-md transition-all group">
                         <div class="text-[12px] font-semibold text-ink-400 uppercase tracking-wider">Total Tenants</div>
-                        <div class="text-[32px] font-bold text-ink-900 mt-1" x-text="adminInsights?.totals?.tenants || 0"></div>
+                        <div class="text-[32px] font-bold text-ink-900 mt-1 group-hover:text-brand-600 transition-colors" x-text="adminInsights?.totals?.tenants || 0"></div>
                         <div class="text-[11px] text-emerald-600 mt-1"><span x-text="adminInsights?.totals?.active_tenants || 0"></span> active · <span x-text="adminInsights?.totals?.suspended_tenants || 0"></span> suspended</div>
                     </div>
-                    <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                    <div @click="route = 'admin-tenants'" class="surface rounded-2xl border border-ink-200/60 p-5 cursor-pointer hover:border-brand-300 hover:shadow-md transition-all group">
                         <div class="text-[12px] font-semibold text-ink-400 uppercase tracking-wider">Total Users</div>
-                        <div class="text-[32px] font-bold text-ink-900 mt-1" x-text="adminInsights?.totals?.members || 0"></div>
+                        <div class="text-[32px] font-bold text-ink-900 mt-1 group-hover:text-brand-600 transition-colors" x-text="adminInsights?.totals?.members || 0"></div>
                         <div class="text-[11px] text-ink-400 mt-1">across all tenants</div>
                     </div>
-                    <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                    <div @click="route = 'admin-tenants'" class="surface rounded-2xl border border-ink-200/60 p-5 cursor-pointer hover:border-brand-300 hover:shadow-md transition-all group">
                         <div class="text-[12px] font-semibold text-ink-400 uppercase tracking-wider">Total Projects</div>
-                        <div class="text-[32px] font-bold text-ink-900 mt-1" x-text="adminInsights?.totals?.projects || 0"></div>
+                        <div class="text-[32px] font-bold text-ink-900 mt-1 group-hover:text-brand-600 transition-colors" x-text="adminInsights?.totals?.projects || 0"></div>
                         <div class="text-[11px] text-ink-400 mt-1"><span x-text="adminInsights?.totals?.releases || 0"></span> releases</div>
                     </div>
-                    <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                    <div @click="route = 'admin-tenants'" class="surface rounded-2xl border border-ink-200/60 p-5 cursor-pointer hover:border-brand-300 hover:shadow-md transition-all group">
                         <div class="text-[12px] font-semibold text-ink-400 uppercase tracking-wider">Backlog Items</div>
-                        <div class="text-[32px] font-bold text-ink-900 mt-1" x-text="adminInsights?.totals?.backlog_items || 0"></div>
+                        <div class="text-[32px] font-bold text-ink-900 mt-1 group-hover:text-brand-600 transition-colors" x-text="adminInsights?.totals?.backlog_items || 0"></div>
                         <div class="text-[11px] text-ink-400 mt-1"><span x-text="adminInsights?.totals?.api_keys || 0"></span> API keys</div>
                     </div>
                 </div>
@@ -5448,9 +5448,9 @@
                     <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Plan Distribution</h3>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <template x-for="(count, plan) in (adminInsights?.plan_distribution || {})" :key="plan">
-                            <div class="bg-ink-100/60 rounded-xl p-3 text-center">
-                                <div class="text-[11px] font-bold uppercase tracking-wider text-ink-600" x-text="plan"></div>
-                                <div class="text-[24px] font-bold text-ink-900 mt-1" x-text="count"></div>
+                            <div @click="route = 'admin-plans'" class="bg-ink-100/60 rounded-xl p-3 text-center cursor-pointer hover:bg-brand-50 hover:border-brand-300 border border-transparent transition-all group">
+                                <div class="text-[11px] font-bold uppercase tracking-wider text-ink-600 group-hover:text-brand-600 transition-colors" x-text="plan"></div>
+                                <div class="text-[24px] font-bold text-ink-900 mt-1 group-hover:text-brand-600 transition-colors" x-text="count"></div>
                                 <div class="text-[10px] text-ink-400 mt-0.5" x-text="count === 1 ? 'tenant' : 'tenants'"></div>
                             </div>
                         </template>
@@ -6937,10 +6937,10 @@ function pmoApp() {
         get stats() {
             const ds = this.dashStats || {};
             return [
-                { label: 'Total Clients', value: ds.clients ?? this.clients.length, icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>', bg: 'bg-brand-50', color: 'text-brand-600', glow: 'bg-brand-300', trend: 'New', trendColor: 'text-emerald-600' },
-                { label: 'Active Projects', value: ds.projects ?? this.projects.length, icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/></svg>', bg: 'bg-emerald-50', color: 'text-emerald-600', glow: 'bg-emerald-300' },
-                { label: 'Backlog Items', value: ds.backlog_items ?? 0, icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>', bg: 'bg-amber-50', color: 'text-amber-600', glow: 'bg-amber-300' },
-                { label: 'Pending Approvals', value: ds.pending_approvals ?? 0, icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>', bg: 'bg-rose-50', color: 'text-rose-600', glow: 'bg-rose-300' },
+                { label: 'Total Clients', value: ds.clients ?? this.clients.length, route: 'clients', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>', bg: 'bg-brand-50', color: 'text-brand-600', glow: 'bg-brand-300', trend: 'New', trendColor: 'text-emerald-600' },
+                { label: 'Active Projects', value: ds.projects ?? this.projects.length, route: 'projects', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/></svg>', bg: 'bg-emerald-50', color: 'text-emerald-600', glow: 'bg-emerald-300' },
+                { label: 'Backlog Items', value: ds.backlog_items ?? 0, route: 'projects', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>', bg: 'bg-amber-50', color: 'text-amber-600', glow: 'bg-amber-300' },
+                { label: 'Pending Approvals', value: ds.pending_approvals ?? 0, route: 'projects', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>', bg: 'bg-rose-50', color: 'text-rose-600', glow: 'bg-rose-300' },
             ];
         },
 

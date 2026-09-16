@@ -5584,7 +5584,9 @@
     init() {
         try {
             const saved = JSON.parse(localStorage.getItem('fab_pos'));
-            if (saved) this.pos = saved;
+            if (saved && saved.x > 0 && saved.x < window.innerWidth - 40 && saved.y > 0 && saved.y < window.innerHeight - 40) {
+                this.pos = saved;
+            }
         } catch {}
     },
     startDrag(e) {
@@ -5607,6 +5609,7 @@
         this.pos.y = Math.max(8, Math.min(window.innerHeight - 56, ny));
     },
     endDrag() {
+        if (!this.dragging) return;
         this.dragging = false;
         if (!this.moved) {
             this.showPopup = !this.showPopup;
@@ -5626,6 +5629,8 @@
 @touchend.window="endDrag()"
 class="fixed z-40 select-none"
 :style="'left:' + pos.x + 'px; top:' + pos.y + 'px;'"
+x-show="isLoggedIn"
+x-cloak
 x-init="init()">
     <!-- Quick Add Popup -->
     <div x-show="showPopup" x-cloak
@@ -5665,7 +5670,7 @@ x-init="init()">
 
 <!-- ==================== TASK MODAL ==================== -->
 <div x-show="showTaskModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
-    <div class="fixed inset-0 bg-black/30 backdrop-blur-sm overlay-enter" @click="closeTaskModal()"></div>
+    <div class="fixed inset-0 bg-black/30 backdrop-blur-sm overlay-enter" @click.self="closeTaskModal()"></div>
     <div class="flex min-h-full items-center justify-center p-4 relative">
         <div class="surface rounded-3xl shadow-modal w-full max-w-lg modal-enter overflow-hidden border border-black/[0.06]">
             <div class="px-6 py-5 border-b border-black/[0.06] flex items-center justify-between">

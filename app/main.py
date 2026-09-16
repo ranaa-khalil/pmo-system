@@ -133,6 +133,9 @@ app = FastAPI(
     title=settings.app_name,
     description="Project Management Office system for Obelion",
     version="0.1.0",
+    docs_url=None if settings.is_production else "/docs",
+    redoc_url=None if settings.is_production else "/redoc",
+    openapi_url=None if settings.is_production else "/openapi.json",
 )
 
 # Serve static files (JS/CSS) locally — no CDN dependency
@@ -145,14 +148,23 @@ uploads_path = Path(__file__).parent.parent / "uploads"
 uploads_path.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(uploads_path)), name="uploads")
 
-# CORS — allow the frontend and AI agents to call the API
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS — restrict in production, allow all in development
+if settings.is_production:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[settings.app_url],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # Add middleware (order matters: subdomain → security → rate limit → quota)
 app.add_middleware(SubdomainMiddleware)
@@ -188,6 +200,12 @@ app.include_router(frontend_router)
 @app.on_event("startup")
 def auto_seed_on_startup():
     """Auto-seed the database on first run / each deploy on ephemeral filesystems."""
+    # Production safety checks
+    if settings.is_production and settings.has_default_secret:
+        logger.warning("⚠️  SECRET_KEY is still the default! Change it in .env immediately.")
+    if settings.is_production and settings.debug:
+        logger.warning("⚠️  DEBUG is True in production! Set PMO_DEBUG=false in .env.")
+
     from app.models.user import User
     db = SessionLocal()
     try:

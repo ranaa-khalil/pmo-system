@@ -1,27 +1,36 @@
 # PMO System — Docker Compose
-# Usage: docker compose up
+# Usage:
+#   1. Copy .env.example to .env and fill in your values
+#   2. docker compose up -d
+#   3. First launch auto-seeds the database
+#
+# The app reads all config from environment variables (PMO_ prefix).
+# This compose file loads .env automatically.
 
 services:
   app:
     build: .
+    restart: unless-stopped
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
-      - PMO_DATABASE_URL=postgresql://pmo:pmo_pass@db:5432/pmo_system
-      - PMO_ENV=development
-      - PMO_SECRET_KEY=dev-secret-key-change-in-production
+      # Override DB URL to use the compose service name "db"
+      - PMO_DATABASE_URL=postgresql://pmo:${PMO_POSTGRES_PASSWORD}@db:5432/${PMO_POSTGRES_DB}
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - uploads:/app/uploads
 
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: pmo
-      POSTGRES_PASSWORD: pmo_pass
-      POSTGRES_DB: pmo_system
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${PMO_POSTGRES_USER:-pmo}
+      POSTGRES_PASSWORD: ${PMO_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${PMO_POSTGRES_DB:-pmo_system}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -32,3 +41,4 @@ services:
 
 volumes:
   pgdata:
+  uploads:

@@ -7,3 +7,5 @@ __pycache__/
 pmo_system.db
 venv_old/
 uploads/
+.hermes/
+qa-bug-report.md

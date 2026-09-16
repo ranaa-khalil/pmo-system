@@ -57,6 +57,10 @@ class Settings(BaseSettings):
     def is_sqlite(self) -> bool:
         return self.database_url.startswith("sqlite")
 
+    @property
+    def has_default_secret(self) -> bool:
+        return self.secret_key == "dev-secret-key-change-in-production"
+
     model_config = {"env_file": ".env", "env_prefix": "PMO_", "extra": "ignore"}
 
 

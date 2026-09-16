@@ -24,7 +24,6 @@ RUN groupadd --system pmo && useradd --system --gid pmo pmo \
 
 # Copy application code
 COPY app ./app
-COPY master_backlog.json .
 
 USER pmo
 EXPOSE 8000

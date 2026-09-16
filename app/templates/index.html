@@ -6443,7 +6443,9 @@ function pmoApp() {
                     this.route = 'super-admin';
                     await this.loadAdminInsights();
                 } else {
-                    // Tenant user: load workspace data
+                    // Tenant user: load tenant branding + workspace data
+                    await this.loadTenant();  // Load branding for sidebar/logo
+                    this.applyBranding();  // Apply CSS variables + title
                     await Promise.all([this.loadClients(), this.loadProjects(), this.loadDashboard(), this.loadRoles(), this.loadUsers(), this.loadNotifications(), this.loadActivity(), this.checkAIStatus()]);
                     // Poll notifications every 30 seconds
                     setInterval(() => this.loadNotifications(), 30000);
@@ -7203,6 +7205,8 @@ function pmoApp() {
                     await this.loadAdminInsights();
                 } else {
                     this.route = 'dashboard';
+                    await this.loadTenant();  // Load tenant branding for sidebar/logo
+                    this.applyBranding();  // Apply CSS variables + title
                     await Promise.all([this.loadClients(), this.loadProjects(), this.loadDashboard(), this.loadRoles(), this.loadNotifications(), this.loadActivity(), this.checkAIStatus()]);
                     setInterval(() => this.loadNotifications(), 30000);
                 }
@@ -8514,6 +8518,15 @@ function pmoApp() {
                     primary_color: b.primary_color || '#7c3aed',
                     logo_url: logo || b.logo_url || '',
                     hide_powered_by: b.hide_powered_by || false,
+                };
+                // Sync tenantBranding so sidebar, login screen, and title update reactively
+                this.tenantBranding = {
+                    app_name: b.app_name || '',
+                    primary_color: b.primary_color || '#7c3aed',
+                    logo_url: logo || b.logo_url || '',
+                    hide_powered_by: b.hide_powered_by || false,
+                    slug: this.currentTenant?.slug || '',
+                    name: this.currentTenant?.name || '',
                 };
             } catch { this.currentTenant = null; }
         },

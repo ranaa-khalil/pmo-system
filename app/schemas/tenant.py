@@ -23,6 +23,7 @@ class TenantResponse(TenantBase):
     plan: str
     status: str
     logo_url: str | None = None
+    branding: dict = {}
     created_at: datetime
 
     model_config = {"from_attributes": True}

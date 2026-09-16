@@ -17,9 +17,9 @@ router = APIRouter(prefix="/api/clients", tags=["clients"])
 
 @router.post("", response_model=ClientResponse, status_code=201)
 def create_client(client: ClientCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    """Create a new client (super admin only)."""
-    if not can_create_client(current_user):
-        raise HTTPException(status_code=403, detail="Only super admins can create clients")
+    """Create a new client (super admin, tenant owner, or tenant admin)."""
+    if not can_create_client(current_user, db):
+        raise HTTPException(status_code=403, detail="You don't have permission to create clients")
     db_client = Client(
         name=client.name,
         contact_name=client.contact_name,
@@ -50,11 +50,11 @@ def get_client(client_id: int, db: Session = Depends(get_db), current_user: User
 
 @router.put("/{client_id}", response_model=ClientResponse)
 def update_client(client_id: int, client_update: ClientUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    """Update a client (super admin or assigned AM)."""
+    """Update a client (super admin, tenant owner/admin, or assigned AM)."""
     client = db.query(Client).filter(Client.id == client_id, Client.tenant_id == current_tenant.id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
-    if not can_manage_client(current_user, client):
+    if not can_manage_client(current_user, client, db):
         raise HTTPException(status_code=403, detail="You don't have permission to manage this client")
     update_data = client_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -72,12 +72,12 @@ def assign_account_manager(
     current_user: User = Depends(get_current_user),
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
-    """Assign an account manager to a client (super admin or the current AM for this client)."""
+    """Assign an account manager to a client (super admin, tenant owner/admin, or current AM)."""
     client = db.query(Client).filter(Client.id == client_id, Client.tenant_id == current_tenant.id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
-    if not can_assign_am(current_user, client):
-        raise HTTPException(status_code=403, detail="Only super admins or the current account manager can assign a new AM")
+    if not can_assign_am(current_user, client, db):
+        raise HTTPException(status_code=403, detail="You don't have permission to assign an account manager")
     am_id = data.get("account_manager_id")
     if am_id:
         am = db.query(User).filter(User.id == am_id, User.tenant_id == current_tenant.id).first()
@@ -92,9 +92,9 @@ def assign_account_manager(
 
 @router.delete("/{client_id}", status_code=204)
 def delete_client(client_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    """Delete a client (super admin only)."""
-    if not can_create_client(current_user):
-        raise HTTPException(status_code=403, detail="Only super admins can delete clients")
+    """Delete a client (super admin, tenant owner, or tenant admin)."""
+    if not can_create_client(current_user, db):
+        raise HTTPException(status_code=403, detail="You don't have permission to delete clients")
     client = db.query(Client).filter(Client.id == client_id, Client.tenant_id == current_tenant.id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")

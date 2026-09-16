@@ -378,8 +378,8 @@ def create_user(
     current_user: User = Depends(get_current_user),
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
-    """Create a new user (super admin, account manager, or project manager)."""
-    if not can_create_user(current_user):
+    """Create a new user (super admin, tenant owner/admin, AM, or PM)."""
+    if not can_create_user(current_user, db):
         raise HTTPException(status_code=403, detail="You don't have permission to create users")
     from app.services.auth import hash_password
     email = data.get("email")
@@ -388,7 +388,7 @@ def create_user(
     system_role = data.get("system_role", "member")
     if not email or not name or not password:
         raise HTTPException(status_code=400, detail="email, name, and password are required")
-    if not can_set_system_role(current_user, system_role):
+    if not can_set_system_role(current_user, system_role, db):
         raise HTTPException(status_code=403, detail=f"You don't have permission to create a user with role '{system_role}'")
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -412,7 +412,7 @@ def delete_user(
     user = db.query(User).filter(User.id == user_id, User.tenant_id == current_tenant.id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    if not can_delete_user(current_user, user):
+    if not can_delete_user(current_user, user, db):
         raise HTTPException(status_code=403, detail="You don't have permission to delete this user")
     db.delete(user)
     db.commit()

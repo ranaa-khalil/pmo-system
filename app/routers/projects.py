@@ -32,8 +32,8 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db), curren
     client = db.query(Client).filter(Client.id == project.client_id, Client.tenant_id == current_tenant.id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
-    if not can_create_project(current_user, client):
-        raise HTTPException(status_code=403, detail="Only super admins or the account manager can create projects for this client")
+    if not can_create_project(current_user, client, db):
+        raise HTTPException(status_code=403, detail="You don't have permission to create projects for this client")
     db_project = Project(
         name=project.name,
         client_id=project.client_id,
@@ -126,7 +126,7 @@ def delete_project(project_id: int, db: Session = Depends(get_db), current_user:
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     client = db.query(Client).filter(Client.id == project.client_id, Client.tenant_id == current_tenant.id).first()
-    if not can_manage_client(current_user, client):
-        raise HTTPException(status_code=403, detail="Only super admins or the account manager can delete projects")
+    if not can_manage_client(current_user, client, db):
+        raise HTTPException(status_code=403, detail="You don't have permission to delete projects")
     db.delete(project)
     db.commit()

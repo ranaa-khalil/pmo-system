@@ -1,7 +1,14 @@
 """Permission helpers for hierarchical RBAC.
 
-Hierarchy:
-  super_admin → creates clients, assigns Account Managers
+Two-layer permission system:
+1. System role (user.system_role): super_admin, account_manager, project_manager, member
+2. Tenant role (TenantMembership.role): owner, admin, member
+
+Tenant owners and admins have full super_admin-level permissions WITHIN their tenant.
+Super admins (system_role) have global access across all tenants.
+
+Hierarchy within a tenant:
+  owner/admin → full access (create clients, projects, users, delete, manage everything)
   account_manager → creates projects for their clients, assigns Project Managers
   project_manager → manages their projects, assigns team members
   member → works on assigned items
@@ -11,11 +18,30 @@ from sqlalchemy.orm import Session
 from app.models.client import Client
 from app.models.project import Project
 from app.models.role_assignment import RoleAssignment
+from app.models.tenant import TenantMembership
 from app.models.user import User
 
 
+def get_tenant_role(user: User, db: Session) -> str:
+    """Get the user's role within their active tenant."""
+    if not user.active_tenant_id:
+        return "member"
+    membership = db.query(TenantMembership).filter(
+        TenantMembership.user_id == user.id,
+        TenantMembership.tenant_id == user.active_tenant_id,
+    ).first()
+    return membership.role if membership else "member"
+
+
 def is_super_admin(user: User) -> bool:
+    """System-level super admin (global, across all tenants)."""
     return user.system_role == "super_admin"
+
+
+def is_tenant_admin_or_owner(user: User, db: Session) -> bool:
+    """Tenant-level admin or owner — has full permissions within their tenant."""
+    role = get_tenant_role(user, db)
+    return role in ("owner", "admin")
 
 
 def is_account_manager(user: User) -> bool:
@@ -26,31 +52,42 @@ def is_project_manager(user: User) -> bool:
     return user.system_role == "project_manager"
 
 
-def can_create_client(user: User) -> bool:
-    """Only super admins can create clients."""
-    return is_super_admin(user)
+def is_tenant_admin(user: User, db: Session) -> bool:
+    """Check if user is either system super_admin OR tenant owner/admin.
 
-
-def can_manage_client(user: User, client: Client) -> bool:
-    """Super admin or the assigned account manager."""
+    This is the core permission check — tenant owners and admins have
+    the same capabilities as super admins within their tenant.
+    """
     if is_super_admin(user):
+        return True
+    return is_tenant_admin_or_owner(user, db)
+
+
+def can_create_client(user: User, db: Session) -> bool:
+    """Super admin, tenant owner, or tenant admin can create clients."""
+    return is_tenant_admin(user, db)
+
+
+def can_manage_client(user: User, client: Client, db: Session) -> bool:
+    """Super admin, tenant owner/admin, or the assigned account manager."""
+    if is_tenant_admin(user, db):
         return True
     if is_account_manager(user) and client.account_manager_id == user.id:
         return True
     return False
 
 
-def can_create_project(user: User, client: Client) -> bool:
-    """Super admin or the account manager for this client."""
-    return can_manage_client(user, client)
+def can_create_project(user: User, client: Client, db: Session) -> bool:
+    """Super admin, tenant owner/admin, or the account manager for this client."""
+    return can_manage_client(user, client, db)
 
 
 def can_manage_project(user: User, project: Project, db: Session) -> bool:
-    """Super admin, the client's AM, or the project's PM."""
-    if is_super_admin(user):
+    """Super admin, tenant owner/admin, the client's AM, or the project's PM."""
+    if is_tenant_admin(user, db):
         return True
     client = db.query(Client).filter(Client.id == project.client_id).first()
-    if client and can_manage_client(user, client):
+    if client and can_manage_client(user, client, db):
         return True
     if is_project_manager(user) and project.project_manager_id == user.id:
         return True
@@ -62,17 +99,21 @@ def can_manage_project(user: User, project: Project, db: Session) -> bool:
     return assignment is not None
 
 
-def can_create_user(user: User) -> bool:
-    """Super admin, account manager, or project manager can create users."""
-    return user.system_role in ("super_admin", "account_manager", "project_manager")
+def can_create_user(user: User, db: Session) -> bool:
+    """Super admin, tenant owner/admin, account manager, or project manager can create users."""
+    if is_tenant_admin(user, db):
+        return True
+    return user.system_role in ("account_manager", "project_manager")
 
 
-def can_delete_user(user: User, target_user: User) -> bool:
-    """Super admin can delete anyone. AM can delete non-super_admins. PM can delete members."""
+def can_delete_user(user: User, target_user: User, db: Session) -> bool:
+    """Super admin can delete anyone. Tenant admin/owner can delete non-super_admins in their tenant."""
     if user.system_role == "super_admin":
         return True
     if target_user.system_role == "super_admin":
         return False
+    if is_tenant_admin(user, db):
+        return True
     if user.system_role == "account_manager":
         return True
     if user.system_role == "project_manager" and target_user.system_role == "member":
@@ -80,14 +121,15 @@ def can_delete_user(user: User, target_user: User) -> bool:
     return False
 
 
-def can_set_system_role(user: User, target_role: str) -> bool:
+def can_set_system_role(user: User, target_role: str, db: Session) -> bool:
     """What system_role can this user assign to a new/updated user?
 
     super_admin → any role
+    tenant owner/admin → any role within their tenant
     account_manager → member, project_manager, account_manager
     project_manager → member only
     """
-    if user.system_role == "super_admin":
+    if is_tenant_admin(user, db):
         return True
     if user.system_role == "account_manager":
         return target_role in ("member", "project_manager", "account_manager")
@@ -96,9 +138,9 @@ def can_set_system_role(user: User, target_role: str) -> bool:
     return False
 
 
-def can_assign_am(user: User, client: Client) -> bool:
-    """Super admin or the AM assigned to this client can assign a new AM."""
-    if is_super_admin(user):
+def can_assign_am(user: User, client: Client, db: Session) -> bool:
+    """Super admin, tenant owner/admin, or the AM assigned to this client."""
+    if is_tenant_admin(user, db):
         return True
     if is_account_manager(user) and client.account_manager_id == user.id:
         return True
@@ -106,17 +148,17 @@ def can_assign_am(user: User, client: Client) -> bool:
 
 
 def can_assign_pm(user: User, project: Project, db: Session) -> bool:
-    """Super admin, the client's AM, or the project's PM can assign a new PM."""
+    """Super admin, tenant owner/admin, the client's AM, or the project's PM."""
     return can_manage_project(user, project, db)
 
 
 def can_assign_role(user: User, project: Project, db: Session) -> bool:
-    """Super admin, AM for this client, or PM for this project can assign RACI roles."""
+    """Super admin, tenant owner/admin, AM for this client, or PM for this project."""
     return can_manage_project(user, project, db)
 
 
 def can_manage_stakeholders(user: User, project: Project, db: Session) -> bool:
-    """Super admin, AM, or PM can add stakeholders to a project."""
+    """Super admin, tenant owner/admin, AM, or PM can add stakeholders."""
     return can_manage_project(user, project, db)
 
 
@@ -127,7 +169,7 @@ def can_list_users(user: User) -> bool:
 
 def get_visible_clients(user: User, db: Session, tenant_id: int | None = None):
     """Return clients the user can see (optionally filtered by tenant)."""
-    if is_super_admin(user):
+    if is_tenant_admin(user, db):
         q = db.query(Client)
         if tenant_id:
             q = q.filter(Client.tenant_id == tenant_id)
@@ -154,7 +196,7 @@ def get_visible_clients(user: User, db: Session, tenant_id: int | None = None):
 
 def get_visible_projects(user: User, db: Session, tenant_id: int | None = None):
     """Return projects the user can see (optionally filtered by tenant)."""
-    if is_super_admin(user):
+    if is_tenant_admin(user, db):
         q = db.query(Project)
         if tenant_id:
             q = q.filter(Project.tenant_id == tenant_id)

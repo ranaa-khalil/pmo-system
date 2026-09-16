@@ -44,7 +44,8 @@ class Tenant(Base):
     logo_url = Column(String(500), nullable=True)
     branding = Column(Text, nullable=True)  # JSON: {primary_color, custom_domain, hide_powered_by}
     settings = Column(Text, nullable=True)  # JSON blob for per-tenant config
-    limits = Column(Text, nullable=True)  # JSON: {max_users, max_projects} — configurable by tenant admin
+    limits = Column(Text, nullable=True)  # JSON: {max_users, max_projects} — propagated from plan
+    plan_id = Column(Integer, nullable=True, index=True)  # FK to plans table
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

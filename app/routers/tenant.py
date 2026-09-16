@@ -63,7 +63,7 @@ class CreateTenantRequest(BaseModel):
     owner_name: str = Field(..., min_length=1, max_length=255)
     owner_email: EmailStr
     owner_password: str = Field(..., min_length=8, max_length=72)
-    plan: str = Field("free", pattern=r"^(free|team|business|enterprise)$")
+    plan_id: int | None = None
 
 
 @router.post("/admin/tenants", status_code=201)
@@ -83,9 +83,27 @@ def create_tenant(
     if existing:
         raise HTTPException(400, f"An account with email {req.owner_email} already exists.")
 
+    # Resolve plan
+    import json as _json
+    plan_name = "free"
+    plan_id = req.plan_id
+    limits_json = None
+    if plan_id:
+        from app.models.plan import Plan
+        plan = db.query(Plan).filter(Plan.id == plan_id).first()
+        if not plan:
+            raise HTTPException(400, "Selected plan not found")
+        plan_name = plan.name.lower()
+        limits_json = _json.dumps({
+            "max_users": plan.max_users,
+            "max_projects": plan.max_projects,
+            "max_releases": plan.max_releases,
+            "max_backlog_items": plan.max_backlog_items,
+        })
+
     # Create tenant
     slug = _unique_slug(db, req.tenant_name)
-    tenant = Tenant(name=req.tenant_name, slug=slug, plan=req.plan, status="active")
+    tenant = Tenant(name=req.tenant_name, slug=slug, plan=plan_name, plan_id=plan_id, status="active", limits=limits_json)
     db.add(tenant)
     db.flush()
 
@@ -786,6 +804,151 @@ def delete_tenant_setting(
     return {"ok": True, "deleted": key}
 
 
+# ─── Admin: Plan Management (super_admin only) ──────────────
+
+@router.get("/admin/plans")
+def admin_list_plans(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List all plans."""
+    _require_super_admin(current_user)
+    from app.models.plan import Plan
+    plans = db.query(Plan).order_by(Plan.sort_order, Plan.id).all()
+    # Count tenants per plan
+    result = []
+    for p in plans:
+        d = p.to_dict()
+        d["tenant_count"] = db.query(Tenant).filter(Tenant.plan_id == p.id).count()
+        result.append(d)
+    return result
+
+
+@router.post("/admin/plans")
+def admin_create_plan(
+    req: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create a new plan."""
+    _require_super_admin(current_user)
+    from app.models.plan import Plan
+    name = (req.get("name") or "").strip()
+    if not name:
+        raise HTTPException(400, "Plan name is required")
+    if db.query(Plan).filter(Plan.name.ilike(name)).first():
+        raise HTTPException(400, f"Plan '{name}' already exists")
+    plan = Plan(
+        name=name,
+        description=req.get("description", ""),
+        max_users=int(req.get("max_users", 999999)),
+        max_projects=int(req.get("max_projects", 999999)),
+        max_releases=int(req.get("max_releases", 999999)),
+        max_backlog_items=int(req.get("max_backlog_items", 999999)),
+        price_monthly=int(req.get("price_monthly", 0)),
+        price_yearly=int(req.get("price_yearly", 0)),
+        is_active=req.get("is_active", True),
+        sort_order=int(req.get("sort_order", 0)),
+    )
+    db.add(plan)
+    db.commit()
+    db.refresh(plan)
+    return plan.to_dict()
+
+
+@router.put("/admin/plans/{plan_id}")
+def admin_update_plan(
+    plan_id: int,
+    req: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Update a plan and propagate limits to all tenants on this plan."""
+    _require_super_admin(current_user)
+    from app.models.plan import Plan
+    import json as _json
+    plan = db.query(Plan).filter(Plan.id == plan_id).first()
+    if not plan:
+        raise HTTPException(404, "Plan not found")
+    if "name" in req:
+        existing = db.query(Plan).filter(Plan.name.ilike(req["name"]), Plan.id != plan_id).first()
+        if existing:
+            raise HTTPException(400, f"Plan name '{req['name']}' already exists")
+        plan.name = req["name"]
+    for field in ["description", "max_users", "max_projects", "max_releases", "max_backlog_items", "price_monthly", "price_yearly", "sort_order"]:
+        if field in req:
+            setattr(plan, field, int(req[field]) if field not in ["description"] else req[field])
+    if "is_active" in req:
+        plan.is_active = req["is_active"]
+    db.commit()
+
+    # Propagate limits to all tenants on this plan
+    tenants = db.query(Tenant).filter(Tenant.plan_id == plan_id).all()
+    for t in tenants:
+        t.limits = _json.dumps({
+            "max_users": plan.max_users,
+            "max_projects": plan.max_projects,
+            "max_releases": plan.max_releases,
+            "max_backlog_items": plan.max_backlog_items,
+        })
+    db.commit()
+    return {"ok": True, "propagated_to": len(tenants)}
+
+
+@router.delete("/admin/plans/{plan_id}")
+def admin_delete_plan(
+    plan_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete a plan. Tenants on this plan keep their current limits but plan_id is cleared."""
+    _require_super_admin(current_user)
+    from app.models.plan import Plan
+    plan = db.query(Plan).filter(Plan.id == plan_id).first()
+    if not plan:
+        raise HTTPException(404, "Plan not found")
+    # Clear plan_id from tenants
+    tenants = db.query(Tenant).filter(Tenant.plan_id == plan_id).all()
+    for t in tenants:
+        t.plan_id = None
+    db.delete(plan)
+    db.commit()
+    return {"ok": True, "detached_tenants": len(tenants)}
+
+
+@router.put("/admin/tenants/{tenant_id}/plan")
+def admin_assign_tenant_plan(
+    tenant_id: int,
+    req: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Assign a plan to a tenant — copies plan limits to tenant.limits."""
+    _require_super_admin(current_user)
+    from app.models.plan import Plan
+    import json as _json
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(404, "Tenant not found")
+    plan_id = req.get("plan_id")
+    if plan_id:
+        plan = db.query(Plan).filter(Plan.id == int(plan_id)).first()
+        if not plan:
+            raise HTTPException(404, "Plan not found")
+        tenant.plan_id = plan.id
+        tenant.plan = plan.name.lower()
+        tenant.limits = _json.dumps({
+            "max_users": plan.max_users,
+            "max_projects": plan.max_projects,
+            "max_releases": plan.max_releases,
+            "max_backlog_items": plan.max_backlog_items,
+        })
+    else:
+        tenant.plan_id = None
+    db.commit()
+    return {"ok": True, "plan_id": tenant.plan_id, "plan_name": plan.name if plan_id else None}
+
+
 # ─── Admin: Tenant Management (super_admin only) ────────────
 
 def _require_super_admin(user: User):
@@ -904,10 +1067,17 @@ def get_admin_insights(
     total_releases = db.query(Release).count()
     total_api_keys = db.query(ApiKey).count()
 
-    # Plan distribution
-    plans = {"free": 0, "team": 0, "business": 0, "enterprise": 0}
-    for t in tenants:
-        plans[t.plan] = plans.get(t.plan, 0) + 1
+    # Plan distribution (from plans table)
+    from app.models.plan import Plan as PlanModel
+    plans_in_db = db.query(PlanModel).order_by(PlanModel.sort_order, PlanModel.id).all()
+    plan_dist = {}
+    for p in plans_in_db:
+        count = db.query(Tenant).filter(Tenant.plan_id == p.id).count()
+        plan_dist[p.name] = count
+    # Also count tenants without a plan
+    no_plan = db.query(Tenant).filter(Tenant.plan_id.is_(None)).count()
+    if no_plan > 0:
+        plan_dist["Unassigned"] = no_plan
 
     # Per-tenant breakdown
     tenant_details = []
@@ -916,11 +1086,18 @@ def get_admin_insights(
         projects = db.query(Project).filter(Project.tenant_id == t.id).count()
         backlog = db.query(BacklogItem).filter(BacklogItem.tenant_id == t.id).count()
         releases = db.query(Release).filter(Release.tenant_id == t.id).count()
+        # Get plan name
+        plan_name = t.plan
+        if t.plan_id:
+            p = db.query(PlanModel).filter(PlanModel.id == t.plan_id).first()
+            if p:
+                plan_name = p.name
         tenant_details.append({
             "id": t.id,
             "name": t.name,
             "slug": t.slug,
-            "plan": t.plan,
+            "plan": plan_name,
+            "plan_id": t.plan_id,
             "status": t.status,
             "members": members,
             "projects": projects,
@@ -941,7 +1118,8 @@ def get_admin_insights(
             "releases": total_releases,
             "api_keys": total_api_keys,
         },
-        "plan_distribution": plans,
+        "plan_distribution": plan_dist,
+        "plans": [p.to_dict() for p in plans_in_db],
         "tenants": tenant_details,
     }
 

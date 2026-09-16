@@ -2465,7 +2465,12 @@
                             </div>
                         </div>
                     </div>
-                    <div class="surface rounded-2xl border border-ink-200/60 p-5 mb-4">
+                    <!-- KPI form toggle button -->
+                    <div class="flex justify-end mb-3">
+                        <button @click="showKpiForm = !showKpiForm" class="inline-flex items-center gap-1.5 text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-all"
+                                x-text="showKpiForm ? 'Close' : '+ Add KPI'"></button>
+                    </div>
+                    <div x-show="showKpiForm" x-cloak class="surface rounded-2xl border border-ink-200/60 p-5 mb-4">
                         <h3 class="text-[13px] font-semibold text-ink-800 mb-1">Add KPI</h3>
                         <p class="text-[11px] text-ink-400 mb-4">Define measurable targets linked to your vision objectives.</p>
                         <div class="grid grid-cols-2 gap-3 mb-3">
@@ -2497,6 +2502,7 @@
                             <input x-model="kpiForm.vision_objective" class="input-premium w-full text-[13px]" placeholder="e.g., 'Achieve 99.9% uptime'">
                         </div>
                         <button @click="saveKPI()" class="btn-primary text-[13px] font-medium text-white px-4 py-2 rounded-xl transition-all" x-text="editingKPIId ? 'Update KPI' : 'Add KPI'"></button>
+                        <button @click="showKpiForm = false; editingKPIId = null" class="text-[13px] text-ink-500 hover:text-ink-800 px-3 py-2">Cancel</button>
                     </div>
                     <template x-if="kpis.length === 0">
                         <div class="surface rounded-2xl border border-ink-200/60 p-10 text-center">
@@ -2653,20 +2659,21 @@
             </div>
         </template>
 
-        <!-- Add roadmap form (collapsible) -->
-        <div class="surface rounded-2xl border border-ink-200/60 p-5">
-            <div class="flex items-center justify-between cursor-pointer" @click="showRoadmapForm = !showRoadmapForm">
-                <h3 class="text-[14px] font-semibold text-ink-800">Add Roadmap</h3>
-                <svg class="w-4 h-4 text-ink-400 transition-transform" :class="showRoadmapForm ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-            </div>
-            <div x-show="showRoadmapForm" x-collapse class="mt-4">
+        <!-- Add roadmap form (button + toggle) -->
+        <div class="flex justify-end mb-3">
+            <button @click="showRoadmapForm = !showRoadmapForm" class="inline-flex items-center gap-1.5 text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-all"
+                    x-text="showRoadmapForm ? 'Close' : '+ Add Roadmap'"></button>
+        </div>
+        <div x-show="showRoadmapForm" x-cloak x-collapse class="surface rounded-2xl border border-ink-200/60 p-5">
                 <div class="grid grid-cols-4 gap-3">
                     <input x-model="roadmapForm.title" class="input-premium text-[13px] col-span-2" placeholder="Roadmap title (e.g., 2026 Plan)">
                     <input x-model="roadmapForm.start_date" type="date" class="input-premium text-[13px] rounded-[10px]">
                     <input x-model="roadmapForm.end_date" type="date" class="input-premium text-[13px] rounded-[10px]">
                 </div>
-                <button @click="saveRoadmap()" class="mt-3 btn-primary text-[13px] font-medium text-white px-4 py-2 rounded-xl transition-all">Create Roadmap</button>
-            </div>
+                <div class="flex items-center gap-2 mt-3">
+                    <button @click="saveRoadmap()" class="btn-primary text-[13px] font-medium text-white px-4 py-2 rounded-xl transition-all">Create Roadmap</button>
+                    <button @click="showRoadmapForm = false" class="text-[13px] text-ink-500 hover:text-ink-800 px-3 py-2">Cancel</button>
+                </div>
         </div>
 
         <!-- Roadmap cards with milestones -->
@@ -2750,8 +2757,13 @@
                 Export CSV
             </button>
         </div>
+        <!-- Form toggle button -->
+        <div class="flex justify-end mb-3">
+            <button @click="showBacklogForm = !showBacklogForm" class="inline-flex items-center gap-1.5 text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-all"
+                    x-text="showBacklogForm ? 'Close' : '+ Add Backlog Item'"></button>
+        </div>
         <!-- Form: Epic / Feature toggle -->
-        <div id="backlog-form" class="surface rounded-2xl border border-ink-200/60 p-5 mb-4">
+        <div id="backlog-form" x-show="showBacklogForm" x-cloak class="surface rounded-2xl border border-ink-200/60 p-5 mb-4">
             <!-- Mode toggle -->
             <div class="flex items-center gap-2 mb-4">
                 <div class="inline-flex rounded-xl bg-ink-100 p-1">
@@ -2770,6 +2782,7 @@
                     <div class="flex items-center gap-2">
                         <button @click="saveBacklogItem(false)" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Epic</button>
                         <button @click="saveBacklogItem(true)" class="text-[13px] font-medium text-brand-600 border border-brand-200 hover:bg-brand-50 px-4 py-2 rounded-xl transition-all">Save & New</button>
+                        <button @click="showBacklogForm = false" class="text-[13px] text-ink-500 hover:text-ink-800 px-3 py-2">Cancel</button>
                     </div>
                 </div>
             </template>
@@ -2869,6 +2882,7 @@
                         <template x-if="!editingBacklogId">
                             <button @click="saveBacklogItem(true)" class="text-[13px] font-medium text-brand-600 border border-brand-200 hover:bg-brand-50 px-4 py-2 rounded-xl transition-all whitespace-nowrap">Save & New</button>
                         </template>
+                        <button @click="showBacklogForm = false; editingBacklogId = null" class="text-[13px] text-ink-500 hover:text-ink-800 px-3 py-2 whitespace-nowrap">Cancel</button>
                         <template x-if="editingBacklogId">
                             <button @click="cancelEditBacklog()" class="text-[13px] font-medium text-ink-500 border border-ink-200 hover:bg-ink-100 px-4 py-2 rounded-xl transition-all whitespace-nowrap">Cancel</button>
                         </template>
@@ -3247,8 +3261,13 @@
             </div>
         </div>
 
+        <!-- Create release form toggle button -->
+        <div class="flex justify-end mb-3">
+            <button @click="showReleaseForm = !showReleaseForm" class="inline-flex items-center gap-1.5 text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-all"
+                    x-text="showReleaseForm ? 'Close' : '+ Plan New Release'"></button>
+        </div>
         <!-- Create release form -->
-        <div class="surface rounded-2xl border border-ink-200/60 p-5 mb-4">
+        <div x-show="showReleaseForm" x-cloak class="surface rounded-2xl border border-ink-200/60 p-5 mb-4">
             <h3 class="text-[13px] font-semibold text-ink-800 mb-3">Plan New Release</h3>
             <div class="grid grid-cols-4 gap-3">
                 <div class="relative">
@@ -3273,6 +3292,7 @@
             </select>
                         <div class="flex items-center gap-2 mt-2">
                 <button @click="saveRelease()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Create Release</button>
+                <button @click="showReleaseForm = false" class="text-[13px] text-ink-500 hover:text-ink-800 px-3 py-2">Cancel</button>
                 <div class="flex items-center gap-1 ml-2">
                     <span class="text-[10px] text-ink-400">Suggest:</span>
                     <button @click="loadNextVersion('minor')" class="text-[10px] font-medium text-ink-500 hover:text-brand-600 px-2 py-1 rounded-md hover:bg-ink-100 transition-all">Minor (1.x.0)</button>
@@ -4226,7 +4246,11 @@
         </div>
 
         <!-- Section: Add External Stakeholder -->
-        <div class="surface rounded-2xl border border-ink-200/60 p-5 mb-4">
+        <div class="flex justify-end mb-3">
+            <button @click="showStakeholderForm = !showStakeholderForm" class="inline-flex items-center gap-1.5 text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-all"
+                    x-text="showStakeholderForm ? 'Close' : '+ Add Stakeholder'"></button>
+        </div>
+        <div x-show="showStakeholderForm" x-cloak class="surface rounded-2xl border border-ink-200/60 p-5 mb-4">
             <h3 class="text-[13px] font-semibold text-ink-800 mb-1">③ Add External Stakeholder</h3>
             <p class="text-[10px] text-ink-400 mb-3">Add people outside the system (clients, partners, sponsors) who need to be Consulted or Informed about this project. They won't have system access but will be listed in the RACI matrix and can receive shared release notes.</p>
             <div class="grid grid-cols-3 gap-3">
@@ -4246,7 +4270,10 @@
                     <option value="I">I — Informed</option>
                 </select>
             </div>
-            <button @click="saveStakeholder()" class="mt-3 text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Add Stakeholder</button>
+            <div class="flex items-center gap-2 mt-3">
+                <button @click="saveStakeholder()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Add Stakeholder</button>
+                <button @click="showStakeholderForm = false" class="text-[13px] text-ink-500 hover:text-ink-800 px-3 py-2">Cancel</button>
+            </div>
         </div>
 
         <!-- Section: RACI Legend -->
@@ -6099,6 +6126,10 @@ function pmoApp() {
         kpiForm: { name: '', target_value: '', current_value: '', unit: '', category: '', vision_objective: '' },
         roadmapForm: { title: '', start_date: '', end_date: '' },
         showRoadmapForm: false,
+        showBacklogForm: false,
+        showKpiForm: false,
+        showReleaseForm: false,
+        showStakeholderForm: false,
         milestoneForm: { title: '', target_date: '', status: 'On Track' },
         activeRoadmapId: null,
 
@@ -7532,6 +7563,7 @@ function pmoApp() {
                     ...this.roadmapForm,
                 });
                 this.roadmapForm = { title: '', start_date: '', end_date: '' };
+                this.showRoadmapForm = false;
                 await this.loadRoadmaps();
                 this.showToast('Roadmap created', 'success');
             } catch (e) {
@@ -7663,6 +7695,7 @@ function pmoApp() {
                         this.showToast('Epic saved — add another', 'success');
                     } else {
                         this.backlogFormMode = 'feature';
+                        this.showBacklogForm = false;
                         this.showToast('Epic added', 'success');
                     }
                 } else {
@@ -7704,6 +7737,7 @@ function pmoApp() {
                         this.showToast('Item saved — add another', 'success');
                     } else {
                         this.backlogForm = { title: '', description: '', priority: 'Medium', kpi_id: '', epic: '', item_type: 'Feature', primary_actor: '', story_points: null, target_release: '', dependencies: '', depends_on: [] };
+                        this.showBacklogForm = false;
                         this.showToast('Backlog item added — manage dependencies below', 'success');
                     }
                 }
@@ -8279,6 +8313,7 @@ function pmoApp() {
             try {
                 await this.api('POST', `/projects/${this.selectedProject.id}/stakeholders`, this.stakeholderForm);
                 this.stakeholderForm = { name: '', email: '', phone: '', company: '', role_name: 'Stakeholder', raci_type: 'I', notes: '' };
+                this.showStakeholderForm = false;
                 await this.loadStakeholders();
                 this.showToast('Stakeholder added', 'success');
             } catch (e) { this.showToast(e.message, 'error'); }
@@ -8426,6 +8461,7 @@ function pmoApp() {
             try {
                 await this.api('POST', `/projects/${this.selectedProject.id}/releases`, this.releaseForm);
                 this.releaseForm = { version: '', name: '', description: '', target_date: '', milestone_id: '' };
+                this.showReleaseForm = false;
                 await this.loadReleases();
                 this.showToast('Release created', 'success');
             } catch (e) { this.showToast(e.message, 'error'); }

@@ -516,7 +516,7 @@
                 </template>
 
                 <!-- Stats cards -->
-                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-5">
                     <template x-for="stat in stats" :key="stat.label">
                         <div @click="navigate(stat.route)" class="relative surface stat-glow rounded-2xl border border-ink-200/60 p-5 card-lift cursor-pointer overflow-hidden hover:border-brand-300 hover:shadow-md transition-all group">
                             <div class="absolute top-0 right-0 w-24 h-24 rounded-full blur-2xl opacity-15" :class="stat.glow"></div>
@@ -533,7 +533,7 @@
                             </div>
                             <div class="relative">
                                 <div class="text-[28px] font-bold text-ink-900 tracking-tight tabular-nums group-hover:text-brand-600 transition-colors" x-text="dashLoading ? '—' : (stat.value ?? '—')"></div>
-                                <div class="text-[12px] text-ink-500 font-medium mt-0.5" x-text="stat.label"></div>
+                                <div class="text-[12px] text-ink-500 font-medium mt-1" x-text="stat.label"></div>
                             </div>
                         </div>
                     </template>
@@ -830,8 +830,6 @@
                     </div>
                 </div>
 
-            </div>
-
                 <!-- My Tasks Widget — dashboard only -->
                 <div class="surface rounded-2xl border border-ink-200/60 p-5" x-show="route === 'dashboard' && taskSummary && taskSummary.active > 0">
                     <div class="flex items-center justify-between mb-4">
@@ -877,6 +875,8 @@
                         </template>
                     </div>
                 </div>
+
+            </div>
 
             <!-- ============ CLIENTS VIEW ============ -->
             <div x-show="route === 'clients'" class="view-enter space-y-5 max-w-7xl">
@@ -5420,7 +5420,7 @@
                 </div>
 
                 <!-- Stats cards -->
-                <div class="grid grid-cols-4 gap-4" x-show="adminInsights">
+                <div class="grid grid-cols-4 gap-5" x-show="adminInsights">
                     <div @click="route = 'admin-tenants'" class="surface rounded-2xl border border-ink-200/60 p-5 cursor-pointer hover:border-brand-300 hover:shadow-md transition-all group">
                         <div class="text-[12px] font-semibold text-ink-400 uppercase tracking-wider">Total Tenants</div>
                         <div class="text-[32px] font-bold text-ink-900 mt-1 group-hover:text-brand-600 transition-colors" x-text="adminInsights?.totals?.tenants || 0"></div>

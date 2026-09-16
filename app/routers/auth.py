@@ -95,11 +95,10 @@ def get_my_tenants(
 
 @router.post("/forgot-password")
 def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    """Request a password reset token.
+    """Request a password reset link via email.
 
     Always returns 200 (even if email doesn't exist) to prevent email enumeration.
-    In production, this would send an email with the reset link.
-    For local dev, the reset token is returned in the response.
+    Sends an email with a reset link to the user if the account exists.
     """
     user = db.query(User).filter(User.email == req.email).first()
     if not user:
@@ -124,13 +123,19 @@ def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
     db.add(reset_token)
     db.commit()
 
-    # In production: send email with link to /reset-password?token=xxx
-    # For local dev: return the token so the UI can redirect directly
-    return {
-        "message": "Reset token generated.",
-        "reset_token": raw_token,
-        "email": user.email,
-    }
+    # Send the reset email
+    from app.services.email import send_password_reset_email
+    email_sent = send_password_reset_email(user.email, raw_token, user.name)
+
+    if not email_sent:
+        # SMTP not configured — return the token directly for local dev
+        return {
+            "message": "SMTP not configured. Reset token generated for local dev.",
+            "reset_token": raw_token,
+            "email": user.email,
+        }
+
+    return {"message": "A password reset link has been sent to your email."}
 
 
 @router.post("/reset-password")

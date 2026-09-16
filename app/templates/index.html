@@ -350,7 +350,27 @@
             </div>
         </template>
 
-        <!-- Step 2: Show token + reset form -->
+        <!-- Step 2a: Email sent (SMTP configured) -->
+        <template x-if="forgotPasswordStep === 'email_sent'">
+            <div class="text-center py-4">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-brand-50 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                </div>
+                <h2 class="text-[20px] font-bold text-ink-900 mb-2">Check Your Email</h2>
+                <p class="text-[13px] text-ink-500 mb-6 leading-relaxed">
+                    We've sent a password reset link to<br>
+                    <span class="font-semibold text-ink-700" x-text="forgotPasswordEmail"></span><br><br>
+                    Click the link in the email to set your new password. The link will expire in 1 hour.
+                </p>
+                <button @click="showForgotPassword = false; forgotPasswordStep = 'request'; forgotPasswordEmail = ''"
+                        class="btn-primary w-full text-[14px] font-medium text-white px-4 py-3 rounded-xl transition-all">
+                    Back to Login
+                </button>
+                <p class="text-[11px] text-ink-400 mt-4">Didn't receive an email? Check your spam folder.</p>
+            </div>
+        </template>
+
+        <!-- Step 2b: Reset form (local dev fallback or email link) -->
         <template x-if="forgotPasswordStep === 'reset'">
             <div>
                 <div class="flex items-center justify-between mb-6">
@@ -7205,6 +7225,17 @@ function pmoApp() {
         },
 
         async init() {
+            // Check for reset token in URL (from email link)
+            const urlParams = new URLSearchParams(window.location.search);
+            const resetToken = urlParams.get('reset_token');
+            if (resetToken) {
+                this.forgotPasswordToken = resetToken;
+                this.forgotPasswordStep = 'reset';
+                this.showForgotPassword = true;
+                // Clean the URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+
             // Load tenant branding from subdomain (if not already injected by server)
             if (!this.tenantBranding) {
                 try {
@@ -8027,12 +8058,14 @@ function pmoApp() {
                     body: JSON.stringify({ email: this.forgotPasswordEmail }),
                 });
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.detail || 'Failed to generate reset token');
+                if (!res.ok) throw new Error(data.detail || 'Failed to send reset email');
                 if (data.reset_token) {
+                    // SMTP not configured — local dev fallback, go straight to reset form
                     this.forgotPasswordToken = data.reset_token;
                     this.forgotPasswordStep = 'reset';
                 } else {
-                    this.forgotPasswordError = data.message || 'No account found with that email.';
+                    // Email sent — show "check your email" step
+                    this.forgotPasswordStep = 'email_sent';
                 }
             } catch (e) {
                 this.forgotPasswordError = e.message;

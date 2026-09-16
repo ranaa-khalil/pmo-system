@@ -162,6 +162,17 @@ def approve_step(
     if step.step_order != request.current_step:
         raise HTTPException(status_code=400, detail=f"This step is not the current step (current: step {request.current_step})")
 
+    # Permission check: only the designated approver can approve this step.
+    # If approver_id is set, the current user must be that user.
+    # If approver_id is None (unassigned), allow any user in the tenant to claim it.
+    if step.approver_id is not None and step.approver_id != current_user.id:
+        approver = db.query(User).filter(User.id == step.approver_id).first()
+        approver_name = approver.name if approver else f"user #{step.approver_id}"
+        raise HTTPException(
+            status_code=403,
+            detail=f"Only the designated approver ({approver_name}, role: {step.role_name}) can approve this step"
+        )
+
     # Approve the step
     step.status = "Approved"
     step.comment = decision.comment
@@ -240,6 +251,15 @@ def reject_step(
         raise HTTPException(status_code=400, detail=f"Step is already '{step.status}'")
     if step.step_order != request.current_step:
         raise HTTPException(status_code=400, detail=f"This step is not the current step (current: step {request.current_step})")
+
+    # Permission check: only the designated approver can reject this step.
+    if step.approver_id is not None and step.approver_id != current_user.id:
+        approver = db.query(User).filter(User.id == step.approver_id).first()
+        approver_name = approver.name if approver else f"user #{step.approver_id}"
+        raise HTTPException(
+            status_code=403,
+            detail=f"Only the designated approver ({approver_name}, role: {step.role_name}) can reject this step"
+        )
 
     step.status = "Rejected"
     step.comment = decision.comment

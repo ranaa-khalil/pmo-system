@@ -2140,6 +2140,7 @@
                     <button @click="projectTab='approvals'" :class="projectTab==='approvals' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Approvals</button>
                     <button @click="projectTab='releases'" :class="projectTab==='releases' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Releases</button>
                     <button @click="projectTab='stakeholders'" :class="projectTab==='stakeholders' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Stakeholders</button>
+                    <button @click="projectTab='infrastructure'" :class="projectTab==='infrastructure' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Infrastructure</button>
                     <button @click="projectTab='github'" :class="projectTab==='github' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">GitHub Board</button>
                     <button @click="projectTab='env'" :class="projectTab==='env' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Env & Personas</button>
                 </div>
@@ -4882,6 +4883,391 @@
         </div>
     </div>
 
+    <!-- ==================== INFRASTRUCTURE TAB ==================== -->
+    <div x-show="projectTab==='infrastructure'" class="max-w-6xl space-y-4">
+        <!-- Sub-tabs -->
+        <div class="flex items-center gap-1 border-b border-ink-200/60 mb-4 overflow-x-auto">
+            <button @click="infraSubTab='overview'" :class="infraSubTab==='overview' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Overview</button>
+            <button @click="infraSubTab='assets'" :class="infraSubTab==='assets' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Assets</button>
+            <button @click="infraSubTab='secrets'" :class="infraSubTab==='secrets' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Secrets</button>
+            <button @click="infraSubTab='environments'" :class="infraSubTab==='environments' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Environments</button>
+            <button @click="infraSubTab='services'" :class="infraSubTab==='services' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Services</button>
+            <button @click="infraSubTab='databases'" :class="infraSubTab==='databases' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Databases</button>
+        </div>
+
+        <!-- Overview sub-tab -->
+        <div x-show="infraSubTab==='overview'" class="space-y-4">
+            <div class="grid grid-cols-5 gap-3">
+                <div class="surface rounded-2xl border border-ink-200/60 p-4 text-center">
+                    <div class="text-2xl font-bold text-ink-800" x-text="infraOverview?.counts?.environments ?? 0"></div>
+                    <div class="text-[11px] text-ink-500 mt-1">Environments</div>
+                </div>
+                <div class="surface rounded-2xl border border-ink-200/60 p-4 text-center">
+                    <div class="text-2xl font-bold text-ink-800" x-text="infraOverview?.counts?.secrets ?? 0"></div>
+                    <div class="text-[11px] text-ink-500 mt-1">Secrets</div>
+                </div>
+                <div class="surface rounded-2xl border border-ink-200/60 p-4 text-center">
+                    <div class="text-2xl font-bold text-ink-800" x-text="infraOverview?.counts?.assets ?? 0"></div>
+                    <div class="text-[11px] text-ink-500 mt-1">Assets</div>
+                </div>
+                <div class="surface rounded-2xl border border-ink-200/60 p-4 text-center">
+                    <div class="text-2xl font-bold text-ink-800" x-text="infraOverview?.counts?.services ?? 0"></div>
+                    <div class="text-[11px] text-ink-500 mt-1">Services</div>
+                </div>
+                <div class="surface rounded-2xl border border-ink-200/60 p-4 text-center">
+                    <div class="text-2xl font-bold text-ink-800" x-text="infraOverview?.counts?.databases ?? 0"></div>
+                    <div class="text-[11px] text-ink-500 mt-1">Databases</div>
+                </div>
+            </div>
+
+            <!-- Expiring secrets -->
+            <div x-show="infraOverview?.expiring_secrets?.length > 0" class="surface rounded-2xl border border-amber-200/60 bg-amber-50/30 p-4">
+                <h4 class="text-[13px] font-semibold text-amber-700 mb-2">Expiring Secrets</h4>
+                <div class="space-y-1">
+                    <template x-for="s in (infraOverview?.expiring_secrets || [])" :key="s.id">
+                        <div class="flex items-center justify-between text-[12px]">
+                            <span class="text-ink-700" x-text="s.name"></span>
+                            <span class="text-amber-600 font-medium" x-text="s.expires_at ? new Date(s.expires_at).toLocaleDateString() : ''"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Recent activity -->
+            <div class="surface rounded-2xl border border-ink-200/60 p-4">
+                <h4 class="text-[13px] font-semibold text-ink-700 mb-3">Recent Activity</h4>
+                <div x-show="!infraOverview?.recent_activity?.length" class="text-[12px] text-ink-400 py-4 text-center">No activity yet</div>
+                <div class="space-y-2">
+                    <template x-for="log in (infraOverview?.recent_activity || [])" :key="log.id">
+                        <div class="flex items-center gap-3 text-[12px]">
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-medium"
+                                  :class="{'bg-emerald-100 text-emerald-700': log.action==='create', 'bg-blue-100 text-blue-700': log.action==='reveal', 'bg-amber-100 text-amber-700': log.action==='rotate', 'bg-violet-100 text-violet-700': log.action==='rollback', 'bg-rose-100 text-rose-700': log.action==='delete', 'bg-ink-100 text-ink-600': log.action==='update'}"
+                                  x-text="log.action"></span>
+                            <span class="text-ink-700 font-medium" x-text="log.secret_name"></span>
+                            <span class="text-ink-400" x-text="log.user_name"></span>
+                            <span class="text-ink-400 ml-auto" x-text="log.timestamp ? new Date(log.timestamp).toLocaleString() : ''"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Assets sub-tab -->
+        <div x-show="infraSubTab==='assets'" class="space-y-3">
+            <div class="flex items-center justify-between">
+                <h4 class="text-[14px] font-semibold text-ink-800">Asset Registry</h4>
+                <button @click="showInfraAssetForm = !showInfraAssetForm" class="text-[12px] font-medium text-white btn-primary px-3 py-1.5 rounded-lg">+ Add Asset</button>
+            </div>
+            <div x-show="showInfraAssetForm" class="surface rounded-2xl border border-ink-200/60 p-4 space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <input x-model="infraAssetForm.name" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Asset name">
+                    <select x-model="infraAssetForm.asset_type" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
+                        <option value="">Select type...</option>
+                        <option value="server">Server</option><option value="vps">VPS</option><option value="gpu_cluster">GPU Cluster</option>
+                        <option value="database">Database</option><option value="domain">Domain</option><option value="api">API</option>
+                        <option value="certificate">Certificate</option><option value="service">Service</option><option value="other">Other</option>
+                    </select>
+                    <select x-model="infraAssetForm.environment_id" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
+                        <option value="">Select environment...</option>
+                        <template x-for="e in infraEnvironments" :key="e.id"><option :value="e.id" x-text="e.name"></option></template>
+                    </select>
+                    <input x-model="infraAssetForm.team" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Team">
+                    <select x-model="infraAssetForm.status" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
+                        <option value="active">Active</option><option value="maintenance">Maintenance</option><option value="decommissioned">Decommissioned</option>
+                    </select>
+                    <input x-model="infraAssetForm.cost_monthly" type="number" step="0.01" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Monthly cost (SAR)">
+                </div>
+                <textarea x-model="infraAssetForm.metadata_json" rows="2" class="input-premium w-full text-[13px] rounded-[10px] px-3 py-2" placeholder='Metadata JSON (e.g. {"host":"10.0.0.1","cpu":"8 cores"})'></textarea>
+                <div class="flex items-center gap-2">
+                    <button @click="saveInfraAsset()" class="text-[12px] font-medium text-white btn-primary px-4 py-2 rounded-lg">Save</button>
+                    <button @click="showInfraAssetForm = false; editingInfraAssetId = null" class="text-[12px] font-medium text-ink-500 hover:text-ink-700 px-3 py-2">Cancel</button>
+                </div>
+            </div>
+            <div class="surface rounded-2xl border border-ink-200/60 overflow-hidden">
+                <table class="w-full text-[12px]">
+                    <thead><tr class="border-b border-ink-200/60">
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Name</th>
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Type</th>
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Environment</th>
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Status</th>
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Cost/mo</th>
+                        <th class="text-right py-3 px-4 font-medium text-ink-500">Actions</th>
+                    </tr></thead>
+                    <tbody>
+                        <template x-for="a in infraAssets" :key="a.id">
+                            <tr class="border-b border-ink-100/60 hover:bg-ink-50/50">
+                                <td class="py-3 px-4 font-medium text-ink-800" x-text="a.name"></td>
+                                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-brand-100 text-brand-700" x-text="a.asset_type"></span></td>
+                                <td class="py-3 px-4 text-ink-600" x-text="infraEnvironments.find(e => e.id === a.environment_id)?.name || '—'"></td>
+                                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full text-[10px] font-medium" :class="a.status==='active' ? 'bg-emerald-100 text-emerald-700' : a.status==='maintenance' ? 'bg-amber-100 text-amber-700' : 'bg-ink-100 text-ink-500'" x-text="a.status"></span></td>
+                                <td class="py-3 px-4 text-ink-600" x-text="a.cost_monthly ? 'SAR ' + a.cost_monthly : '—'"></td>
+                                <td class="py-3 px-4 text-right">
+                                    <button @click="editInfraAsset(a)" class="text-[11px] text-brand-600 hover:text-brand-700">Edit</button>
+                                    <button @click="deleteInfraAsset(a.id)" class="text-[11px] text-rose-400 hover:text-rose-600 ml-2">Delete</button>
+                                </td>
+                            </tr>
+                        </template>
+                        <tr x-show="infraAssets.length === 0"><td colspan="6" class="py-8 text-center text-ink-400">No assets yet</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Secrets sub-tab -->
+        <div x-show="infraSubTab==='secrets'" class="space-y-3">
+            <div class="flex items-center justify-between">
+                <h4 class="text-[14px] font-semibold text-ink-800">Secrets Management</h4>
+                <button @click="showInfraSecretForm = !showInfraSecretForm" class="text-[12px] font-medium text-white btn-primary px-3 py-1.5 rounded-lg">+ Add Secret</button>
+            </div>
+            <div x-show="showInfraSecretForm" class="surface rounded-2xl border border-ink-200/60 p-4 space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <input x-model="infraSecretForm.name" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Secret name">
+                    <select x-model="infraSecretForm.category" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
+                        <option value="">Select category...</option>
+                        <option value="database">Database</option><option value="authentication">Authentication</option>
+                        <option value="ai_providers">AI Providers</option><option value="email">Email</option>
+                        <option value="storage">Storage</option><option value="payments">Payments</option>
+                        <option value="monitoring">Monitoring</option><option value="custom">Custom</option>
+                    </select>
+                    <select x-model="infraSecretForm.environment_id" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
+                        <option value="">Select environment...</option>
+                        <template x-for="e in infraEnvironments" :key="e.id"><option :value="e.id" x-text="e.name"></option></template>
+                    </select>
+                    <input x-model="infraSecretForm.expires_at" type="date" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Expiry date">
+                </div>
+                <input x-model="infraSecretForm.value" type="password" class="input-premium w-full text-[13px] rounded-[10px] px-3 py-2" placeholder="Secret value">
+                <input x-model="infraSecretForm.description" class="input-premium w-full text-[13px] rounded-[10px] px-3 py-2" placeholder="Description">
+                <div class="flex items-center gap-2">
+                    <button @click="saveInfraSecret()" class="text-[12px] font-medium text-white btn-primary px-4 py-2 rounded-lg">Save</button>
+                    <button @click="showInfraSecretForm = false; editingInfraSecretId = null" class="text-[12px] font-medium text-ink-500 hover:text-ink-700 px-3 py-2">Cancel</button>
+                </div>
+            </div>
+            <div class="surface rounded-2xl border border-ink-200/60 overflow-hidden">
+                <table class="w-full text-[12px]">
+                    <thead><tr class="border-b border-ink-200/60">
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Name</th>
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Category</th>
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Environment</th>
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Value</th>
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Version</th>
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Expires</th>
+                        <th class="text-right py-3 px-4 font-medium text-ink-500">Actions</th>
+                    </tr></thead>
+                    <tbody>
+                        <template x-for="s in infraSecrets" :key="s.id">
+                            <tr class="border-b border-ink-100/60 hover:bg-ink-50/50">
+                                <td class="py-3 px-4 font-medium text-ink-800" x-text="s.name"></td>
+                                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full text-[10px] font-medium"
+                                    :class="{'bg-blue-100 text-blue-700': s.category==='database', 'bg-violet-100 text-violet-700': s.category==='authentication', 'bg-indigo-100 text-indigo-700': s.category==='ai_providers', 'bg-amber-100 text-amber-700': s.category==='email', 'bg-emerald-100 text-emerald-700': s.category==='storage', 'bg-rose-100 text-rose-700': s.category==='payments', 'bg-cyan-100 text-cyan-700': s.category==='monitoring', 'bg-ink-100 text-ink-600': s.category==='custom'}"
+                                    x-text="s.category"></span></td>
+                                <td class="py-3 px-4 text-ink-600" x-text="infraEnvironments.find(e => e.id === s.environment_id)?.name || '—'"></td>
+                                <td class="py-3 px-4 font-mono text-ink-500" x-text="revealedSecrets[s.id] || s.value"></td>
+                                <td class="py-3 px-4 text-ink-500" x-text="'v' + s.version"></td>
+                                <td class="py-3 px-4 text-ink-500" x-text="s.expires_at ? new Date(s.expires_at).toLocaleDateString() : '—'"></td>
+                                <td class="py-3 px-4 text-right whitespace-nowrap">
+                                    <button @click="revealSecret(s.id)" x-show="!revealedSecrets[s.id]" class="text-[11px] text-brand-600 hover:text-brand-700">Reveal</button>
+                                    <button @click="delete revealedSecrets[s.id]; revealedSecrets = {...revealedSecrets}" x-show="revealedSecrets[s.id]" class="text-[11px] text-ink-500 hover:text-ink-700">Hide</button>
+                                    <button @click="editInfraSecret(s)" class="text-[11px] text-brand-600 hover:text-brand-700 ml-2">Edit</button>
+                                    <button @click="rotateInfraSecret(s)" class="text-[11px] text-amber-600 hover:text-amber-700 ml-2">Rotate</button>
+                                    <button @click="viewSecretAudit(s)" class="text-[11px] text-ink-500 hover:text-ink-700 ml-2">Audit</button>
+                                    <button @click="deleteInfraSecret(s.id)" class="text-[11px] text-rose-400 hover:text-rose-600 ml-2">Delete</button>
+                                </td>
+                            </tr>
+                        </template>
+                        <tr x-show="infraSecrets.length === 0"><td colspan="7" class="py-8 text-center text-ink-400">No secrets yet</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Secret audit modal -->
+            <div x-show="secretAuditData" x-cloak class="fixed inset-0 z-40 flex items-center justify-center bg-black/30" @click="secretAuditData = null">
+                <div class="bg-white rounded-2xl border border-ink-200/60 shadow-xl max-w-2xl w-full mx-4 p-6" @click.stop>
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-[14px] font-semibold text-ink-800">Audit Log</h3>
+                        <button @click="secretAuditData = null" class="text-ink-400 hover:text-ink-600 text-[14px]">✕</button>
+                    </div>
+                    <div class="space-y-2 max-h-96 overflow-y-auto">
+                        <template x-for="log in (secretAuditData || [])" :key="log.id">
+                            <div class="flex items-center gap-3 text-[12px] py-2 border-b border-ink-100/60">
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-medium"
+                                      :class="{'bg-emerald-100 text-emerald-700': log.action==='create', 'bg-blue-100 text-blue-700': log.action==='reveal', 'bg-amber-100 text-amber-700': log.action==='rotate', 'bg-violet-100 text-violet-700': log.action==='rollback', 'bg-rose-100 text-rose-700': log.action==='delete', 'bg-ink-100 text-ink-600': log.action==='update'}"
+                                      x-text="log.action"></span>
+                                <span class="text-ink-700 font-medium" x-text="log.user_name"></span>
+                                <span class="text-ink-400 ml-auto" x-text="log.timestamp ? new Date(log.timestamp).toLocaleString() : ''"></span>
+                            </div>
+                        </template>
+                        <div x-show="secretAuditData?.length === 0" class="text-[12px] text-ink-400 py-4 text-center">No audit entries</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Environments sub-tab -->
+        <div x-show="infraSubTab==='environments'" class="space-y-3">
+            <div class="flex items-center justify-between">
+                <h4 class="text-[14px] font-semibold text-ink-800">Environments</h4>
+                <button @click="showInfraEnvForm = !showInfraEnvForm" class="text-[12px] font-medium text-white btn-primary px-3 py-1.5 rounded-lg">+ Add Environment</button>
+            </div>
+            <div x-show="showInfraEnvForm" class="surface rounded-2xl border border-ink-200/60 p-4 space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <input x-model="infraEnvForm.name" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Environment name">
+                    <select x-model="infraEnvForm.type" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
+                        <option value="local">Local</option><option value="development">Development</option><option value="qa">QA</option>
+                        <option value="uat">UAT</option><option value="staging">Staging</option><option value="production">Production</option>
+                    </select>
+                    <input x-model="infraEnvForm.url" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="URL">
+                    <select x-model="infraEnvForm.status" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
+                        <option value="active">Active</option><option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                <input x-model="infraEnvForm.description" class="input-premium w-full text-[13px] rounded-[10px] px-3 py-2" placeholder="Description">
+                <div class="flex items-center gap-2">
+                    <button @click="saveInfraEnv()" class="text-[12px] font-medium text-white btn-primary px-4 py-2 rounded-lg">Save</button>
+                    <button @click="showInfraEnvForm = false; editingInfraEnvId = null" class="text-[12px] font-medium text-ink-500 hover:text-ink-700 px-3 py-2">Cancel</button>
+                </div>
+            </div>
+            <div class="surface rounded-2xl border border-ink-200/60 overflow-hidden">
+                <table class="w-full text-[12px]">
+                    <thead><tr class="border-b border-ink-200/60">
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Name</th>
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Type</th>
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">URL</th>
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Status</th>
+                        <th class="text-right py-3 px-4 font-medium text-ink-500">Actions</th>
+                    </tr></thead>
+                    <tbody>
+                        <template x-for="e in infraEnvironments" :key="e.id">
+                            <tr class="border-b border-ink-100/60 hover:bg-ink-50/50">
+                                <td class="py-3 px-4 font-medium text-ink-800" x-text="e.name"></td>
+                                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full text-[10px] font-medium"
+                                    :class="e.type==='production' ? 'bg-rose-100 text-rose-700' : e.type==='staging' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'"
+                                    x-text="e.type"></span></td>
+                                <td class="py-3 px-4 text-ink-600"><a x-show="e.url" :href="e.url" target="_blank" class="text-brand-600 hover:underline" x-text="e.url"></a><span x-show="!e.url">—</span></td>
+                                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full text-[10px] font-medium" :class="e.status==='active' ? 'bg-emerald-100 text-emerald-700' : 'bg-ink-100 text-ink-500'" x-text="e.status"></span></td>
+                                <td class="py-3 px-4 text-right">
+                                    <button @click="editInfraEnv(e)" class="text-[11px] text-brand-600 hover:text-brand-700">Edit</button>
+                                    <button @click="deleteInfraEnv(e.id)" class="text-[11px] text-rose-400 hover:text-rose-600 ml-2">Delete</button>
+                                </td>
+                            </tr>
+                        </template>
+                        <tr x-show="infraEnvironments.length === 0"><td colspan="5" class="py-8 text-center text-ink-400">No environments yet</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Services sub-tab -->
+        <div x-show="infraSubTab==='services'" class="space-y-3">
+            <div class="flex items-center justify-between">
+                <h4 class="text-[14px] font-semibold text-ink-800">Services Registry</h4>
+                <button @click="showInfraServiceForm = !showInfraServiceForm" class="text-[12px] font-medium text-white btn-primary px-3 py-1.5 rounded-lg">+ Add Service</button>
+            </div>
+            <div x-show="showInfraServiceForm" class="surface rounded-2xl border border-ink-200/60 p-4 space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <input x-model="infraServiceForm.name" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Service name">
+                    <select x-model="infraServiceForm.service_type" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
+                        <option value="ai">AI</option><option value="database">Database</option><option value="cache">Cache</option>
+                        <option value="storage">Storage</option><option value="email">Email</option><option value="payments">Payments</option>
+                        <option value="monitoring">Monitoring</option><option value="internal">Internal</option>
+                    </select>
+                    <select x-model="infraServiceForm.environment_id" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
+                        <option value="">Select environment...</option>
+                        <template x-for="e in infraEnvironments" :key="e.id"><option :value="e.id" x-text="e.name"></option></template>
+                    </select>
+                    <input x-model="infraServiceForm.documentation_url" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Documentation URL">
+                </div>
+                <div class="flex items-center gap-2">
+                    <button @click="saveInfraService()" class="text-[12px] font-medium text-white btn-primary px-4 py-2 rounded-lg">Save</button>
+                    <button @click="showInfraServiceForm = false; editingInfraServiceId = null" class="text-[12px] font-medium text-ink-500 hover:text-ink-700 px-3 py-2">Cancel</button>
+                </div>
+            </div>
+            <div class="surface rounded-2xl border border-ink-200/60 overflow-hidden">
+                <table class="w-full text-[12px]">
+                    <thead><tr class="border-b border-ink-200/60">
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Name</th>
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Type</th>
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Environment</th>
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Status</th>
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Docs</th>
+                        <th class="text-right py-3 px-4 font-medium text-ink-500">Actions</th>
+                    </tr></thead>
+                    <tbody>
+                        <template x-for="s in infraServices" :key="s.id">
+                            <tr class="border-b border-ink-100/60 hover:bg-ink-50/50">
+                                <td class="py-3 px-4 font-medium text-ink-800" x-text="s.name"></td>
+                                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-100 text-indigo-700" x-text="s.service_type"></span></td>
+                                <td class="py-3 px-4 text-ink-600" x-text="infraEnvironments.find(e => e.id === s.environment_id)?.name || '—'"></td>
+                                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full text-[10px] font-medium" :class="s.status==='active' ? 'bg-emerald-100 text-emerald-700' : 'bg-ink-100 text-ink-500'" x-text="s.status"></span></td>
+                                <td class="py-3 px-4"><a x-show="s.documentation_url" :href="s.documentation_url" target="_blank" class="text-brand-600 hover:underline text-[11px]">Open</a><span x-show="!s.documentation_url">—</span></td>
+                                <td class="py-3 px-4 text-right">
+                                    <button @click="editInfraService(s)" class="text-[11px] text-brand-600 hover:text-brand-700">Edit</button>
+                                    <button @click="deleteInfraService(s.id)" class="text-[11px] text-rose-400 hover:text-rose-600 ml-2">Delete</button>
+                                </td>
+                            </tr>
+                        </template>
+                        <tr x-show="infraServices.length === 0"><td colspan="6" class="py-8 text-center text-ink-400">No services yet</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Databases sub-tab -->
+        <div x-show="infraSubTab==='databases'" class="space-y-3">
+            <div class="flex items-center justify-between">
+                <h4 class="text-[14px] font-semibold text-ink-800">Database Registry</h4>
+                <button @click="showInfraDbForm = !showInfraDbForm" class="text-[12px] font-medium text-white btn-primary px-3 py-1.5 rounded-lg">+ Add Database</button>
+            </div>
+            <div x-show="showInfraDbForm" class="surface rounded-2xl border border-ink-200/60 p-4 space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <input x-model="infraDbForm.name" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Database name">
+                    <select x-model="infraDbForm.db_type" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
+                        <option value="postgresql">PostgreSQL</option><option value="mysql">MySQL</option>
+                        <option value="mongodb">MongoDB</option><option value="redis">Redis</option><option value="supabase">Supabase</option>
+                    </select>
+                    <input x-model="infraDbForm.host" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Host">
+                    <input x-model="infraDbForm.port" type="number" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Port">
+                    <select x-model="infraDbForm.environment_id" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
+                        <option value="">Select environment...</option>
+                        <template x-for="e in infraEnvironments" :key="e.id"><option :value="e.id" x-text="e.name"></option></template>
+                    </select>
+                    <input x-model="infraDbForm.backup_policy" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Backup policy">
+                </div>
+                <div class="flex items-center gap-2">
+                    <button @click="saveInfraDb()" class="text-[12px] font-medium text-white btn-primary px-4 py-2 rounded-lg">Save</button>
+                    <button @click="showInfraDbForm = false; editingInfraDbId = null" class="text-[12px] font-medium text-ink-500 hover:text-ink-700 px-3 py-2">Cancel</button>
+                </div>
+            </div>
+            <div class="surface rounded-2xl border border-ink-200/60 overflow-hidden">
+                <table class="w-full text-[12px]">
+                    <thead><tr class="border-b border-ink-200/60">
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Name</th>
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Type</th>
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Host:Port</th>
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Environment</th>
+                        <th class="text-left py-3 px-4 font-medium text-ink-500">Backup</th>
+                        <th class="text-right py-3 px-4 font-medium text-ink-500">Actions</th>
+                    </tr></thead>
+                    <tbody>
+                        <template x-for="d in infraDatabases" :key="d.id">
+                            <tr class="border-b border-ink-100/60 hover:bg-ink-50/50">
+                                <td class="py-3 px-4 font-medium text-ink-800" x-text="d.name"></td>
+                                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-700" x-text="d.db_type"></span></td>
+                                <td class="py-3 px-4 text-ink-600 font-mono" x-text="(d.host || '—') + (d.port ? ':' + d.port : '')"></td>
+                                <td class="py-3 px-4 text-ink-600" x-text="infraEnvironments.find(e => e.id === d.environment_id)?.name || '—'"></td>
+                                <td class="py-3 px-4 text-ink-600" x-text="d.backup_policy || '—'"></td>
+                                <td class="py-3 px-4 text-right">
+                                    <button @click="editInfraDb(d)" class="text-[11px] text-brand-600 hover:text-brand-700">Edit</button>
+                                    <button @click="deleteInfraDb(d.id)" class="text-[11px] text-rose-400 hover:text-rose-600 ml-2">Delete</button>
+                                </td>
+                            </tr>
+                        </template>
+                        <tr x-show="infraDatabases.length === 0"><td colspan="6" class="py-8 text-center text-ink-400">No databases yet</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <!-- ==================== APPROVALS TAB ==================== -->
     <div x-show="projectTab==='approvals'" class="max-w-4xl">
         <!-- Create approval form -->
@@ -6326,6 +6712,31 @@ function pmoApp() {
         backlogSearch: '',  // search query for backlog items
         releaseItemSearch: '',  // search query for adding backlog items to release
         showReleaseItemSearch: false,
+        // Infrastructure module
+        infraSubTab: 'overview',
+        infraOverview: null,
+        infraEnvironments: [],
+        infraSecrets: [],
+        infraAssets: [],
+        infraServices: [],
+        infraDatabases: [],
+        revealedSecrets: {},
+        secretAuditData: null,
+        showInfraEnvForm: false,
+        editingInfraEnvId: null,
+        infraEnvForm: { name: '', type: 'development', url: '', description: '', status: 'active' },
+        showInfraSecretForm: false,
+        editingInfraSecretId: null,
+        infraSecretForm: { name: '', category: '', environment_id: '', value: '', description: '', expires_at: '' },
+        showInfraAssetForm: false,
+        editingInfraAssetId: null,
+        infraAssetForm: { name: '', asset_type: '', environment_id: '', team: '', status: 'active', cost_monthly: '', metadata_json: '' },
+        showInfraServiceForm: false,
+        editingInfraServiceId: null,
+        infraServiceForm: { name: '', service_type: 'internal', environment_id: '', documentation_url: '' },
+        showInfraDbForm: false,
+        editingInfraDbId: null,
+        infraDbForm: { name: '', db_type: 'postgresql', host: '', port: '', environment_id: '', backup_policy: '' },
         phaseFilter: null,  // filter backlog by phase
         get phaseCounts() {
             const counts = {};
@@ -7667,7 +8078,7 @@ function pmoApp() {
             this.route = 'project-detail';
             this.projectTab = 'overview';
             this.initEnvForm();
-            await Promise.all([this.loadVision(), this.loadKPIs(), this.loadRoadmaps(), this.loadBacklog(), this.loadForms(), this.loadApprovals(), this.loadStakeholders(), this.loadReleases(), this.loadTraceability(), this.loadPersonas(), this.loadTestAccounts(), this.loadProjectHealth(project.id), this.loadGithubBoardConfig(project.id), this.loadGithubSyncStatus(project.id)]);
+            await Promise.all([this.loadVision(), this.loadKPIs(), this.loadRoadmaps(), this.loadBacklog(), this.loadForms(), this.loadApprovals(), this.loadStakeholders(), this.loadReleases(), this.loadTraceability(), this.loadPersonas(), this.loadTestAccounts(), this.loadProjectHealth(project.id), this.loadGithubBoardConfig(project.id), this.loadGithubSyncStatus(project.id), this.loadInfrastructure()]);
         },
 
         backToProjects() {
@@ -8623,6 +9034,215 @@ function pmoApp() {
             try {
                 this.projectReleases = await this.api('GET', `/projects/${this.selectedProject.id}/releases`);
             } catch { this.projectReleases = []; }
+        },
+
+        // ===== Infrastructure =====
+        async loadInfrastructure() {
+            const pid = this.selectedProject.id;
+            try {
+                const [overview, envs, secrets, assets, services, databases] = await Promise.all([
+                    this.api('GET', `/projects/${pid}/infra/overview`),
+                    this.api('GET', `/projects/${pid}/infra/environments`),
+                    this.api('GET', `/projects/${pid}/infra/secrets`),
+                    this.api('GET', `/projects/${pid}/infra/assets`),
+                    this.api('GET', `/projects/${pid}/infra/services`),
+                    this.api('GET', `/projects/${pid}/infra/databases`),
+                ]);
+                this.infraOverview = overview;
+                this.infraEnvironments = envs;
+                this.infraSecrets = secrets;
+                this.infraAssets = assets;
+                this.infraServices = services;
+                this.infraDatabases = databases;
+            } catch (e) { this.showToast('Failed to load infrastructure', 'error'); }
+        },
+
+        // Environments
+        async saveInfraEnv() {
+            try {
+                const data = { ...this.infraEnvForm };
+                if (data.environment_id === '') data.environment_id = null;
+                if (this.editingInfraEnvId) {
+                    await this.api('PUT', `/infra/environments/${this.editingInfraEnvId}`, data);
+                } else {
+                    await this.api('POST', `/projects/${this.selectedProject.id}/infra/environments`, data);
+                }
+                await this.loadInfrastructure();
+                this.showInfraEnvForm = false;
+                this.editingInfraEnvId = null;
+                this.infraEnvForm = { name: '', type: 'development', url: '', description: '', status: 'active' };
+                this.showToast('Environment saved', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+        editInfraEnv(e) {
+            this.editingInfraEnvId = e.id;
+            this.infraEnvForm = { name: e.name, type: e.type, url: e.url || '', description: e.description || '', status: e.status };
+            this.showInfraEnvForm = true;
+        },
+        async deleteInfraEnv(id) {
+            if (!confirm('Delete this environment?')) return;
+            try {
+                await this.api('DELETE', `/infra/environments/${id}`);
+                await this.loadInfrastructure();
+                this.showToast('Environment deleted', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        // Secrets
+        async saveInfraSecret() {
+            try {
+                const data = { ...this.infraSecretForm };
+                if (data.environment_id === '') data.environment_id = null;
+                if (data.expires_at === '') data.expires_at = null;
+                if (this.editingInfraSecretId) {
+                    await this.api('PUT', `/infra/secrets/${this.editingInfraSecretId}`, data);
+                } else {
+                    await this.api('POST', `/projects/${this.selectedProject.id}/infra/secrets`, data);
+                }
+                await this.loadInfrastructure();
+                this.showInfraSecretForm = false;
+                this.editingInfraSecretId = null;
+                this.infraSecretForm = { name: '', category: '', environment_id: '', value: '', description: '', expires_at: '' };
+                this.showToast('Secret saved', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+        editInfraSecret(s) {
+            this.editingInfraSecretId = s.id;
+            this.infraSecretForm = { name: s.name, category: s.category, environment_id: s.environment_id || '', value: '', description: s.description || '', expires_at: s.expires_at ? s.expires_at.split('T')[0] : '' };
+            this.showInfraSecretForm = true;
+        },
+        async revealSecret(id) {
+            try {
+                const data = await this.api('GET', `/infra/secrets/${id}/reveal`);
+                this.revealedSecrets = { ...this.revealedSecrets, [id]: data.value };
+                // Auto-hide after 30 seconds
+                setTimeout(() => {
+                    const rs = { ...this.revealedSecrets };
+                    delete rs[id];
+                    this.revealedSecrets = rs;
+                }, 30000);
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+        async rotateInfraSecret(s) {
+            const newValue = prompt(`Enter new value for "${s.name}":`);
+            if (!newValue) return;
+            try {
+                await this.api('POST', `/infra/secrets/${s.id}/rotate`, { value: newValue });
+                await this.loadInfrastructure();
+                this.showToast('Secret rotated — new version created', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+        async viewSecretAudit(s) {
+            try {
+                this.secretAuditData = await this.api('GET', `/infra/secrets/${s.id}/audit`);
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+        async deleteInfraSecret(id) {
+            if (!confirm('Delete this secret? This cannot be undone.')) return;
+            try {
+                await this.api('DELETE', `/infra/secrets/${id}`);
+                await this.loadInfrastructure();
+                this.showToast('Secret deleted', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        // Assets
+        async saveInfraAsset() {
+            try {
+                const data = { ...this.infraAssetForm };
+                if (data.environment_id === '') data.environment_id = null;
+                if (data.cost_monthly === '') data.cost_monthly = null;
+                let metadata = {};
+                if (data.metadata_json) { try { metadata = JSON.parse(data.metadata_json); } catch {} }
+                data.metadata = metadata;
+                delete data.metadata_json;
+                if (this.editingInfraAssetId) {
+                    await this.api('PUT', `/infra/assets/${this.editingInfraAssetId}`, data);
+                } else {
+                    await this.api('POST', `/projects/${this.selectedProject.id}/infra/assets`, data);
+                }
+                await this.loadInfrastructure();
+                this.showInfraAssetForm = false;
+                this.editingInfraAssetId = null;
+                this.infraAssetForm = { name: '', asset_type: '', environment_id: '', team: '', status: 'active', cost_monthly: '', metadata_json: '' };
+                this.showToast('Asset saved', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+        editInfraAsset(a) {
+            this.editingInfraAssetId = a.id;
+            this.infraAssetForm = { name: a.name, asset_type: a.asset_type, environment_id: a.environment_id || '', team: a.team || '', status: a.status, cost_monthly: a.cost_monthly || '', metadata_json: Object.keys(a.metadata || {}).length ? JSON.stringify(a.metadata, null, 2) : '' };
+            this.showInfraAssetForm = true;
+        },
+        async deleteInfraAsset(id) {
+            if (!confirm('Delete this asset?')) return;
+            try {
+                await this.api('DELETE', `/infra/assets/${id}`);
+                await this.loadInfrastructure();
+                this.showToast('Asset deleted', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        // Services
+        async saveInfraService() {
+            try {
+                const data = { ...this.infraServiceForm };
+                if (data.environment_id === '') data.environment_id = null;
+                if (this.editingInfraServiceId) {
+                    await this.api('PUT', `/infra/services/${this.editingInfraServiceId}`, data);
+                } else {
+                    await this.api('POST', `/projects/${this.selectedProject.id}/infra/services`, data);
+                }
+                await this.loadInfrastructure();
+                this.showInfraServiceForm = false;
+                this.editingInfraServiceId = null;
+                this.infraServiceForm = { name: '', service_type: 'internal', environment_id: '', documentation_url: '' };
+                this.showToast('Service saved', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+        editInfraService(s) {
+            this.editingInfraServiceId = s.id;
+            this.infraServiceForm = { name: s.name, service_type: s.service_type, environment_id: s.environment_id || '', documentation_url: s.documentation_url || '' };
+            this.showInfraServiceForm = true;
+        },
+        async deleteInfraService(id) {
+            if (!confirm('Delete this service?')) return;
+            try {
+                await this.api('DELETE', `/infra/services/${id}`);
+                await this.loadInfrastructure();
+                this.showToast('Service deleted', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        // Databases
+        async saveInfraDb() {
+            try {
+                const data = { ...this.infraDbForm };
+                if (data.environment_id === '') data.environment_id = null;
+                if (data.port === '') data.port = null;
+                if (this.editingInfraDbId) {
+                    await this.api('PUT', `/infra/databases/${this.editingInfraDbId}`, data);
+                } else {
+                    await this.api('POST', `/projects/${this.selectedProject.id}/infra/databases`, data);
+                }
+                await this.loadInfrastructure();
+                this.showInfraDbForm = false;
+                this.editingInfraDbId = null;
+                this.infraDbForm = { name: '', db_type: 'postgresql', host: '', port: '', environment_id: '', backup_policy: '' };
+                this.showToast('Database saved', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+        editInfraDb(d) {
+            this.editingInfraDbId = d.id;
+            this.infraDbForm = { name: d.name, db_type: d.db_type, host: d.host || '', port: d.port || '', environment_id: d.environment_id || '', backup_policy: d.backup_policy || '' };
+            this.showInfraDbForm = true;
+        },
+        async deleteInfraDb(id) {
+            if (!confirm('Delete this database record?')) return;
+            try {
+                await this.api('DELETE', `/infra/databases/${id}`);
+                await this.loadInfrastructure();
+                this.showToast('Database deleted', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
         },
 
         async loadTraceability() {

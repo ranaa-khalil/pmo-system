@@ -4998,276 +4998,284 @@
     </div>
             </div><!-- close project-detail view -->
 
-            <!-- ============ SUPER ADMIN DASHBOARD ============ -->
-            <div x-show="route === 'super-admin' && !selectedTenantDetail" x-cloak class="view-enter space-y-6 max-w-7xl">
+            <!-- ============ ADMIN: DASHBOARD ============ -->
+            <div x-show="route === 'admin-dashboard' && !selectedTenantDetail" x-cloak class="view-enter space-y-6 max-w-7xl">
                 <!-- Header -->
                 <div class="flex items-center justify-between">
                     <div>
-                        <h1 class="text-[28px] font-bold text-ink-900 tracking-tight">PMO System Admin</h1>
-                        <p class="text-[14px] text-ink-500 mt-1.5">Manage tenants, plans, and system-wide insights.</p>
+                        <h1 class="text-[28px] font-bold text-ink-900 tracking-tight">Dashboard</h1>
+                        <p class="text-[14px] text-ink-500 mt-1.5">System-wide insights and statistics.</p>
                     </div>
-                    <button @click="loadAdminInsights(); loadAdminPlans()" class="text-[13px] font-medium text-ink-600 hover:text-ink-800 bg-ink-100 hover:bg-ink-200 px-4 py-2 rounded-xl transition-all">Refresh</button>
+                    <button @click="loadAdminInsights()" class="text-[13px] font-medium text-ink-600 hover:text-ink-800 bg-ink-100 hover:bg-ink-200 px-4 py-2 rounded-xl transition-all">Refresh</button>
                 </div>
 
-                <!-- Tab navigation -->
-                <div class="flex items-center gap-1 border-b border-ink-200/60">
-                    <button @click="adminTab = 'dashboard'" :class="adminTab === 'dashboard' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Dashboard</button>
-                    <button @click="adminTab = 'tenants'" :class="adminTab === 'tenants' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Tenants</button>
-                    <button @click="adminTab = 'plans'" :class="adminTab === 'plans' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Plans</button>
+                <!-- Stats cards -->
+                <div class="grid grid-cols-4 gap-4" x-show="adminInsights">
+                    <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                        <div class="text-[12px] font-semibold text-ink-400 uppercase tracking-wider">Total Tenants</div>
+                        <div class="text-[32px] font-bold text-ink-900 mt-1" x-text="adminInsights?.totals?.tenants || 0"></div>
+                        <div class="text-[11px] text-emerald-600 mt-1"><span x-text="adminInsights?.totals?.active_tenants || 0"></span> active · <span x-text="adminInsights?.totals?.suspended_tenants || 0"></span> suspended</div>
+                    </div>
+                    <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                        <div class="text-[12px] font-semibold text-ink-400 uppercase tracking-wider">Total Users</div>
+                        <div class="text-[32px] font-bold text-ink-900 mt-1" x-text="adminInsights?.totals?.members || 0"></div>
+                        <div class="text-[11px] text-ink-400 mt-1">across all tenants</div>
+                    </div>
+                    <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                        <div class="text-[12px] font-semibold text-ink-400 uppercase tracking-wider">Total Projects</div>
+                        <div class="text-[32px] font-bold text-ink-900 mt-1" x-text="adminInsights?.totals?.projects || 0"></div>
+                        <div class="text-[11px] text-ink-400 mt-1"><span x-text="adminInsights?.totals?.releases || 0"></span> releases</div>
+                    </div>
+                    <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                        <div class="text-[12px] font-semibold text-ink-400 uppercase tracking-wider">Backlog Items</div>
+                        <div class="text-[32px] font-bold text-ink-900 mt-1" x-text="adminInsights?.totals?.backlog_items || 0"></div>
+                        <div class="text-[11px] text-ink-400 mt-1"><span x-text="adminInsights?.totals?.api_keys || 0"></span> API keys</div>
+                    </div>
                 </div>
 
-                <!-- ════ DASHBOARD TAB ════ -->
-                <div x-show="adminTab === 'dashboard'" class="space-y-6">
-                    <!-- Stats cards -->
-                    <div class="grid grid-cols-4 gap-4" x-show="adminInsights">
-                        <div class="surface rounded-2xl border border-ink-200/60 p-5">
-                            <div class="text-[12px] font-semibold text-ink-400 uppercase tracking-wider">Total Tenants</div>
-                            <div class="text-[32px] font-bold text-ink-900 mt-1" x-text="adminInsights?.totals?.tenants || 0"></div>
-                            <div class="text-[11px] text-emerald-600 mt-1"><span x-text="adminInsights?.totals?.active_tenants || 0"></span> active · <span x-text="adminInsights?.totals?.suspended_tenants || 0"></span> suspended</div>
-                        </div>
-                        <div class="surface rounded-2xl border border-ink-200/60 p-5">
-                            <div class="text-[12px] font-semibold text-ink-400 uppercase tracking-wider">Total Users</div>
-                            <div class="text-[32px] font-bold text-ink-900 mt-1" x-text="adminInsights?.totals?.members || 0"></div>
-                            <div class="text-[11px] text-ink-400 mt-1">across all tenants</div>
-                        </div>
-                        <div class="surface rounded-2xl border border-ink-200/60 p-5">
-                            <div class="text-[12px] font-semibold text-ink-400 uppercase tracking-wider">Total Projects</div>
-                            <div class="text-[32px] font-bold text-ink-900 mt-1" x-text="adminInsights?.totals?.projects || 0"></div>
-                            <div class="text-[11px] text-ink-400 mt-1"><span x-text="adminInsights?.totals?.releases || 0"></span> releases</div>
-                        </div>
-                        <div class="surface rounded-2xl border border-ink-200/60 p-5">
-                            <div class="text-[12px] font-semibold text-ink-400 uppercase tracking-wider">Backlog Items</div>
-                            <div class="text-[32px] font-bold text-ink-900 mt-1" x-text="adminInsights?.totals?.backlog_items || 0"></div>
-                            <div class="text-[11px] text-ink-400 mt-1"><span x-text="adminInsights?.totals?.api_keys || 0"></span> API keys</div>
-                        </div>
+                <!-- Plan distribution -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-5" x-show="adminInsights">
+                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Plan Distribution</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <template x-for="(count, plan) in (adminInsights?.plan_distribution || {})" :key="plan">
+                            <div class="bg-ink-100/60 rounded-xl p-3 text-center">
+                                <div class="text-[11px] font-bold uppercase tracking-wider text-ink-600" x-text="plan"></div>
+                                <div class="text-[24px] font-bold text-ink-900 mt-1" x-text="count"></div>
+                                <div class="text-[10px] text-ink-400 mt-0.5" x-text="count === 1 ? 'tenant' : 'tenants'"></div>
+                            </div>
+                        </template>
                     </div>
+                </div>
 
-                    <!-- Plan distribution -->
-                    <div class="surface rounded-2xl border border-ink-200/60 p-5" x-show="adminInsights">
-                        <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Plan Distribution</h3>
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            <template x-for="(count, plan) in (adminInsights?.plan_distribution || {})" :key="plan">
-                                <div class="bg-ink-100/60 rounded-xl p-3 text-center">
-                                    <div class="text-[11px] font-bold uppercase tracking-wider text-ink-600" x-text="plan"></div>
-                                    <div class="text-[24px] font-bold text-ink-900 mt-1" x-text="count"></div>
-                                    <div class="text-[10px] text-ink-400 mt-0.5" x-text="count === 1 ? 'tenant' : 'tenants'"></div>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-
-                    <!-- Per-tenant usage breakdown -->
-                    <div class="surface rounded-2xl border border-ink-200/60 p-5" x-show="adminInsights">
-                        <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Tenant Usage Overview</h3>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-[12px]">
-                                <thead>
-                                    <tr class="text-left text-[10px] font-semibold text-ink-400 uppercase tracking-wider border-b border-ink-100">
-                                        <th class="pb-2 pr-4">Tenant</th>
-                                        <th class="pb-2 pr-4">Plan</th>
-                                        <th class="pb-2 pr-4">Status</th>
-                                        <th class="pb-2 pr-4 text-center">Users</th>
-                                        <th class="pb-2 pr-4 text-center">Projects</th>
-                                        <th class="pb-2 pr-4 text-center">Releases</th>
-                                        <th class="pb-2 pr-4 text-center">Backlog</th>
-                                        <th class="pb-2 pr-4">Created</th>
+                <!-- Per-tenant usage breakdown -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-5" x-show="adminInsights">
+                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Tenant Usage Overview</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-[12px]">
+                            <thead>
+                                <tr class="text-left text-[10px] font-semibold text-ink-400 uppercase tracking-wider border-b border-ink-100">
+                                    <th class="pb-2 pr-4">Tenant</th>
+                                    <th class="pb-2 pr-4">Plan</th>
+                                    <th class="pb-2 pr-4">Status</th>
+                                    <th class="pb-2 pr-4 text-center">Users</th>
+                                    <th class="pb-2 pr-4 text-center">Projects</th>
+                                    <th class="pb-2 pr-4 text-center">Releases</th>
+                                    <th class="pb-2 pr-4 text-center">Backlog</th>
+                                    <th class="pb-2 pr-4">Created</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="t in (adminInsights?.tenants || [])" :key="t.id">
+                                    <tr class="border-b border-ink-100/60 hover:bg-ink-50/50 transition-colors cursor-pointer" @click="loadTenantDetail(t.id)">
+                                        <td class="py-2.5 pr-4 font-semibold text-ink-900" x-text="t.name"></td>
+                                        <td class="py-2.5 pr-4">
+                                            <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider bg-ink-100 text-ink-600" x-text="t.plan"></span>
+                                        </td>
+                                        <td class="py-2.5 pr-4">
+                                            <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider"
+                                                  :class="{'bg-emerald-100 text-emerald-700': t.status === 'active', 'bg-rose-100 text-rose-700': t.status === 'suspended', 'bg-ink-200 text-ink-500': t.status === 'cancelled'}"
+                                                  x-text="t.status"></span>
+                                        </td>
+                                        <td class="py-2.5 pr-4 text-center font-medium text-ink-700" x-text="t.members"></td>
+                                        <td class="py-2.5 pr-4 text-center font-medium text-ink-700" x-text="t.projects"></td>
+                                        <td class="py-2.5 pr-4 text-center font-medium text-ink-700" x-text="t.releases"></td>
+                                        <td class="py-2.5 pr-4 text-center font-medium text-ink-700" x-text="t.backlog_items"></td>
+                                        <td class="py-2.5 pr-4 text-[10px] text-ink-400" x-text="t.created_at ? new Date(t.created_at).toLocaleDateString() : ''"></td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    <template x-for="t in (adminInsights?.tenants || [])" :key="t.id">
-                                        <tr class="border-b border-ink-100/60 hover:bg-ink-50/50 transition-colors cursor-pointer" @click="loadTenantDetail(t.id)">
-                                            <td class="py-2.5 pr-4 font-semibold text-ink-900" x-text="t.name"></td>
-                                            <td class="py-2.5 pr-4">
-                                                <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider bg-ink-100 text-ink-600" x-text="t.plan"></span>
-                                            </td>
-                                            <td class="py-2.5 pr-4">
-                                                <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider"
-                                                      :class="{'bg-emerald-100 text-emerald-700': t.status === 'active', 'bg-rose-100 text-rose-700': t.status === 'suspended', 'bg-ink-200 text-ink-500': t.status === 'cancelled'}"
-                                                      x-text="t.status"></span>
-                                            </td>
-                                            <td class="py-2.5 pr-4 text-center font-medium text-ink-700" x-text="t.members"></td>
-                                            <td class="py-2.5 pr-4 text-center font-medium text-ink-700" x-text="t.projects"></td>
-                                            <td class="py-2.5 pr-4 text-center font-medium text-ink-700" x-text="t.releases"></td>
-                                            <td class="py-2.5 pr-4 text-center font-medium text-ink-700" x-text="t.backlog_items"></td>
-                                            <td class="py-2.5 pr-4 text-[10px] text-ink-400" x-text="t.created_at ? new Date(t.created_at).toLocaleDateString() : ''"></td>
-                                        </tr>
-                                    </template>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ════ TENANTS TAB ════ -->
-                <div x-show="adminTab === 'tenants'" class="space-y-6">
-                    <!-- Create new tenant -->
-                    <div class="flex justify-end mb-3">
-                        <button @click="showCreateTenantForm = !showCreateTenantForm" class="inline-flex items-center gap-1.5 text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-all"
-                                x-text="showCreateTenantForm ? 'Close' : '+ Add Tenant'"></button>
-                    </div>
-                    <div x-show="showCreateTenantForm" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
-                        <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Create New Tenant</h3>
-                        <div class="grid grid-cols-3 gap-3">
-                            <input x-model="newTenantForm.tenant_name" class="input-premium text-[13px] rounded-[10px]" placeholder="Company name">
-                            <input x-model="newTenantForm.owner_name" class="input-premium text-[13px] rounded-[10px]" placeholder="Owner name">
-                            <input x-model="newTenantForm.owner_email" type="email" class="input-premium text-[13px] rounded-[10px]" placeholder="Owner email">
-                            <input x-model="newTenantForm.owner_password" type="password" class="input-premium text-[13px] rounded-[10px]" placeholder="Password (min 8 chars)">
-                            <select x-model="newTenantForm.plan_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white">
-                                <option value="" selected disabled>Select Plan</option>
-                                <template x-for="p in (adminPlans || [])" :key="p.id">
-                                    <option :value="p.id" x-text="p.name + ' (' + p.max_users + ' users, ' + p.max_projects + ' projects)'"></option>
                                 </template>
-                            </select>
-                            <button @click="createTenant()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Create Tenant</button>
-                        </div>
-                    </div>
-
-                    <!-- All tenants table -->
-                    <div class="surface rounded-2xl border border-ink-200/60 p-6">
-                        <h3 class="text-[14px] font-semibold text-ink-800 mb-4">All Tenants</h3>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-[13px]">
-                                <thead>
-                                    <tr class="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider border-b border-ink-100">
-                                        <th class="pb-3 pr-4">Tenant</th>
-                                        <th class="pb-3 pr-4">Plan</th>
-                                        <th class="pb-3 pr-4">Status</th>
-                                        <th class="pb-3 pr-4 text-center">Members</th>
-                                        <th class="pb-3 pr-4 text-center">Projects</th>
-                                        <th class="pb-3 pr-4 text-center">Releases</th>
-                                        <th class="pb-3 pr-4 text-center">Backlog</th>
-                                        <th class="pb-3 pr-4">Created</th>
-                                        <th class="pb-3">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <template x-for="t in (adminInsights?.tenants || [])" :key="t.id">
-                                        <tr class="border-b border-ink-100/60 hover:bg-ink-50/50 transition-colors cursor-pointer" @click="loadTenantDetail(t.id)">
-                                            <td class="py-3 pr-4">
-                                                <div class="font-semibold text-ink-900" x-text="t.name"></div>
-                                                <div class="text-[11px] text-ink-400" x-text="t.slug"></div>
-                                            </td>
-                                            <td class="py-3 pr-4">
-                                                <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider bg-ink-100 text-ink-600" x-text="t.plan"></span>
-                                            </td>
-                                            <td class="py-3 pr-4">
-                                                <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider"
-                                                      :class="{'bg-emerald-100 text-emerald-700': t.status === 'active', 'bg-rose-100 text-rose-700': t.status === 'suspended', 'bg-ink-200 text-ink-500': t.status === 'cancelled'}"
-                                                      x-text="t.status"></span>
-                                            </td>
-                                            <td class="py-3 pr-4 text-center font-medium text-ink-700" x-text="t.members"></td>
-                                            <td class="py-3 pr-4 text-center font-medium text-ink-700" x-text="t.projects"></td>
-                                            <td class="py-3 pr-4 text-center font-medium text-ink-700" x-text="t.releases"></td>
-                                            <td class="py-3 pr-4 text-center font-medium text-ink-700" x-text="t.backlog_items"></td>
-                                            <td class="py-3 pr-4 text-[11px] text-ink-400" x-text="t.created_at ? new Date(t.created_at).toLocaleDateString() : ''"></td>
-                                            <td class="py-3" @click.stop>
-                                                <div class="flex items-center gap-1">
-                                                    <select @change="assignTenantPlan(t.id, $event.target.value); $event.target.value=''" class="text-[10px] border border-ink-200/60 rounded-lg px-2 py-1 bg-white" x-cloak>
-                                                        <option value="" selected disabled>Plan</option>
-                                                        <template x-for="p in (adminPlans || [])" :key="p.id">
-                                                            <option :value="p.id" x-text="p.name"></option>
-                                                        </template>
-                                                    </select>
-                                                    <select @change="updateTenantStatus(t.id, $event.target.value); $event.target.value=''" class="text-[10px] border border-ink-200/60 rounded-lg px-2 py-1 bg-white" x-cloak>
-                                                        <option value="" selected disabled>Status</option>
-                                                        <option value="active">Activate</option>
-                                                        <option value="suspended">Suspend</option>
-                                                        <option value="cancelled">Cancel</option>
-                                                    </select>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    </template>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="text-[11px] text-ink-400 mt-3 text-center">Click a tenant row to view full details</div>
-                    </div>
-                </div>
-
-                <!-- ════ PLANS TAB ════ -->
-                <div x-show="adminTab === 'plans'" class="space-y-6">
-                    <!-- Add plan button -->
-                    <div class="flex justify-end mb-3">
-                        <button @click="showPlanForm = !showPlanForm" class="inline-flex items-center gap-1.5 text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-all"
-                                x-text="showPlanForm ? 'Close' : '+ Add Plan'"></button>
-                    </div>
-
-                    <!-- Add/Edit plan form -->
-                    <div x-show="showPlanForm" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
-                        <h3 class="text-[14px] font-semibold text-ink-800 mb-4" x-text="editingPlanId ? 'Edit Plan' : 'Create New Plan'"></h3>
-                        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                            <input x-model="planForm.name" class="input-premium text-[13px] rounded-[10px]" placeholder="Plan name (e.g., Free, Team)">
-                            <input x-model="planForm.description" class="input-premium text-[13px] rounded-[10px]" placeholder="Description">
-                            <input x-model="planForm.price_monthly" type="number" min="0" class="input-premium text-[13px] rounded-[10px]" placeholder="Monthly price (SAR)">
-                            <input x-model="planForm.price_yearly" type="number" min="0" class="input-premium text-[13px] rounded-[10px]" placeholder="Yearly price (SAR)">
-                            <input x-model="planForm.max_users" type="number" min="1" class="input-premium text-[13px] rounded-[10px]" placeholder="Max users (999999 = unlimited)">
-                            <input x-model="planForm.max_projects" type="number" min="1" class="input-premium text-[13px] rounded-[10px]" placeholder="Max projects (999999 = unlimited)">
-                            <input x-model="planForm.sort_order" type="number" min="0" class="input-premium text-[13px] rounded-[10px]" placeholder="Sort order">
-                            <label class="flex items-center gap-2 text-[12px] text-ink-600">
-                                <input type="checkbox" x-model="planForm.is_active" class="rounded"> Active
-                            </label>
-                        </div>
-                        <div class="flex items-center gap-2 mt-4">
-                            <button @click="savePlan()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all" x-text="editingPlanId ? 'Update Plan' : 'Create Plan'"></button>
-                            <button @click="showPlanForm = false; editingPlanId = null; resetPlanForm()" class="text-[13px] text-ink-500 hover:text-ink-800 px-3 py-2">Cancel</button>
-                        </div>
-                    </div>
-
-                    <!-- Plans table -->
-                    <div class="surface rounded-2xl border border-ink-200/60 p-6">
-                        <h3 class="text-[14px] font-semibold text-ink-800 mb-4">All Plans</h3>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-[13px]">
-                                <thead>
-                                    <tr class="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider border-b border-ink-100">
-                                        <th class="pb-3 pr-4">Plan</th>
-                                        <th class="pb-3 pr-4">Users</th>
-                                        <th class="pb-3 pr-4">Projects</th>
-                                        <th class="pb-3 pr-4">Monthly</th>
-                                        <th class="pb-3 pr-4">Yearly</th>
-                                        <th class="pb-3 pr-4 text-center">Tenants</th>
-                                        <th class="pb-3 pr-4">Status</th>
-                                        <th class="pb-3">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <template x-for="p in (adminPlans || [])" :key="p.id">
-                                        <tr class="border-b border-ink-100/60 hover:bg-ink-50/50 transition-colors">
-                                            <td class="py-3 pr-4">
-                                                <div class="font-semibold text-ink-900" x-text="p.name"></div>
-                                                <div class="text-[10px] text-ink-400" x-text="p.description"></div>
-                                            </td>
-                                            <td class="py-3 pr-4 text-ink-700" x-text="p.max_users >= 999999 ? '∞' : p.max_users"></td>
-                                            <td class="py-3 pr-4 text-ink-700" x-text="p.max_projects >= 999999 ? '∞' : p.max_projects"></td>
-                                            <td class="py-3 pr-4 text-ink-700" x-text="p.price_monthly > 0 ? p.price_monthly + ' SAR' : 'Free'"></td>
-                                            <td class="py-3 pr-4 text-ink-700" x-text="p.price_yearly > 0 ? p.price_yearly + ' SAR' : '—'"></td>
-                                            <td class="py-3 pr-4 text-center font-medium text-ink-700" x-text="p.tenant_count || 0"></td>
-                                            <td class="py-3 pr-4">
-                                                <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider"
-                                                      :class="p.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-ink-200 text-ink-500'"
-                                                      x-text="p.is_active ? 'Active' : 'Inactive'"></span>
-                                            </td>
-                                            <td class="py-3" @click.stop>
-                                                <div class="flex items-center gap-1">
-                                                    <button @click="editPlan(p)" class="text-[10px] font-medium text-brand-600 hover:bg-brand-50 px-2 py-1 rounded-lg transition-colors">Edit</button>
-                                                    <button @click="deletePlan(p.id, p.name)" x-show="(p.tenant_count || 0) === 0" class="text-[10px] font-medium text-rose-600 hover:bg-rose-50 px-2 py-1 rounded-lg transition-colors">Delete</button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    </template>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div x-show="adminPlans && adminPlans.length === 0" class="text-center py-8 text-[13px] text-ink-400">No plans yet. Click "+ Add Plan" to create one.</div>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
 
-            <!-- ============ SUPER ADMIN: TENANT DETAIL ============ -->
-            <div x-show="route === 'super-admin' && selectedTenantDetail" x-cloak class="view-enter space-y-6 max-w-7xl">
+            <!-- ============ ADMIN: TENANTS ============ -->
+            <div x-show="route === 'admin-tenants' && !selectedTenantDetail" x-cloak class="view-enter space-y-6 max-w-7xl">
+                <!-- Header -->
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-[28px] font-bold text-ink-900 tracking-tight">Tenants</h1>
+                        <p class="text-[14px] text-ink-500 mt-1.5">Manage all tenant organizations.</p>
+                    </div>
+                    <button @click="loadAdminInsights(); loadAdminPlans()" class="text-[13px] font-medium text-ink-600 hover:text-ink-800 bg-ink-100 hover:bg-ink-200 px-4 py-2 rounded-xl transition-all">Refresh</button>
+                </div>
+
+                <!-- Create new tenant -->
+                <div class="flex justify-end mb-3">
+                    <button @click="showCreateTenantForm = !showCreateTenantForm" class="inline-flex items-center gap-1.5 text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-all"
+                            x-text="showCreateTenantForm ? 'Close' : '+ Add Tenant'"></button>
+                </div>
+                <div x-show="showCreateTenantForm" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Create New Tenant</h3>
+                    <div class="grid grid-cols-3 gap-3">
+                        <input x-model="newTenantForm.tenant_name" class="input-premium text-[13px] rounded-[10px]" placeholder="Company name">
+                        <input x-model="newTenantForm.owner_name" class="input-premium text-[13px] rounded-[10px]" placeholder="Owner name">
+                        <input x-model="newTenantForm.owner_email" type="email" class="input-premium text-[13px] rounded-[10px]" placeholder="Owner email">
+                        <input x-model="newTenantForm.owner_password" type="password" class="input-premium text-[13px] rounded-[10px]" placeholder="Password (min 8 chars)">
+                        <select x-model="newTenantForm.plan_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white">
+                            <option value="" selected disabled>Select Plan</option>
+                            <template x-for="p in (adminPlans || [])" :key="p.id">
+                                <option :value="p.id" x-text="p.name + ' (' + p.max_users + ' users, ' + p.max_projects + ' projects)'"></option>
+                            </template>
+                        </select>
+                        <button @click="createTenant()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Create Tenant</button>
+                    </div>
+                </div>
+
+                <!-- All tenants table -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">All Tenants</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-[13px]">
+                            <thead>
+                                <tr class="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider border-b border-ink-100">
+                                    <th class="pb-3 pr-4">Tenant</th>
+                                    <th class="pb-3 pr-4">Plan</th>
+                                    <th class="pb-3 pr-4">Status</th>
+                                    <th class="pb-3 pr-4 text-center">Members</th>
+                                    <th class="pb-3 pr-4 text-center">Projects</th>
+                                    <th class="pb-3 pr-4 text-center">Releases</th>
+                                    <th class="pb-3 pr-4 text-center">Backlog</th>
+                                    <th class="pb-3 pr-4">Created</th>
+                                    <th class="pb-3">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="t in (adminInsights?.tenants || [])" :key="t.id">
+                                    <tr class="border-b border-ink-100/60 hover:bg-ink-50/50 transition-colors cursor-pointer" @click="loadTenantDetail(t.id)">
+                                        <td class="py-3 pr-4">
+                                            <div class="font-semibold text-ink-900" x-text="t.name"></div>
+                                            <div class="text-[11px] text-ink-400" x-text="t.slug"></div>
+                                        </td>
+                                        <td class="py-3 pr-4">
+                                            <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider bg-ink-100 text-ink-600" x-text="t.plan"></span>
+                                        </td>
+                                        <td class="py-3 pr-4">
+                                            <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider"
+                                                  :class="{'bg-emerald-100 text-emerald-700': t.status === 'active', 'bg-rose-100 text-rose-700': t.status === 'suspended', 'bg-ink-200 text-ink-500': t.status === 'cancelled'}"
+                                                  x-text="t.status"></span>
+                                        </td>
+                                        <td class="py-3 pr-4 text-center font-medium text-ink-700" x-text="t.members"></td>
+                                        <td class="py-3 pr-4 text-center font-medium text-ink-700" x-text="t.projects"></td>
+                                        <td class="py-3 pr-4 text-center font-medium text-ink-700" x-text="t.releases"></td>
+                                        <td class="py-3 pr-4 text-center font-medium text-ink-700" x-text="t.backlog_items"></td>
+                                        <td class="py-3 pr-4 text-[11px] text-ink-400" x-text="t.created_at ? new Date(t.created_at).toLocaleDateString() : ''"></td>
+                                        <td class="py-3" @click.stop>
+                                            <div class="flex items-center gap-1">
+                                                <select @change="assignTenantPlan(t.id, $event.target.value); $event.target.value=''" class="text-[10px] border border-ink-200/60 rounded-lg px-2 py-1 bg-white" x-cloak>
+                                                    <option value="" selected disabled>Plan</option>
+                                                    <template x-for="p in (adminPlans || [])" :key="p.id">
+                                                        <option :value="p.id" x-text="p.name"></option>
+                                                    </template>
+                                                </select>
+                                                <select @change="updateTenantStatus(t.id, $event.target.value); $event.target.value=''" class="text-[10px] border border-ink-200/60 rounded-lg px-2 py-1 bg-white" x-cloak>
+                                                    <option value="" selected disabled>Status</option>
+                                                    <option value="active">Activate</option>
+                                                    <option value="suspended">Suspend</option>
+                                                    <option value="cancelled">Cancel</option>
+                                                </select>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="text-[11px] text-ink-400 mt-3 text-center">Click a tenant row to view full details</div>
+                </div>
+            </div>
+
+            <!-- ============ ADMIN: PLANS ============ -->
+            <div x-show="route === 'admin-plans' && !selectedTenantDetail" x-cloak class="view-enter space-y-6 max-w-7xl">
+                <!-- Header -->
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-[28px] font-bold text-ink-900 tracking-tight">Plans</h1>
+                        <p class="text-[14px] text-ink-500 mt-1.5">Manage subscription plans and resource limits.</p>
+                    </div>
+                    <button @click="loadAdminPlans()" class="text-[13px] font-medium text-ink-600 hover:text-ink-800 bg-ink-100 hover:bg-ink-200 px-4 py-2 rounded-xl transition-all">Refresh</button>
+                </div>
+
+                <!-- Add plan button -->
+                <div class="flex justify-end mb-3">
+                    <button @click="showPlanForm = !showPlanForm" class="inline-flex items-center gap-1.5 text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-all"
+                            x-text="showPlanForm ? 'Close' : '+ Add Plan'"></button>
+                </div>
+
+                <!-- Add/Edit plan form -->
+                <div x-show="showPlanForm" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4" x-text="editingPlanId ? 'Edit Plan' : 'Create New Plan'"></h3>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        <input x-model="planForm.name" class="input-premium text-[13px] rounded-[10px]" placeholder="Plan name (e.g., Free, Team)">
+                        <input x-model="planForm.description" class="input-premium text-[13px] rounded-[10px]" placeholder="Description">
+                        <input x-model="planForm.price_monthly" type="number" min="0" class="input-premium text-[13px] rounded-[10px]" placeholder="Monthly price (SAR)">
+                        <input x-model="planForm.price_yearly" type="number" min="0" class="input-premium text-[13px] rounded-[10px]" placeholder="Yearly price (SAR)">
+                        <input x-model="planForm.max_users" type="number" min="1" class="input-premium text-[13px] rounded-[10px]" placeholder="Max users (999999 = unlimited)">
+                        <input x-model="planForm.max_projects" type="number" min="1" class="input-premium text-[13px] rounded-[10px]" placeholder="Max projects (999999 = unlimited)">
+                        <input x-model="planForm.sort_order" type="number" min="0" class="input-premium text-[13px] rounded-[10px]" placeholder="Sort order">
+                        <label class="flex items-center gap-2 text-[12px] text-ink-600">
+                            <input type="checkbox" x-model="planForm.is_active" class="rounded"> Active
+                        </label>
+                    </div>
+                    <div class="flex items-center gap-2 mt-4">
+                        <button @click="savePlan()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all" x-text="editingPlanId ? 'Update Plan' : 'Create Plan'"></button>
+                        <button @click="showPlanForm = false; editingPlanId = null; resetPlanForm()" class="text-[13px] text-ink-500 hover:text-ink-800 px-3 py-2">Cancel</button>
+                    </div>
+                </div>
+
+                <!-- Plans table -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">All Plans</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-[13px]">
+                            <thead>
+                                <tr class="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider border-b border-ink-100">
+                                    <th class="pb-3 pr-4">Plan</th>
+                                    <th class="pb-3 pr-4">Users</th>
+                                    <th class="pb-3 pr-4">Projects</th>
+                                    <th class="pb-3 pr-4">Monthly</th>
+                                    <th class="pb-3 pr-4">Yearly</th>
+                                    <th class="pb-3 pr-4 text-center">Tenants</th>
+                                    <th class="pb-3 pr-4">Status</th>
+                                    <th class="pb-3">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="p in (adminPlans || [])" :key="p.id">
+                                    <tr class="border-b border-ink-100/60 hover:bg-ink-50/50 transition-colors">
+                                        <td class="py-3 pr-4">
+                                            <div class="font-semibold text-ink-900" x-text="p.name"></div>
+                                            <div class="text-[10px] text-ink-400" x-text="p.description"></div>
+                                        </td>
+                                        <td class="py-3 pr-4 text-ink-700" x-text="p.max_users >= 999999 ? '∞' : p.max_users"></td>
+                                        <td class="py-3 pr-4 text-ink-700" x-text="p.max_projects >= 999999 ? '∞' : p.max_projects"></td>
+                                        <td class="py-3 pr-4 text-ink-700" x-text="p.price_monthly > 0 ? p.price_monthly + ' SAR' : 'Free'"></td>
+                                        <td class="py-3 pr-4 text-ink-700" x-text="p.price_yearly > 0 ? p.price_yearly + ' SAR' : '—'"></td>
+                                        <td class="py-3 pr-4 text-center font-medium text-ink-700" x-text="p.tenant_count || 0"></td>
+                                        <td class="py-3 pr-4">
+                                            <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider"
+                                                  :class="p.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-ink-200 text-ink-500'"
+                                                  x-text="p.is_active ? 'Active' : 'Inactive'"></span>
+                                        </td>
+                                        <td class="py-3" @click.stop>
+                                            <div class="flex items-center gap-1">
+                                                <button @click="editPlan(p)" class="text-[10px] font-medium text-brand-600 hover:bg-brand-50 px-2 py-1 rounded-lg transition-colors">Edit</button>
+                                                <button @click="deletePlan(p.id, p.name)" x-show="(p.tenant_count || 0) === 0" class="text-[10px] font-medium text-rose-600 hover:bg-rose-50 px-2 py-1 rounded-lg transition-colors">Delete</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div x-show="adminPlans && adminPlans.length === 0" class="text-center py-8 text-[13px] text-ink-400">No plans yet. Click "+ Add Plan" to create one.</div>
+                </div>
+            </div>
+
+            <!-- ============ ADMIN: TENANT DETAIL ============ -->
+            <div x-show="(route === 'admin-dashboard' || route === 'admin-tenants' || route === 'admin-plans') && selectedTenantDetail" x-cloak class="view-enter space-y-6 max-w-7xl">
                 <!-- Back button -->
-                <button @click="selectedTenantDetail = null" class="text-[13px] font-medium text-brand-600 hover:text-brand-700 flex items-center gap-1">
+                <button @click="selectedTenantDetail = null; route = 'admin-tenants'" class="text-[13px] font-medium text-brand-600 hover:text-brand-700 flex items-center gap-1">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
                     Back to all tenants
                 </button>
@@ -6452,7 +6460,9 @@ function pmoApp() {
         monthWidth: 80,  // base px per month at zoom=1
 
         navItems: [
-            { id: 'super-admin', label: 'Tenant Management', group: 'admin', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>' },
+            { id: 'admin-dashboard', label: 'Dashboard', group: 'admin', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>' },
+            { id: 'admin-tenants', label: 'Tenants', group: 'admin', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>' },
+            { id: 'admin-plans', label: 'Plans', group: 'admin', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>' },
             { id: 'dashboard', label: 'Dashboard', group: 'workspace', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>' },
             { id: 'clients', label: 'Clients', group: 'workspace', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>' },
             { id: 'projects', label: 'Projects', group: 'workspace', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/></svg>' },
@@ -6656,7 +6666,7 @@ function pmoApp() {
                 if (this.isSuperAdmin) {
                     // Super admin: load admin dashboard, skip tenant data
                     this.resetBranding();  // Super admin: no tenant branding
-                    this.route = 'super-admin';
+                    this.route = 'admin-dashboard';
                     await this.loadAdminInsights();
                     await this.loadAdminPlans();
                 } else {
@@ -7419,7 +7429,7 @@ function pmoApp() {
                 this.loginForm = { email: '', password: '' };
                 if (user.system_role === 'super_admin') {
                     this.resetBranding();  // Super admin: no tenant branding
-                    this.route = 'super-admin';
+                    this.route = 'admin-dashboard';
                     await this.loadAdminInsights();
                     await this.loadAdminPlans();
                 } else {
@@ -7480,7 +7490,7 @@ function pmoApp() {
             if (route === 'dashboard') { setTimeout(() => this.renderCharts(), 150); this.refreshTaskSummary(); }
             if (route === 'tasks') { this.loadTasks(); }
             if (route === 'settings') { this.loadTenant(); this.loadMembers(); this.loadIntegrations(); this.loadTenantLimits(); }
-            if (route === 'super-admin') { this.loadAdminInsights(); this.loadAdminPlans(); }
+            if (route === 'admin-dashboard' || route === 'admin-tenants' || route === 'admin-plans') { this.loadAdminInsights(); this.loadAdminPlans(); }
         },
 
         async loadAllRoadmaps() {

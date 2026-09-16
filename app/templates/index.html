@@ -4026,15 +4026,41 @@
                             </div>
                         </template>
                     </div>
-                    <!-- Add from backlog -->
-                    <div class="mt-3">
-                        <select @change="if($event.target.value) { addBacklogToRelease(selectedRelease.id, parseInt($event.target.value)); $event.target.value=''; }"
-                                class="w-full input-premium text-[12px] bg-white">
-                            <option value="">+ Add backlog item to release...</option>
-                            <template x-for="item in backlogItems" :key="item.id">
-                                <option :value="item.id" x-text="item.title"></option>
+                    <!-- Add from backlog (searchable) -->
+                    <div class="mt-3 relative">
+                        <div class="relative">
+                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            <input x-model="releaseItemSearch"
+                                   @focus="showReleaseItemSearch = true"
+                                   @click.outside="showReleaseItemSearch = false"
+                                   type="text"
+                                   class="input-premium w-full text-[13px] rounded-[10px] px-3 py-2 pl-9"
+                                   placeholder="Search backlog items to add...">
+                        </div>
+                        <div x-show="showReleaseItemSearch && releaseItemSearch"
+                             class="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto bg-white rounded-xl border border-ink-200/60 shadow-lg">
+                            <template x-for="item in backlogItems.filter(i =>
+                                !((selectedRelease?.items || []).some(ri => ri.id === i.id))
+                                && i.title.toLowerCase().includes(releaseItemSearch.toLowerCase())
+                            ).slice(0, 20)" :key="item.id">
+                                <button @click="addBacklogToRelease(selectedRelease.id, item.id); releaseItemSearch = ''; showReleaseItemSearch = false"
+                                        class="w-full text-left px-3 py-2 text-[12px] hover:bg-brand-50 transition-colors border-b border-ink-100/60 last:border-0">
+                                    <div class="font-medium text-ink-800" x-text="item.title"></div>
+                                    <div class="text-[10px] text-ink-400 flex items-center gap-2 mt-0.5">
+                                        <span x-show="item.epic" x-text="item.epic"></span>
+                                        <span x-show="item.priority" x-text="'· ' + item.priority"></span>
+                                        <span x-show="item.story_points" x-text="'· ' + item.story_points + 'pts'"></span>
+                                    </div>
+                                </button>
                             </template>
-                        </select>
+                            <div x-show="backlogItems.filter(i =>
+                                !((selectedRelease?.items || []).some(ri => ri.id === i.id))
+                                && i.title.toLowerCase().includes(releaseItemSearch.toLowerCase())
+                            ).length === 0"
+                                 class="px-3 py-4 text-[12px] text-ink-400 text-center">
+                                No matching items
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -6298,6 +6324,8 @@ function pmoApp() {
         backlogItems: [],
         backlogFormMode: 'feature',  // 'feature' or 'epic'
         backlogSearch: '',  // search query for backlog items
+        releaseItemSearch: '',  // search query for adding backlog items to release
+        showReleaseItemSearch: false,
         phaseFilter: null,  // filter backlog by phase
         get phaseCounts() {
             const counts = {};
@@ -8636,6 +8664,8 @@ function pmoApp() {
             try {
                 this.selectedRelease = await this.api('GET', `/releases/${release.id}`);
                 this.sharedWith = null;
+                this.releaseItemSearch = '';
+                this.showReleaseItemSearch = false;
             } catch (e) { this.showToast(e.message, 'error'); }
         },
 

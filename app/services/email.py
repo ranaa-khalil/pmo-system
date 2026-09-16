@@ -1,25 +1,53 @@
-"""Email service — sends emails via SMTP (Gmail, Outlook, etc.)."""
+"""Email service — sends emails via Resend API or SMTP fallback."""
 import smtplib
+import urllib.request
+import json
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 from app.config import settings
 
 
-def send_email(to_email: str, subject: str, html_body: str, text_body: str = "") -> bool:
-    """Send an email via SMTP. Returns True on success, False on failure."""
-    if not settings.smtp_host or not settings.smtp_user:
+def _send_via_resend(to_email: str, subject: str, html_body: str, text_body: str = "") -> bool:
+    """Send email via Resend REST API."""
+    if not settings.resend_api_key:
+        return False
+    payload = {
+        "from": settings.email_from or "PMO System <onboarding@resend.dev>",
+        "to": [to_email],
+        "subject": subject,
+        "html": html_body,
+    }
+    if text_body:
+        payload["text"] = text_body
+    try:
+        req = urllib.request.Request(
+            "https://api.resend.com/emails",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {settings.resend_api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return resp.status in (200, 201)
+    except Exception as e:
+        print(f"[email] Resend failed: {e}")
         return False
 
+
+def _send_via_smtp(to_email: str, subject: str, html_body: str, text_body: str = "") -> bool:
+    """Send email via SMTP."""
+    if not settings.smtp_host or not settings.smtp_user:
+        return False
     msg = MIMEMultipart("alternative")
     msg["From"] = settings.email_from
     msg["To"] = to_email
     msg["Subject"] = subject
-
     if text_body:
         msg.attach(MIMEText(text_body, "plain"))
     msg.attach(MIMEText(html_body, "html"))
-
     try:
         if settings.smtp_port == 465:
             server = smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=15)
@@ -31,8 +59,17 @@ def send_email(to_email: str, subject: str, html_body: str, text_body: str = "")
         server.quit()
         return True
     except Exception as e:
-        print(f"[email] Failed to send email to {to_email}: {e}")
+        print(f"[email] SMTP failed: {e}")
         return False
+
+
+def send_email(to_email: str, subject: str, html_body: str, text_body: str = "") -> bool:
+    """Send an email. Tries Resend first, falls back to SMTP."""
+    if _send_via_resend(to_email, subject, html_body, text_body):
+        return True
+    if _send_via_smtp(to_email, subject, html_body, text_body):
+        return True
+    return False
 
 
 def send_password_reset_email(to_email: str, reset_token: str, user_name: str = "") -> bool:
@@ -78,13 +115,13 @@ def send_password_reset_email(to_email: str, reset_token: str, user_name: str = 
         </div>
 
         <p style="font-size: 11px; color: #d1d5db; text-align: center; margin-top: 24px;">
-            PMO System · This is an automated email, please do not reply.
+            PMO System &middot; This is an automated email, please do not reply.
         </p>
     </div>
     """
 
     text = f"""
-PMO System — Reset Your Password
+PMO System - Reset Your Password
 
 {"Hi " + user_name + "," if user_name else "Hello,"}
 
@@ -97,4 +134,4 @@ If you didn't request a password reset, you can safely ignore this email.
 Your password will not be changed.
 """
 
-    return send_email(to_email, "PMO System — Reset Your Password", html, text)
+    return send_email(to_email, "PMO System - Reset Your Password", html, text)

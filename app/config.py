@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     smtp_user: str = ""
     smtp_password: str = ""
     email_from: str = "noreply@pmosystem.app"
+    resend_api_key: str = ""  # Resend.com API key (preferred over SMTP)
     app_url: str = "http://localhost:8000"  # Base URL for reset links etc.
 
     # Sentry (optional — set to enable error tracking)

@@ -19,6 +19,7 @@ from app.models.milestone import Milestone
 from app.models.notification import Notification, NotificationPreference
 from app.models.permission import Permission
 from app.models.plan import Plan
+from app.models.password_reset_token import PasswordResetToken
 from app.models.project import Project
 from app.models.project_test_account import ProjectTestAccount
 from app.models.project_vision import ProjectVision
@@ -56,4 +57,5 @@ __all__ = [
     "Plan",
     "Environment", "Secret", "SecretVersion", "SecretAccessLog",
     "Asset", "InfraService", "InfraDatabase",
+    "PasswordResetToken",
 ]

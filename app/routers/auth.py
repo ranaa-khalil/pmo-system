@@ -1,13 +1,23 @@
-"""Auth API router — register, login, me."""
+"""Auth API router — register, login, me, password reset."""
+import secrets as _secrets
+from datetime import UTC, datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.models.password_reset_token import PasswordResetToken
 from app.models.tenant import TenantMembership
 from app.models.user import User
-from app.schemas.auth import TokenResponse, UserLogin, UserResponse
-from app.services.auth import create_access_token, verify_password
+from app.schemas.auth import (
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
+    TokenResponse,
+    UserLogin,
+    UserResponse,
+)
+from app.services.auth import create_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -81,3 +91,73 @@ def get_my_tenants(
             "is_active": current_user.active_tenant_id == tenant.id,
         })
     return result
+
+
+@router.post("/forgot-password")
+def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """Request a password reset token.
+
+    Always returns 200 (even if email doesn't exist) to prevent email enumeration.
+    In production, this would send an email with the reset link.
+    For local dev, the reset token is returned in the response.
+    """
+    user = db.query(User).filter(User.email == req.email).first()
+    if not user:
+        return {"message": "If an account with that email exists, a reset link has been sent."}
+
+    # Invalidate any previous unused tokens for this user
+    db.query(PasswordResetToken).filter(
+        PasswordResetToken.user_id == user.id,
+        PasswordResetToken.used == False,
+    ).update({"used": True})
+
+    # Generate a secure token
+    raw_token = _secrets.token_urlsafe(32)
+    expires_at = datetime.now(UTC) + timedelta(hours=1)
+
+    reset_token = PasswordResetToken(
+        user_id=user.id,
+        token=raw_token,
+        expires_at=expires_at,
+        used=False,
+    )
+    db.add(reset_token)
+    db.commit()
+
+    # In production: send email with link to /reset-password?token=xxx
+    # For local dev: return the token so the UI can redirect directly
+    return {
+        "message": "Reset token generated.",
+        "reset_token": raw_token,
+        "email": user.email,
+    }
+
+
+@router.post("/reset-password")
+def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """Reset password using a valid token."""
+    if len(req.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+
+    reset_token = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token == req.token,
+        PasswordResetToken.used == False,
+    ).first()
+
+    if not reset_token:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    if reset_token.expires_at < datetime.now(UTC):
+        reset_token.used = True
+        db.commit()
+        raise HTTPException(status_code=400, detail="Reset token has expired")
+
+    user = db.query(User).filter(User.id == reset_token.user_id).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found")
+
+    user.hashed_password = hash_password(req.new_password)
+    reset_token.used = True
+    db.commit()
+
+    return {"message": "Password has been reset successfully. You can now log in with your new password."}

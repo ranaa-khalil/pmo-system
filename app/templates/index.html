@@ -308,12 +308,111 @@
                         <span x-show="loginLoading">Signing in...</span>
                     </button>
                 </form>
+                <div class="mt-5 text-center">
+                    <button @click="showForgotPassword = true" class="text-[12px] font-medium text-brand-600 hover:text-brand-700 transition-colors">Forgot password?</button>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- ==================== SIDEBAR ==================== -->
+<!-- ==================== FORGOT PASSWORD MODAL ==================== -->
+<div x-show="showForgotPassword" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" @click.self="showForgotPassword = false; forgotPasswordStep = 'request'; forgotPasswordEmail = ''; forgotPasswordToken = ''; forgotPasswordError = ''">
+    <div class="surface rounded-3xl shadow-modal p-8 w-full max-w-md border border-black/[0.06] modal-enter" @click.stop>
+        <!-- Step 1: Request reset -->
+        <template x-if="forgotPasswordStep === 'request'">
+            <div>
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-[20px] font-bold text-ink-900 tracking-tight">Reset Password</h2>
+                    <button @click="showForgotPassword = false" class="w-8 h-8 flex items-center justify-center rounded-lg text-ink-400 hover:text-ink-700 hover:bg-ink-100 transition-colors">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <p class="text-[13px] text-ink-500 mb-5">Enter your email address and we'll generate a secure reset token for you.</p>
+                <form @submit.prevent="requestPasswordReset()" class="space-y-4">
+                    <div>
+                        <label class="block text-[12px] font-medium text-ink-700 mb-1.5">Email</label>
+                        <input x-model="forgotPasswordEmail" type="email" required
+                               class="input-premium w-full text-[14px] rounded-xl px-4 py-3 placeholder-ink-300 transition-all"
+                               placeholder="you@company.com">
+                    </div>
+                    <template x-if="forgotPasswordError">
+                        <div class="text-[12px] text-rose-600 bg-rose-50 border border-rose-100 px-3 py-2.5 rounded-xl" x-text="forgotPasswordError"></div>
+                    </template>
+                    <button type="submit" :disabled="forgotPasswordLoading"
+                            class="btn-primary w-full text-[14px] font-medium text-white px-4 py-3 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                        <svg x-show="forgotPasswordLoading" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+                        <span x-show="!forgotPasswordLoading">Send Reset Link</span>
+                        <span x-show="forgotPasswordLoading">Sending...</span>
+                    </button>
+                </form>
+                <button @click="showForgotPassword = false" class="mt-4 w-full text-[12px] text-ink-400 hover:text-ink-700 transition-colors">Back to login</button>
+            </div>
+        </template>
+
+        <!-- Step 2: Show token + reset form -->
+        <template x-if="forgotPasswordStep === 'reset'">
+            <div>
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-[20px] font-bold text-ink-900 tracking-tight">Set New Password</h2>
+                    <button @click="showForgotPassword = false; forgotPasswordStep = 'request'" class="w-8 h-8 flex items-center justify-center rounded-lg text-ink-400 hover:text-ink-700 hover:bg-ink-100 transition-colors">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <div class="bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3 mb-5">
+                    <div class="flex items-center gap-2 text-[12px] text-emerald-700 font-medium">
+                        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span>Reset token generated for <span class="font-semibold" x-text="forgotPasswordEmail"></span></span>
+                    </div>
+                </div>
+                <form @submit.prevent="confirmPasswordReset()" class="space-y-4">
+                    <div>
+                        <label class="block text-[12px] font-medium text-ink-700 mb-1.5">New Password</label>
+                        <input x-model="forgotPasswordNewPassword" :type="showResetPassword ? 'text' : 'password'" required minlength="8"
+                               class="input-premium w-full text-[14px] rounded-xl px-4 py-3 pr-11 placeholder-ink-300 transition-all"
+                               placeholder="At least 8 characters">
+                        <button type="button" @click="showResetPassword = !showResetPassword"
+                                class="absolute right-3 top-[42px] text-ink-400 hover:text-ink-700 transition-colors"
+                                :title="showResetPassword ? 'Hide' : 'Show'">
+                            <svg x-show="!showResetPassword" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            <svg x-show="showResetPassword" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"/></svg>
+                        </button>
+                    </div>
+                    <div>
+                        <label class="block text-[12px] font-medium text-ink-700 mb-1.5">Confirm Password</label>
+                        <input x-model="forgotPasswordConfirmPassword" :type="showResetPassword ? 'text' : 'password'" required minlength="8"
+                               class="input-premium w-full text-[14px] rounded-xl px-4 py-3 placeholder-ink-300 transition-all"
+                               placeholder="Re-enter new password">
+                    </div>
+                    <template x-if="forgotPasswordError">
+                        <div class="text-[12px] text-rose-600 bg-rose-50 border border-rose-100 px-3 py-2.5 rounded-xl" x-text="forgotPasswordError"></div>
+                    </template>
+                    <button type="submit" :disabled="forgotPasswordLoading"
+                            class="btn-primary w-full text-[14px] font-medium text-white px-4 py-3 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                        <svg x-show="forgotPasswordLoading" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+                        <span x-show="!forgotPasswordLoading">Reset Password</span>
+                        <span x-show="forgotPasswordLoading">Resetting...</span>
+                    </button>
+                </form>
+            </div>
+        </template>
+
+        <!-- Step 3: Success -->
+        <template x-if="forgotPasswordStep === 'success'">
+            <div class="text-center py-4">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-50 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <h2 class="text-[20px] font-bold text-ink-900 mb-2">Password Reset</h2>
+                <p class="text-[13px] text-ink-500 mb-6">Your password has been reset successfully. You can now log in with your new password.</p>
+                <button @click="showForgotPassword = false; forgotPasswordStep = 'request'; forgotPasswordEmail = ''; forgotPasswordNewPassword = ''; forgotPasswordConfirmPassword = ''; forgotPasswordToken = ''; loginForm.email = ''; loginForm.password = ''"
+                        class="btn-primary w-full text-[14px] font-medium text-white px-4 py-3 rounded-xl transition-all">
+                    Back to Login
+                </button>
+            </div>
+        </template>
+    </div>
+</div>
 <div x-show="isLoggedIn" x-cloak class="fixed inset-0 flex">
 
     <!-- Sidebar — clean white, Apple-style -->
@@ -6623,6 +6722,16 @@ function pmoApp() {
         showPassword: false,
         registerForm: { full_name: '', email: '', password: '', tenant_name: '' },
         loginError: '',
+        // ===== Forgot password =====
+        showForgotPassword: false,
+        forgotPasswordStep: 'request',  // 'request' | 'reset' | 'success'
+        forgotPasswordEmail: '',
+        forgotPasswordToken: '',
+        forgotPasswordNewPassword: '',
+        forgotPasswordConfirmPassword: '',
+        forgotPasswordError: '',
+        forgotPasswordLoading: false,
+        showResetPassword: false,
         // ===== Tenant branding =====
         tenantBranding: window.__TENANT_BRANDING || null,
         settingsTab: 'personal',
@@ -7905,6 +8014,60 @@ function pmoApp() {
                 this.loginError = e.message;
             } finally {
                 this.loginLoading = false;
+            }
+        },
+
+        async requestPasswordReset() {
+            this.forgotPasswordLoading = true;
+            this.forgotPasswordError = '';
+            try {
+                const res = await fetch('/api/auth/forgot-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: this.forgotPasswordEmail }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Failed to generate reset token');
+                if (data.reset_token) {
+                    this.forgotPasswordToken = data.reset_token;
+                    this.forgotPasswordStep = 'reset';
+                } else {
+                    this.forgotPasswordError = data.message || 'No account found with that email.';
+                }
+            } catch (e) {
+                this.forgotPasswordError = e.message;
+            } finally {
+                this.forgotPasswordLoading = false;
+            }
+        },
+
+        async confirmPasswordReset() {
+            this.forgotPasswordError = '';
+            if (this.forgotPasswordNewPassword.length < 8) {
+                this.forgotPasswordError = 'Password must be at least 8 characters';
+                return;
+            }
+            if (this.forgotPasswordNewPassword !== this.forgotPasswordConfirmPassword) {
+                this.forgotPasswordError = 'Passwords do not match';
+                return;
+            }
+            this.forgotPasswordLoading = true;
+            try {
+                const res = await fetch('/api/auth/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        token: this.forgotPasswordToken,
+                        new_password: this.forgotPasswordNewPassword,
+                    }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Failed to reset password');
+                this.forgotPasswordStep = 'success';
+            } catch (e) {
+                this.forgotPasswordError = e.message;
+            } finally {
+                this.forgotPasswordLoading = false;
             }
         },
 

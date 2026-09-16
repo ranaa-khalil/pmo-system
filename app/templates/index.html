@@ -7229,10 +7229,23 @@ function pmoApp() {
             const urlParams = new URLSearchParams(window.location.search);
             const resetToken = urlParams.get('reset_token');
             if (resetToken) {
-                this.forgotPasswordToken = resetToken;
-                this.forgotPasswordStep = 'reset';
-                this.showForgotPassword = true;
-                // Clean the URL
+                // Validate the token before showing the reset form
+                try {
+                    const res = await fetch('/api/auth/validate-reset-token', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token: resetToken }),
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.valid) {
+                            this.forgotPasswordToken = resetToken;
+                            this.forgotPasswordStep = 'reset';
+                            this.showForgotPassword = true;
+                        }
+                    }
+                } catch { /* invalid token — don't open modal */ }
+                // Clean the URL regardless
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
 

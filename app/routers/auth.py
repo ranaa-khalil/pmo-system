@@ -16,6 +16,7 @@ from app.schemas.auth import (
     TokenResponse,
     UserLogin,
     UserResponse,
+    ValidateTokenRequest,
 )
 from app.services.auth import create_access_token, hash_password, verify_password
 
@@ -166,3 +167,22 @@ def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
     db.commit()
 
     return {"message": "Password has been reset successfully. You can now log in with your new password."}
+
+
+@router.post("/validate-reset-token")
+def validate_reset_token(req: ValidateTokenRequest, db: Session = Depends(get_db)):
+    """Validate a reset token without resetting the password."""
+    reset_token = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token == req.token,
+        PasswordResetToken.used == False,
+    ).first()
+
+    if not reset_token:
+        return {"valid": False, "message": "Invalid or expired reset token"}
+
+    if reset_token.expires_at < datetime.now(UTC):
+        reset_token.used = True
+        db.commit()
+        return {"valid": False, "message": "Reset token has expired"}
+
+    return {"valid": True}

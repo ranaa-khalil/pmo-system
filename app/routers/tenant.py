@@ -400,6 +400,58 @@ def list_my_tenants(
     return tenants
 
 
+# ─── Tenant Limits ───────────────────────────────────────────
+
+@router.get("/tenant/limits")
+def get_tenant_limits(
+    current_tenant: Tenant = Depends(get_current_tenant),
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    """Get the current tenant's resource limits and usage."""
+    import json as _json
+    limits = _json.loads(current_tenant.limits) if current_tenant.limits else {}
+    max_users = limits.get("max_users", 999999)
+    max_projects = limits.get("max_projects", 999999)
+
+    from app.services.usage_service import get_usage_counts
+    counts = get_usage_counts(db, current_tenant.id)
+
+    return {
+        "limits": {"max_users": max_users, "max_projects": max_projects},
+        "current": {
+            "users": counts.get("users", 0),
+            "projects": counts.get("projects", 0),
+        },
+    }
+
+
+@router.put("/tenant/limits")
+def update_tenant_limits(
+    req: dict,
+    current_tenant: Tenant = Depends(get_current_tenant),
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_tenant_role(MEMBER_ROLE_OWNER, MEMBER_ROLE_ADMIN)),
+):
+    """Update tenant resource limits (owner/admin only).
+
+    Fields: max_users (int), max_projects (int)
+    """
+    import json as _json
+    limits = _json.loads(current_tenant.limits) if current_tenant.limits else {}
+
+    if "max_users" in req:
+        val = req["max_users"]
+        limits["max_users"] = int(val) if val and int(val) > 0 else 999999
+    if "max_projects" in req:
+        val = req["max_projects"]
+        limits["max_projects"] = int(val) if val and int(val) > 0 else 999999
+
+    current_tenant.limits = _json.dumps(limits)
+    db.commit()
+    return {"ok": True, "limits": limits}
+
+
 # ─── Team Management ────────────────────────────────────────
 
 @router.get("/tenant/members", response_model=list[TenantMembershipResponse])
@@ -641,7 +693,7 @@ def get_usage(
     """Get current usage metrics for the tenant."""
     from app.services.usage_service import get_usage_counts, get_limits, METRIC_USERS, METRIC_PROJECTS
     counts = get_usage_counts(db, current_tenant.id)
-    limits = get_limits(current_tenant.plan)
+    limits = get_limits(current_tenant)
     return UsageResponse(
         plan=current_tenant.plan,
         users=counts[METRIC_USERS],
@@ -662,7 +714,7 @@ def get_usage_history_endpoint(
     from app.services.usage_service import get_usage_history, get_usage_counts, get_limits
     history = get_usage_history(db, current_tenant.id, days)
     counts = get_usage_counts(db, current_tenant.id)
-    limits = get_limits(current_tenant.plan)
+    limits = get_limits(current_tenant)
     return {
         "current": counts,
         "limits": limits,

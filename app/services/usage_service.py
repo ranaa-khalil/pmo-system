@@ -38,14 +38,16 @@ def get_usage_counts(db: Session, tenant_id: int) -> dict:
     }
 
 
-def get_limits(plan: str) -> dict:
-    """Get plan limits for a tenant."""
-    plan_limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
+def get_limits(tenant: Tenant) -> dict:
+    """Get plan limits for a tenant — reads from tenant.limits JSON column
+    (configurable by tenant admin) instead of hardcoded PLAN_LIMITS."""
+    import json as _json
+    limits = _json.loads(tenant.limits) if tenant.limits else {}
     return {
-        METRIC_USERS: plan_limits["users"],
-        METRIC_PROJECTS: plan_limits["projects"],
-        METRIC_RELEASES: 999999,  # No explicit limit on releases
-        METRIC_BACKLOG_ITEMS: 999999,  # No explicit limit on backlog items
+        METRIC_USERS: limits.get("max_users", 999999),
+        METRIC_PROJECTS: limits.get("max_projects", 999999),
+        METRIC_RELEASES: 999999,  # No limit on releases
+        METRIC_BACKLOG_ITEMS: 999999,  # No limit on backlog items
     }
 
 
@@ -83,7 +85,7 @@ def check_quota(db: Session, tenant: Tenant, metric: str) -> bool:
 
     Returns True if within quota, raises HTTPException if over quota.
     """
-    limits = get_limits(tenant.plan)
+    limits = get_limits(tenant)
     limit = limits.get(metric, 999999)
 
     if limit >= 999999:
@@ -105,7 +107,7 @@ def check_quota(db: Session, tenant: Tenant, metric: str) -> bool:
 def get_quota_headers(db: Session, tenant: Tenant) -> dict:
     """Return X-Quota-* headers for API responses."""
     counts = get_usage_counts(db, tenant.id)
-    limits = get_limits(tenant.plan)
+    limits = get_limits(tenant)
 
     headers = {}
     for metric in [METRIC_USERS, METRIC_PROJECTS, METRIC_RELEASES, METRIC_BACKLOG_ITEMS]:

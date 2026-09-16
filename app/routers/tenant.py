@@ -1,8 +1,9 @@
 """Tenant management router — admin tenant creation, team management, invitations."""
 import re
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
@@ -263,6 +264,92 @@ def admin_update_tenant_branding(
     tenant.branding = _json2.dumps(branding)
     db.commit()
     return {"ok": True, "branding": branding}
+
+
+# ---- Logo upload endpoints ----
+
+_LOGO_DIR = Path(__file__).resolve().parent.parent.parent / "uploads" / "logos"
+_LOGO_URL_PREFIX = "/uploads/logos"
+_ALLOWED_LOGO_TYPES = {"image/png", "image/jpeg", "image/svg+xml", "image/webp", "image/gif"}
+_LOGO_MAX_SIZE = 2 * 1024 * 1024  # 2 MB
+
+
+def _save_logo(file: UploadFile, tenant_id: int) -> str:
+    """Save an uploaded logo and return the URL path."""
+    import uuid
+
+    # Validate content type
+    ct = file.content_type or ""
+    if ct not in _ALLOWED_LOGO_TYPES:
+        raise HTTPException(400, f"Unsupported file type '{ct}'. Use PNG, JPEG, SVG, WebP, or GIF.")
+
+    # Read and check size
+    data = file.file.read()
+    if len(data) > _LOGO_MAX_SIZE:
+        raise HTTPException(400, "Logo file too large (max 2 MB).")
+
+    # Determine extension
+    ext_map = {
+        "image/png": ".png",
+        "image/jpeg": ".jpg",
+        "image/svg+xml": ".svg",
+        "image/webp": ".webp",
+        "image/gif": ".gif",
+    }
+    ext = ext_map.get(ct, ".png")
+
+    _LOGO_DIR.mkdir(parents=True, exist_ok=True)
+    filename = f"tenant-{tenant_id}-{uuid.uuid4().hex[:8]}{ext}"
+    filepath = _LOGO_DIR / filename
+    filepath.write_bytes(data)
+
+    return f"/uploads/logos/{filename}"
+
+
+@router.post("/tenant/logo")
+def upload_tenant_logo(
+    file: UploadFile = File(...),
+    current_tenant: Tenant = Depends(get_current_tenant),
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_tenant_role(MEMBER_ROLE_OWNER, MEMBER_ROLE_ADMIN)),
+):
+    """Upload a logo file for the current tenant (owner/admin only)."""
+    import json as _json
+
+    logo_url = _save_logo(file, current_tenant.id)
+    current_tenant.logo_url = logo_url
+    # Also store in branding JSON
+    branding = _json.loads(current_tenant.branding) if current_tenant.branding else {}
+    branding["logo_url"] = logo_url
+    current_tenant.branding = _json.dumps(branding)
+    db.commit()
+
+    return {"ok": True, "logo_url": logo_url}
+
+
+@router.post("/admin/tenants/{tenant_id}/logo")
+def admin_upload_tenant_logo(
+    tenant_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload a logo for a specific tenant (super_admin only)."""
+    _require_super_admin(current_user)
+    import json as _json
+
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(404, "Tenant not found.")
+
+    logo_url = _save_logo(file, tenant.id)
+    tenant.logo_url = logo_url
+    branding = _json.loads(tenant.branding) if tenant.branding else {}
+    branding["logo_url"] = logo_url
+    tenant.branding = _json.dumps(branding)
+    db.commit()
+
+    return {"ok": True, "logo_url": logo_url}
 
 
 @router.post("/auth/switch-tenant", response_model=dict)

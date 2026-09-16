@@ -136,6 +136,11 @@ static_path = Path(__file__).parent / "static"
 if static_path.exists():
     app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
+# Serve uploaded files (tenant logos, etc.)
+uploads_path = Path(__file__).parent.parent / "uploads"
+uploads_path.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(uploads_path)), name="uploads")
+
 # CORS — allow the frontend and AI agents to call the API
 app.add_middleware(
     CORSMiddleware,

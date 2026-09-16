@@ -13,6 +13,7 @@ from app.database import Base
 # Metric types
 METRIC_USERS = "users"
 METRIC_PROJECTS = "projects"
+METRIC_CLIENTS = "clients"
 METRIC_RELEASES = "releases"
 METRIC_BACKLOG_ITEMS = "backlog_items"
 METRIC_API_CALLS = "api_calls"

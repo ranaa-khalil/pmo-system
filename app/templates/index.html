@@ -1761,33 +1761,34 @@
                         <button @click="saveTenantBranding()" class="mt-4 text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Branding</button>
                     </div>
 
-                    <!-- Resource Limits card (read-only — set by super admin) -->
+                    <!-- Plan card (read-only — assigned by system admin) -->
                     <div class="surface rounded-2xl border border-ink-200/60 p-6">
-                        <h3 class="text-[14px] font-semibold text-ink-800 mb-1">Resource Limits</h3>
-                        <p class="text-[11px] text-ink-400 mb-4">Set by your system administrator. Contact them to adjust these limits.</p>
-                        <div class="space-y-4">
-                            <!-- Max Users -->
-                            <div>
-                                <div class="flex justify-between text-[12px] mb-1.5">
-                                    <span class="text-ink-500">Team Members</span>
-                                    <span class="font-medium text-ink-700" x-text="(tenantLimitsForm.max_users >= 999999 || !tenantLimitsForm.max_users ? '∞' : tenantLimitsForm.max_users) + ' limit · ' + (usageCurrent.users || 0) + ' used'"></span>
-                                </div>
-                                <div class="h-2 bg-ink-100 rounded-full overflow-hidden">
-                                    <div class="h-full rounded-full transition-all"
-                                         :class="(tenantLimitsForm.max_users >= 999999 || !tenantLimitsForm.max_users) ? 'bg-brand-400' : ((usageCurrent.users || 0) / tenantLimitsForm.max_users > 0.9 ? 'bg-rose-500' : (usageCurrent.users || 0) / tenantLimitsForm.max_users > 0.7 ? 'bg-amber-500' : 'bg-brand-500')"
-                                         :style="'width: ' + ((tenantLimitsForm.max_users >= 999999 || !tenantLimitsForm.max_users) ? '100%' : Math.min(100, (usageCurrent.users || 0) / tenantLimitsForm.max_users * 100) + '%')"></div>
+                        <h3 class="text-[14px] font-semibold text-ink-800 mb-1">Subscription Plan</h3>
+                        <p class="text-[11px] text-ink-400 mb-4">Your plan is assigned by the system administrator.</p>
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="text-[20px] font-bold text-ink-900" x-text="usageCurrent.plan_name || 'No plan assigned'"></span>
+                            <span class="text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider bg-brand-50 text-brand-600" x-show="usageCurrent.plan_name">Active</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-3" x-show="usageCurrent.plan_name">
+                            <div class="bg-ink-100/60 rounded-xl p-3 text-center">
+                                <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-400">Members</div>
+                                <div class="text-[16px] font-bold text-ink-900 mt-1">
+                                    <span x-text="usageCurrent.users || 0"></span>
+                                    <span class="text-[11px] text-ink-400" x-text="' / ' + (tenantLimitsForm.max_users >= 999999 ? '∞' : tenantLimitsForm.max_users)"></span>
                                 </div>
                             </div>
-                            <!-- Max Projects -->
-                            <div>
-                                <div class="flex justify-between text-[12px] mb-1.5">
-                                    <span class="text-ink-500">Projects</span>
-                                    <span class="font-medium text-ink-700" x-text="(tenantLimitsForm.max_projects >= 999999 || !tenantLimitsForm.max_projects ? '∞' : tenantLimitsForm.max_projects) + ' limit · ' + (usageCurrent.projects || 0) + ' used'"></span>
+                            <div class="bg-ink-100/60 rounded-xl p-3 text-center">
+                                <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-400">Projects</div>
+                                <div class="text-[16px] font-bold text-ink-900 mt-1">
+                                    <span x-text="usageCurrent.projects || 0"></span>
+                                    <span class="text-[11px] text-ink-400" x-text="' / ' + (tenantLimitsForm.max_projects >= 999999 ? '∞' : tenantLimitsForm.max_projects)"></span>
                                 </div>
-                                <div class="h-2 bg-ink-100 rounded-full overflow-hidden">
-                                    <div class="h-full rounded-full transition-all"
-                                         :class="(tenantLimitsForm.max_projects >= 999999 || !tenantLimitsForm.max_projects) ? 'bg-brand-400' : ((usageCurrent.projects || 0) / tenantLimitsForm.max_projects > 0.9 ? 'bg-rose-500' : (usageCurrent.projects || 0) / tenantLimitsForm.max_projects > 0.7 ? 'bg-amber-500' : 'bg-brand-500')"
-                                         :style="'width: ' + ((tenantLimitsForm.max_projects >= 999999 || !tenantLimitsForm.max_projects) ? '100%' : Math.min(100, (usageCurrent.projects || 0) / tenantLimitsForm.max_projects * 100) + '%')"></div>
+                            </div>
+                            <div class="bg-ink-100/60 rounded-xl p-3 text-center">
+                                <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-400">Clients</div>
+                                <div class="text-[16px] font-bold text-ink-900 mt-1">
+                                    <span x-text="usageCurrent.clients || 0"></span>
+                                    <span class="text-[11px] text-ink-400" x-text="' / ' + (tenantLimitsForm.max_clients >= 999999 ? '∞' : tenantLimitsForm.max_clients)"></span>
                                 </div>
                             </div>
                         </div>
@@ -5115,7 +5116,7 @@
                         <select x-model="newTenantForm.plan_id" class="text-[13px] border border-ink-200/60 rounded-xl px-3 py-2 bg-white">
                             <option value="" selected disabled>Select Plan</option>
                             <template x-for="p in (adminPlans || [])" :key="p.id">
-                                <option :value="p.id" x-text="p.name + ' (' + p.max_users + ' users, ' + p.max_projects + ' projects)'"></option>
+                                <option :value="p.id" x-text="p.name + ' (' + p.max_users + 'u / ' + p.max_projects + 'p / ' + p.max_clients + 'c)'"></option>
                             </template>
                         </select>
                         <button @click="createTenant()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Create Tenant</button>
@@ -5212,6 +5213,7 @@
                         <input x-model="planForm.price_yearly" type="number" min="0" class="input-premium text-[13px] rounded-[10px]" placeholder="Yearly price (SAR)">
                         <input x-model="planForm.max_users" type="number" min="1" class="input-premium text-[13px] rounded-[10px]" placeholder="Max users (999999 = unlimited)">
                         <input x-model="planForm.max_projects" type="number" min="1" class="input-premium text-[13px] rounded-[10px]" placeholder="Max projects (999999 = unlimited)">
+                        <input x-model="planForm.max_clients" type="number" min="1" class="input-premium text-[13px] rounded-[10px]" placeholder="Max clients (999999 = unlimited)">
                         <input x-model="planForm.sort_order" type="number" min="0" class="input-premium text-[13px] rounded-[10px]" placeholder="Sort order">
                         <label class="flex items-center gap-2 text-[12px] text-ink-600">
                             <input type="checkbox" x-model="planForm.is_active" class="rounded"> Active
@@ -5233,6 +5235,7 @@
                                     <th class="pb-3 pr-4">Plan</th>
                                     <th class="pb-3 pr-4">Users</th>
                                     <th class="pb-3 pr-4">Projects</th>
+                                    <th class="pb-3 pr-4">Clients</th>
                                     <th class="pb-3 pr-4">Monthly</th>
                                     <th class="pb-3 pr-4">Yearly</th>
                                     <th class="pb-3 pr-4 text-center">Tenants</th>
@@ -5249,6 +5252,7 @@
                                         </td>
                                         <td class="py-3 pr-4 text-ink-700" x-text="p.max_users >= 999999 ? '∞' : p.max_users"></td>
                                         <td class="py-3 pr-4 text-ink-700" x-text="p.max_projects >= 999999 ? '∞' : p.max_projects"></td>
+                                        <td class="py-3 pr-4 text-ink-700" x-text="p.max_clients >= 999999 ? '∞' : p.max_clients"></td>
                                         <td class="py-3 pr-4 text-ink-700" x-text="p.price_monthly > 0 ? p.price_monthly + ' SAR' : 'Free'"></td>
                                         <td class="py-3 pr-4 text-ink-700" x-text="p.price_yearly > 0 ? p.price_yearly + ' SAR' : '—'"></td>
                                         <td class="py-3 pr-4 text-center font-medium text-ink-700" x-text="p.tenant_count || 0"></td>
@@ -5499,23 +5503,37 @@
                         </div>
                     </div>
 
-                    <!-- Super admin: Resource Limits editor -->
+                    <!-- Super admin: Plan info (read-only — assign via Tenants list) -->
                     <div class="surface rounded-2xl border border-ink-200/60 p-6">
-                        <h3 class="text-[14px] font-semibold text-ink-800 mb-1">Resource Limits</h3>
-                        <p class="text-[11px] text-ink-400 mb-4">Set the maximum number of users and projects for this tenant. Leave empty for unlimited.</p>
-                        <div class="space-y-4">
-                            <div class="flex items-center gap-3">
-                                <label class="text-[12px] text-ink-500 w-24">Max Users</label>
-                                <input x-model.number="adminLimitsForm.max_users" type="number" min="1" class="input-premium text-[13px] rounded-[10px] w-28" placeholder="∞">
-                                <span class="text-[11px] text-ink-400" x-text="(selectedTenantDetail?.stats?.member_count || 0) + ' currently used'"></span>
+                        <h3 class="text-[14px] font-semibold text-ink-800 mb-1">Assigned Plan</h3>
+                        <p class="text-[11px] text-ink-400 mb-4">Assign or change the plan from the Tenants list.</p>
+                        <div class="flex items-center gap-3">
+                            <span class="text-[20px] font-bold text-ink-900" x-text="selectedTenantDetail?.tenant?.plan || 'No plan'"></span>
+                            <span class="text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider bg-emerald-50 text-emerald-600" x-show="selectedTenantDetail?.tenant?.plan">Active</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-3 mt-4" x-show="selectedTenantDetail?.limits">
+                            <div class="bg-ink-100/60 rounded-xl p-3 text-center">
+                                <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-400">Members</div>
+                                <div class="text-[16px] font-bold text-ink-900 mt-1">
+                                    <span x-text="selectedTenantDetail?.stats?.member_count || 0"></span>
+                                    <span class="text-[11px] text-ink-400" x-text="' / ' + ((selectedTenantDetail?.limits?.max_users >= 999999 || !selectedTenantDetail?.limits?.max_users) ? '∞' : selectedTenantDetail?.limits?.max_users)"></span>
+                                </div>
                             </div>
-                            <div class="flex items-center gap-3">
-                                <label class="text-[12px] text-ink-500 w-24">Max Projects</label>
-                                <input x-model.number="adminLimitsForm.max_projects" type="number" min="1" class="input-premium text-[13px] rounded-[10px] w-28" placeholder="∞">
-                                <span class="text-[11px] text-ink-400" x-text="(selectedTenantDetail?.stats?.project_count || 0) + ' currently used'"></span>
+                            <div class="bg-ink-100/60 rounded-xl p-3 text-center">
+                                <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-400">Projects</div>
+                                <div class="text-[16px] font-bold text-ink-900 mt-1">
+                                    <span x-text="selectedTenantDetail?.stats?.project_count || 0"></span>
+                                    <span class="text-[11px] text-ink-400" x-text="' / ' + ((selectedTenantDetail?.limits?.max_projects >= 999999 || !selectedTenantDetail?.limits?.max_projects) ? '∞' : selectedTenantDetail?.limits?.max_projects)"></span>
+                                </div>
+                            </div>
+                            <div class="bg-ink-100/60 rounded-xl p-3 text-center">
+                                <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-400">Clients</div>
+                                <div class="text-[16px] font-bold text-ink-900 mt-1">
+                                    <span x-text="selectedTenantDetail?.stats?.client_count || 0"></span>
+                                    <span class="text-[11px] text-ink-400" x-text="' / ' + ((selectedTenantDetail?.limits?.max_clients >= 999999 || !selectedTenantDetail?.limits?.max_clients) ? '∞' : selectedTenantDetail?.limits?.max_clients)"></span>
+                                </div>
                             </div>
                         </div>
-                        <button @click="adminUpdateLimits(selectedTenantDetail.tenant.id)" class="mt-4 text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Limits</button>
                     </div>
                 </div>
             </div>
@@ -6197,7 +6215,7 @@ function pmoApp() {
         tenantBranding: window.__TENANT_BRANDING || null,
         settingsTab: 'personal',
         tenantBrandingForm: { app_name: '', primary_color: '#7c3aed', logo_url: '', hide_powered_by: false },
-        tenantLimitsForm: { max_users: 999999, max_projects: 999999 },
+        tenantLimitsForm: { max_users: 999999, max_projects: 999999, max_clients: 999999 },
         usageCurrent: { users: 0, projects: 0 },
         loginLoading: false,
         showRegister: false,
@@ -6237,12 +6255,11 @@ function pmoApp() {
         showCreateTenantForm: false,
         showPlanForm: false,
         editingPlanId: null,
-        planForm: { name: '', description: '', max_users: 3, max_projects: 1, price_monthly: 0, price_yearly: 0, is_active: true, sort_order: 0 },
+        planForm: { name: '', description: '', max_users: 3, max_projects: 1, max_clients: 5, price_monthly: 0, price_yearly: 0, is_active: true, sort_order: 0 },
         selectedTenantDetail: null,
         adminAddUserForm: { name: '', email: '', password: '', role: 'member' },
         adminResetPasswordForm: { user_id: null, new_password: '' },
         adminBrandingForm: { app_name: '', primary_color: '#7c3aed', logo_url: '', hide_powered_by: false },
-        adminLimitsForm: { max_users: 999999, max_projects: 999999 },
         newTenantForm: { tenant_name: '', owner_name: '', owner_email: '', owner_password: '', plan_id: '' },
         newUserForm: { tenant_id: '', name: '', email: '', password: '', role: 'member' },
         tenantCreateForm: { name: '', email: '', password: '', role: 'member' },
@@ -8789,17 +8806,10 @@ function pmoApp() {
                 this.tenantLimitsForm = {
                     max_users: data.limits.max_users >= 999999 ? 999999 : data.limits.max_users,
                     max_projects: data.limits.max_projects >= 999999 ? 999999 : data.limits.max_projects,
+                    max_clients: data.limits.max_clients >= 999999 ? 999999 : data.limits.max_clients,
                 };
-                this.usageCurrent = data.current;
+                this.usageCurrent = { ...data.current, plan_name: data.plan_name };
             } catch { /* ignore */ }
-        },
-
-        async saveTenantLimits() {
-            try {
-                await this.api('PUT', '/tenant/limits', this.tenantLimitsForm);
-                await this.loadTenantLimits();
-                this.showToast('Limits saved', 'success');
-            } catch (e) { this.showToast(e.message, 'error'); }
         },
 
         async uploadTenantLogo(event) {
@@ -8940,7 +8950,7 @@ function pmoApp() {
         // ─── Plan Management ───
 
         resetPlanForm() {
-            this.planForm = { name: '', description: '', max_users: 3, max_projects: 1, price_monthly: 0, price_yearly: 0, is_active: true, sort_order: 0 };
+            this.planForm = { name: '', description: '', max_users: 3, max_projects: 1, max_clients: 5, price_monthly: 0, price_yearly: 0, is_active: true, sort_order: 0 };
             this.editingPlanId = null;
         },
 
@@ -8951,6 +8961,7 @@ function pmoApp() {
                 description: plan.description || '',
                 max_users: plan.max_users,
                 max_projects: plan.max_projects,
+                max_clients: plan.max_clients,
                 price_monthly: plan.price_monthly,
                 price_yearly: plan.price_yearly,
                 is_active: plan.is_active,
@@ -8965,6 +8976,7 @@ function pmoApp() {
                 // Convert numeric fields
                 data.max_users = parseInt(data.max_users) || 999999;
                 data.max_projects = parseInt(data.max_projects) || 999999;
+                data.max_clients = parseInt(data.max_clients) || 999999;
                 data.price_monthly = parseInt(data.price_monthly) || 0;
                 data.price_yearly = parseInt(data.price_yearly) || 0;
                 data.sort_order = parseInt(data.sort_order) || 0;
@@ -9003,12 +9015,6 @@ function pmoApp() {
                     primary_color: b.primary_color || '#7c3aed',
                     logo_url: logo || b.logo_url || '',
                     hide_powered_by: b.hide_powered_by || false,
-                };
-                // Populate limits form from tenant data
-                const l = this.selectedTenantDetail?.tenant?.limits || {};
-                this.adminLimitsForm = {
-                    max_users: l.max_users || 999999,
-                    max_projects: l.max_projects || 999999,
                 };
             } catch (e) { this.showToast('Failed to load tenant detail', 'error'); }
         },
@@ -9063,14 +9069,6 @@ function pmoApp() {
                 await this.api('PUT', `/admin/tenants/${tenantId}/branding`, this.adminBrandingForm);
                 await this.loadTenantDetail(tenantId);
                 this.showToast('Branding updated', 'success');
-            } catch (e) { this.showToast(e.message, 'error'); }
-        },
-
-        async adminUpdateLimits(tenantId) {
-            try {
-                await this.api('PUT', `/admin/tenants/${tenantId}/limits`, this.adminLimitsForm);
-                await this.loadTenantDetail(tenantId);
-                this.showToast('Limits updated', 'success');
             } catch (e) { this.showToast(e.message, 'error'); }
         },
 

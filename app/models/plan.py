@@ -20,6 +20,7 @@ class Plan(Base):
     description = Column(Text, nullable=True)
     max_users = Column(Integer, nullable=False, default=999999)
     max_projects = Column(Integer, nullable=False, default=999999)
+    max_clients = Column(Integer, nullable=False, default=999999)
     max_releases = Column(Integer, nullable=False, default=999999)
     max_backlog_items = Column(Integer, nullable=False, default=999999)
     price_monthly = Column(Integer, nullable=False, default=0)  # in SAR
@@ -36,6 +37,7 @@ class Plan(Base):
             "description": self.description or "",
             "max_users": self.max_users,
             "max_projects": self.max_projects,
+            "max_clients": self.max_clients,
             "max_releases": self.max_releases,
             "max_backlog_items": self.max_backlog_items,
             "price_monthly": self.price_monthly,

@@ -20,6 +20,8 @@ def create_client(client: ClientCreate, db: Session = Depends(get_db), current_u
     """Create a new client (super admin, tenant owner, or tenant admin)."""
     if not can_create_client(current_user, db):
         raise HTTPException(status_code=403, detail="You don't have permission to create clients")
+    from app.services.usage_service import check_quota, METRIC_CLIENTS
+    check_quota(db, current_tenant, METRIC_CLIENTS)
     db_client = Client(
         name=client.name,
         contact_name=client.contact_name,

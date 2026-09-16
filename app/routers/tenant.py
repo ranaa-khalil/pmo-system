@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.models.client import Client
 from app.models.project import Project
 from app.models.tenant import (
     MEMBER_ROLE_ADMIN,
@@ -97,6 +98,7 @@ def create_tenant(
         limits_json = _json.dumps({
             "max_users": plan.max_users,
             "max_projects": plan.max_projects,
+            "max_clients": plan.max_clients,
             "max_releases": plan.max_releases,
             "max_backlog_items": plan.max_backlog_items,
         })
@@ -426,53 +428,33 @@ def get_tenant_limits(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
-    """Get the current tenant's resource limits and usage."""
+    """Get the current tenant's resource limits and usage (read-only — set by plan)."""
     import json as _json
     limits = _json.loads(current_tenant.limits) if current_tenant.limits else {}
     max_users = limits.get("max_users", 999999)
     max_projects = limits.get("max_projects", 999999)
+    max_clients = limits.get("max_clients", 999999)
 
     from app.services.usage_service import get_usage_counts
     counts = get_usage_counts(db, current_tenant.id)
 
+    # Include plan name if assigned
+    plan_name = None
+    if current_tenant.plan_id:
+        from app.models.plan import Plan
+        plan = db.query(Plan).filter(Plan.id == current_tenant.plan_id).first()
+        if plan:
+            plan_name = plan.name
+
     return {
-        "limits": {"max_users": max_users, "max_projects": max_projects},
+        "plan_name": plan_name,
+        "limits": {"max_users": max_users, "max_projects": max_projects, "max_clients": max_clients},
         "current": {
             "users": counts.get("users", 0),
             "projects": counts.get("projects", 0),
+            "clients": counts.get("clients", 0),
         },
     }
-
-
-@router.put("/admin/tenants/{tenant_id}/limits")
-def admin_update_tenant_limits(
-    tenant_id: int,
-    req: dict,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Update tenant resource limits (super admin only).
-
-    Fields: max_users (int), max_projects (int)
-    """
-    _require_super_admin(current_user)
-    import json as _json
-    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
-    if not tenant:
-        raise HTTPException(404, "Tenant not found.")
-
-    limits = _json.loads(tenant.limits) if tenant.limits else {}
-
-    if "max_users" in req:
-        val = req["max_users"]
-        limits["max_users"] = int(val) if val and int(val) > 0 else 999999
-    if "max_projects" in req:
-        val = req["max_projects"]
-        limits["max_projects"] = int(val) if val and int(val) > 0 else 999999
-
-    tenant.limits = _json.dumps(limits)
-    db.commit()
-    return {"ok": True, "limits": limits}
 
 
 # ─── Team Management ────────────────────────────────────────
@@ -843,6 +825,7 @@ def admin_create_plan(
         description=req.get("description", ""),
         max_users=int(req.get("max_users", 999999)),
         max_projects=int(req.get("max_projects", 999999)),
+        max_clients=int(req.get("max_clients", 999999)),
         max_releases=int(req.get("max_releases", 999999)),
         max_backlog_items=int(req.get("max_backlog_items", 999999)),
         price_monthly=int(req.get("price_monthly", 0)),
@@ -875,7 +858,7 @@ def admin_update_plan(
         if existing:
             raise HTTPException(400, f"Plan name '{req['name']}' already exists")
         plan.name = req["name"]
-    for field in ["description", "max_users", "max_projects", "max_releases", "max_backlog_items", "price_monthly", "price_yearly", "sort_order"]:
+    for field in ["description", "max_users", "max_projects", "max_clients", "max_releases", "max_backlog_items", "price_monthly", "price_yearly", "sort_order"]:
         if field in req:
             setattr(plan, field, int(req[field]) if field not in ["description"] else req[field])
     if "is_active" in req:
@@ -888,6 +871,7 @@ def admin_update_plan(
         t.limits = _json.dumps({
             "max_users": plan.max_users,
             "max_projects": plan.max_projects,
+            "max_clients": plan.max_clients,
             "max_releases": plan.max_releases,
             "max_backlog_items": plan.max_backlog_items,
         })
@@ -940,6 +924,7 @@ def admin_assign_tenant_plan(
         tenant.limits = _json.dumps({
             "max_users": plan.max_users,
             "max_projects": plan.max_projects,
+            "max_clients": plan.max_clients,
             "max_releases": plan.max_releases,
             "max_backlog_items": plan.max_backlog_items,
         })
@@ -975,6 +960,7 @@ def list_all_tenants(
             "created_at": t.created_at.isoformat() if t.created_at else None,
             "member_count": db.query(TenantMembership).filter(TenantMembership.tenant_id == t.id).count(),
             "project_count": db.query(Project).filter(Project.tenant_id == t.id).count(),
+            "client_count": db.query(Client).filter(Client.tenant_id == t.id).count(),
         }
         for t in tenants
     ]
@@ -1193,7 +1179,7 @@ def get_tenant_detail(
             "status": tenant.status,
             "branding": _json.loads(tenant.branding) if tenant.branding else {},
             "logo_url": tenant.logo_url or (_json.loads(tenant.branding).get("logo_url", "") if tenant.branding else ""),
-            "limits": _json.loads(tenant.limits) if tenant.limits else {"max_users": 999999, "max_projects": 999999},
+            "limits": _json.loads(tenant.limits) if tenant.limits else {"max_users": 999999, "max_projects": 999999, "max_clients": 999999},
             "created_at": tenant.created_at.isoformat() if tenant.created_at else None,
         },
         "members": members,
@@ -1201,6 +1187,7 @@ def get_tenant_detail(
         "stats": {
             "member_count": len(members),
             "project_count": len(project_list),
+            "client_count": db.query(Client).filter(Client.tenant_id == tenant.id).count(),
             "backlog_items": backlog_count,
             "releases": release_count,
             "api_keys": api_key_count,

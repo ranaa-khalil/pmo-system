@@ -12,11 +12,13 @@ from fastapi import HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
 from app.models.backlog_item import BacklogItem
+from app.models.client import Client
 from app.models.project import Project
 from app.models.release import Release
 from app.models.tenant import PLAN_LIMITS, Tenant, TenantMembership
 from app.models.usage_record import (
     METRIC_BACKLOG_ITEMS,
+    METRIC_CLIENTS,
     METRIC_PROJECTS,
     METRIC_RELEASES,
     METRIC_USERS,
@@ -33,6 +35,7 @@ def get_usage_counts(db: Session, tenant_id: int) -> dict:
     return {
         METRIC_USERS: db.query(TenantMembership).filter(TenantMembership.tenant_id == tenant_id).count(),
         METRIC_PROJECTS: db.query(Project).filter(Project.tenant_id == tenant_id).count(),
+        METRIC_CLIENTS: db.query(Client).filter(Client.tenant_id == tenant_id).count(),
         METRIC_RELEASES: db.query(Release).filter(Release.tenant_id == tenant_id).count(),
         METRIC_BACKLOG_ITEMS: db.query(BacklogItem).filter(BacklogItem.tenant_id == tenant_id).count(),
     }
@@ -40,12 +43,13 @@ def get_usage_counts(db: Session, tenant_id: int) -> dict:
 
 def get_limits(tenant: Tenant) -> dict:
     """Get plan limits for a tenant — reads from tenant.limits JSON column
-    (configurable by tenant admin) instead of hardcoded PLAN_LIMITS."""
+    (propagated from the assigned Plan, not configurable per-tenant)."""
     import json as _json
     limits = _json.loads(tenant.limits) if tenant.limits else {}
     return {
         METRIC_USERS: limits.get("max_users", 999999),
         METRIC_PROJECTS: limits.get("max_projects", 999999),
+        METRIC_CLIENTS: limits.get("max_clients", 999999),
         METRIC_RELEASES: 999999,  # No limit on releases
         METRIC_BACKLOG_ITEMS: 999999,  # No limit on backlog items
     }
@@ -110,7 +114,7 @@ def get_quota_headers(db: Session, tenant: Tenant) -> dict:
     limits = get_limits(tenant)
 
     headers = {}
-    for metric in [METRIC_USERS, METRIC_PROJECTS, METRIC_RELEASES, METRIC_BACKLOG_ITEMS]:
+    for metric in [METRIC_USERS, METRIC_PROJECTS, METRIC_CLIENTS, METRIC_RELEASES, METRIC_BACKLOG_ITEMS]:
         limit = limits.get(metric, 999999)
         current = counts.get(metric, 0)
         if limit < 999999:

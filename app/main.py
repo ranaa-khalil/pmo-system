@@ -22,6 +22,7 @@ from app.routers import (
     dashboard,
     forms,
     github_sync,
+    infrastructure,
     notifications,
     personas,
     planning,
@@ -178,6 +179,7 @@ app.include_router(ai.router)
 app.include_router(github_sync.router)
 app.include_router(api_keys.router)
 app.include_router(analytics.router)
+app.include_router(infrastructure.router)
 
 # Register frontend UI
 app.include_router(frontend_router)

@@ -108,7 +108,7 @@ def seed():
     for name, desc in RACI_ROLES:
         existing = db.query(Role).filter(Role.name == name).first()
         if not existing:
-            db.add(Role(name=name, description=desc))
+            db.add(Role(name=name, description=desc, tenant_id=tenant.id))
     db.commit()
     print(f"✅ RACI roles: {db.query(Role).count()} in database")
 
@@ -169,7 +169,7 @@ def seed():
                 RoleAssignment.project_id == pnu.id,
             ).first()
             if not exists:
-                db.add(RoleAssignment(user_id=rana.id, role_id=role.id, project_id=pnu.id))
+                db.add(RoleAssignment(user_id=rana.id, role_id=role.id, project_id=pnu.id, tenant_id=tenant.id))
     db.commit()
     print("✅ Assigned Rana as PM + gate-keeper roles on PNU Cloud")
 
@@ -180,6 +180,7 @@ def seed():
             project_id=pnu.id,
             statement="Become the leading cloud platform for PNU, delivering 99.9% uptime with enterprise-grade security and automated self-service capabilities.",
             strategic_objectives="1. Achieve 99.9% service uptime\n2. Reduce incident response time to under 15 minutes\n3. Enable self-service provisioning for 80% of requests",
+            tenant_id=tenant.id,
         )
         db.add(vision)
         db.commit()
@@ -189,14 +190,14 @@ def seed():
     if not kpi_uptime:
         kpi_uptime = KPI(project_id=pnu.id, name="Service Uptime",
                          target_value="99.9", current_value="99.5", unit="%", category="Reliability",
-                         vision_objective="Achieve 99.9% service uptime")
+                         vision_objective="Achieve 99.9% service uptime", tenant_id=tenant.id)
         db.add(kpi_uptime)
         db.add(KPI(project_id=pnu.id, name="Incident Response Time",
                    target_value="15", current_value="45", unit="minutes", category="Operations",
-                   vision_objective="Reduce incident response time to under 15 minutes"))
+                   vision_objective="Reduce incident response time to under 15 minutes", tenant_id=tenant.id))
         db.add(KPI(project_id=pnu.id, name="Self-Service Adoption",
                    target_value="80", current_value="20", unit="%", category="User Experience",
-                   vision_objective="Enable self-service provisioning for 80% of requests"))
+                   vision_objective="Enable self-service provisioning for 80% of requests", tenant_id=tenant.id))
         db.commit()
         print("✅ Created 3 KPIs for PNU Cloud")
 
@@ -204,18 +205,22 @@ def seed():
     roadmap = db.query(Roadmap).filter(Roadmap.project_id == pnu.id).first()
     if not roadmap:
         roadmap = Roadmap(project_id=pnu.id, title="2026-2027 Platform Roadmap",
-                          start_date=date(2026, 1, 1), end_date=date(2027, 6, 30))
+                          start_date=date(2026, 1, 1), end_date=date(2027, 6, 30),
+                          tenant_id=tenant.id)
         db.add(roadmap)
         db.commit()
         db.add(Milestone(roadmap_id=roadmap.id, title="Q3 2026: Core Platform",
                          target_date=date(2026, 9, 30), status="On Track",
-                         description="Authentication, infrastructure, and monitoring foundation"))
+                         description="Authentication, infrastructure, and monitoring foundation",
+                         tenant_id=tenant.id))
         db.add(Milestone(roadmap_id=roadmap.id, title="Q4 2026: Advanced Features",
                          target_date=date(2026, 12, 31), status="On Track",
-                         description="Analytics dashboard, self-service portal, reporting"))
+                         description="Analytics dashboard, self-service portal, reporting",
+                         tenant_id=tenant.id))
         db.add(Milestone(roadmap_id=roadmap.id, title="Q1 2027: Scale & Optimize",
                          target_date=date(2027, 3, 31), status="On Track",
-                         description="Performance optimization, multi-region, compliance audit"))
+                         description="Performance optimization, multi-region, compliance audit",
+                         tenant_id=tenant.id))
         db.commit()
         print("✅ Created roadmap with 3 milestones for PNU Cloud")
 
@@ -232,37 +237,43 @@ def seed():
                         epic="Catalog & PIM", item_type="Feature", primary_actor="End Customer",
                         story_points=5, priority="Critical", current_phase="Retrospective",
                         status="Done", target_release="2026-07", kpi_id=kpi_self_id,
-                        acceptance_criteria="Search works in both AR and EN", dependencies="—"),
+                        acceptance_criteria="Search works in both AR and EN", dependencies="—",
+                        tenant_id=tenant.id),
             BacklogItem(project_id=pnu.id, title="Multi-tenant role management",
                         description="Admins define roles/permissions per tenant; changes audited",
                         epic="RBAC & Identity", item_type="Feature", primary_actor="Platform Admin",
                         story_points=8, priority="Critical", current_phase="UAT",
                         status="In Progress", target_release="2026-08", kpi_id=kpi_uptime_id,
-                        acceptance_criteria="Roles defined per tenant, changes audited", dependencies="—"),
+                        acceptance_criteria="Roles defined per tenant, changes audited", dependencies="—",
+                        tenant_id=tenant.id),
             BacklogItem(project_id=pnu.id, title="Enforce MFA for admin logins",
                         description="All admin logins require MFA; enrolment flow provided",
                         epic="Platform / Core", item_type="Feature", primary_actor="Platform Admin",
                         story_points=5, priority="Critical", current_phase="UAT",
                         status="In Progress", target_release="2026-08", kpi_id=kpi_uptime_id,
-                        acceptance_criteria="MFA enforced for admin accounts", dependencies="RBAC & Identity"),
+                        acceptance_criteria="MFA enforced for admin accounts", dependencies="RBAC & Identity",
+                        tenant_id=tenant.id),
             BacklogItem(project_id=pnu.id, title="Immutable audit trail for admin actions",
                         description="Every admin action is logged immutably with actor, time, before/after",
                         epic="Audit & Compliance", item_type="Feature", primary_actor="Auditor",
                         story_points=5, priority="High", current_phase="Pre-Release",
                         status="In Progress", target_release="2026-08", kpi_id=kpi_uptime_id,
-                        acceptance_criteria="Admin actions logged immutably", dependencies="—"),
+                        acceptance_criteria="Admin actions logged immutably", dependencies="—",
+                        tenant_id=tenant.id),
             BacklogItem(project_id=pnu.id, title="Cart-to-checkout transaction flow",
                         description="End customer can add to cart and complete a checkout transaction",
                         epic="Commerce", item_type="Feature", primary_actor="End Customer",
                         story_points=8, priority="High", current_phase="Development",
                         status="In Progress", target_release="2026-09", kpi_id=kpi_self_id,
-                        acceptance_criteria="Checkout flow works end-to-end", dependencies="Payments"),
+                        acceptance_criteria="Checkout flow works end-to-end", dependencies="Payments",
+                        tenant_id=tenant.id),
             BacklogItem(project_id=pnu.id, title="Multi-cloud usage aggregation dashboard",
                         description="Aggregate usage across providers into a single dashboard",
                         epic="Cloud Intelligence", item_type="Enhancement", primary_actor="Platform Admin",
                         story_points=5, priority="Medium", current_phase="Requirements",
                         status="Draft", target_release="2026-10", kpi_id=kpi_response_id,
-                        acceptance_criteria="Dashboard shows usage from all providers", dependencies="—"),
+                        acceptance_criteria="Dashboard shows usage from all providers", dependencies="—",
+                        tenant_id=tenant.id),
         ]
         for item in backlog_items:
             db.add(item)
@@ -286,7 +297,7 @@ def seed():
         db.commit()
 
         for item in backlog_items[:3]:
-            db.add(ReleaseItem(release_id=rel.id, backlog_item_id=item.id))
+            db.add(ReleaseItem(release_id=rel.id, backlog_item_id=item.id, tenant_id=tenant.id))
         db.commit()
 
         # Approval chain: Planning→In Progress (approved), In Progress→Testing (pending)
@@ -307,6 +318,7 @@ def seed():
             request_id=ap1.id, step_order=1, role_name="Product Owner",
             status="Approved", approver_id=rana.id,
             comment="Requirements reviewed and approved", decided_at=func.now(),
+            tenant_id=tenant.id,
         ))
 
         ap2 = ApprovalRequest(
@@ -322,6 +334,7 @@ def seed():
         db.add(ApprovalStep(
             request_id=ap2.id, step_order=1, role_name="Tech Lead",
             status="Pending", approver_id=rana.id,
+            tenant_id=tenant.id,
         ))
         db.commit()
         print("✅ Created release v1.0.0 with approval chain for PNU Cloud")
@@ -355,7 +368,7 @@ def seed():
             RoleAssignment.project_id == cg.id,
         ).first()
         if not exists:
-            db.add(RoleAssignment(user_id=rana.id, role_id=pm_role.id, project_id=cg.id))
+            db.add(RoleAssignment(user_id=rana.id, role_id=pm_role.id, project_id=cg.id, tenant_id=tenant.id))
     db.commit()
 
     # Vision for CloudGate
@@ -365,6 +378,7 @@ def seed():
             project_id=cg.id,
             statement="Unified cloud management platform serving enterprise customers across Saudi Arabia.",
             strategic_objectives="1. Onboard 5 enterprise tenants\n2. Achieve SOC2 compliance\n3. Automate 90% of provisioning workflows",
+            tenant_id=tenant.id,
         ))
         db.commit()
 
@@ -372,10 +386,10 @@ def seed():
     if db.query(KPI).filter(KPI.project_id == cg.id).count() == 0:
         db.add(KPI(project_id=cg.id, name="Tenant Onboarding Time",
                    target_value="48", current_value="120", unit="hours", category="Operations",
-                   vision_objective="Onboard 5 enterprise tenants"))
+                   vision_objective="Onboard 5 enterprise tenants", tenant_id=tenant.id))
         db.add(KPI(project_id=cg.id, name="Automation Coverage",
                    target_value="90", current_value="35", unit="%", category="Efficiency",
-                   vision_objective="Automate 90% of provisioning workflows"))
+                   vision_objective="Automate 90% of provisioning workflows", tenant_id=tenant.id))
         db.commit()
         print("✅ Created 2 KPIs for CloudGate Platform")
 
@@ -383,15 +397,18 @@ def seed():
     roadmap_cg = db.query(Roadmap).filter(Roadmap.project_id == cg.id).first()
     if not roadmap_cg:
         roadmap_cg = Roadmap(project_id=cg.id, title="2026-2027 CloudGate Roadmap",
-                             start_date=date(2026, 1, 1), end_date=date(2027, 6, 30))
+                             start_date=date(2026, 1, 1), end_date=date(2027, 6, 30),
+                             tenant_id=tenant.id)
         db.add(roadmap_cg)
         db.commit()
         db.add(Milestone(roadmap_id=roadmap_cg.id, title="Q4 2026: Multi-tenant SaaS",
                          target_date=date(2026, 12, 31), status="On Track",
-                         description="SaaS layer, tenant management, configurable plans"))
+                         description="SaaS layer, tenant management, configurable plans",
+                         tenant_id=tenant.id))
         db.add(Milestone(roadmap_id=roadmap_cg.id, title="Q2 2027: SOC2 Compliance",
                          target_date=date(2027, 6, 30), status="On Track",
-                         description="Security audit, compliance documentation, pen test"))
+                         description="Security audit, compliance documentation, pen test",
+                         tenant_id=tenant.id))
         db.commit()
         print("✅ Created roadmap with 2 milestones for CloudGate Platform")
 

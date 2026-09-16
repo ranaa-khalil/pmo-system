@@ -2555,7 +2555,8 @@
                                         <td class="py-3.5 px-4">
                                             <span class="text-[11px] font-medium px-2 py-1 rounded-md bg-ink-100 text-ink-500" x-text="kpi.category || '—'"></span>
                                         </td>
-                                        <td class="py-3 px-4 text-right">
+                                        <td class="py-3 px-4 text-right whitespace-nowrap">
+                                            <button @click.stop="editKPI(kpi)" class="text-[11px] text-ink-300 hover:text-brand-600 mr-2">Edit</button>
                                             <button @click.stop="deleteKPI(kpi.id)" class="text-[11px] text-ink-300 hover:text-rose-500">✕</button>
                                         </td>
                                     </tr>
@@ -8249,6 +8250,47 @@ function pmoApp() {
                 this.kpiEditMode = false;
                 await this.loadKPIs();
                 this.showToast('KPI updated', 'success');
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        async saveKPI() {
+            if (!this.kpiForm.name.trim()) return;
+            try {
+                const data = { ...this.kpiForm };
+                if (this.editingKPIId) {
+                    await this.api('PUT', `/kpis/${this.editingKPIId}`, data);
+                    this.showToast('KPI updated', 'success');
+                } else {
+                    data.project_id = this.selectedProject.id;
+                    await this.api('POST', `/projects/${this.selectedProject.id}/kpis`, data);
+                    this.showToast('KPI created', 'success');
+                }
+                this.showKpiForm = false;
+                this.editingKPIId = null;
+                this.kpiForm = { name: '', target_value: '', current_value: '', unit: '', category: '', vision_objective: '' };
+                await this.loadKPIs();
+            } catch (e) { this.showToast(e.message, 'error'); }
+        },
+
+        editKPI(kpi) {
+            this.editingKPIId = kpi.id;
+            this.kpiForm = {
+                name: kpi.name || '',
+                target_value: kpi.target_value != null ? String(kpi.target_value) : '',
+                current_value: kpi.current_value != null ? String(kpi.current_value) : '',
+                unit: kpi.unit || '',
+                category: kpi.category || '',
+                vision_objective: kpi.vision_objective || ''
+            };
+            this.showKpiForm = true;
+        },
+
+        async deleteKPI(id) {
+            if (!confirm('Delete this KPI?')) return;
+            try {
+                await this.api('DELETE', `/kpis/${id}`);
+                await this.loadKPIs();
+                this.showToast('KPI deleted', 'success');
             } catch (e) { this.showToast(e.message, 'error'); }
         },
 

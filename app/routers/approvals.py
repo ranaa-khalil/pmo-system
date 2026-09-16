@@ -33,7 +33,7 @@ def _enrich_steps(db: Session, request: ApprovalRequest, tenant_id: int):
     for s in steps:
         s.approver_name = None
         if s.approver_id:
-            user = db.query(User).filter(User.id == s.approver_id, User.tenant_id == tenant_id).first()
+            user = db.query(User).filter(User.id == s.approver_id).first()
             s.approver_name = user.name if user else None
     request.steps = steps
     return request

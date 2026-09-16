@@ -27,6 +27,7 @@ def _send_via_resend(to_email: str, subject: str, html_body: str, text_body: str
             headers={
                 "Authorization": f"Bearer {settings.resend_api_key}",
                 "Content-Type": "application/json",
+                "User-Agent": "PMO-System/1.0",
             },
             method="POST",
         )

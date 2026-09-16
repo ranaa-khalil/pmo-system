@@ -197,13 +197,23 @@ def update_tenant(
     _user: User = Depends(require_tenant_role(MEMBER_ROLE_OWNER, MEMBER_ROLE_ADMIN)),
 ):
     """Update tenant info (owner/admin only)."""
+    import json as _json
     if req.name is not None:
         current_tenant.name = req.name
     if req.logo_url is not None:
         current_tenant.logo_url = req.logo_url
     db.commit()
     db.refresh(current_tenant)
-    return current_tenant
+    return {
+        "id": current_tenant.id,
+        "name": current_tenant.name,
+        "slug": current_tenant.slug,
+        "plan": current_tenant.plan,
+        "status": current_tenant.status,
+        "logo_url": current_tenant.logo_url,
+        "branding": _json.loads(current_tenant.branding) if current_tenant.branding else {},
+        "created_at": current_tenant.created_at.isoformat() if current_tenant.created_at else None,
+    }
 
 
 @router.put("/tenant/branding")

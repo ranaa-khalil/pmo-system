@@ -1244,6 +1244,10 @@ def tenant_admin_reset_password(
     if not target_mem:
         raise HTTPException(404, "User is not a member of this tenant.")
 
+    # Tenant admins cannot reset the owner's password — only the owner or super admin can
+    if target_mem.role == "owner" and current_user.system_role != "super_admin":
+        raise HTTPException(403, "Only the owner or system admin can reset the owner's password.")
+
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(404, "User not found.")

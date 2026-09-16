@@ -1440,7 +1440,7 @@
                             :class="settingsTab === 'personal' ? 'border-brand-600 text-brand-600' : 'border-transparent text-ink-400 hover:text-ink-600'">
                         Personal
                     </button>
-                    <button @click="settingsTab = 'users'"
+                    <button x-show="canManageUsers" @click="settingsTab = 'users'"
                             class="px-4 py-2.5 text-[13px] font-medium transition-all border-b-2 -mb-px"
                             :class="settingsTab === 'users' ? 'border-brand-600 text-brand-600' : 'border-transparent text-ink-400 hover:text-ink-600'">
                         Users
@@ -1583,7 +1583,7 @@
                                                         <option value="admin">Admin</option>
                                                         <option value="owner">Owner</option>
                                                     </select>
-                                                    <button x-show="m.user_id !== currentUser.id"
+                                                    <button x-show="m.role !== 'owner' && m.user_id !== currentUser.id"
                                                             @click="tenantResetPassword(m.user_id)"
                                                             class="text-[10px] font-medium text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded-lg transition-all">Reset Pwd</button>
                                                     <button x-show="m.role !== 'owner' && m.user_id !== currentUser.id"

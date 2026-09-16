@@ -5,10 +5,20 @@ from app.models.backlog_item import BacklogItem
 from app.models.client import Client
 from app.models.form_template import FormInstance, FormTemplate
 from app.models.github_board_config import GitHubBoardConfig
+from app.models.infrastructure import (
+    Asset,
+    Environment,
+    InfraDatabase,
+    InfraService,
+    Secret,
+    SecretAccessLog,
+    SecretVersion,
+)
 from app.models.kpi import KPI
 from app.models.milestone import Milestone
 from app.models.notification import Notification, NotificationPreference
 from app.models.permission import Permission
+from app.models.plan import Plan
 from app.models.project import Project
 from app.models.project_test_account import ProjectTestAccount
 from app.models.project_vision import ProjectVision
@@ -43,4 +53,7 @@ __all__ = [
     "TenantSetting",
     "UsageRecord",
     "ApiKey",
+    "Plan",
+    "Environment", "Secret", "SecretVersion", "SecretAccessLog",
+    "Asset", "InfraService", "InfraDatabase",
 ]

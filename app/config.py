@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     def is_sqlite(self) -> bool:
         return self.database_url.startswith("sqlite")
 
-    model_config = {"env_file": ".env", "env_prefix": "PMO_"}
+    model_config = {"env_file": ".env", "env_prefix": "PMO_", "extra": "ignore"}
 
 
 settings = Settings()

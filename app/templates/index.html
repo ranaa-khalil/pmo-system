@@ -118,8 +118,8 @@
 
         /* Sidebar nav active — subtle tint, not gradient */
         .nav-active {
-            background: rgba(139, 92, 246, 0.08);
-            color: #7c3aed;
+            background: rgba(var(--brand-r, 124), var(--brand-g, 58), var(--brand-b, 237), 0.08);
+            color: var(--brand-color, #7c3aed);
         }
 
         /* Gradient text */
@@ -146,11 +146,11 @@
 
         /* Input — clean focus */
         .input-premium { transition: all 0.15s ease; border: 1px solid rgba(0,0,0,0.08); background: #fff; }
-        .input-premium:focus { box-shadow: 0 0 0 3px rgba(139,92,246,0.12); border-color: #a78bfa; outline: none; background: #fff; }
+        .input-premium:focus { box-shadow: 0 0 0 3px rgba(var(--brand-r, 124), var(--brand-g, 58), var(--brand-b, 237), 0.12); border-color: var(--brand-color, #7c3aed); outline: none; background: #fff; }
 
         /* Tab indicator */
         .tab-active { position: relative; color: #1d1d1f; }
-        .tab-active::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 2px; background: #7c3aed; border-radius: 2px 2px 0 0; }
+        .tab-active::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 2px; background: var(--brand-color, #7c3aed); border-radius: 2px 2px 0 0; }
 
         /* Pulse dot */
         @keyframes pulseDot { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }

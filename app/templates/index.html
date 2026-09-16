@@ -1179,7 +1179,7 @@
                                 <template x-for="p in projects" :key="p.id">
                                     <div class="flex border-b border-ink-100/60 hover:bg-ink-50/30 transition-colors group">
                                         <!-- Project label -->
-                                        <div class="w-[260px] flex-shrink-0 px-5 py-4 border-r border-black/[0.06] flex items-center gap-3 cursor-pointer sticky left-0 z-20 bg-white group-hover:bg-ink-50/50" @click="openProject(p)">
+                                        <div class="w-[260px] flex-shrink-0 px-5 py-4 border-r border-black/[0.06] flex items-center gap-3 cursor-pointer sticky left-0 z-20 bg-white group-hover:bg-ink-50" @click="openProject(p)">
                                             <div class="w-9 h-9 rounded-xl bg-brand-50 flex items-center justify-center ring-1 ring-brand-100 flex-shrink-0">
                                                 <span class="text-[13px] font-bold text-brand-600" x-text="p.name.charAt(0)"></span>
                                             </div>
@@ -7948,7 +7948,17 @@ function pmoApp() {
         navigate(route) {
             if (this.route === 'dashboard' && route !== 'dashboard') { this.destroyCharts(); }
             this.route = route;
-            if (route === 'roadmap') { this.loadAllRoadmaps(); }
+            if (route === 'roadmap') {
+                this.loadAllRoadmaps().then(() => {
+                    this.$nextTick(() => {
+                        const el = this.$refs.roadmapScroll;
+                        if (el) {
+                            const todayX = 280 + this.todayOffset * this.timelineZoom;
+                            el.scrollLeft = Math.max(0, todayX - el.clientWidth / 2);
+                        }
+                    });
+                });
+            }
             if (route === 'dashboard') { setTimeout(() => this.renderCharts(), 150); this.refreshTaskSummary(); }
             if (route === 'tasks') { this.loadTasks(); }
             if (route === 'settings') { this.loadTenant(); this.loadMembers(); this.loadIntegrations(); this.loadTenantLimits(); }

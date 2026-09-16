@@ -199,6 +199,27 @@
         .prose-p\:my-1 code { background: rgba(0,0,0,0.05); padding: 1px 4px; border-radius: 3px; font-size: 11px; }
         .prose-p\:my-1 strong { font-weight: 600; }
         .prose-p\:my-1 h1, .prose-p\:my-1 h2, .prose-p\:my-1 h3 { font-weight: 600; margin: 0.5rem 0 0.25rem; }
+        /* Shared markdown styles — applied to all renderMarkdown output */
+        .md-content p { margin: 0.25rem 0; }
+        .md-content ul, .md-content ol { padding-left: 1.2rem; margin: 0.25rem 0; }
+        .md-content li { margin: 0; }
+        .md-content code { background: rgba(0,0,0,0.05); padding: 1px 4px; border-radius: 3px; font-size: 0.9em; font-family: ui-monospace, monospace; }
+        .md-content pre { background: rgba(0,0,0,0.04); padding: 0.5rem 0.75rem; border-radius: 6px; overflow-x: auto; margin: 0.5rem 0; }
+        .md-content pre code { background: none; padding: 0; font-size: 12px; }
+        .md-content strong { font-weight: 600; }
+        .md-content em { font-style: italic; }
+        .md-content h1 { font-size: 1.1em; font-weight: 600; margin: 0.5rem 0 0.25rem; }
+        .md-content h2 { font-size: 1.05em; font-weight: 600; margin: 0.5rem 0 0.25rem; }
+        .md-content h3 { font-size: 1em; font-weight: 600; margin: 0.4rem 0 0.2rem; }
+        .md-content blockquote { border-left: 2px solid rgba(139,92,246,0.3); padding-left: 0.75rem; margin: 0.4rem 0; color: #86868b; font-style: italic; }
+        .md-content a { color: #7c3aed; text-decoration: none; }
+        .md-content a:hover { text-decoration: underline; }
+        .md-content hr { border: none; border-top: 1px solid rgba(0,0,0,0.06); margin: 0.5rem 0; }
+        .md-content table { border-collapse: collapse; width: 100%; margin: 0.5rem 0; font-size: 12px; }
+        .md-content th, .md-content td { border: 1px solid rgba(0,0,0,0.08); padding: 4px 8px; text-align: left; }
+        .md-content th { background: rgba(0,0,0,0.02); font-weight: 600; }
+        .md-content img { max-width: 100%; border-radius: 6px; }
+        .md-content input[type="checkbox"] { margin-right: 4px; }
     </style>
 </head>
 <body class="h-full bg-ink-50 font-sans text-ink-700" x-data="pmoApp()" x-init="init()" x-cloak
@@ -1095,7 +1116,8 @@
                              x-text="selectedClient?.name?.charAt(0)"></div>
                         <div class="flex-1 min-w-0">
                             <h1 class="text-[24px] font-bold text-ink-900 tracking-tight" x-text="selectedClient?.name"></h1>
-                            <p class="text-[13px] text-ink-400 mt-0.5" x-text="selectedClient?.description || 'No description'"></p>
+                            <div class="text-[13px] text-ink-400 mt-0.5" x-show="selectedClient?.description" x-html="renderMarkdown(selectedClient?.description)"></div>
+                            <p class="text-[13px] text-ink-300 mt-0.5 italic" x-show="!selectedClient?.description">No description</p>
                         </div>
                         <button @click="openClientModal(selectedClient)" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-600 hover:text-brand-700 px-3 py-2 rounded-xl bg-brand-50 hover:bg-brand-100 transition-colors">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
@@ -2548,8 +2570,9 @@
                             <h3 class="text-[13px] font-semibold text-ink-800 mb-3">Create Vision</h3>
                             <div class="space-y-3">
                                 <textarea x-model="visionForm.statement" rows="3" class="input-premium w-full text-[14px] px-3 py-2" placeholder="Vision statement"></textarea>
-                                    <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
+                                <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
                                 <textarea x-model="visionForm.strategic_objectives" rows="4" class="input-premium w-full text-[14px] px-3 py-2" placeholder="List strategic objectives"></textarea>
+                                <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
                                 <div class="flex items-center gap-2">
                                     <button @click="saveVision()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Vision</button>
                                     <button @click="aiSuggestVision()" :disabled="aiLoading" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-600 hover:text-white hover:bg-brand-600 px-3 py-2 rounded-xl border border-brand-200 transition-all disabled:opacity-50">
@@ -2572,9 +2595,9 @@
                                     <button @click="vision = null" class="text-[12px] text-brand-600 hover:text-brand-700">Edit</button>
                                 </div>
                             </div>
-                            <p class="text-[14px] text-ink-700 mb-4" x-text="vision.statement"></p>
+                            <div class="text-[14px] text-ink-700 mb-4 leading-relaxed" x-html="renderMarkdown(vision.statement)"></div>
                             <h4 class="text-[12px] font-semibold text-ink-500 uppercase tracking-wider mb-2">Strategic Objectives</h4>
-                            <p class="text-[13px] text-ink-600 whitespace-pre-line" x-text="vision.strategic_objectives"></p>
+                            <div class="text-[13px] text-ink-600 leading-relaxed" x-html="renderMarkdown(vision.strategic_objectives)"></div>
                         </div>
                     </template>
                 </div>
@@ -3418,6 +3441,7 @@
                 <input x-model="releaseForm.target_date" type="date" class="input-premium text-[13px] rounded-[10px] px-3 py-2">
             </div>
             <textarea x-model="releaseForm.description" rows="2" class="input-premium w-full text-[13px] px-3 py-2 mt-2" placeholder="Release description..."></textarea>
+            <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
             <select x-model="releaseForm.milestone_id" class="input-premium w-full text-[13px] rounded-[10px] px-3 py-2 mt-2 bg-white">
                 <option value="">Link to milestone (optional)...</option>
                 <template x-for="rm in roadmaps" :key="rm.id">
@@ -3724,7 +3748,8 @@
                                      :class="{'bg-emerald-400': selectedMilestone.status === 'On Track', 'bg-rose-400': selectedMilestone.status === 'At Risk', 'bg-ink-300': selectedMilestone.status === 'Completed'}"></div>
                                 <h3 class="text-[16px] font-bold text-ink-800" x-text="selectedMilestone.title"></h3>
                             </div>
-                            <p class="text-[12px] text-ink-400" x-text="selectedMilestone.description || 'No description'"></p>
+                            <div class="text-[12px] text-ink-400 leading-relaxed" x-show="selectedMilestone.description" x-html="renderMarkdown(selectedMilestone.description)"></div>
+                            <p class="text-[12px] text-ink-300 italic" x-show="!selectedMilestone.description">No description</p>
                         </div>
                         <button @click="selectedMilestone = null" class="text-ink-300 hover:text-ink-500 text-[18px]">✕</button>
                     </div>
@@ -3827,6 +3852,7 @@
                         <div>
                             <label class="block text-[11px] font-medium text-ink-500 mb-1.5">Description</label>
                             <textarea x-model="milestoneForm.description" rows="2" class="input-premium text-[13px] px-3 py-2 w-full"></textarea>
+                            <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
                         </div>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
@@ -4274,7 +4300,7 @@
                     </div>
                     <template x-if="selectedRelease?.release_notes">
                         <div class="bg-gradient-to-br from-slate-50 to-brand-50/20 rounded-xl p-4 border border-black/[0.06] max-h-[400px] overflow-y-auto">
-                            <div class="text-[12px] text-ink-600 whitespace-pre-wrap" x-text="selectedRelease.release_notes"></div>
+                            <div class="text-[12px] text-ink-600 leading-relaxed" x-html="renderMarkdown(selectedRelease.release_notes)"></div>
                         </div>
                     </template>
                     <template x-if="!selectedRelease?.release_notes">
@@ -4867,11 +4893,11 @@
                             <div class="space-y-1 mt-2 pt-2 border-t border-ink-100">
                                 <div x-show="p.goals" class="flex items-start gap-1.5 text-[10px]">
                                     <span class="text-emerald-500 font-bold">✓</span>
-                                    <span class="text-ink-500" x-text="p.goals"></span>
+                                    <div class="text-ink-500 leading-relaxed" x-html="renderMarkdown(p.goals)"></div>
                                 </div>
                                 <div x-show="p.pain_points" class="flex items-start gap-1.5 text-[10px]">
                                     <span class="text-rose-400 font-bold">!</span>
-                                    <span class="text-ink-500" x-text="p.pain_points"></span>
+                                    <div class="text-ink-500 leading-relaxed" x-html="renderMarkdown(p.pain_points)"></div>
                                 </div>
                             </div>
                         </template>
@@ -5528,7 +5554,7 @@
                                         Awaiting approval from <span class="font-medium text-ink-500" x-text="step.approver_name"></span> (<span x-text="step.role_name"></span>)
                                     </div>
                                 </div>
-                                <div x-show="step.comment" class="text-[11px] text-ink-400 mt-1 italic bg-ink-100 rounded-lg px-2.5 py-1.5" x-text="step.comment || ''"></div>
+                                <div x-show="step.comment" class="text-[11px] text-ink-400 mt-1 italic bg-ink-100 rounded-lg px-2.5 py-1.5 leading-relaxed" x-html="renderMarkdown(step.comment || '')"></div>
                             </div>
                         </div>
                     </template>
@@ -6419,6 +6445,7 @@ x-init="init()">
                     <label class="block text-[12px] font-medium text-ink-600 mb-1.5">Description <span class="text-ink-400 font-normal">(optional)</span></label>
                     <textarea x-model="taskForm.description" rows="2" placeholder="Add details..."
                               class="w-full px-3.5 py-2.5 rounded-xl border border-ink-200 text-[14px] focus:ring-2 focus:ring-brand-400 focus:border-brand-400 outline-none transition-all resize-none"></textarea>
+                    <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
                 </div>
                 <!-- Project + Milestone -->
                 <div class="grid grid-cols-2 gap-3">
@@ -6510,14 +6537,17 @@ x-init="init()">
                 <div>
                     <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Description</label>
                     <textarea x-model="editingPersona.description" rows="2" class="input-premium w-full text-[13px] px-3 py-2" placeholder="What does this persona do?"></textarea>
+                    <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
                 </div>
                 <div>
                     <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Goals</label>
                     <textarea x-model="editingPersona.goals" rows="2" class="input-premium w-full text-[13px] px-3 py-2" placeholder="What does this persona want to achieve?"></textarea>
+                    <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
                 </div>
                 <div>
                     <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Pain Points</label>
                     <textarea x-model="editingPersona.pain_points" rows="2" class="input-premium w-full text-[13px] px-3 py-2" placeholder="What challenges does this persona face?"></textarea>
+                    <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
                 </div>
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" @click="personaModalOpen = false" class="text-[13px] font-medium text-ink-600 px-4 py-2.5 rounded-xl hover:bg-ink-100 transition-colors">Cancel</button>
@@ -6569,6 +6599,7 @@ x-init="init()">
                 <div>
                     <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Notes</label>
                     <textarea x-model="editingTestAccount.notes" rows="2" class="input-premium w-full text-[13px] px-3 py-2" placeholder="Any extra info for testers..."></textarea>
+                    <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
                 </div>
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" @click="testAccountModalOpen = false" class="text-[13px] font-medium text-ink-600 px-4 py-2.5 rounded-xl hover:bg-ink-100 transition-colors">Cancel</button>
@@ -6619,6 +6650,7 @@ x-init="init()">
                     <textarea x-model="editingClient.description" rows="3"
                               class="input-premium w-full text-[14px] resize-none"
                               placeholder="Brief description of the client..."></textarea>
+                    <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
                 </div>
                 <div class="flex justify-end gap-2 pt-3">
                     <button type="button" @click="clientModalOpen = false" class="text-[13px] font-medium text-ink-600 px-4 py-2.5 rounded-xl hover:bg-ink-100 transition-colors">Cancel</button>
@@ -6689,6 +6721,7 @@ x-init="init()">
                     <textarea x-model="editingProject.description" rows="3"
                               class="input-premium w-full text-[14px] resize-none"
                               placeholder="Brief description..."></textarea>
+                    <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
                 </div>
                 <div class="grid grid-cols-3 gap-3">
                     <div>
@@ -7202,11 +7235,12 @@ function pmoApp() {
             if (!text) return '';
             try {
                 if (typeof marked !== 'undefined') {
-                    return marked.parse(text);
+                    marked.setOptions({ breaks: true, gfm: true });
+                    return '<div class="md-content">' + marked.parse(text) + '</div>';
                 }
             } catch(e) {}
             // Fallback: convert newlines to <br>
-            return text.replace(/\n/g, '<br>');
+            return '<div class="md-content">' + text.replace(/\n/g, '<br>') + '</div>';
         },
 
         applyBranding() {

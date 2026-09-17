@@ -182,9 +182,9 @@ Internet → nginx (443) → Docker app (8000) → PostgreSQL (5432)
 
 **Database connection refused:** Ensure `PMO_POSTGRES_PASSWORD` in `.env` matches. The db container takes a few seconds to initialize.
 
-**Emails not sending:** Check `PMO_RESEND_API_KEY` is set. On Resend free tier, `PMO_EMAIL_FROM` must be `onboarding@resend.dev` unless you've verified your domain.
+**Emails not sending:** Check `PMO_RESEND_API_KEY` is set. On Resend free tier, emails can only be delivered to the account owner's email address. To send to any user, verify a domain at https://resend.com/domains and update `PMO_EMAIL_FROM` to use that domain (e.g. `PMO System <noreply@obelion.ai>`). Alternatively, configure SMTP settings (`PMO_SMTP_HOST`, `PMO_SMTP_USER`, `PMO_SMTP_PASSWORD`) to use Gmail or another SMTP provider.
 
-**Forgot password shows "Set New Password" form directly:** This means email sending failed and the system fell back to returning a token. Check Resend API key and logs.
+**Forgot password not delivering:** The reset link is logged to the server console as `[password-reset] Dev reset link: ...` when email delivery fails. In production, ensure Resend domain verification or SMTP is configured so emails reach users.
 
 **403 on API calls:** CORS is restricted to `PMO_APP_URL` in production. Make sure the domain in `.env` matches what users access.
 

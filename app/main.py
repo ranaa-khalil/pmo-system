@@ -83,6 +83,9 @@ def _auto_migrate():
     # Add branding column to tenants (Phase 3.2 white-labeling)
     _add_column("tenants", "branding TEXT")
 
+    # Add configurable tenant resource limits
+    _add_column("tenants", "limits TEXT")
+
     # Create indexes on tenant_id for all tenant-scoped tables (Phase 3.6)
     def _has_index(table: str, index_name: str) -> bool:
         if not inspector.has_table(table):

@@ -19,7 +19,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Create non-root user
 RUN groupadd --system pmo && useradd --system --gid pmo pmo \
-    && mkdir -p /app/data && chown pmo:pmo /app/data
+    && mkdir -p /app/data /app/uploads \
+    && chown -R pmo:pmo /app/data /app/uploads
 
 # Copy application code
 COPY app ./app

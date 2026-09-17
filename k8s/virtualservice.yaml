@@ -1,0 +1,20 @@
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: pmo-system
+  namespace: pmo-system
+  labels:
+    app.kubernetes.io/name: pmo-system
+    app.kubernetes.io/part-of: pmo-system
+spec:
+  hosts:
+    - pmo-system.obelion.ai
+  gateways:
+    - istio-ingress/cloudgate-gateway
+  http:
+    - name: pmo-system
+      route:
+        - destination:
+            host: pmo-system.pmo-system.svc.cluster.local
+            port:
+              number: 80

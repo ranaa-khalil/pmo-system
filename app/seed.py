@@ -412,6 +412,194 @@ def seed():
         db.commit()
         print("✅ Created roadmap with 2 milestones for CloudGate Platform")
 
+    # ── Backlog items for CloudGate (3 items) ───────────────────────────
+    existing_cg_backlog = db.query(BacklogItem).filter(BacklogItem.project_id == cg.id).count()
+    if existing_cg_backlog == 0:
+        db.add_all([
+            BacklogItem(project_id=cg.id, title="Tenant onboarding wizard",
+                        description="Self-service wizard for new tenants to configure their workspace",
+                        epic="SaaS Platform", item_type="Feature", primary_actor="Tenant Admin",
+                        story_points=8, priority="Critical", current_phase="Development",
+                        status="In Progress", target_release="2026-10",
+                        acceptance_criteria="Tenant can complete onboarding in under 5 minutes",
+                        dependencies="—", tenant_id=tenant.id),
+            BacklogItem(project_id=cg.id, title="Plan-based feature gating",
+                        description="Restrict features based on tenant plan (Free/Team/Business/Enterprise)",
+                        epic="SaaS Platform", item_type="Feature", primary_actor="Platform Admin",
+                        story_points=5, priority="High", current_phase="Requirements",
+                        status="Draft", target_release="2026-11",
+                        acceptance_criteria="Features hidden/disabled based on plan tier",
+                        dependencies="—", tenant_id=tenant.id),
+            BacklogItem(project_id=cg.id, title="Audit log export",
+                        description="Export tenant activity logs as CSV/JSON for compliance",
+                        epic="Audit & Compliance", item_type="Enhancement", primary_actor="Auditor",
+                        story_points=3, priority="Medium", current_phase="UAT",
+                        status="In Progress", target_release="2026-10",
+                        acceptance_criteria="Logs exportable in CSV and JSON formats",
+                        dependencies="—", tenant_id=tenant.id),
+        ])
+        db.commit()
+        print("✅ Created 3 backlog items for CloudGate Platform")
+
+    # ── Release for CloudGate ───────────────────────────────────────────
+    existing_cg_release = db.query(Release).filter(Release.project_id == cg.id).first()
+    if not existing_cg_release:
+        ms_q4_cg = db.query(Milestone).filter(Milestone.title == "Q4 2026: Multi-tenant SaaS").first()
+        cg_rel = Release(
+            project_id=cg.id, version="2.0.0", name="SaaS Platform Launch",
+            description="Multi-tenant SaaS with configurable plans and tenant management",
+            status="In Progress", target_date="2026-12-31",
+            milestone_id=ms_q4_cg.id if ms_q4_cg else None,
+            tenant_id=tenant.id,
+        )
+        db.add(cg_rel)
+        db.commit()
+        # Add backlog items to release
+        cg_items = db.query(BacklogItem).filter(BacklogItem.project_id == cg.id).all()
+        for item in cg_items[:2]:
+            db.add(ReleaseItem(release_id=cg_rel.id, backlog_item_id=item.id, tenant_id=tenant.id))
+        db.commit()
+        # Approval chain
+        from app.models.approval import ApprovalRequest, ApprovalStep
+        ap_cg = ApprovalRequest(
+            project_id=cg.id, title="Release v2.0.0: Requirements → Planning",
+            description="Approve requirements and kick off planning for SaaS Platform Launch",
+            request_type="release", requested_by=rana.id, release_id=cg_rel.id,
+            target_phase="Planning", status="Pending", tenant_id=tenant.id,
+        )
+        db.add(ap_cg)
+        db.commit()
+        db.refresh(ap_cg)
+        db.add(ApprovalStep(
+            request_id=ap_cg.id, step_order=1, role_name="Product Manager",
+            status="Pending", approver_id=rana.id, tenant_id=tenant.id,
+        ))
+        db.commit()
+        print("✅ Created release v2.0.0 with approval chain for CloudGate")
+
+    # ── Stakeholders ────────────────────────────────────────────────────
+    from app.models.stakeholder import Stakeholder
+    if db.query(Stakeholder).filter(Stakeholder.project_id == pnu.id).count() == 0:
+        po_role = db.query(Role).filter(Role.name == "Product Owner").first()
+        qa_role = db.query(Role).filter(Role.name == "QA Lead").first()
+        pm_role = db.query(Role).filter(Role.name == "Product Manager").first()
+        db.add(Stakeholder(project_id=pnu.id, name="Rana Khalil", email="rana@opex.com.sa",
+                           role_id=po_role.id if po_role else 1, role_name="Product Owner",
+                           user_id=rana.id, allocation=100, notes="Product owner for PNU Cloud",
+                           tenant_id=tenant.id))
+        db.add(Stakeholder(project_id=pnu.id, name="Rana Khalil", email="rana@opex.com.sa",
+                           role_id=qa_role.id if qa_role else 7, role_name="QA Lead",
+                           user_id=rana.id, allocation=50, notes="QA oversight for PNU Cloud",
+                           tenant_id=tenant.id))
+        db.add(Stakeholder(project_id=cg.id, name="Rana Khalil", email="rana@opex.com.sa",
+                           role_id=pm_role.id if pm_role else 2, role_name="Product Manager",
+                           user_id=rana.id, allocation=100, notes="PM for CloudGate",
+                           tenant_id=tenant.id))
+        db.commit()
+        print("✅ Created 3 stakeholders")
+
+    # ── User Tasks ──────────────────────────────────────────────────────
+    from app.models.user_task import UserTask
+    if db.query(UserTask).count() == 0:
+        db.add_all([
+            UserTask(title="Review PNU Cloud backlog", description="Review and prioritize the 6 backlog items",
+                     priority="High", status="Pending", project_id=pnu.id, assigned_to=rana.id,
+                     due_date=date(2026, 9, 20), tenant_id=tenant.id),
+            UserTask(title="Approve release v1.0.0", description="Review and approve the phase gate",
+                     priority="Urgent", status="Pending", project_id=pnu.id, assigned_to=rana.id,
+                     due_date=date(2026, 9, 18), tenant_id=tenant.id),
+            UserTask(title="Plan CloudGate v2.0.0", description="Define scope and timeline",
+                     priority="High", status="In Progress", project_id=cg.id, assigned_to=rana.id,
+                     due_date=date(2026, 9, 25), tenant_id=tenant.id),
+        ])
+        db.commit()
+        print("✅ Created 3 user tasks")
+
+    # ── Infrastructure ──────────────────────────────────────────────────
+    from app.models.infrastructure import InfraEnvironment, InfraSecret, InfraAsset, InfraService, InfraDatabase
+    if db.query(InfraEnvironment).filter(InfraEnvironment.project_id == pnu.id).count() == 0:
+        dev_env = InfraEnvironment(project_id=pnu.id, name="Development", env_type="development",
+                                   url="https://dev.pnu-cloud.opex.com.sa", status="Active",
+                                   description="Dev environment for PNU Cloud", tenant_id=tenant.id)
+        prod_env = InfraEnvironment(project_id=pnu.id, name="Production", env_type="production",
+                                    url="https://pnu-cloud.opex.com.sa", status="Active",
+                                    description="Prod environment for PNU Cloud", tenant_id=tenant.id)
+        cg_dev = InfraEnvironment(project_id=cg.id, name="Development", env_type="development",
+                                  url="https://dev.cloudgate.opex.com.sa", status="Active",
+                                  description="Dev environment for CloudGate", tenant_id=tenant.id)
+        db.add_all([dev_env, prod_env, cg_dev])
+        db.commit()
+
+        db.add_all([
+            InfraSecret(project_id=pnu.id, name="DATABASE_URL", value="postgresql://user:pass@db.local:5432/pnu_cloud",
+                        environment_id=dev_env.id, description="Primary database connection", tenant_id=tenant.id),
+            InfraSecret(project_id=pnu.id, name="JWT_SECRET", value="super-secret-key",
+                        environment_id=prod_env.id, description="JWT signing key", tenant_id=tenant.id),
+        ])
+        db.add_all([
+            InfraAsset(project_id=pnu.id, name="PNU Cloud API Server", asset_type="server",
+                       environment_id=dev_env.id, status="Running",
+                       description="Primary API server", tenant_id=tenant.id),
+            InfraAsset(project_id=pnu.id, name="PostgreSQL Database", asset_type="database",
+                       environment_id=prod_env.id, status="Running",
+                       description="Primary database", tenant_id=tenant.id),
+        ])
+        db.add_all([
+            InfraService(project_id=pnu.id, name="API Gateway", service_type="internal",
+                         environment_id=dev_env.id, status="Healthy",
+                         description="Kong API Gateway", tenant_id=tenant.id),
+            InfraService(project_id=pnu.id, name="Auth Service", service_type="internal",
+                         environment_id=dev_env.id, status="Healthy",
+                         description="Keycloak authentication", tenant_id=tenant.id),
+        ])
+        db.add(InfraDatabase(project_id=pnu.id, name="PNU Cloud Primary DB", db_type="postgresql",
+                             environment_id=prod_env.id, port=5432, status="Running",
+                             description="Primary PostgreSQL database", tenant_id=tenant.id))
+        db.commit()
+        print("✅ Created infrastructure (3 envs, 2 secrets, 2 assets, 2 services, 1 database)")
+
+    # ── Activity log ────────────────────────────────────────────────────
+    from app.models.activity_log import ActivityLog
+    if db.query(ActivityLog).count() == 0:
+        from datetime import datetime
+        db.add_all([
+            ActivityLog(tenant_id=tenant.id, user_id=rana.id, user_name=rana.name, project_id=pnu.id,
+                        entity_type="project", entity_id=pnu.id, action="created",
+                        summary="Created project: PNU Cloud", created_at=datetime(2026, 9, 15, 10, 0)),
+            ActivityLog(tenant_id=tenant.id, user_id=rana.id, user_name=rana.name, project_id=cg.id,
+                        entity_type="project", entity_id=cg.id, action="created",
+                        summary="Created project: CloudGate Platform", created_at=datetime(2026, 9, 15, 10, 30)),
+            ActivityLog(tenant_id=tenant.id, user_id=rana.id, user_name=rana.name, project_id=pnu.id,
+                        entity_type="client", entity_id=1, action="created",
+                        summary="Created client: NITC / PNU", created_at=datetime(2026, 9, 15, 9, 0)),
+            ActivityLog(tenant_id=tenant.id, user_id=rana.id, user_name=rana.name, project_id=pnu.id,
+                        entity_type="release", entity_id=1, action="created",
+                        summary="Created release v1.0.0: Core Platform Launch", created_at=datetime(2026, 9, 15, 11, 0)),
+            ActivityLog(tenant_id=tenant.id, user_id=rana.id, user_name=rana.name, project_id=pnu.id,
+                        entity_type="approval", entity_id=1, action="approved",
+                        summary="Approved: Release v1.0.0 Planning → In Progress", created_at=datetime(2026, 9, 15, 12, 0)),
+        ])
+        db.commit()
+        print("✅ Created 5 activity log entries")
+
+    # ── Notifications ───────────────────────────────────────────────────
+    from app.models.notification import Notification
+    if db.query(Notification).count() == 0:
+        from datetime import datetime
+        db.add_all([
+            Notification(tenant_id=tenant.id, user_id=rana.id, title="Pending approval: Release v1.0.0",
+                         body="Release v1.0.0: In Progress → Testing awaiting your approval",
+                         type="approval", read=False, created_at=datetime(2026, 9, 16, 8, 0)),
+            Notification(tenant_id=tenant.id, user_id=rana.id, title="Task due soon",
+                         body="Your task 'Review PNU Cloud backlog' is due on Sep 20",
+                         type="task", read=False, created_at=datetime(2026, 9, 16, 9, 0)),
+            Notification(tenant_id=tenant.id, user_id=rana.id, title="New release created",
+                         body="Release v2.0.0: SaaS Platform Launch created for CloudGate",
+                         type="release", read=True, created_at=datetime(2026, 9, 15, 14, 0)),
+        ])
+        db.commit()
+        print("✅ Created 3 notifications")
+
     # ── Summary ─────────────────────────────────────────────────────────
     print("\n" + "=" * 60)
     print("PMO System — Seed Complete")

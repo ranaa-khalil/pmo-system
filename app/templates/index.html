@@ -7272,12 +7272,14 @@ function pmoApp() {
         },
 
         async init() {
-            // Check for reset token in URL (from email link) — store it but DON'T auto-open
+            // Check for reset token in URL (from email link)
             const urlParams = new URLSearchParams(window.location.search);
             const resetToken = urlParams.get('reset_token');
             if (resetToken) {
                 this.forgotPasswordToken = resetToken;
-                this.hasResetTokenFromUrl = true;
+                // Auto-open the reset form so the user can set a new password
+                this.showForgotPassword = true;
+                this.forgotPasswordStep = 'reset';
                 // Clean the URL
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
@@ -8111,14 +8113,8 @@ function pmoApp() {
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.detail || 'Failed to send reset email');
-                if (data.reset_token) {
-                    // SMTP not configured — local dev fallback, go straight to reset form
-                    this.forgotPasswordToken = data.reset_token;
-                    this.forgotPasswordStep = 'reset';
-                } else {
-                    // Email sent — show "check your email" step
-                    this.forgotPasswordStep = 'email_sent';
-                }
+                // Always show "check your email" — never auto-open the reset form
+                this.forgotPasswordStep = 'email_sent';
             } catch (e) {
                 this.forgotPasswordError = e.message;
             } finally {

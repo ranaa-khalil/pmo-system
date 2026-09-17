@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.config import settings
 from app.models.password_reset_token import PasswordResetToken
 from app.models.tenant import TenantMembership
 from app.models.user import User
@@ -129,12 +130,12 @@ def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
     email_sent = send_password_reset_email(user.email, raw_token, user.name)
 
     if not email_sent:
-        # SMTP not configured — return the token directly for local dev
-        return {
-            "message": "SMTP not configured. Reset token generated for local dev.",
-            "reset_token": raw_token,
-            "email": user.email,
-        }
+        # Email delivery failed — still show "check your email" to the user
+        # (don't leak the token in the API response).
+        # Log the reset link to the server console for dev/testing.
+        reset_url = f"{settings.app_url}/?reset_token={raw_token}"
+        print(f"[password-reset] Email send failed for {user.email}.")
+        print(f"[password-reset] Dev reset link: {reset_url}")
 
     return {"message": "A password reset link has been sent to your email."}
 

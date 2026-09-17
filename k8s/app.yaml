@@ -86,7 +86,7 @@ spec:
               memory: 64Mi
       containers:
         - name: app
-          image: paulahakeem/pmo-system:sha-76f47fd
+          image: paulahakeem/pmo-system:sha-4e0d646
           imagePullPolicy: IfNotPresent
           env:
             - name: POSTGRES_USER

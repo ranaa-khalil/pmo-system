@@ -104,6 +104,44 @@ def seed():
     rana.active_tenant_id = tenant.id
     db.commit()
 
+    # ── Subscription Plans ──────────────────────────────────────────────
+    from app.models.plan import Plan
+    import json as _json
+    plans_data = [
+        {"name": "Free",       "description": "Perfect for small teams getting started with project management. Includes core PMO features with basic limits.",
+         "max_users": 3,     "max_projects": 1,     "max_clients": 2,     "max_releases": 2,     "max_backlog_items": 50,
+         "price_monthly": 0,  "price_yearly": 0,   "is_active": True, "sort_order": 1},
+        {"name": "Team",       "description": "For growing teams that need more projects, collaborators, and advanced planning tools. Includes roadmap timeline and release management.",
+         "max_users": 25,    "max_projects": 10,    "max_clients": 15,    "max_releases": 20,    "max_backlog_items": 500,
+         "price_monthly": 12, "price_yearly": 120, "is_active": True, "sort_order": 2},
+        {"name": "Business",   "description": "For established organizations managing multiple clients and complex project portfolios. Includes infrastructure module, KPIs, and approval workflows.",
+         "max_users": 100,   "max_projects": 999999, "max_clients": 999999, "max_releases": 999999, "max_backlog_items": 999999,
+         "price_monthly": 25, "price_yearly": 250, "is_active": True, "sort_order": 3},
+        {"name": "Enterprise", "description": "Unlimited everything for large enterprises. Includes dedicated support, SSO, audit logs, and custom integrations. Contact sales for volume pricing.",
+         "max_users": 999999, "max_projects": 999999, "max_clients": 999999, "max_releases": 999999, "max_backlog_items": 999999,
+         "price_monthly": 99, "price_yearly": 990, "is_active": True, "sort_order": 4},
+    ]
+    for pd in plans_data:
+        existing = db.query(Plan).filter(Plan.name == pd["name"]).first()
+        if not existing:
+            db.add(Plan(**pd))
+    db.commit()
+    # Assign Enterprise plan to OPEX tenant
+    enterprise_plan = db.query(Plan).filter(Plan.name == "Enterprise").first()
+    if enterprise_plan and tenant:
+        tenant.plan_id = enterprise_plan.id
+        tenant.plan = "enterprise"
+        tenant.limits = _json.dumps({
+            "max_users": enterprise_plan.max_users,
+            "max_projects": enterprise_plan.max_projects,
+            "max_clients": enterprise_plan.max_clients,
+            "max_releases": enterprise_plan.max_releases,
+            "max_backlog_items": enterprise_plan.max_backlog_items,
+        })
+    db.commit()
+    print(f"✅ Created {len(plans_data)} subscription plans (Free, Team, Business, Enterprise)")
+    print(f"✅ Assigned 'Enterprise' plan to tenant '{tenant.name}'")
+
     # ── RACI Roles ──────────────────────────────────────────────────────
     for name, desc in RACI_ROLES:
         existing = db.query(Role).filter(Role.name == name).first()

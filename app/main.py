@@ -87,6 +87,9 @@ def _auto_migrate():
     # Add configurable tenant resource limits
     _add_column("tenants", "limits TEXT")
 
+    # Link tenants to configurable subscription plans
+    _add_column("tenants", "plan_id INTEGER")
+
     # Create indexes on tenant_id for all tenant-scoped tables (Phase 3.6)
     def _has_index(table: str, index_name: str) -> bool:
         if not inspector.has_table(table):
@@ -108,6 +111,7 @@ def _auto_migrate():
 
     # Composite indexes for common query patterns
     _composite_indexes = [
+        ("ix_tenants_plan_id", "tenants", "plan_id"),
         ("idx_backlog_tenant_project", "backlog_items", "tenant_id, project_id"),
         ("idx_releases_tenant_project", "releases", "tenant_id, project_id"),
         ("idx_stakeholders_tenant_project", "stakeholders", "tenant_id, project_id"),
@@ -209,6 +213,33 @@ def auto_seed_on_startup():
     from app.models.user import User
     db = SessionLocal()
     try:
+        # Seed newly introduced reference data even when an existing database
+        # already has users and the full demo seed is intentionally skipped.
+        import json as _json
+
+        from app.models.plan import Plan
+        from app.models.tenant import Tenant
+        from app.seed import DEFAULT_PLANS
+
+        for plan_data in DEFAULT_PLANS:
+            if not db.query(Plan).filter(Plan.name == plan_data["name"]).first():
+                db.add(Plan(**plan_data))
+        db.flush()
+
+        enterprise_plan = db.query(Plan).filter(Plan.name == "Enterprise").first()
+        if enterprise_plan:
+            for tenant in db.query(Tenant).filter(Tenant.plan_id.is_(None)).all():
+                if (tenant.plan or "").lower() == "enterprise":
+                    tenant.plan_id = enterprise_plan.id
+                    tenant.limits = _json.dumps({
+                        "max_users": enterprise_plan.max_users,
+                        "max_projects": enterprise_plan.max_projects,
+                        "max_clients": enterprise_plan.max_clients,
+                        "max_releases": enterprise_plan.max_releases,
+                        "max_backlog_items": enterprise_plan.max_backlog_items,
+                    })
+        db.commit()
+
         if db.query(User).count() == 0:
             logger.info("No users found — running seed...")
             from app.seed import seed

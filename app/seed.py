@@ -40,6 +40,21 @@ RACI_ROLES = [
 
 DEFAULT_PASSWORD = "Pmo@2026"
 
+DEFAULT_PLANS = [
+    {"name": "Free", "description": "Perfect for small teams getting started with project management. Includes core PMO features with basic limits.",
+     "max_users": 3, "max_projects": 1, "max_clients": 2, "max_releases": 2, "max_backlog_items": 50,
+     "price_monthly": 0, "price_yearly": 0, "is_active": True, "sort_order": 1},
+    {"name": "Team", "description": "For growing teams that need more projects, collaborators, and advanced planning tools. Includes roadmap timeline and release management.",
+     "max_users": 25, "max_projects": 10, "max_clients": 15, "max_releases": 20, "max_backlog_items": 500,
+     "price_monthly": 12, "price_yearly": 120, "is_active": True, "sort_order": 2},
+    {"name": "Business", "description": "For established organizations managing multiple clients and complex project portfolios. Includes infrastructure module, KPIs, and approval workflows.",
+     "max_users": 100, "max_projects": 999999, "max_clients": 999999, "max_releases": 999999, "max_backlog_items": 999999,
+     "price_monthly": 25, "price_yearly": 250, "is_active": True, "sort_order": 3},
+    {"name": "Enterprise", "description": "Unlimited everything for large enterprises. Includes dedicated support, SSO, audit logs, and custom integrations. Contact sales for volume pricing.",
+     "max_users": 999999, "max_projects": 999999, "max_clients": 999999, "max_releases": 999999, "max_backlog_items": 999999,
+     "price_monthly": 99, "price_yearly": 990, "is_active": True, "sort_order": 4},
+]
+
 
 def seed():
     """Create minimal demo data if the database is empty."""
@@ -107,20 +122,7 @@ def seed():
     # ── Subscription Plans ──────────────────────────────────────────────
     from app.models.plan import Plan
     import json as _json
-    plans_data = [
-        {"name": "Free",       "description": "Perfect for small teams getting started with project management. Includes core PMO features with basic limits.",
-         "max_users": 3,     "max_projects": 1,     "max_clients": 2,     "max_releases": 2,     "max_backlog_items": 50,
-         "price_monthly": 0,  "price_yearly": 0,   "is_active": True, "sort_order": 1},
-        {"name": "Team",       "description": "For growing teams that need more projects, collaborators, and advanced planning tools. Includes roadmap timeline and release management.",
-         "max_users": 25,    "max_projects": 10,    "max_clients": 15,    "max_releases": 20,    "max_backlog_items": 500,
-         "price_monthly": 12, "price_yearly": 120, "is_active": True, "sort_order": 2},
-        {"name": "Business",   "description": "For established organizations managing multiple clients and complex project portfolios. Includes infrastructure module, KPIs, and approval workflows.",
-         "max_users": 100,   "max_projects": 999999, "max_clients": 999999, "max_releases": 999999, "max_backlog_items": 999999,
-         "price_monthly": 25, "price_yearly": 250, "is_active": True, "sort_order": 3},
-        {"name": "Enterprise", "description": "Unlimited everything for large enterprises. Includes dedicated support, SSO, audit logs, and custom integrations. Contact sales for volume pricing.",
-         "max_users": 999999, "max_projects": 999999, "max_clients": 999999, "max_releases": 999999, "max_backlog_items": 999999,
-         "price_monthly": 99, "price_yearly": 990, "is_active": True, "sort_order": 4},
-    ]
+    plans_data = DEFAULT_PLANS
     for pd in plans_data:
         existing = db.query(Plan).filter(Plan.name == pd["name"]).first()
         if not existing:
@@ -518,20 +520,17 @@ def seed():
     # ── Stakeholders ────────────────────────────────────────────────────
     from app.models.stakeholder import Stakeholder
     if db.query(Stakeholder).filter(Stakeholder.project_id == pnu.id).count() == 0:
-        po_role = db.query(Role).filter(Role.name == "Product Owner").first()
-        qa_role = db.query(Role).filter(Role.name == "QA Lead").first()
-        pm_role = db.query(Role).filter(Role.name == "Product Manager").first()
         db.add(Stakeholder(project_id=pnu.id, name="Rana Khalil", email="rana@opex.com.sa",
-                           role_id=po_role.id if po_role else 1, role_name="Product Owner",
-                           user_id=rana.id, allocation=100, notes="Product owner for PNU Cloud",
+                           role_name="Product Owner", raci_type="Accountable",
+                           notes="Product owner for PNU Cloud",
                            tenant_id=tenant.id))
         db.add(Stakeholder(project_id=pnu.id, name="Rana Khalil", email="rana@opex.com.sa",
-                           role_id=qa_role.id if qa_role else 7, role_name="QA Lead",
-                           user_id=rana.id, allocation=50, notes="QA oversight for PNU Cloud",
+                           role_name="QA Lead", raci_type="Responsible",
+                           notes="QA oversight for PNU Cloud",
                            tenant_id=tenant.id))
         db.add(Stakeholder(project_id=cg.id, name="Rana Khalil", email="rana@opex.com.sa",
-                           role_id=pm_role.id if pm_role else 2, role_name="Product Manager",
-                           user_id=rana.id, allocation=100, notes="PM for CloudGate",
+                           role_name="Product Manager", raci_type="Accountable",
+                           notes="PM for CloudGate",
                            tenant_id=tenant.id))
         db.commit()
         print("✅ Created 3 stakeholders")

@@ -10,8 +10,8 @@ import app.models  # noqa: F401 — register all models
 from app.config import settings
 from app.database import SessionLocal
 from app.frontend import router as frontend_router
-from app.migrate import run_migrations
 from app.middleware import QuotaHeaderMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware, SubdomainMiddleware
+from app.migrate import run_migrations
 from app.routers import (
     ai,
     analytics,

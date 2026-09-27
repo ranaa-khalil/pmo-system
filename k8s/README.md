@@ -30,3 +30,34 @@ Then open <http://localhost:8000>.
 The Istio VirtualService exposes the application as
 `pmo-system.obelion.ai` through `istio-ingress/cloudgate-gateway`. The shared
 gateway must allow that hostname on its HTTP and HTTPS servers.
+
+## Run database migrations
+
+Each application image contains an idempotent migration command:
+
+```bash
+python -m app.migrate
+```
+
+For Kubernetes, run the helper before deploying a new application image:
+
+```bash
+./k8s/run-migration.sh
+```
+
+The helper reads the image from the live `pmo-system` Deployment, creates a
+uniquely named Job in the `pmo-system` namespace, waits for completion, and
+prints its logs. The Job gets database credentials from `pmo-secrets`, disables
+Istio sidecar injection, and is automatically deleted one hour after finishing.
+
+To target a different namespace or Deployment:
+
+```bash
+./k8s/run-migration.sh <namespace> <deployment-name>
+```
+
+To migrate with a newly published image before updating the Deployment:
+
+```bash
+./k8s/run-migration.sh pmo-system pmo-system paulahakeem/pmo-system:sha-<commit>
+```

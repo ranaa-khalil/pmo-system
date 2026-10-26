@@ -14,6 +14,7 @@ import { ai } from './domains/ai.js';
 import { copilot } from './domains/copilot.js';
 import { workflows } from './domains/workflows.js';
 import { tenants } from './domains/tenants.js';
+import { fab } from './fab.js';
 
 const DOMAINS = [core, tasks, backlog, planning, projects, ai, copilot, workflows, tenants];
 
@@ -88,3 +89,4 @@ export function pmoApp() {
 // Expose for Alpine (loaded with `defer`, so this module must run first —
 // the shell loads it as a classic module without defer, Alpine after).
 window.pmoApp = pmoApp;
+window.fabComponent = fab;

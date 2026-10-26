@@ -75,8 +75,20 @@
     .aurora-bg::before { content: ''; position: absolute; top: -30%; left: -10%; width: 60%; height: 80%; background: radial-gradient(ellipse at center, rgba(139,92,246,0.06) 0%, transparent 60%); filter: blur(60px); }
     .aurora-bg::after { content: ''; position: absolute; top: -10%; right: -10%; width: 50%; height: 70%; background: radial-gradient(ellipse at center, rgba(99,102,241,0.04) 0%, transparent 60%); filter: blur(60px); }
 
-    /* Surface card — clean white */
-    .surface { background: #ffffff; }
+    /* Surface card — the shared card treatment for every view.
+       Soft shadow + hairline ring reads premium on light bg; hover lifts. */
+    .surface {
+        background: #ffffff;
+        box-shadow: 0 1px 2px rgba(13, 13, 15, 0.04);
+    }
+    .surface.card-lift:hover {
+        box-shadow: 0 8px 24px -6px rgba(13, 13, 15, 0.10), 0 0 0 1px rgba(13, 13, 15, 0.03);
+        border-color: rgba(var(--brand-r, 124), var(--brand-g, 58), var(--brand-b, 237), 0.25);
+    }
+    /* Section-level cards (p-6/p-10, no card-lift) get a calmer hover */
+    .surface:hover {
+        box-shadow: 0 2px 8px rgba(13, 13, 15, 0.05);
+    }
 
     /* Stat card glow — very subtle */
     .stat-glow { position: relative; overflow: hidden; }

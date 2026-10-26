@@ -1,21 +1,24 @@
-    <script>
+
         tailwind.config = {
             theme: {
                 extend: {
                     fontFamily: { sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'] },
                     colors: {
                         brand: {
-                            50: 'color-mix(in srgb, var(--brand-color) 5%, white)',
-                            100: 'color-mix(in srgb, var(--brand-color) 10%, white)',
-                            200: 'color-mix(in srgb, var(--brand-color) 20%, white)',
-                            300: 'color-mix(in srgb, var(--brand-color) 35%, white)',
-                            400: 'color-mix(in srgb, var(--brand-color) 55%, white)',
-                            500: 'color-mix(in srgb, var(--brand-color) 70%, white)',
-                            600: 'var(--brand-color)',
-                            700: 'color-mix(in srgb, var(--brand-color) 85%, black)',
-                            800: 'color-mix(in srgb, var(--brand-color) 65%, black)',
-                            900: 'color-mix(in srgb, var(--brand-color) 45%, black)',
-                            950: 'color-mix(in srgb, var(--brand-color) 25%, black)',
+                            /* Fallback chain: tenant branding → violet. Without the
+                               fallback, an unbranded tenant renders bg-brand-600 as
+                               transparent and white labels become invisible. */
+                            50: 'color-mix(in srgb, var(--brand-color, #7c3aed) 5%, white)',
+                            100: 'color-mix(in srgb, var(--brand-color, #7c3aed) 10%, white)',
+                            200: 'color-mix(in srgb, var(--brand-color, #7c3aed) 20%, white)',
+                            300: 'color-mix(in srgb, var(--brand-color, #7c3aed) 35%, white)',
+                            400: 'color-mix(in srgb, var(--brand-color, #7c3aed) 55%, white)',
+                            500: 'color-mix(in srgb, var(--brand-color, #7c3aed) 70%, white)',
+                            600: 'var(--brand-color, #7c3aed)',
+                            700: 'color-mix(in srgb, var(--brand-color, #7c3aed) 85%, black)',
+                            800: 'color-mix(in srgb, var(--brand-color, #7c3aed) 65%, black)',
+                            900: 'color-mix(in srgb, var(--brand-color, #7c3aed) 45%, black)',
+                            950: 'color-mix(in srgb, var(--brand-color, #7c3aed) 25%, black)',
                         },
                         ink: {
                             50: '#fbfbfd', 100: '#f5f5f7', 200: '#e8e8ed',
@@ -43,4 +46,3 @@
                 }
             }
         }
-    </script>

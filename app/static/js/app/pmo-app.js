@@ -82,7 +82,50 @@ export function pmoApp() {
     return buildStore();
 }
 
-// Expose for Alpine (loaded with `defer`, so this module must run first —
-// the shell loads it as a classic module without defer, Alpine after).
+// Register the root store as a proper Alpine component. Alpine 3.13's
+// x-data expression evaluator does NOT resolve globals, so the old
+// x-data="pmoApp()" produced an empty scope (all views visible, all actions
+// dead). x-data="pmoRoot" + Alpine.data() is the robust pattern — a fresh
+// name avoids any stale cached component definition from earlier sessions.
+function registerPmoApp() {
+    if (!window.Alpine) return;
+    try {
+        // window.pmoApp() (not the direct buildStore reference): it resolves
+        // buildStore at CALL time, after every domain module binding is
+        // initialized — the direct reference produced a broken store when
+        // the callback ran during Alpine's boot.
+        window.Alpine.data('pmoRoot', () => window.pmoApp());
+    } catch (e) {
+        console.error('[PMO] pmoRoot registration failed:', e);
+    }
+}
+if (window.Alpine) {
+    registerPmoApp();
+} else {
+    document.addEventListener('alpine:init', registerPmoApp, { once: true });
+}
+
+// Load Alpine ONLY AFTER the registration path is in place — the dynamic
+// import guarantees Alpine boots after the listener exists (a static
+// <script defer> tag raced the module and broke the store merge).
+import('/static/alpine.min.js').then(() => {
+    // Belt-and-braces: if the root component walked before the registration
+    // took effect (scheduling edge case at boot), register now and re-walk
+    // the root element so the real store data binds.
+    const root = document.querySelector('[x-data="pmoRoot"]') || document.body;
+    const merged = root._x_dataStack?.some((s) => Object.getOwnPropertyNames(s).some((k) => !k.startsWith('$')));
+    if (window.Alpine && !merged) {
+        registerPmoApp();
+        root.removeAttribute('x-data');
+        root.setAttribute('x-data', 'pmoRoot');
+        try { window.Alpine.initTree(root); } catch (e) {
+            console.error('[PMO] root re-walk failed:', e);
+        }
+    }
+}).catch((e) => {
+    console.error('[PMO] Alpine failed to load:', e);
+});
+
+// Expose for backward compatibility and manual debugging.
 window.pmoApp = pmoApp;
 window.fabComponent = fab;

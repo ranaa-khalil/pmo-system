@@ -26,11 +26,15 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         # Strict CSP with per-response nonce (set by app/frontend.py for the
         # SPA shell): script-src allows only nonced scripts + self-hosted
-        # files — NO unsafe-inline/eval. External styles keep the fonts
-        # hosts; everything else is 'self'.
+        # files — no unsafe-inline for scripts. 'unsafe-eval' is REQUIRED:
+        # Alpine 3.x compiles every directive (x-show, @click, x-data) via
+        # new Function(); without it every binding silently fails (all
+        # x-show elements visible, all actions dead — the "popups on load"
+        # incident). Scripts stay fully nonced; the eval surface is our own
+        # self-hosted, nonced Alpine + app code only.
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "script-src 'self' 'nonce-%(nonce)s'; "
+            "script-src 'self' 'nonce-%(nonce)s' 'unsafe-eval'; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; "
             "img-src 'self' data: https:; "

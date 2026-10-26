@@ -26,12 +26,18 @@
     <!-- Tenant branding injected from server (subdomain middleware) -->
 {% include 'pmo/branding.html' %}
     <!-- App JS: store assembly (classic, no defer — must run before Alpine),
-         then the FAB component module, then Alpine with defer -->
-    <script nonce="{{ csp_nonce }}" src="/static/js/app/pmo-app.js" type="module"></script>
+         then the FAB component module, then Alpine with defer.
+         ?v= cache-busts the module — without it the browser serves a stale
+         cached copy (no Cache-Control on /static), breaking load-order fixes. -->
+    <script nonce="{{ csp_nonce }}" src="/static/js/app/pmo-app.js?v={{ csp_nonce }}" type="module"></script>
 </head>
-<body class="h-full bg-ink-50 font-sans text-ink-700" x-data="pmoApp()" x-init="init()" x-cloak
+<body class="h-full bg-ink-50 font-sans text-ink-700"
       @quick-add-task.window="quickAddTask($event.detail.title)"
       @open-full-task-modal.window="openTaskModal()">
+
+<!-- Root Alpine component on a wrapper div (NOT body — Alpine's element
+     caching on <body> kept serving the empty boot-time scope). -->
+<div x-data="pmoRoot" x-init="init()">
 
 {% include 'pmo/auth/login.html' %}
 {% include 'pmo/auth/forgot_password.html' %}
@@ -94,9 +100,13 @@
 
 {% include 'pmo/modals/toast.html' %}
 
-<!-- ==================== ALPINE.JS ==================== -->
-<script nonce="{{ csp_nonce }}" src="/static/alpine.min.js" defer></script>
-<!-- Fallback: if Alpine.js doesn't load within 3s, show the page anyway -->
+</div><!-- /root Alpine wrapper -->
+
+<!-- ==================== ALPINE.JS ====================
+     Alpine loads ONLY AFTER the pmo-app.js module (which registers the
+     pmoRoot component via alpine:init). Order guarantee: pmo-app.js
+     dynamically imports Alpine after registering the listener, so
+     alpine:init can never fire before the component exists. -->
 <script nonce="{{ csp_nonce }}" src="/static/js/app/alpine-fallback.js" defer></script>
 
 </body>

@@ -196,12 +196,25 @@ parseBriefing(answer) {
     for (const raw of text.split(/\r?\n/)) {
         const line = raw.trim();
         if (!line) continue;
-        const header = line.match(/^\*\*(.+?):?\*\*\s*—?\s*(.*)$/);
+        // Header: "**Verdict: Needs attention** — rest" or "**Overdue tasks:**"
+        // The colon may sit inside OR outside the bold — split on it after capture.
+        const header = line.match(/^\*\*(.+?)\*\*\s*—?\s*(.*)$/);
         if (header) {
-            const title = header[1].replace(/:$/, '').trim().toLowerCase();
+            let title = header[1].trim();
             const rest = header[2].trim();
-            sections[title] = rest ? [rest] : [];
-            current = title;
+            // "**Verdict: Needs attention**" — colon inside the bold: the part
+            // before the colon is the section title, after it is the content
+            if (title.includes(':')) {
+                const [before, ...after] = title.split(':');
+                title = before.trim();
+                const inline = after.join(':').trim();
+                if (inline && !rest) sections[title.toLowerCase()] = [inline];
+                else if (inline) sections[title.toLowerCase()] = [inline, ...(rest ? [rest] : [])];
+                else sections[title.toLowerCase()] = [];
+            } else {
+                sections[title.replace(/:$/, '').toLowerCase()] = rest ? [rest] : [];
+            }
+            current = title.toLowerCase();
             continue;
         }
         if (current) {

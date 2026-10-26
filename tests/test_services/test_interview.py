@@ -320,3 +320,250 @@ def test_router_finish_incomplete_returns_409(client, auth_headers, interview_wo
     sid = resp.json()["session_id"]
     resp2 = client.post(f"/api/ai/interview/{sid}/finish", json={}, headers=auth_headers)
     assert resp2.status_code == 409
+
+
+# ── P2.2: release / risk / escalation flows ──────────────────────────────
+
+def test_release_flow_spec_shape():
+    """Release flow: 4 questions, version required, target_date skippable."""
+    spec = interview_service.FLOWS["release"]
+    assert len(spec["questions"]) == 4
+    ids = {q["id"] for q in spec["questions"]}
+    assert {"whats_shipping", "version", "release_name", "target_date"} == ids
+    required = {q["id"] for q in spec["questions"] if q.get("required")}
+    assert required == {"whats_shipping", "version"}
+    # escalation spec still intact
+    esc = interview_service.FLOWS["escalation"]
+    assert len(esc["questions"]) == 4
+    assert {q["id"] for q in esc["questions"]} == {"whats_blocked", "since_when", "who_can_unblock", "ask"}
+
+
+def _run_flow(db, user, tenant, flow, answers):
+    """Start + answer/skip through an entire flow, return the finish result."""
+    session = interview_service.start_interview(db, user, tenant, flow=flow)
+    sid = session["session_id"]
+    state = None
+    for _ in range(len(interview_service.FLOWS[flow]["questions"]) + 2):
+        state = interview_service.current_state(db, user, tenant, sid)
+        if state["done"]:
+            break
+        q = state["question"]
+        if q.get("required"):
+            state = interview_service.submit_answer(db, user, tenant, sid, q["id"], answers.get(q["id"], "required answer"))
+        else:
+            state = interview_service.skip_question(db, user, tenant, sid, q["id"])
+    assert state["done"] is True
+    return sid, interview_service.finish_interview(db, user, tenant, sid)
+
+
+def test_risk_flow_finishes_with_applyable_draft(interview_world, db):
+    """Risk interview → draft with severity/probability from the choices; the
+    draft is NOT applied on finish (Apply is the only write)."""
+    sid, final = _run_flow(
+        db, interview_world["admin"], interview_world["tenant"], "risk",
+        {"what_could_go_wrong": "Provider API rate limits block sync"},
+    )
+    assert final["flow"] == "risk"
+    d = final["draft"]
+    assert d["title"].startswith("Provider API")
+    assert d["severity"] == "Medium" and d["probability"] == "Medium"  # skip = default
+    # nothing written yet
+    from app.models.risk import Risk
+    assert db.query(Risk).filter(Risk.project_id == d["project_id"]).count() == 0
+
+
+def test_risk_flow_apply_creates_risk_record(interview_world, db):
+    """Apply path: creates the Risk with source=copilot + activity log; a second
+    Apply is refused (never duplicates)."""
+    world = interview_world
+    project = Project(
+        name="Risk Project", client_id=1, tenant_id=world["tenant"].id,
+        project_manager_id=world["admin"].id,
+    )
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+
+    sid, final = _run_flow(
+        db, world["admin"], world["tenant"], "risk",
+        {"what_could_go_wrong": "Data migration corrupts tenant rows"},
+    )
+    from app.services import interview as svc
+    result = svc.apply_interview_draft(
+        db, world["admin"], world["tenant"], sid,
+        edits={"project_id": project.id, "severity": "High", "probability": "Likely"},
+    )
+    assert result["applied"] == "risk"
+    from app.models.risk import Risk
+    risk = db.query(Risk).filter(Risk.id == result["risk_id"]).first()
+    assert risk is not None
+    assert risk.tenant_id == world["tenant"].id
+    assert risk.severity == "High" and risk.probability == "Likely"
+    assert risk.status == "Open"
+    # score computed on read (severity × probability), never stored
+    assert risk.score == 12  # High=3 × Likely=4 (5×5 scale)
+    # session marked applied — second apply refused
+    try:
+        svc.apply_interview_draft(db, world["admin"], world["tenant"], sid)
+        applied_twice = False
+    except ValueError as e:
+        applied_twice = "already_applied" in str(e)
+    assert applied_twice
+
+
+def test_risk_flow_apply_refused_for_non_pm(interview_world, db):
+    """A member without the PM role cannot apply a risk draft (same rule as the risks API)."""
+    world = interview_world
+    pm = world["admin"]
+    other = User(email="nonpm@pmo.test", name="Not PM", hashed_password="x", system_role="tenant_admin")
+    db.add(other)
+    db.commit()
+    db.refresh(other)
+    db.add(TenantMembership(user_id=other.id, tenant_id=world["tenant"].id, role="member"))
+    db.commit()
+
+    project = Project(
+        name="PM-only Project", client_id=1, tenant_id=world["tenant"].id,
+        project_manager_id=pm.id,
+    )
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+
+    sid, final = _run_flow(db, other, world["tenant"], "risk", {"what_could_go_wrong": "x"})
+    from app.services import interview as svc
+    try:
+        svc.apply_interview_draft(db, other, world["tenant"], sid, edits={"project_id": project.id})
+        refused = False
+    except PermissionError:
+        refused = True
+    assert refused
+
+
+def test_release_flow_finish_and_apply(interview_world, db):
+    """Release interview → draft → Apply creates the Release via the same shape
+    as the releases API (tenant-scoped, Planning status)."""
+    world = interview_world
+    project = Project(
+        name="Release Project", client_id=1, tenant_id=world["tenant"].id,
+        project_manager_id=world["admin"].id,
+    )
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+
+    sid, final = _run_flow(
+        db, world["admin"], world["tenant"], "release",
+        {"whats_shipping": "Multi-tenant hardening + interview engine", "version": "1.4.0"},
+    )
+    assert final["flow"] == "release"
+    d = final["draft"]
+    assert d["version"] == "1.4.0"
+    # nothing written on finish
+    from app.models.release import Release
+    assert db.query(Release).filter(Release.project_id == project.id).count() == 0
+
+    from app.services import interview as svc
+    result = svc.apply_interview_draft(db, world["admin"], world["tenant"], sid, edits={"project_id": project.id})
+    assert result["applied"] == "release"
+    release = db.query(Release).filter(Release.id == result["release_id"]).first()
+    assert release is not None
+    assert release.version == "1.4.0"
+    assert release.tenant_id == world["tenant"].id
+    assert release.status == "Planning"
+    assert "interview engine" in (release.description or "")
+
+
+def test_escalation_flow_note_and_apply(interview_world, db):
+    """Escalation interview → draft with the composed note; Apply appends the
+    note to the chosen approval — same rule as the Copilot escalate op."""
+    world = interview_world
+    from app.models.approval import ApprovalRequest
+    project = Project(
+        name="Escalation Project", client_id=1, tenant_id=world["tenant"].id,
+        project_manager_id=world["admin"].id,
+    )
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+    approval = ApprovalRequest(
+        tenant_id=world["tenant"].id, project_id=project.id,
+        title="Gate review", request_type="phase_gate", status="pending",
+    )
+    db.add(approval)
+    db.commit()
+    db.refresh(approval)
+
+    sid, final = _run_flow(
+        db, world["admin"], world["tenant"], "escalation",
+        {"whats_blocked": "Vendor API credentials", "since_when": "2026-10-20"},
+    )
+    assert final["flow"] == "escalation"
+    d = final["draft"]
+    assert "Vendor API credentials" in d["note"]
+    assert d["approval_id"] is None  # chosen at review time
+
+    from app.services import interview as svc
+    result = svc.apply_interview_draft(
+        db, world["admin"], world["tenant"], sid,
+        edits={"approval_id": approval.id},
+    )
+    assert result["applied"] == "escalation"
+    db.refresh(approval)
+    assert "[ESCALATED]" in (approval.description or "")
+    assert "Vendor API credentials" in approval.description
+
+
+def test_release_apply_requires_version(interview_world, db):
+    """Applying a release draft without a version is refused."""
+    world = interview_world
+    sid, final = _run_flow(db, world["admin"], world["tenant"], "release", {"whats_shipping": "x", "version": "2.0.0"})
+    from app.services import interview as svc
+    try:
+        svc.apply_interview_draft(db, world["admin"], world["tenant"], sid, edits={"version": "  "})
+        refused = False
+    except ValueError as e:
+        refused = "version_required" in str(e)
+    assert refused
+
+
+def test_router_apply_endpoint_risk(client, auth_headers, interview_world, db):
+    """Router-level: risk interview → finish → apply → 200 with risk_id."""
+    world = interview_world
+    project = Project(
+        name="Router Risk Project", client_id=1, tenant_id=world["tenant"].id,
+        project_manager_id=world["admin"].id,
+    )
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+
+    resp = client.post("/api/ai/interview/risk/start", json={"project_id": project.id}, headers=auth_headers)
+    assert resp.status_code == 200, resp.text
+    sid = resp.json()["session_id"]
+
+    # answer the required question, skip the rest (track state via each response)
+    q = resp.json()["question"]
+    resp2 = client.post(f"/api/ai/interview/{sid}/answer", json={"question_id": q["id"], "answer": "Sync outage"}, headers=auth_headers)
+    assert resp2.status_code == 200
+    st = resp2.json()
+    for _ in range(8):
+        if st["done"]:
+            break
+        q = st["question"]
+        r = client.post(f"/api/ai/interview/{sid}/skip", json={"question_id": q["id"]}, headers=auth_headers)
+        assert r.status_code == 200, r.text
+        st = r.json()
+    assert st["done"]
+
+    respf = client.post(f"/api/ai/interview/{sid}/finish", json={}, headers=auth_headers)
+    assert respf.status_code == 200, respf.text
+
+    resp3 = client.post(f"/api/ai/interview/{sid}/apply", json={}, headers=auth_headers)
+    assert resp3.status_code == 200, resp3.text
+    body = resp3.json()
+    assert body["applied"] == "risk"
+
+    # double apply → 409
+    resp4 = client.post(f"/api/ai/interview/{sid}/apply", json={}, headers=auth_headers)
+    assert resp4.status_code == 409

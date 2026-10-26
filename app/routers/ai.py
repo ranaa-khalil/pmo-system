@@ -469,6 +469,10 @@ class InterviewSkipRequest(BaseModel):
     question_id: str
 
 
+class InterviewApplyRequest(BaseModel):
+    edits: dict | None = None
+
+
 def _interview_error(result: dict):
     if "error" in result:
         raise HTTPException(result.get("status", 400), result["error"])
@@ -573,6 +577,39 @@ def interview_finish_endpoint(
         if msg == "interview_incomplete":
             raise HTTPException(409, "Interview is not finished — answer or skip the remaining questions first.")
         raise HTTPException(400, msg)
+
+
+@router.post("/interview/{session_id}/apply")
+def interview_apply_endpoint(
+    session_id: int,
+    req: InterviewApplyRequest | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Apply a reviewed risk/escalation/release interview draft. The ONLY write
+    path for those flows — project drafts keep using /intake/apply."""
+    from app.services.plan_enforcement import require_feature
+    require_feature(current_tenant.plan, "ai_assistant")
+    from app.services import interview as interview_service
+    try:
+        return interview_service.apply_interview_draft(
+            db, current_user, current_tenant, session_id,
+            edits=(req.edits if req else None),
+        )
+    except PermissionError as e:
+        raise HTTPException(403, str(e))
+    except ValueError as e:
+        msg = str(e)
+        mapping = {
+            "already_applied": (409, "This interview draft was already applied."),
+            "project_not_found": (404, "Project not found in this tenant."),
+            "approval_not_found": (404, "Approval not found in this tenant — pick one in the review panel."),
+            "version_required": (400, "A version number is required to apply the release draft."),
+            "flow_not_applyable": (400, "This interview flow is not applyable here."),
+        }
+        code, detail = mapping.get(msg, (400, msg))
+        raise HTTPException(code, detail)
 
 
 def _fallback_project(db: Session, tenant: Tenant) -> Project | None:

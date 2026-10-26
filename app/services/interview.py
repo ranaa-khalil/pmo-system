@@ -171,6 +171,42 @@ FLOWS = {
             },
         ],
     },
+    "release": {
+        "title": "Release planning",
+        "produces": "Release draft (creates the release on Apply — existing create path)",
+        "questions": [
+            {
+                "id": "whats_shipping",
+                "prompt": "What is shipping in this release?",
+                "type": "textarea",
+                "default": "",
+                "default_resolver": None,
+                "required": True,
+            },
+            {
+                "id": "version",
+                "prompt": "Version number? (e.g. 1.4.0)",
+                "type": "text",
+                "default": "",
+                "default_resolver": None,
+                "required": True,
+            },
+            {
+                "id": "release_name",
+                "prompt": "Release name? (short label)",
+                "type": "text",
+                "default": "",
+                "default_resolver": None,
+            },
+            {
+                "id": "target_date",
+                "prompt": "Target date? (YYYY-MM-DD, or skip)",
+                "type": "date",
+                "default": "",
+                "default_resolver": None,
+            },
+        ],
+    },
     "escalation": {
         "title": "Escalation",
         "produces": "Escalation proposal + notification draft",
@@ -500,11 +536,166 @@ def finish_interview(db: Session, user: User, tenant: Tenant, session_id: int) -
         _sync(row, db)
         return {"done": True, "session_id": session_id, "flow": flow_id, "draft": form}
 
-    # Generic: return the raw answers as the draft (risk/escalation wire in next)
+    if flow_id == "risk":
+        # Risk draft: the Apply step (interview_apply_risk) creates the record
+        # via the same rules as the risks API (PM-only, score computed on read).
+        draft = {
+            "title": (answers.get("what_could_go_wrong", "") or "Untitled risk")[:255],
+            "description": answers.get("what_could_go_wrong", ""),
+            "mitigation": answers.get("mitigation", ""),
+            "severity": answers.get("impact", "Medium"),
+            "probability": answers.get("likelihood", "Medium"),
+            "project_id": row.project_id,
+        }
+        row.status = "pending"  # awaiting human Apply
+        row.answer = json.dumps(draft)
+        _sync(row, db)
+        return {"done": True, "session_id": session_id, "flow": flow_id, "draft": draft}
+
+    if flow_id == "escalation":
+        # Escalation draft: the Apply step (interview_apply_escalation) appends
+        # the escalation note to the chosen approval — same rule as the Copilot
+        # escalate op (PM-only).
+        draft = {
+            "whats_blocked": answers.get("whats_blocked", ""),
+            "since_when": answers.get("since_when", ""),
+            "who_can_unblock": answers.get("who_can_unblock", ""),
+            "ask": answers.get("ask", ""),
+            "approval_id": None,  # chosen at review time (no smart default)
+            "note": _escalation_note(answers),
+            "project_id": row.project_id,
+        }
+        row.status = "pending"  # awaiting human Apply
+        row.answer = json.dumps(draft)
+        _sync(row, db)
+        return {"done": True, "session_id": session_id, "flow": flow_id, "draft": draft}
+
+    # Generic: return the raw answers as the draft (release wires in next)
     row.status = "pending"
     row.answer = json.dumps(answers)
     _sync(row, db)
     return {"done": True, "session_id": session_id, "flow": flow_id, "draft": answers}
+
+
+def _escalation_note(answers: dict) -> str:
+    """Render escalation answers as the note appended to the approval."""
+    parts = []
+    if answers.get("whats_blocked"):
+        parts.append(f"Blocked: {answers['whats_blocked']}")
+    if answers.get("since_when"):
+        parts.append(f"since {answers['since_when']}")
+    if answers.get("who_can_unblock"):
+        parts.append(f"Unblock via: {answers['who_can_unblock']}")
+    if answers.get("ask"):
+        parts.append(f"Ask: {answers['ask']}")
+    return "; ".join(parts) or "Escalated via interview"
+
+
+def apply_interview_draft(db: Session, user: User, tenant: Tenant, session_id: int, edits: dict | None = None) -> dict:
+    """The ONLY write path for risk/escalation/release interview drafts.
+    Applies the reviewed draft through the same rules as the manual paths:
+    - risk → risks create rules (PM or super admin, source=interview)
+    - escalation → approval escalate rules (PM or super admin)
+    - release → release create rules (existing create path)
+    Returns the created record payload. Never duplicates: the session row is
+    marked applied, so a second Apply is refused.
+    """
+    row = _session_row(db, tenant, user, session_id)
+    if row.status == "applied":
+        raise ValueError("already_applied")
+    flow = _flow_of(row)
+    flow_id = json.loads(row.proposal or "{}").get("flow_id")
+    try:
+        draft = json.loads(row.answer or "{}")
+    except ValueError:
+        draft = {}
+    if edits:
+        draft.update(edits)
+
+    if flow_id == "risk":
+        from app.models.risk import Risk
+        from app.models.project import Project
+        project = db.query(Project).filter(
+            Project.id == draft.get("project_id"), Project.tenant_id == tenant.id,
+        ).first()
+        if not project:
+            raise ValueError("project_not_found")
+        if project.project_manager_id != user.id and user.system_role != "super_admin":
+            raise PermissionError("Only the project manager can create risks")
+        risk = Risk(
+            tenant_id=tenant.id, project_id=project.id,
+            title=(draft.get("title") or "Untitled risk")[:255],
+            description=draft.get("description"),
+            mitigation=draft.get("mitigation"),
+            severity=draft.get("severity") or "Medium",
+            probability=draft.get("probability") or "Medium",
+            status="Open", owner_id=user.id, source="copilot",
+        )
+        db.add(risk)
+        db.flush()
+        from app.models.activity_log import ActivityLog
+        db.add(ActivityLog(
+            tenant_id=tenant.id, user_id=user.id, project_id=project.id,
+            entity_type="risk", entity_id=risk.id, action="created",
+            summary=f"Risk created via interview #{row.id}: {risk.title[:180]}",
+        ))
+        db.commit()
+        row.status = "applied"
+        _sync(row, db)
+        return {"applied": "risk", "risk_id": risk.id, "score": risk.score, "title": risk.title}
+
+    if flow_id == "escalation":
+        from app.models.approval import ApprovalRequest
+        from app.models.project import Project
+        approval = db.query(ApprovalRequest).filter(
+            ApprovalRequest.id == draft.get("approval_id"), ApprovalRequest.tenant_id == tenant.id,
+        ).first()
+        if not approval:
+            raise ValueError("approval_not_found")
+        project = db.query(Project).filter(Project.id == approval.project_id).first()
+        if not project or (project.project_manager_id != user.id and user.system_role != "super_admin"):
+            raise PermissionError("Only the project manager can escalate this approval")
+        note = draft.get("note") or "Escalated via interview"
+        approval.description = f"{approval.description or ''}\n[ESCALATED] {note}".strip()
+        db.commit()
+        row.status = "applied"
+        _sync(row, db)
+        return {"applied": "escalation", "approval_id": approval.id, "escalated": True}
+
+    if flow_id == "release":
+        from app.models.release import Release
+        from app.models.project import Project
+        version = (draft.get("version") or "").strip()
+        if not version:
+            raise ValueError("version_required")
+        project = db.query(Project).filter(
+            Project.id == draft.get("project_id"), Project.tenant_id == tenant.id,
+        ).first()
+        if not project:
+            raise ValueError("project_not_found")
+        release = Release(
+            tenant_id=tenant.id, project_id=project.id,
+            created_by=user.id,
+            version=version[:50],
+            name=(draft.get("release_name") or f"Release {version}")[:255],
+            description=draft.get("whats_shipping"),
+            status="Planning",
+            target_date=draft.get("target_date") or None,
+        )
+        db.add(release)
+        db.flush()
+        from app.models.activity_log import ActivityLog
+        db.add(ActivityLog(
+            tenant_id=tenant.id, user_id=user.id, project_id=project.id,
+            entity_type="release", entity_id=release.id, action="created",
+            summary=f"Release {release.version} created via interview #{row.id}",
+        ))
+        db.commit()
+        row.status = "applied"
+        _sync(row, db)
+        return {"applied": "release", "release_id": release.id, "version": release.version, "name": release.name}
+
+    raise ValueError("flow_not_applyable")
 
 
 def _answers_to_kickoff(flow: dict, answers: dict) -> str:

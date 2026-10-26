@@ -30,6 +30,8 @@ interviewDraft: null,       // assembled draft (same shape as intake draft)
 interviewFinished: false,
 interviewApplying: false,
 interviewResult: null,
+interviewApprovals: [],     // open approvals for the escalation flow picker
+interviewEscalationApprovalId: '',
 
 // ===== Daily briefing state =====
 briefingSummary: '',
@@ -420,6 +422,32 @@ async interviewFinish() {
                 role: 'assistant',
                 text: `Here's the structured draft: **${(d.summary || '').slice(0, 200)}**\n\n- ${(d.epics || []).length} epics / ${featCount} features\n- ${(d.personas || []).length} personas\n- ${(d.kpis || []).length} KPIs\n\nReview it in the panel — edit inline if needed, then **Apply** to create the records. Nothing is created until you do.`,
             });
+        } else if (data.flow === 'escalation') {
+            // Load the project's open approvals for the picker (read-only)
+            this.interviewEscalationApprovalId = '';
+            try {
+                const pid = data.draft.project_id ?? (this.selectedProject ? this.selectedProject.id : null);
+                if (pid) {
+                    const approvals = await this.api('GET', `/projects/${pid}/approvals`);
+                    this.interviewApprovals = (approvals || []).filter(a => (a.status || 'pending') !== 'approved');
+                } else {
+                    this.interviewApprovals = [];
+                }
+            } catch (_) { this.interviewApprovals = []; }
+            this.copilotMessages.push({
+                role: 'assistant',
+                text: 'Escalation note drafted. Pick the approval to escalate in the panel, review the note, then **Apply** to append it. Nothing changes until you do.',
+            });
+        } else if (data.flow === 'risk') {
+            this.copilotMessages.push({
+                role: 'assistant',
+                text: 'Risk drafted — severity × probability score is computed at Apply. Review it in the panel, then **Apply** to add it to the register.',
+            });
+        } else if (data.flow === 'release') {
+            this.copilotMessages.push({
+                role: 'assistant',
+                text: `Release draft ready: **${data.draft.version || '—'}**. Review it in the panel, then **Apply** to create the release.`,
+            });
         } else {
             this.copilotMessages.push({
                 role: 'assistant',
@@ -434,18 +462,34 @@ async interviewFinish() {
 },
 
 async interviewApply() {
-    if (!this.interviewDraft || this.interviewFlow !== 'project' || this.interviewApplying) return;
+    if (!this.interviewDraft || this.interviewApplying) return;
     this.interviewApplying = true;
     try {
-        // Reuse the existing intake apply — the only write path
-        const data = await this.api('POST', '/ai/intake/apply', {
-            draft: this.interviewDraft,
-            project_id: this.selectedProject ? this.selectedProject.id : null,
-        });
-        this.interviewResult = data;
-        this.showToast(`Applied: ${data.features_created} features, ${data.personas_created} personas, ${data.kpis_created} KPIs.`, 'success');
-        this.loadBacklog();
-        this.loadReleases();
+        if (this.interviewFlow === 'project') {
+            // Reuse the existing intake apply — the only write path
+            const data = await this.api('POST', '/ai/intake/apply', {
+                draft: this.interviewDraft,
+                project_id: this.selectedProject ? this.selectedProject.id : null,
+            });
+            this.interviewResult = data;
+            this.showToast(`Applied: ${data.features_created} features, ${data.personas_created} personas, ${data.kpis_created} KPIs.`, 'success');
+            this.loadBacklog();
+            this.loadReleases();
+        } else {
+            // risk / release / escalation: the interview apply endpoint
+            const edits = this.interviewFlow === 'escalation'
+                ? { approval_id: parseInt(this.interviewEscalationApprovalId, 10) || null }
+                : undefined;
+            const data = await this.api('POST', `/ai/interview/${this.interviewSession.session_id}/apply`, edits ? { edits } : {});
+            const label = data.applied === 'risk' ? `Risk #${data.risk_id} (score ${data.score})`
+                : data.applied === 'release' ? `Release ${data.version}`
+                : `Approval #${data.approval_id} escalated`;
+            this.interviewResult = { applied: data.applied, label };
+            this.showToast(`Applied: ${label}.`, 'success');
+            if (data.applied === 'risk') this.loadBacklog();
+            if (data.applied === 'release') this.loadReleases();
+            if (data.applied === 'escalation') this.loadApprovals && this.loadApprovals();
+        }
     } catch (e) {
         this.showToast(e?.message || 'Apply failed.', 'error');
     }

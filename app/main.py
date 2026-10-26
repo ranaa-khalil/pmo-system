@@ -24,6 +24,7 @@ from app.routers import (
     forms,
     github_sync,
     infrastructure,
+    lifecycle,
     notifications,
     personas,
     planning,
@@ -99,6 +100,7 @@ app.include_router(user_tasks.router)
 app.include_router(personas.router)
 app.include_router(notifications.router)
 app.include_router(ai.router)
+app.include_router(lifecycle.router)
 app.include_router(github_sync.router)
 app.include_router(api_keys.router)
 app.include_router(analytics.router)

@@ -39,6 +39,7 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db), curren
         client_id=project.client_id,
         description=project.description,
         status=project.status or "Active",
+        project_type=project.project_type or "software",
         start_date=project.start_date,
         github_repo=project.github_repo,
         version_prefix=project.version_prefix,

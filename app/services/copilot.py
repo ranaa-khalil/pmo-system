@@ -102,9 +102,11 @@ def build_context(
         ).order_by(ApprovalStep.step_order).first()
         pending_approvals.append({
             "entity_type": "approval_request", "entity_id": a.id,
+            "record_type": "Approval",
             "title": a.title, "project_id": a.project_id,
             "request_type": a.request_type, "target_phase": a.target_phase,
             "awaiting_role": step.role_name if step else None,
+            "days_pending": _days_since(a.created_at),
         })
 
     # ── Aging items: last movement per item from the activity log ────────
@@ -139,7 +141,7 @@ def build_context(
     today = date.today()
     tasks = db.query(UserTask).filter(
         UserTask.assigned_to == uid if user is not None else None,
-        UserTask.status == "Pending",
+        UserTask.status.in_(["Pending", "In Progress"]),
         UserTask.project_id.in_(proj_ids),
     ).all()
     overdue_tasks = []
@@ -152,8 +154,10 @@ def build_context(
             if due < today:
                 overdue_tasks.append({
                     "entity_type": "user_task", "entity_id": t.id,
+                    "record_type": "Task",
                     "title": t.title, "project_id": t.project_id,
                     "due_date": str(t.due_date), "days_overdue": (today - due).days,
+                    "status": t.status, "priority": t.priority,
                 })
     overdue_tasks.sort(key=lambda e: -e["days_overdue"])
 
@@ -177,6 +181,7 @@ def build_context(
         if reasons:
             at_risk_releases.append({
                 "entity_type": "release", "entity_id": rel.id,
+                "record_type": "Release",
                 "title": f"{rel.version} {rel.name}".strip(),
                 "project_id": rel.project_id, "status": rel.status,
                 "reasons": reasons,
@@ -233,22 +238,28 @@ def _days_since(value) -> int:
 
 
 def summarize_context(ctx: dict, max_items: int = 40) -> str:
-    """Compact text rendering of the context for the LLM prompt."""
+    """Compact text rendering of the context for the LLM prompt.
+
+    Every entry is prefixed with its record type — "Task 2", "Approval 2",
+    "Item 5", "Release 1" — never a bare id. Same-numbered records of different
+    types can't be blurred, and ages are only ever attached to their own record.
+    """
     lines: list[str] = []
     if ctx["projects"]:
-        lines.append("PROJECTS: " + "; ".join(f"{p['title']} (id={p['entity_id']}, {p['status']})" for p in ctx["projects"]))
+        lines.append("PROJECTS: " + "; ".join(
+            f"Project {p['entity_id']}: {p['title']} ({p['status']})" for p in ctx["projects"]))
     if ctx["pending_approvals"]:
-        rows = [f"- {a['title']} (id={a['entity_id']}, awaiting {a.get('awaiting_role') or 'next role'})" for a in ctx["pending_approvals"][:max_items]]
+        rows = [f"- Approval {a['entity_id']}: {a['title']} (awaiting {a.get('awaiting_role') or 'next role'}, pending for {a.get('days_pending', 0)} days)" for a in ctx["pending_approvals"][:max_items]]
         lines.append("PENDING GATE APPROVALS:\n" + "\n".join(rows))
     if ctx["overdue_tasks"]:
-        rows = [f"- {t['title']} (id={t['entity_id']}, {t['days_overdue']} days overdue)" for t in ctx["overdue_tasks"][:max_items]]
+        rows = [f"- Task {t['entity_id']}: {t['title']} (status {t.get('status')}, due {t['due_date']} — {t['days_overdue']} days overdue)" for t in ctx["overdue_tasks"][:max_items]]
         lines.append("YOUR OVERDUE TASKS:\n" + "\n".join(rows))
     if ctx["aging_items"]:
-        rows = [f"- {i['title']} (id={i['entity_id']}) — {i['phase']} for {i['days_in_phase']} days" for i in ctx["aging_items"][:max_items]]
+        rows = [f"- Item {i['entity_id']}: {i['title']} — {i['phase']} for {i['days_in_phase']} days" for i in ctx["aging_items"][:max_items]]
         lines.append("ITEMS AGING IN PHASE:\n" + "\n".join(rows))
     if ctx["at_risk_releases"]:
-        rows = [f"- {r['title']} (id={r['entity_id']}): {'; '.join(r['reasons'])}" for r in ctx["at_risk_releases"][:max_items]]
-        lines.append("AT-RISK RELEASES:\n" + "\n".join(rows))
+        rows = [f"- Release {r['entity_id']}: {r['title']} — {'; '.join(r['reasons'])}" for r in ctx["at_risk_releases"][:max_items]]
+        lines.append("AT-RISK RELEASES (computed: overdue target or pending gate — no manual flag):\n" + "\n".join(rows))
     return "\n\n".join(lines) if lines else "No signal data found for your assignments."
 
 
@@ -256,8 +267,11 @@ def summarize_context(ctx: dict, max_items: int = 40) -> str:
 
 CHAT_SYSTEM_PROMPT = (
     "You are the PMO Copilot — a project management assistant inside the PMO System. "
-    "Answer only from the provided project data. Cite sources by record id "
-    "(e.g. 'PMO-42' for a backlog item id=42, 'Approval #7' for an approval_request id=7). "
+    "Answer only from the provided project data. Cite sources by record type and id "
+    "(e.g. 'Task 2', 'Approval #7', 'Item 5', 'Release 1') — never attach one record's "
+    "age or status to a different record; every entry's facts belong to that entry alone. "
+    "The system computes at-risk releases (overdue target or pending gate); never say a "
+    "release was 'flagged' unless the data shows a flag. "
     "If the data doesn't contain the answer, say so plainly — never invent records. "
     "Be concise and operational: the user is a PM who needs to act."
 )

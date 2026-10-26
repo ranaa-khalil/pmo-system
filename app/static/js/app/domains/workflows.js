@@ -10,6 +10,13 @@ selectedForm: null,
 formEditMode: false,
 
 
+// ===== Risks state (P3 heatmap) =====
+projectRisks: [],
+selectedRisk: null,
+riskEditMode: false,
+riskMatrixSeverity: ['Low', 'Medium', 'High', 'Critical'],
+riskMatrixProbability: ['Rare', 'Unlikely', 'Medium', 'Likely', 'Almost Certain'],
+
 // ===== Approvals state =====
 projectApprovals: [],
 selectedApproval: null,
@@ -182,6 +189,78 @@ approvalStatusColor(status) {
         'Rejected': 'bg-rose-50 text-rose-700',
         'Skipped': 'bg-ink-100 text-ink-400',
     }[status] || 'bg-ink-100 text-ink-600';
+},
+
+
+// ===== Risk heatmap (P3): severity × probability 5×4 matrix =====
+riskLevel(severity, probability) {
+    const s = { 'Low': 1, 'Medium': 2, 'High': 3, 'Critical': 5 }[severity] || 0;
+    const pr = { 'Rare': 1, 'Unlikely': 2, 'Medium': 3, 'Possible': 3, 'Likely': 4, 'Almost Certain': 5 }[probability] || 0;
+    return s * pr;
+},
+
+risksInCell(severity, probability) {
+    return (this.projectRisks || []).filter(r => r.severity === severity && r.probability === probability && r.status !== 'Closed');
+},
+
+riskCellColor(severity, probability) {
+    // Standard bands on the 5×5 scale: low ≤4, moderate ≤9, high ≤14, extreme ≥15
+    const score = this.riskLevel(severity, probability);
+    if (score <= 0) return 'bg-ink-50';
+    if (score <= 4) return 'bg-emerald-50 border-emerald-100';
+    if (score <= 9) return 'bg-amber-50 border-amber-100';
+    if (score <= 14) return 'bg-orange-50 border-orange-100';
+    return 'bg-rose-50 border-rose-100';
+},
+
+riskScoreColor(risk) {
+    const score = typeof risk.score === 'number' ? risk.score : this.riskLevel(risk.severity, risk.probability);
+    if (score <= 4) return 'bg-emerald-100 text-emerald-700';
+    if (score <= 9) return 'bg-amber-100 text-amber-700';
+    if (score <= 14) return 'bg-orange-100 text-orange-700';
+    return 'bg-rose-100 text-rose-700';
+},
+
+riskStatusColor(status) {
+    return {
+        'Open': 'bg-rose-50 text-rose-700',
+        'Mitigating': 'bg-amber-50 text-amber-700',
+        'Closed': 'bg-emerald-50 text-emerald-700',
+    }[status] || 'bg-ink-100 text-ink-600';
+},
+
+async loadRisks() {
+    try {
+        this.projectRisks = await this.api('GET', `/projects/${this.selectedProject.id}/risks`);
+    } catch { this.projectRisks = []; }
+},
+
+openRisk(risk) {
+    // View modal with inline edit in the same panel (edit → inline within modal)
+    this.selectedRisk = { ...risk };
+    this.riskEditMode = false;
+},
+
+closeRisk() {
+    this.selectedRisk = null;
+    this.riskEditMode = false;
+},
+
+async saveRisk() {
+    try {
+        const updated = await this.api('PUT', `/risks/${this.selectedRisk.id}`, {
+            status: this.selectedRisk.status,
+            severity: this.selectedRisk.severity,
+            probability: this.selectedRisk.probability,
+            mitigation: this.selectedRisk.mitigation,
+        });
+        Object.assign(this.selectedRisk, updated);
+        await this.loadRisks();
+        this.riskEditMode = false;
+        this.showToast('Risk updated', 'success');
+    } catch (e) {
+        this.showToast(e.message, 'error');
+    }
 },
 
 

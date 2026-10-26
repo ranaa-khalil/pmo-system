@@ -39,6 +39,7 @@
                     <button @click="projectTab='backlog'" :class="projectTab==='backlog' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Backlog</button>
                     <button @click="projectTab='docs'" :class="projectTab==='docs' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Docs</button>
                     <button @click="projectTab='approvals'" :class="projectTab==='approvals' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Approvals</button>
+                    <button @click="projectTab='risks'" :class="projectTab==='risks' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Risks</button>
                     <button @click="projectTab='releases'" :class="projectTab==='releases' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Releases</button>
                     <button @click="projectTab='stakeholders'" :class="projectTab==='stakeholders' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Stakeholders</button>
                     <button @click="projectTab='infrastructure'" :class="projectTab==='infrastructure' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Infrastructure</button>
@@ -3195,6 +3196,156 @@
                         <tr x-show="infraDatabases.length === 0"><td colspan="6" class="py-8 text-center text-ink-400">No databases yet</td></tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== RISKS TAB (P3 heatmap) ==================== -->
+    <div x-show="projectTab==='risks'" class="max-w-4xl">
+        <!-- Heatmap: severity (rows) × probability (cols) -->
+        <div class="surface rounded-2xl border border-ink-200/60 p-5 mb-4">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-[13px] font-semibold text-ink-800">Risk Heatmap</h3>
+                <div class="flex items-center gap-3 text-[10px] text-ink-400">
+                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-emerald-200"></span>Low</span>
+                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-amber-200"></span>Moderate</span>
+                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-orange-200"></span>High</span>
+                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-rose-200"></span>Extreme</span>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full border-separate" style="border-spacing: 4px;">
+                    <thead>
+                        <tr>
+                            <th class="text-[10px] font-medium text-ink-400 uppercase tracking-wide text-left">Severity \ Probability</th>
+                            <template x-for="prob in riskMatrixProbability" :key="prob">
+                                <th class="text-[10px] font-medium text-ink-500 pb-1" x-text="prob"></th>
+                            </template>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="sev in riskMatrixSeverity" :key="sev">
+                            <tr>
+                                <td class="text-[11px] font-medium text-ink-600 pr-2 whitespace-nowrap" x-text="sev"></td>
+                                <template x-for="prob in riskMatrixProbability" :key="sev + prob">
+                                    <td class="p-0">
+                                        <div class="h-12 rounded-lg border transition-all cursor-pointer hover:scale-[1.03] hover:shadow-sm flex items-center justify-center gap-1"
+                                             :class="riskCellColor(sev, prob)"
+                                             @click="risksInCell(sev, prob).length === 1 && openRisk(risksInCell(sev, prob)[0])">
+                                            <template x-for="r in risksInCell(sev, prob)" :key="r.id">
+                                                <span class="w-2.5 h-2.5 rounded-full"
+                                                      :class="r.source === 'copilot' ? 'bg-violet-500' : 'bg-ink-600'"
+                                                      :title="r.title + ' (' + r.status + ', ' + (r.source || 'manual') + ')'"
+                                                      x-show="risksInCell(sev, prob).length <= 6"></span>
+                                            </template>
+                                            <span class="text-[11px] font-bold text-ink-700 tabular-nums" x-show="risksInCell(sev, prob).length > 0"
+                                                  x-text="risksInCell(sev, prob).length"></span>
+                                        </div>
+                                    </td>
+                                </template>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-[10px] text-ink-400 mt-3">Dots = open risks (violet = AI-drafted via Copilot). Click a cell with one risk to open it. Score = severity × probability on the 5×5 scale.</p>
+        </div>
+
+        <!-- Register list -->
+        <div class="space-y-2">
+            <template x-for="risk in projectRisks" :key="risk.id">
+                <div @click="openRisk(risk)" class="surface rounded-2xl border border-ink-200/60 p-4 card-lift transition-all cursor-pointer"
+                     x-show="risk.status !== 'Closed' || riskEditMode">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <h4 class="text-[14px] font-semibold text-ink-800" x-text="risk.title"></h4>
+                                <span class="text-[10px] font-medium px-2 py-0.5 rounded-md"
+                                      :class="risk.source === 'copilot' ? 'bg-violet-50 text-violet-600' : 'bg-ink-100 text-ink-500'"
+                                      x-text="risk.source || 'manual'"></span>
+                            </div>
+                            <p class="text-[11px] text-ink-400 mt-1" x-show="risk.mitigation" x-text="risk.mitigation"></p>
+                        </div>
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                            <span class="text-[11px] font-medium px-2.5 py-1 rounded-lg" :class="riskStatusColor(risk.status)" x-text="risk.status"></span>
+                            <span class="text-[11px] font-bold px-2.5 py-1 rounded-lg tabular-nums" :class="riskScoreColor(risk)"
+                                  x-text="'Score ' + (risk.score ?? riskLevel(risk.severity, risk.probability))"></span>
+                            <svg class="w-4 h-4 text-ink-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                        </div>
+                    </div>
+                </div>
+            </template>
+            <div x-show="projectRisks.length === 0" class="surface rounded-2xl border border-ink-200/60 p-10 text-center">
+                <div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-rose-50 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-rose-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                </div>
+                <p class="text-[13px] text-ink-400 mb-1">No risks in the register</p>
+                <p class="text-[11px] text-ink-300">Risks are created manually by the PM or AI-drafted via Copilot proposals</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Risk detail modal (view + inline edit in the same panel) -->
+    <div x-show="selectedRisk" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" @keydown.escape.window="closeRisk()">
+        <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" @click="closeRisk()"></div>
+        <div class="relative surface rounded-3xl shadow-modal w-full max-w-lg max-h-[85vh] overflow-y-auto modal-enter border border-black/[0.06]">
+            <div class="sticky top-0 bg-white/95 backdrop-blur border-b border-black/[0.06] px-6 py-4 flex items-center justify-between rounded-t-3xl z-10">
+                <div>
+                    <h3 class="text-[15px] font-bold text-ink-900" x-text="selectedRisk?.title"></h3>
+                    <div class="flex items-center gap-2 mt-0.5">
+                        <span class="text-[11px] font-medium px-2 py-0.5 rounded-lg" :class="riskStatusColor(selectedRisk?.status)" x-text="selectedRisk?.status"></span>
+                        <span class="text-[11px] font-bold px-2 py-0.5 rounded-lg tabular-nums" :class="riskScoreColor(selectedRisk || {})"
+                              x-text="'Score ' + (selectedRisk?.score ?? riskLevel(selectedRisk?.severity, selectedRisk?.probability))"></span>
+                    </div>
+                </div>
+                <button @click="closeRisk()" class="p-2 text-ink-400 hover:text-ink-700 hover:bg-ink-100 rounded-lg transition-colors">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Description</div>
+                    <div class="text-[13px] text-ink-600 md-content" x-html="renderMarkdown(selectedRisk?.description || 'No description.')"></div>
+                </div>
+                <div>
+                    <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Mitigation</div>
+                    <div x-show="!riskEditMode" class="text-[13px] text-ink-600 md-content" x-html="renderMarkdown(selectedRisk?.mitigation || 'No mitigation recorded yet.')"></div>
+                    <textarea x-show="riskEditMode" x-model="selectedRisk.mitigation" rows="3" class="w-full input-premium text-[13px] px-3 py-2" placeholder="Mitigation plan..."></textarea>
+                    <p class="text-[9px] text-ink-300 mt-0.5" x-show="riskEditMode">Supports Markdown formatting</p>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Severity</div>
+                        <select x-show="riskEditMode" x-model="selectedRisk.severity" class="w-full input-premium text-[12px] px-2.5 py-2 bg-white">
+                            <template x-for="s in riskMatrixSeverity" :key="s"><option :value="s" x-text="s"></option></template>
+                        </select>
+                        <div x-show="!riskEditMode" class="text-[13px] text-ink-800 font-medium" x-text="selectedRisk?.severity"></div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Probability</div>
+                        <select x-show="riskEditMode" x-model="selectedRisk.probability" class="w-full input-premium text-[12px] px-2.5 py-2 bg-white">
+                            <template x-for="pr in riskMatrixProbability" :key="pr"><option :value="pr" x-text="pr"></option></template>
+                        </select>
+                        <div x-show="!riskEditMode" class="text-[13px] text-ink-800 font-medium" x-text="selectedRisk?.probability"></div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Status</div>
+                        <select x-show="riskEditMode" x-model="selectedRisk.status" class="w-full input-premium text-[12px] px-2.5 py-2 bg-white">
+                            <option value="Open">Open</option>
+                            <option value="Mitigating">Mitigating</option>
+                            <option value="Closed">Closed</option>
+                        </select>
+                        <div x-show="!riskEditMode" class="text-[13px] text-ink-800 font-medium" x-text="selectedRisk?.status"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="sticky bottom-0 bg-white/95 backdrop-blur border-t border-black/[0.06] px-6 py-4 rounded-b-3xl flex items-center justify-between">
+                <span class="text-[10px] text-ink-300" x-text="'Source: ' + (selectedRisk?.source || 'manual') + ' · Owner: ' + (selectedRisk?.owner_name || 'unassigned')"></span>
+                <div class="flex gap-2">
+                    <button x-show="!riskEditMode" @click="riskEditMode = true" class="text-[12px] font-medium text-brand-600 hover:text-brand-700 px-3 py-1.5 rounded-lg hover:bg-brand-50 transition-colors">Edit</button>
+                    <button x-show="riskEditMode" @click="saveRisk()" class="text-[12px] font-medium text-white btn-primary px-4 py-1.5 rounded-xl transition-all">Save</button>
+                    <button x-show="riskEditMode" @click="riskEditMode = false" class="text-[12px] text-ink-500 hover:text-ink-700 px-3 py-1.5 rounded-lg hover:bg-ink-100 transition-colors">Cancel</button>
+                </div>
             </div>
         </div>
     </div>

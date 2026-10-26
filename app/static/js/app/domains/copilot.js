@@ -260,12 +260,37 @@ async generateBriefing() {
             .map(r => String(r).replace(/\*\*/g, '').split(/[:—-]/)[0].trim())
             .filter(Boolean).slice(0, 3);
         this.briefingGeneratedAt = new Date().toISOString();
+        this.briefingLoading = false;
+        // Predictive flags (P3): load after the briefing text so the card
+        // shows KPI drift/spend/capacity chips even before chat finishes.
+        await this.loadPredictiveFlags();
     } catch (e) {
         this.briefingSummary = e?.message || 'Briefing unavailable — check AI configuration in Settings.';
         this.briefingVerdict = '';
         this.briefingRisks = [];
     }
     this.briefingLoading = false;
+},
+
+// ===== Predictive flags (P3) — KPI off-target / deteriorating trends =====
+// Derived server-side from KPI values + KpiHistory; template-aware kind
+// (drift for AI, spend for marketing, capacity for operations).
+async loadPredictiveFlags() {
+    try {
+        const data = await this.api('GET', '/ai/predictive-flags');
+        this.predictiveFlags = Array.isArray(data.flags) ? data.flags : [];
+    } catch (e) {
+        this.predictiveFlags = [];  // flags are advisory — never block the card
+    }
+},
+
+async selectProjectById(projectId) {
+    if (!projectId) return;
+    try {
+        const projects = await this.api('GET', '/projects');
+        const project = (Array.isArray(projects) ? projects : []).find(p => p.id === projectId);
+        if (project) await this.openProject(project);
+    } catch (e) { /* non-fatal */ }
 },
 
 // ===== Conversational intake (structure → review → Apply) =====

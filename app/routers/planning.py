@@ -93,10 +93,24 @@ def update_kpi(kpi_id: int, kpi_update: KPIUpdate, db: Session = Depends(get_db)
     kpi = db.query(KPI).filter(KPI.id == kpi_id, KPI.tenant_id == current_tenant.id).first()
     if not kpi:
         raise HTTPException(status_code=404, detail="KPI not found")
-    for field, val in kpi_update.model_dump(exclude_unset=True).items():
+    updates = kpi_update.model_dump(exclude_unset=True)
+    value_changed = "current_value" in updates and updates["current_value"] != kpi.current_value
+    for field, val in updates.items():
         setattr(kpi, field, val)
     db.commit()
     db.refresh(kpi)
+    # Snapshot history: a KpiHistory row is written whenever current_value
+    # changes — this is what the kpi_trend analytics and predictive flags read.
+    if value_changed:
+        from app.models.kpi_history import KpiHistory
+        db.add(KpiHistory(
+            tenant_id=current_tenant.id,
+            project_id=kpi.project_id,
+            kpi_id=kpi.id,
+            value=kpi.current_value or "",
+            source="manual",
+        ))
+        db.commit()
     return kpi
 
 @router.delete("/kpis/{kpi_id}", status_code=204)

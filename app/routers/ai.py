@@ -68,6 +68,38 @@ def ai_status(
     }
 
 
+@router.get("/predictive-flags")
+def get_predictive_flags(
+    project_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Predictive KPI flags (P3): off-target + deteriorating-trend warnings.
+
+    Derived on read from KPI values + KpiHistory — template-aware kind
+    (drift for AI, spend for marketing, capacity for operations). Scoped to
+    the user's assigned projects (or one project with ?project_id=).
+    """
+    from app.services import predictive
+    from app.services.copilot import _assigned_project_ids
+
+    if project_id is not None:
+        from app.models.project import Project
+        project = db.query(Project).filter(
+            Project.id == project_id, Project.tenant_id == current_tenant.id,
+        ).first()
+        if not project:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Project not found")
+        proj_ids = [project.id]
+    else:
+        proj_ids = _assigned_project_ids(db, current_user, current_tenant)
+
+    flags = predictive.predictive_flags(db, current_tenant, proj_ids)
+    return {"flags": flags, "count": len(flags)}
+
+
 @router.put("/config")
 def update_ai_config(
     req: AIConfigRequest,

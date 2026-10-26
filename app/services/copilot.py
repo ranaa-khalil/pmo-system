@@ -74,6 +74,7 @@ def build_context(
             return {
                 "projects": [], "pending_approvals": [], "aging_items": [],
                 "overdue_tasks": [], "at_risk_releases": [], "epic_tree": {},
+                "open_risks": [], "predictive_flags": [],
             }
         proj_ids = [project.id]
     else:
@@ -83,6 +84,7 @@ def build_context(
         return {
             "projects": [], "pending_approvals": [], "aging_items": [],
             "overdue_tasks": [], "at_risk_releases": [], "epic_tree": {},
+            "open_risks": [], "predictive_flags": [],
         }
 
     projects = db.query(Project).filter(
@@ -224,6 +226,12 @@ def build_context(
             "owner_id": r.owner_id, "source": r.source,
         })
 
+    # ── Predictive flags (P3): KPI off-target / deteriorating trend ──────
+    # Derived on read from KPI.current_value + KpiHistory — template-aware
+    # kind (drift for AI, spend for marketing, capacity for operations).
+    from app.services import predictive
+    predictive_flags = predictive.predictive_flags(db, tenant, proj_ids)
+
     return {
         "projects": [
             {"entity_type": "project", "entity_id": p.id, "title": p.name,
@@ -235,6 +243,7 @@ def build_context(
         "overdue_tasks": overdue_tasks,
         "at_risk_releases": at_risk_releases,
         "open_risks": open_risks,
+        "predictive_flags": predictive_flags,
         "epic_tree": epic_tree,
     }
 
@@ -320,6 +329,9 @@ def summarize_context(ctx: dict, max_items: int = 40) -> str:
     if ctx.get("open_risks"):
         rows = [f"- Risk {r['entity_id']}: {r['title']} (severity {r['severity']} × probability {r['probability']}, score {r['score']}, {r['status']})" for r in ctx["open_risks"][:max_items]]
         lines.append("OPEN RISKS:\n" + "\n".join(rows))
+    if ctx.get("predictive_flags"):
+        rows = [f"- {f['message']} (trend: {f['trend']}, severity {f['severity']})" for f in ctx["predictive_flags"][:max_items]]
+        lines.append("PREDICTIVE FLAGS (computed from KPI values + history — not manual flags):\n" + "\n".join(rows))
     tree = ctx.get("epic_tree") or {}
     if tree:
         rows = []

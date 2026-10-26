@@ -14,7 +14,7 @@ logger = logging.getLogger("app.migrate")
 
 TENANT_TABLES = [
     "clients", "projects", "backlog_items", "releases", "release_items",
-    "kpis", "roadmaps", "milestones", "stakeholders", "roles",
+    "kpis", "kpi_history", "roadmaps", "milestones", "stakeholders", "roles",
     "role_assignments", "role_permissions", "permissions",
     "approval_requests", "approval_steps", "user_tasks",
     "form_templates", "form_instances", "user_personas",

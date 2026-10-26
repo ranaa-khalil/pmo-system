@@ -221,11 +221,16 @@ def _epic_tree(db: Session, proj_ids: list[int]) -> dict:
 
 
 def _days_since(value) -> int:
-    """Days since a datetime/string timestamp; 0 when unparseable."""
+    """Days since a datetime/string timestamp; 0 when unparseable.
+
+    Handles offset-naive and offset-aware datetimes (Postgres returns
+    timezone-aware values; utcnow() is naive) — compare in UTC.
+    """
     if value is None:
         return 0
     if isinstance(value, datetime):
-        return (datetime.utcnow() - value).days
+        now = datetime.now(value.tzinfo) if value.tzinfo else datetime.utcnow()
+        return (now - value).days
     if isinstance(value, date):
         return (date.today() - value).days
     s = str(value)

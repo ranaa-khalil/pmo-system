@@ -5,8 +5,13 @@ window (Committed phase + Done status = finished work). recommend_scope
 projects how many items fit the next sprint. The endpoint is gated behind
 `sprint_planning` (Business plan+) — Free/Team receive 403 with an upgrade
 message. Numbers are derived, never stored.
+
+Note: backlog_items.updated_at is a VARCHAR on legacy rows and DATE-casts are
+unreliable across SQLite/Postgres, so the date bucketing is done in Python —
+the DB only filters project/status/phase (indexed, type-safe); unparseable
+timestamps are excluded, never a 500.
 """
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -14,12 +19,22 @@ from app.models.backlog_item import BacklogItem
 from app.models.project import Project
 
 
-def _completed_in_window(db: Session, project: Project, start: date, end: date) -> int:
-    return db.query(BacklogItem).filter(
-        BacklogItem.project_id == project.id,
-        BacklogItem.status == "Done",
-        BacklogItem.current_phase == "Committed",
-    ).count()
+def _parse_date(value):
+    """Parse a timestamp/date in any stored shape; None when unparseable."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    s = str(value)
+    for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f%z",
+                "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(s[:26] if ".%f" in fmt else s[:19] if "%H" in fmt else s[:10], fmt).date()
+        except ValueError:
+            continue
+    return None
 
 
 def compute_velocity(db: Session, project: Project, sprint_days: int = 14) -> dict:
@@ -29,23 +44,22 @@ def compute_velocity(db: Session, project: Project, sprint_days: int = 14) -> di
     sprint state required for v1.
     """
     today = date.today()
-    total_done = db.query(BacklogItem).filter(
+    done_items = db.query(BacklogItem).filter(
         BacklogItem.project_id == project.id,
         BacklogItem.status == "Done",
         BacklogItem.current_phase == "Committed",
-    ).count()
+    ).all()
+    total_done = len(done_items)
 
     sprints: list[dict] = []
     for i in range(3):  # last 3 sprint windows
         end = today - timedelta(days=i * sprint_days)
         start = end - timedelta(days=sprint_days)
-        count = db.query(BacklogItem).filter(
-            BacklogItem.project_id == project.id,
-            BacklogItem.status == "Done",
-            BacklogItem.current_phase == "Committed",
-            BacklogItem.updated_at >= start,
-            BacklogItem.updated_at < end,
-        ).count()
+        count = 0
+        for item in done_items:
+            when = _parse_date(item.updated_at)
+            if when is not None and start <= when < end:
+                count += 1
         sprints.append({"sprint": f"S-{i + 1}", "completed": count})
 
     completed = [s["completed"] for s in sprints if s["completed"] > 0]

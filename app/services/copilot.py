@@ -289,17 +289,24 @@ def copilot_chat(
     tenant: Tenant,
     question: str,
     tenant_config: dict,
+    project_id: int | None = None,
 ) -> dict:
-    """Grounded Q&A over the user's data. Read-only: never writes records.
+    """Grounded Q&A scoped to the open project when one is selected.
 
-    Returns {answer, sources, interaction_id}.
+    Read-only: never writes records. With a project_id the context covers that
+    project only (when the user can see it); without one it covers every
+    assigned project. Returns {answer, sources, interaction_id}.
     """
     from app.services.ai import _extract_json
 
-    ctx = build_context(db, user, tenant)
+    ctx = build_context(db, user, tenant, project_id=project_id)
+    scope_label = f"the selected project (id={project_id})" if project_id else "all your assigned projects"
     context_text = summarize_context(ctx)
 
-    user_prompt = f"PROJECT DATA:\n{context_text}\n\nQUESTION: {question}"
+    user_prompt = (
+        f"SCOPE: {scope_label}\n\n"
+        f"PROJECT DATA:\n{context_text}\n\nQUESTION: {question}"
+    )
 
     raw = _call_llm(CHAT_SYSTEM_PROMPT, user_prompt, tenant_config, max_tokens=900)
     parsed = _extract_json(raw) or {}
@@ -331,9 +338,12 @@ def copilot_propose(
     intent: str,
     operations: list[dict] | None = None,
     tenant_config: dict | None = None,
+    project_id: int | None = None,
 ) -> dict:
     """Draft a write proposal from an intent. Executes nothing.
 
+    Scoped to the open project when one is selected (project_id); operations
+    referencing other projects fail at confirm time (authority re-check).
     If operations aren't given, the LLM compiles them from the intent using the
     v1 vocabulary. Operations are validated against PROPOSAL_OPS; anything else
     is rejected before drafting.
@@ -341,11 +351,12 @@ def copilot_propose(
     from app.services.ai import _extract_json
 
     if not operations:
-        ctx = build_context(db, user, tenant)
+        ctx = build_context(db, user, tenant, project_id=project_id)
+        scope = f"ONLY project id={project_id}" if project_id else "the user's assigned projects"
         system = (
             "You compile PMO write operations. Reply ONLY with JSON: "
             '{"operations": [{"op": "advance_item"|"assign_user"|"create_risk_draft"|"escalate_approval", ...args}]}. '
-            "Use only these four ops. Reference records by id from the data below. "
+            f"Use only these four ops. Reference records by id from the data below — scope is {scope}, never reference records outside it. "
             "If the intent is out of scope, reply {\"operations\": []}."
         )
         raw = _call_llm(

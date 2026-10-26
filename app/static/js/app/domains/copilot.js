@@ -33,9 +33,12 @@ briefingGeneratedAt: null,
 toggleCopilot() {
     this.copilotOpen = !this.copilotOpen;
     if (this.copilotOpen && this.copilotMessages.length === 0) {
+        const scope = this.selectedProject
+            ? `I'm scoped to ${this.selectedProject.name} — the project you have open.`
+            : "I cover all your assigned projects. Open a project to scope me to it.";
         this.copilotMessages.push({
             role: 'assistant',
-            text: 'Ask me anything about your projects — overdue work, aging items, pending approvals, or releases at risk. I read your data and cite sources.',
+            text: `Ask me anything about your projects — overdue work, aging items, pending approvals, or releases at risk. I read your data and cite sources. ${scope}`,
         });
     }
 },

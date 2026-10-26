@@ -19,7 +19,13 @@
             </div>
             <div>
                 <div class="text-[13px] font-bold text-white leading-tight">PMO Copilot</div>
-                <div class="text-[10px] text-white/70 leading-tight">Grounded in your project data</div>
+                <div class="text-[10px] text-white/75 leading-tight flex items-center gap-1">
+                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                        <circle cx="12" cy="10" r="2.5"/>
+                    </svg>
+                    <span x-text="selectedProject ? selectedProject.name : 'All projects'"></span>
+                </div>
             </div>
         </div>
         <div class="flex items-center gap-2">
@@ -168,13 +174,23 @@
                         </div>
                     </template>
 
-                    <!-- Proposal operations (draft → confirm) -->
+                    <!-- Proposal operations (draft → confirm): op card per operation -->
                     <template x-if="msg.ops && msg.ops.length > 0">
-                        <div class="mt-2 space-y-1.5">
+                        <div class="mt-2.5 space-y-1.5">
                             <template x-for="(op, oi) in msg.ops" :key="oi">
-                                <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-ink-200 text-[11px]">
-                                    <span class="px-1.5 py-0.5 rounded-md bg-violet-100 text-violet-700 font-semibold uppercase tracking-wide text-[9px]" x-text="op.op"></span>
-                                    <span class="text-ink-600 font-medium" x-text="op.description || op.title || ('#' + (op.item_id || op.approval_id || op.project_id))"></span>
+                                <div class="rounded-xl border border-violet-200 bg-violet-50/50 px-3 py-2">
+                                    <div class="flex items-center gap-2">
+                                        <span class="px-1.5 py-0.5 rounded-md bg-violet-600 text-white font-bold uppercase tracking-wide text-[8.5px]"
+                                              x-text="op.op === 'advance_item' ? 'Advance' : op.op === 'assign_user' ? 'Assign' : op.op === 'create_risk_draft' ? 'Risk draft' : 'Escalate'"></span>
+                                        <span class="text-[11.5px] font-semibold text-ink-800"
+                                              x-text="op.title || op.description || ('Item ' + (op.item_id || op.approval_id || op.project_id))"></span>
+                                    </div>
+                                    <div class="mt-1 text-[10.5px] text-ink-500 flex items-center gap-1.5">
+                                        <template x-if="op.target_phase"><span x-text="'→ ' + op.target_phase"></span></template>
+                                        <template x-if="op.assignee_id"><span x-text="'→ user #' + op.assignee_id"></span></template>
+                                        <template x-if="op.note"><span x-text="op.note"></span></template>
+                                        <template x-if="!op.target_phase && !op.assignee_id && !op.note"><span x-text="'record #' + (op.item_id || op.approval_id || op.project_id)"></span></template>
+                                    </div>
                                 </div>
                             </template>
                         </div>
@@ -243,9 +259,9 @@
     </div><!-- /chat tab -->
 </div>
 
-<!-- Copilot launcher button (bottom-right, above content) -->
+<!-- Copilot launcher button — left of the task FAB (which floats bottom-right, draggable) -->
 <button x-show="isLoggedIn && !copilotOpen" x-cloak @click="toggleCopilot()"
-        class="fixed bottom-6 right-6 w-12 h-12 rounded-full z-40 bg-gradient-to-br from-brand-600 to-violet-600 text-white shadow-lg shadow-violet-500/30 flex items-center justify-center hover:shadow-xl hover:shadow-violet-500/40 hover:scale-105 transition-all"
+        class="fixed bottom-6 right-20 w-11 h-11 rounded-full z-40 bg-ink-900 text-white shadow-lg shadow-ink-900/25 flex items-center justify-center hover:bg-ink-800 hover:scale-105 transition-all"
         title="PMO Copilot">
     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>

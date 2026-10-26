@@ -229,6 +229,7 @@ def copilot_chat_endpoint(
     try:
         return copilot_service.copilot_chat(
             db, current_user, current_tenant, req.question, tenant_config,
+            project_id=req.project_id,
         )
     except HTTPException:
         raise
@@ -256,6 +257,7 @@ def copilot_propose_endpoint(
         return copilot_service.copilot_propose(
             db, current_user, current_tenant, req.intent,
             operations=req.operations, tenant_config=tenant_config,
+            project_id=req.project_id,
         )
     except HTTPException:
         raise

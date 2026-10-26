@@ -46,39 +46,35 @@ function mergeDomain(target, domain, storeRef) {
 // reactive proxies on the store, same as the original monolith.
 function deepValue(v) { return v; }
 
-// The merged store. Built in two passes: first pass copies plain data so
-// getters evaluated during the second pass see full state.
+// The merged store. Getters keep their ORIGINAL unbound `this` so that when
+// Alpine wraps the store in its reactive proxy and calls the getter through
+// it, internal reads (`this.dashStats`, `this.currentUser`, …) hit the PROXY
+// and are tracked by Alpine's reactivity. Binding `this` to the raw store
+// object here would make every getter-injected read invisible to Alpine —
+// effects would freeze at their init-time value (stat cards stuck at 0,
+// canManageUsers never re-evaluated).
 function buildStore() {
     const store = {};
-    for (const d of DOMAINS) mergeDomain(store, d, null);
-    // Second pass: rebind accessors to the completed store object identity
-    const bound = {};
-    for (const key of Object.keys(store)) {
-        const desc = Object.getOwnPropertyDescriptor(store, key);
-        if (desc.get || desc.set) {
-            Object.defineProperty(bound, key, {
-                get() { return desc.get.call(store); },
-                set(v) { if (desc.set) desc.set.call(store, v); },
-                enumerable: true,
-                configurable: true,
-            });
-        } else {
-            Object.defineProperty(bound, key, desc);
+    for (const d of DOMAINS) {
+        for (const key of Object.keys(d)) {
+            if (key in store) {
+                console.warn(`[PMO] duplicate property "${key}" while merging domains`);
+            }
+            const desc = Object.getOwnPropertyDescriptor(d, key);
+            if (desc.get || desc.set) {
+                // Keep the accessor as-is (do NOT rebind `this`) — Alpine calls
+                // it through the reactive proxy, so `this` IS the proxy and
+                // dependency tracking works.
+                Object.defineProperty(store, key, desc);
+            } else {
+                const value = desc.value;
+                store[key] = typeof value === 'function' ? value : deepValue(value);
+            }
         }
     }
-    // Copy the non-accessor properties back onto the same object identity so
-    // `store` and `bound` are one object with correct accessors.
-    for (const key of Object.keys(bound)) {
-        const desc = Object.getOwnPropertyDescriptor(bound, key);
-        if (desc.get || desc.set) {
-            Object.defineProperty(store, key, {
-                get() { return desc.get.call(store); },
-                set(v) { if (desc.set) desc.set.call(store, v); },
-                enumerable: true,
-                configurable: true,
-            });
-        }
-    }
+    // Getter-to-getter chains (e.g. canManageClients → canManageUsers) resolve
+    // `this.<other>` through the proxy at call time, so cross-getter reads are
+    // tracked too.
     return store;
 }
 

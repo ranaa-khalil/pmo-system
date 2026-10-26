@@ -197,6 +197,30 @@ def build_context(
         db.query(User).filter(User.id == projects[0].project_manager_id).first()
         if projects[0].project_manager_id else None
     )
+    # Project story: vision + milestones + roadmap so the copilot can discuss
+    # what the project is about and where it's heading — not just ids.
+    from app.models.milestone import Milestone
+    from app.models.project_vision import ProjectVision
+    from app.models.roadmap import Roadmap
+    vision_row = db.query(ProjectVision).filter(ProjectVision.project_id == projects[0].id).first()
+    milestones = (
+        db.query(Milestone)
+        .join(Roadmap, Milestone.roadmap_id == Roadmap.id)
+        .filter(Roadmap.project_id.in_(proj_ids))
+        .order_by(Milestone.id)
+        .limit(8)
+        .all()
+    )
+    recent_activity = (
+        db.query(ActivityLog)
+        .filter(
+            ActivityLog.project_id.in_(proj_ids),
+            ActivityLog.action.in_(["created", "applied", "advanced", "updated", "approved", "rejected"]),
+        )
+        .order_by(ActivityLog.id.desc())
+        .limit(10)
+        .all()
+    )
     project_identity = {
         "entity_type": "project",
         "entity_id": projects[0].id,
@@ -206,6 +230,15 @@ def build_context(
         "project_type": projects[0].project_type or "",
         "client": projects[0].client.name if projects[0].client else None,
         "manager": manager.name if manager else None,
+        "vision": vision_row.statement if vision_row else None,
+        "milestones": [
+            {"title": m.title, "target_date": str(m.target_date) if m.target_date else None, "status": m.status}
+            for m in milestones if m.title
+        ],
+        "recent_activity": [
+            {"summary": a.summary, "action": a.action, "entity": a.entity_type}
+            for a in recent_activity if a.summary
+        ],
     }
 
     # ── Risks on the scoped projects (register rows, computed score) ─────
@@ -311,6 +344,17 @@ def summarize_context(ctx: dict, max_items: int = 40) -> str:
         if identity.get("manager"):
             parts.append(f"PM: {identity['manager']}")
         lines.append("THIS PROJECT: " + "; ".join(parts))
+        if identity.get("vision"):
+            lines.append("PROJECT VISION: " + identity["vision"])
+        if identity.get("milestones"):
+            ms = "; ".join(
+                f"{m['title']}" + (f" (target {m['target_date']}, {m['status']})" if m.get("target_date") else "")
+                for m in identity["milestones"][:8]
+            )
+            lines.append("ROADMAP MILESTONES: " + ms)
+        if identity.get("recent_activity"):
+            acts = "; ".join(f"{a['summary']}" for a in identity["recent_activity"][:8])
+            lines.append("RECENT ACTIVITY (newest first): " + acts)
     elif ctx["projects"]:
         lines.append("PROJECTS: " + "; ".join(
             f"Project {p['entity_id']}: {p['title']} ({p['status']})" for p in ctx["projects"]))

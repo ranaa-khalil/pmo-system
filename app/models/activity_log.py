@@ -15,7 +15,7 @@ class ActivityLog(Base):
     tenant_id = Column(Integer, nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)  # nullable for system actions
     user_name = Column(String(255), nullable=True)  # denormalized for quick display
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True)
     entity_type = Column(String(50), nullable=False, index=True)  # backlog_item, release, kpi, milestone, task, client, project, approval
     entity_id = Column(Integer, nullable=False, index=True)
     action = Column(String(50), nullable=False)  # created, updated, deleted, advanced, approved, rejected, assigned, signed_off

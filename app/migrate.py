@@ -56,6 +56,14 @@ INDEXES = [
     ("uq_tenant_settings_key", "tenant_settings", "tenant_id, key"),
 ]
 
+# FK constraints that must allow project deletion: nullable audit columns get
+# ON DELETE SET NULL on the live DB (create_all doesn't ALTER existing FKs).
+# (table, constraint_name, column)
+FK_SET_NULL = [
+    ("activity_logs", "activity_logs_project_id_fkey", "project_id"),
+    ("notifications", "notifications_project_id_fkey", "project_id"),
+]
+
 
 def _add_missing_columns() -> None:
     for table, column_def in COLUMNS:
@@ -114,11 +122,39 @@ def _ensure_reference_data() -> None:
         db.close()
 
 
+def _fix_project_delete_fks() -> None:
+    """Drop and recreate audit FKs with ON DELETE SET NULL (idempotent).
+
+    Deleting a project 500'd with ForeignKeyViolation when the project had
+    ActivityLog or Notification rows — the FKs had no ondelete behavior.
+    Only touches Postgres (SQLite doesn't enforce these names).
+    """
+    if engine.dialect.name != "postgresql":
+        return
+    inspector = inspect(engine)
+    for table, constraint, column in FK_SET_NULL:
+        if not inspector.has_table(table):
+            continue
+        fks = {fk["name"]: fk for fk in inspector.get_foreign_keys(table)}
+        # Constraint exists already with ON DELETE SET NULL → nothing to do
+        existing = fks.get(constraint)
+        if existing and (existing.get("ondelete") or "").upper() == "SET NULL":
+            continue
+        with engine.begin() as connection:
+            connection.execute(text(f"ALTER TABLE {table} DROP CONSTRAINT IF EXISTS {constraint}"))
+            connection.execute(text(
+                f"ALTER TABLE {table} ADD CONSTRAINT {constraint} "
+                f"FOREIGN KEY ({column}) REFERENCES projects(id) ON DELETE SET NULL"
+            ))
+        logger.info("Recreated %s with ON DELETE SET NULL", constraint)
+
+
 def run_migrations() -> None:
     """Apply every known migration; safe to run more than once."""
     Base.metadata.create_all(bind=engine)
     _add_missing_columns()
     _add_missing_indexes()
+    _fix_project_delete_fks()
     _ensure_reference_data()
 
 

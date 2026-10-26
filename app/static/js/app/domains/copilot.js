@@ -490,16 +490,60 @@ async interviewApply() {
     if (!this.interviewDraft || this.interviewApplying) return;
     this.interviewApplying = true;
     try {
-        if (this.interviewFlow === 'project') {
-            // Reuse the existing intake apply — the only write path
+        if (this.interviewFlow === 'feature') {
+            // Feature intake → pre-fill the backlog form (the real write path);
+            // the PM reviews and saves from the form like any manual entry.
+            if (!this.selectedProject) {
+                this.showToast('Open a project first — feature intake pre-fills its backlog form.', 'error');
+                this.interviewApplying = false;
+                return;
+            }
+            const d = this.interviewDraft || {};
+            this.backlogForm = {
+                ...this.backlogForm,
+                description: d.acceptance_criteria || this.backlogForm.description,
+                priority: d.priority || 'Medium',
+                target_release: d.target_release || '',
+                dependencies: d.dependencies || '',
+            };
+            this.interviewSession = null;
+            this.interviewDraft = null;
+            this.interviewFinished = false;
+            this.copilotOpen = false;
+            this.showBacklogForm = true;
+            this.copilotTab = 'chat';
+            this.showToast('Feature answers pre-filled in the backlog form — review and save.', 'success');
+        } else if (this.interviewFlow === 'project') {
+            // From scratch: create the project shell first, then apply into it.
+            let targetProjectId = this.selectedProject ? this.selectedProject.id : null;
+            if (!targetProjectId) {
+                const d = this.interviewDraft || {};
+                const created = await this.api('POST', '/projects', {
+                    name: (d.summary || 'New project').slice(0, 120),
+                    client_id: this.clients && this.clients.length ? this.clients[0].id : null,
+                    description: d.summary || '',
+                    project_type: (d.interview_answers && d.interview_answers.project_type) || 'software',
+                    status: 'Active',
+                });
+                targetProjectId = created.id;
+                await this.loadProjects();
+                const shell = (this.projects || []).find(pr => pr.id === targetProjectId);
+                if (shell) { this.selectedProject = shell; }
+                this.showToast('Project created — applying the structured records into it.', 'success');
+            }
+            // Apply into the (new or open) project — the only write path
             const data = await this.api('POST', '/ai/intake/apply', {
                 draft: this.interviewDraft,
-                project_id: this.selectedProject ? this.selectedProject.id : null,
+                project_id: targetProjectId,
             });
             this.interviewResult = data;
             this.showToast(`Applied: ${data.features_created} features, ${data.personas_created} personas, ${data.kpis_created} KPIs.`, 'success');
             this.loadBacklog();
             this.loadReleases();
+            // Land the PM in the new project with the records visible
+            if (this.selectedProject && this.selectedProject.id === targetProjectId) {
+                await this.openProject(this.selectedProject);
+            }
         } else {
             // risk / release / escalation: the interview apply endpoint
             const edits = this.interviewFlow === 'escalation'

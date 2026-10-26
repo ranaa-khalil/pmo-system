@@ -4,16 +4,23 @@ import pytest
 
 
 @pytest.fixture
-def portal_world(client, db):
-    """Super admin + a client with a contact email."""
-    from app.models.client import Client
-    from app.models.tenant import Tenant, TenantMembership
+def portal_world(client, db, auth_user):
+    """The shared super admin + a client with a contact email.
 
-    tenant = Tenant(name="OPEX", slug="opex", plan="enterprise")
-    db.add(tenant)
-    db.commit()
-    db.refresh(tenant)
-    db.add(TenantMembership(user_id=1, tenant_id=tenant.id, role="owner"))
+    The portal management endpoints are tenant-scoped: the client must belong
+    to the auth user's active tenant, and the user must be tenant owner.
+    """
+    from app.models.client import Client
+    from app.models.tenant import TenantMembership
+
+    tenant = auth_user["tenant"]
+    user = auth_user["user"]
+    # Ensure the shared user owns this tenant (conftest already creates it)
+    if not db.query(TenantMembership).filter(
+        TenantMembership.user_id == user.id, TenantMembership.tenant_id == tenant.id,
+    ).first():
+        db.add(TenantMembership(user_id=user.id, tenant_id=tenant.id, role="owner"))
+        db.commit()
 
     c = Client(
         name="NITC / PNU",
@@ -24,7 +31,7 @@ def portal_world(client, db):
     db.add(c)
     db.commit()
     db.refresh(c)
-    return {"client": c, "tenant": tenant}
+    return {"client": c, "tenant": tenant, "user": user}
 
 
 class TestPortalManagement:
@@ -63,9 +70,9 @@ class TestPortalManagement:
         assert resp.status_code == 200
         assert resp.json()["portal_enabled"] is False
 
-    def test_portal_setup_without_auth_401(self, client, portal_world):
+    def test_portal_setup_without_auth_401(self, anon_client, portal_world):
         c = portal_world["client"]
-        resp = client.post(f"/api/clients/{c.id}/portal", json={})
+        resp = anon_client.post(f"/api/clients/{c.id}/portal", json={})
         assert resp.status_code in (401, 403)
 
 

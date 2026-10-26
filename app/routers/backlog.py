@@ -169,11 +169,17 @@ def advance_backlog_phase(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Advance a backlog item to the next item-level phase."""
-    from app.models.backlog_item import ITEM_PHASES
+    from app.models.backlog_item import ITEM_PHASES, RELEASE_PHASES
 
     item = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Backlog item not found")
+
+    # Items in release-level phases (UAT, Pre-Release, Release, Post-Release,
+    # Retrospective) are managed by the release workflow — advancing must not
+    # reset them to Design.
+    if item.current_phase in RELEASE_PHASES:
+        return item
 
     current_idx = ITEM_PHASES.index(item.current_phase) if item.current_phase in ITEM_PHASES else 0
 

@@ -63,8 +63,8 @@ def ai_configured(monkeypatch):
     monkeypatch.setattr(settings_service, "get_ai_config", lambda db, tid: {"api_key": "k", "base_url": "u", "model": "m"})
 
 
-def test_chat_requires_auth(client, copilot_world):
-    resp = client.post("/api/ai/copilot/chat", json={"question": "what's overdue?"})
+def test_chat_requires_auth(anon_client, copilot_world):
+    resp = anon_client.post("/api/ai/copilot/chat", json={"question": "what's overdue?"})
     assert resp.status_code in (401, 403)
 
 

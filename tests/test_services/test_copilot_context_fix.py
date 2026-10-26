@@ -14,7 +14,7 @@ Fixes under test:
 4. Tasks carry due_date/days_overdue explicitly so the LLM never borrows a
    task's age for a different record
 """
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 import pytest
 

@@ -20,7 +20,6 @@ from app.models.user import User
 from app.models.user_persona import UserPersona
 from app.services import intake
 
-
 KICKOFF = """
 We are building a cloud platform for PNU to manage student services.
 Students log in with SSO and browse available courses. Faculty members

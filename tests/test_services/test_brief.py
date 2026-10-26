@@ -15,7 +15,7 @@ from app.models.ai_interaction import AiInteraction
 from app.models.approval import ApprovalRequest
 from app.models.backlog_item import BacklogItem
 from app.models.project import Project
-from app.models.tenant import Tenant, TenantMembership
+from app.models.tenant import Tenant
 from app.models.user import User
 from app.services import brief
 

@@ -16,7 +16,7 @@ from app.models.approval import ApprovalRequest
 from app.models.backlog_item import BacklogItem
 from app.models.project import Project
 from app.models.release import Release
-from app.models.tenant import Tenant, TenantMembership
+from app.models.tenant import Tenant
 from app.models.user import User
 from app.services import evidence
 

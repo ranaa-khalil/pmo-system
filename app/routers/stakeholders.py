@@ -392,10 +392,14 @@ def create_user(
         raise HTTPException(status_code=403, detail=f"You don't have permission to create a user with role '{system_role}'")
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
-    user = User(email=email, name=name, hashed_password=hash_password(password), system_role=system_role, tenant_id=current_tenant.id)
+    user = User(email=email, name=name, hashed_password=hash_password(password), system_role=system_role, active_tenant_id=current_tenant.id)
     db.add(user)
     db.commit()
     db.refresh(user)
+    # Membership row — without it get_current_tenant rejects the new user
+    from app.models.tenant import TenantMembership
+    db.add(TenantMembership(user_id=user.id, tenant_id=current_tenant.id, role="member"))
+    db.commit()
     return {"id": user.id, "email": user.email, "name": user.name, "system_role": user.system_role, "message": "User created"}
 
 

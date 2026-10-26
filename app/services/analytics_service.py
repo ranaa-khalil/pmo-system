@@ -140,14 +140,38 @@ def cycle_time(db: Session, tenant_id: int, project_id: int = None) -> dict:
     if not items:
         return {"avg_cycle_time_days": 0, "items_measured": 0, "min_days": 0, "max_days": 0}
 
+    def _parse_dt(value):
+        """Parse a datetime that may be a datetime object or an ISO string.
+
+        BacklogItem.created_at / updated_at are String columns — on SQLite
+        (and raw inserts) they come back as strings, sometimes with a space
+        separator or a timezone suffix.
+        """
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value
+        text = str(value).strip()
+        if not text:
+            return None
+        text = text.replace("T", " ").replace("Z", "")
+        for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+            try:
+                return datetime.strptime(text, fmt)
+            except ValueError:
+                continue
+        return None
+
     cycle_times = []
     for item in items:
-        if item.created_at:
-            # Use updated_at as proxy for when it reached "Ready for UAT"
-            end_date = item.updated_at or datetime.utcnow()
-            cycle = (end_date - item.created_at).days
-            if cycle >= 0:
-                cycle_times.append(cycle)
+        created = _parse_dt(item.created_at)
+        if not created:
+            continue
+        # Use updated_at as proxy for when it reached "Ready for UAT"
+        end_date = _parse_dt(item.updated_at) or datetime.utcnow()
+        cycle = (end_date - created).days
+        if cycle >= 0:
+            cycle_times.append(cycle)
 
     if not cycle_times:
         return {"avg_cycle_time_days": 0, "items_measured": 0, "min_days": 0, "max_days": 0}

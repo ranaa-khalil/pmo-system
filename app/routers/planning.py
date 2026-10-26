@@ -21,6 +21,7 @@ from app.schemas.planning import (
     KPIUpdate,
     MilestoneCreate,
     MilestoneResponse,
+    MilestoneUpdate,
     RoadmapCreate,
     RoadmapResponse,
     RoadmapUpdate,
@@ -252,6 +253,29 @@ def get_milestone_detail(milestone_id: int, db: Session = Depends(get_db), curre
         "backlog_items_count": len(backlog_items),
         "backlog_items_done": len([b for b in backlog_items if b.status == "Done"]),
     }
+
+
+@router.put("/milestones/{milestone_id}", response_model=MilestoneResponse)
+def update_milestone(milestone_id: int, ms_update: MilestoneUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
+    """Update a milestone (used by the milestone edit modal in the UI)."""
+    ms = db.query(Milestone).filter(Milestone.id == milestone_id, Milestone.tenant_id == current_tenant.id).first()
+    if not ms:
+        raise HTTPException(status_code=404, detail="Milestone not found")
+    for field, val in ms_update.model_dump(exclude_unset=True).items():
+        setattr(ms, field, val)
+    db.commit()
+    db.refresh(ms)
+    return ms
+
+
+@router.delete("/milestones/{milestone_id}", status_code=204)
+def delete_milestone(milestone_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
+    """Delete a milestone."""
+    ms = db.query(Milestone).filter(Milestone.id == milestone_id, Milestone.tenant_id == current_tenant.id).first()
+    if not ms:
+        raise HTTPException(status_code=404, detail="Milestone not found")
+    db.delete(ms)
+    db.commit()
 
 
 # ===== Traceability =====

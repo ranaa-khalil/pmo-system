@@ -613,8 +613,8 @@ def apply_interview_draft(db: Session, user: User, tenant: Tenant, session_id: i
         draft.update(edits)
 
     if flow_id == "risk":
-        from app.models.risk import Risk
         from app.models.project import Project
+        from app.models.risk import Risk
         project = db.query(Project).filter(
             Project.id == draft.get("project_id"), Project.tenant_id == tenant.id,
         ).first()
@@ -663,8 +663,8 @@ def apply_interview_draft(db: Session, user: User, tenant: Tenant, session_id: i
         return {"applied": "escalation", "approval_id": approval.id, "escalated": True}
 
     if flow_id == "release":
-        from app.models.release import Release
         from app.models.project import Project
+        from app.models.release import Release
         version = (draft.get("version") or "").strip()
         if not version:
             raise ValueError("version_required")

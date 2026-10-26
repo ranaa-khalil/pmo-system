@@ -19,9 +19,9 @@ class TestAuth:
         resp = client.get("/")
         assert resp.status_code == 200
 
-    def test_protected_endpoint_without_token(self, client):
+    def test_protected_endpoint_without_token(self, anon_client):
         """API requires authentication."""
-        resp = client.get("/api/projects")
+        resp = anon_client.get("/api/projects")
         assert resp.status_code in (401, 403)
 
     def test_protected_endpoint_with_token(self, client, auth_headers):

@@ -17,8 +17,8 @@ from app.models.ai_interaction import AiInteraction
 from app.models.project import Project
 from app.models.tenant import Tenant, TenantMembership
 from app.models.user import User
-from app.services import interview as interview_service
 from app.services import intake as intake_service
+from app.services import interview as interview_service
 
 
 @pytest.fixture()
@@ -187,7 +187,7 @@ def test_finish_before_last_question_returns_400(interview_world, db):
 def test_followup_cap_max_2(interview_world, db):
     """An ambiguous answer can trigger follow-ups, but never more than 2 per question."""
     flows = interview_service.FLOWS
-    for name, spec in flows.items():
+    for spec in flows.values():
         for q in spec["questions"]:
             assert q.get("max_followups", 2) <= 2
 
@@ -264,8 +264,8 @@ def _start_payload(world):
     return {"flow": "project"}
 
 
-def test_router_requires_auth(client, interview_world):
-    resp = client.post("/api/ai/interview/project/start", json={})
+def test_router_requires_auth(anon_client, interview_world):
+    resp = anon_client.post("/api/ai/interview/project/start", json={})
     assert resp.status_code in (401, 403)
 
 

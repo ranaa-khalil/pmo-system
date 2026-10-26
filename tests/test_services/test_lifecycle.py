@@ -5,7 +5,6 @@ bias, and drift gates. Marketing Campaign and Operations get their own
 phases and gate deliverables. Gate MECHANISM and RBAC never change —
 only the vocabulary and gate deliverables vary.
 """
-import pytest
 
 import app.models  # noqa: F401
 from app.services.lifecycle import (

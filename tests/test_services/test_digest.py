@@ -10,7 +10,6 @@ run_digests(db, kind) fans out the right audience at the right cadence:
 Nothing is emailed without the recipient's digest preference (approval-gated
 send via brief.send_report). Every dispatch logs an AiInteraction kind=report.
 """
-from datetime import date
 
 import pytest
 
@@ -37,7 +36,6 @@ def dig_world(db):
     db.refresh(exec1)
 
     # Memberships: exec is owner, PM/member are members
-    from app.models.tenant import TenantMembership
     db.add(TenantMembership(user_id=exec1.id, tenant_id=tenant.id, role="owner"))
     db.add(TenantMembership(user_id=pm.id, tenant_id=tenant.id, role="member"))
     db.add(TenantMembership(user_id=member.id, tenant_id=tenant.id, role="member"))

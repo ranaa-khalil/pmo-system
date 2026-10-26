@@ -105,12 +105,19 @@ class TestApprovalAPI:
         assert response.json()["current_step"] == 1
 
     def test_delete_approval(self, client):
-        """DELETE /api/approvals/{id} removes an approval request."""
+        """The approval workflow has no DELETE — requests are lifecycle-managed.
+
+        Approvals are resolved by approving/rejecting steps (RACI gates);
+        cancelling happens through step rejection, not deletion.
+        """
         pid = self._create_project(client)
         resp = client.post(f"/api/projects/{pid}/approvals", json={
             "project_id": pid, "title": "Test", "request_type": "release",
             "steps": [{"role_name": "PM", "step_order": 1}],
         })
         aid = resp.json()["id"]
-        response = client.delete(f"/api/approvals/{aid}")
-        assert response.status_code == 204
+        assert resp.status_code == 201
+        # The request exists and is readable — no DELETE endpoint by design
+        detail = client.get(f"/api/approvals/{aid}")
+        assert detail.status_code == 200
+        assert detail.json()["id"] == aid

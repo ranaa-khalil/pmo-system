@@ -57,8 +57,8 @@ def _mock_llm(monkeypatch):
     }))
 
 
-def test_intake_requires_auth(client, intake_world):
-    resp = client.post("/api/ai/intake/structure", json={"kickoff": "text"})
+def test_intake_requires_auth(anon_client, intake_world):
+    resp = anon_client.post("/api/ai/intake/structure", json={"kickoff": "text"})
     assert resp.status_code in (401, 403)
 
 

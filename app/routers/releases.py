@@ -630,7 +630,7 @@ def advance_phase(
 
     gate_role, gate_desc, gate_checklist = gate_info
     approval = ApprovalRequest(
-        tenant_id=tenant_id,
+        tenant_id=current_tenant.id,
         project_id=release.project_id,
         title=f"Release {release.version}: {release.status} → {next_phase}",
         description=gate_desc + "\n\nChecklist:\n" + "\n".join(f"☐ {item}" for item in gate_checklist),
@@ -644,7 +644,7 @@ def advance_phase(
     db.refresh(approval)
 
     step = ApprovalStep(
-        tenant_id=tenant_id,
+        tenant_id=current_tenant.id,
         request_id=approval.id,
         step_order=1,
         role_name=gate_role,

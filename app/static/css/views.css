@@ -1,0 +1,33 @@
+    /* Markdown rendered content */
+    .prose-p\:my-1 p { margin-top: 0.25rem; margin-bottom: 0.25rem; }
+    .prose-p\:my-0\.5 p { margin-top: 0.125rem; margin-bottom: 0.125rem; }
+    .prose-li\:my-0 li { margin-top: 0; margin-bottom: 0; }
+    .prose-ul\:my-1 ul { margin-top: 0.25rem; margin-bottom: 0.25rem; padding-left: 1.2rem; }
+    .prose-ol\:my-1 ol { margin-top: 0.25rem; margin-bottom: 0.25rem; padding-left: 1.2rem; }
+    .prose-p\:my-1 ul, .prose-p\:my-1 ol { padding-left: 1.2rem; }
+    .prose-p\:my-0\.5 ul, .prose-p\:my-0\.5 ol { padding-left: 1.2rem; }
+    .prose-p\:my-1 code { background: rgba(0,0,0,0.05); padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+    .prose-p\:my-1 strong { font-weight: 600; }
+    .prose-p\:my-1 h1, .prose-p\:my-1 h2, .prose-p\:my-1 h3 { font-weight: 600; margin: 0.5rem 0 0.25rem; }
+
+    /* Shared markdown styles — applied to all renderMarkdown output */
+    .md-content p { margin: 0.25rem 0; }
+    .md-content ul, .md-content ol { padding-left: 1.2rem; margin: 0.25rem 0; }
+    .md-content li { margin: 0; }
+    .md-content code { background: rgba(0,0,0,0.05); padding: 1px 4px; border-radius: 3px; font-size: 0.9em; font-family: ui-monospace, monospace; }
+    .md-content pre { background: rgba(0,0,0,0.04); padding: 0.5rem 0.75rem; border-radius: 6px; overflow-x: auto; margin: 0.5rem 0; }
+    .md-content pre code { background: none; padding: 0; font-size: 12px; }
+    .md-content strong { font-weight: 600; }
+    .md-content em { font-style: italic; }
+    .md-content h1 { font-size: 1.1em; font-weight: 600; margin: 0.5rem 0 0.25rem; }
+    .md-content h2 { font-size: 1.05em; font-weight: 600; margin: 0.5rem 0 0.25rem; }
+    .md-content h3 { font-size: 1em; font-weight: 600; margin: 0.4rem 0 0.2rem; }
+    .md-content blockquote { border-left: 2px solid rgba(139,92,246,0.3); padding-left: 0.75rem; margin: 0.4rem 0; color: #86868b; font-style: italic; }
+    .md-content a { color: #7c3aed; text-decoration: none; }
+    .md-content a:hover { text-decoration: underline; }
+    .md-content hr { border: none; border-top: 1px solid rgba(0,0,0,0.06); margin: 0.5rem 0; }
+    .md-content table { border-collapse: collapse; width: 100%; margin: 0.5rem 0; font-size: 12px; }
+    .md-content th, .md-content td { border: 1px solid rgba(0,0,0,0.08); padding: 4px 8px; text-align: left; }
+    .md-content th { background: rgba(0,0,0,0.02); font-weight: 600; }
+    .md-content img { max-width: 100%; border-radius: 6px; }
+    .md-content input[type="checkbox"] { margin-right: 4px; }

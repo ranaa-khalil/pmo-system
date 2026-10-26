@@ -1,0 +1,43 @@
+<!-- ==================== PERSONA MODAL ==================== -->
+<div x-show="personaModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+    <div class="fixed inset-0 bg-black/30 backdrop-blur-sm overlay-enter" @click="personaModalOpen = false"></div>
+    <div class="flex min-h-full items-center justify-center p-4 relative">
+        <div class="surface rounded-3xl shadow-modal w-full max-w-lg modal-enter border border-black/[0.06]">
+            <div class="px-6 py-4 border-b border-black/[0.06] flex items-center justify-between">
+                <h3 class="text-[17px] font-bold text-ink-900" x-text="editingPersona?.id ? 'Edit Persona' : 'New Persona'"></h3>
+                <button @click="personaModalOpen = false" class="p-2 text-ink-400 hover:text-ink-600 hover:bg-ink-100 rounded-xl transition-colors">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <form @submit.prevent="savePersona()" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Name <span class="text-rose-400">*</span></label>
+                    <input x-model="editingPersona.name" required class="input-premium w-full text-[13px] px-3 py-2" placeholder="Persona name">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Role</label>
+                    <input x-model="editingPersona.role" class="input-premium w-full text-[13px] px-3 py-2" placeholder="Role">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Description</label>
+                    <textarea x-model="editingPersona.description" rows="2" class="input-premium w-full text-[13px] px-3 py-2" placeholder="What does this persona do?"></textarea>
+                    <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Goals</label>
+                    <textarea x-model="editingPersona.goals" rows="2" class="input-premium w-full text-[13px] px-3 py-2" placeholder="What does this persona want to achieve?"></textarea>
+                    <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Pain Points</label>
+                    <textarea x-model="editingPersona.pain_points" rows="2" class="input-premium w-full text-[13px] px-3 py-2" placeholder="What challenges does this persona face?"></textarea>
+                    <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" @click="personaModalOpen = false" class="text-[13px] font-medium text-ink-600 px-4 py-2.5 rounded-xl hover:bg-ink-100 transition-colors">Cancel</button>
+                    <button type="submit" class="text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-colors">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

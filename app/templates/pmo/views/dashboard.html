@@ -1,0 +1,407 @@
+            <!-- ============ DASHBOARD VIEW ============ -->
+            <div x-show="route === 'dashboard'" class="view-enter space-y-6 max-w-7xl">
+
+                <!-- Hero section -->
+                <div class="flex items-end justify-between">
+                    <div>
+                        <h1 class="text-[32px] font-bold text-ink-900 tracking-tight">
+                            <span x-text="greetingPrefix()"></span>, <span class="text-brand-600" x-text="currentUser?.name?.split(' ')[0] || 'there'"></span>
+                        </h1>
+                        <p class="text-[15px] text-ink-500 mt-2" x-text="greetingMessage()"></p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button @click="loadDashboard()" class="inline-flex items-center gap-2 text-[13px] font-medium text-ink-700 px-4 py-2.5 rounded-[10px] border border-black/[0.08] hover:bg-ink-100 transition-all" :disabled="dashLoading">
+                            <svg class="w-4 h-4" :class="dashLoading ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+                            Refresh
+                        </button>
+                        <button @click="navigate('projects')" class="btn-primary inline-flex items-center gap-2 text-[13px] font-medium text-white px-4 py-2.5 rounded-[10px] transition-all">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                            New Project
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Session expired / error banner -->
+                <template x-if="dashError">
+                    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3">
+                        <svg class="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z"/></svg>
+                        <div class="flex-1">
+                            <p class="text-[13px] font-medium text-amber-800" x-text="dashError"></p>
+                            <p class="text-[11px] text-amber-600 mt-0.5">If this persists, try logging out and back in.</p>
+                        </div>
+                        <button @click="loadDashboard()" class="text-[12px] font-medium text-amber-700 border border-amber-300 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-colors">Retry</button>
+                    </div>
+                </template>
+
+                <!-- Loading indicator -->
+                <template x-if="dashLoading && !dashStats">
+                    <div class="bg-brand-50 border border-brand-100 rounded-2xl p-4 flex items-center gap-3">
+                        <svg class="w-5 h-5 text-brand-500 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+                        <p class="text-[13px] font-medium text-brand-700">Loading dashboard data…</p>
+                    </div>
+                </template>
+
+                <!-- Stats cards -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-5">
+                    <template x-for="stat in stats" :key="stat.label">
+                        <div @click="navigate(stat.route)" class="relative surface stat-glow rounded-2xl border border-ink-200/60 p-5 card-lift cursor-pointer overflow-hidden hover:border-brand-300 hover:shadow-md transition-all group">
+                            <div class="absolute top-0 right-0 w-24 h-24 rounded-full blur-2xl opacity-15" :class="stat.glow"></div>
+                            <div class="relative flex items-center justify-between mb-4">
+                                <div class="w-10 h-10 rounded-xl flex items-center justify-center" :class="stat.bg">
+                                    <span x-html="stat.icon" class="w-5 h-5" :class="stat.color"></span>
+                                </div>
+                                <template x-if="stat.trend">
+                                    <div class="flex items-center gap-1 text-[11px] font-semibold" :class="stat.trendColor">
+                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M7 11l5-5m0 0l5 5m-5-5v12"/></svg>
+                                        <span x-text="stat.trend"></span>
+                                    </div>
+                                </template>
+                            </div>
+                            <div class="relative">
+                                <div class="text-[28px] font-bold text-ink-900 tracking-tight tabular-nums group-hover:text-brand-600 transition-colors" x-text="dashLoading ? '—' : (stat.value ?? '—')"></div>
+                                <div class="text-[12px] text-ink-500 font-medium mt-1" x-text="stat.label"></div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Charts row: 3 charts (pure CSS/HTML — no Chart.js dependency) -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                    <!-- Backlog Phase Distribution (CSS bar chart) -->
+                    <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-[14px] font-semibold text-ink-800">Backlog by Phase</h2>
+                            <span class="text-[11px] text-ink-400" x-text="(dashStats?.backlog_items || 0) + ' items'"></span>
+                        </div>
+                        <!-- Loading -->
+                        <div x-show="dashLoading" class="h-[200px] flex items-center justify-center">
+                            <div class="w-6 h-6 border-2 border-brand-200 border-t-brand-500 rounded-full animate-spin"></div>
+                        </div>
+                        <!-- Error -->
+                        <div x-show="!dashLoading && !dashStats" class="h-[200px] flex flex-col items-center justify-center gap-2 text-ink-400">
+                            <span class="text-[11px]">Unable to load chart</span>
+                            <button @click="loadDashboard()" class="text-[11px] text-brand-600 font-medium hover:text-brand-700">Retry</button>
+                        </div>
+                        <!-- CSS Bar Chart -->
+                        <div x-show="!dashLoading && dashStats" class="h-[200px] overflow-y-auto space-y-1.5 pr-2">
+                            <template x-for="(count, phase) in (dashStats?.phase_distribution || {})" :key="phase">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] text-ink-500 w-20 truncate text-right" x-text="phase"></span>
+                                    <div class="flex-1 bg-ink-100 rounded-full h-5 overflow-hidden">
+                                        <div class="h-full rounded-full transition-all duration-500"
+                                             :style="`width: ${Math.round(count / Math.max(...Object.values(dashStats?.phase_distribution || {a:1})) * 100)}%`"
+                                             :class="{
+                                                'bg-gradient-to-r from-indigo-500 to-violet-500': ['Requirements','Design'].includes(phase),
+                                                'bg-gradient-to-r from-violet-500 to-purple-500': ['Development','Testing'].includes(phase),
+                                                'bg-gradient-to-r from-blue-500 to-indigo-500': ['UAT','Pre-Release'].includes(phase),
+                                                'bg-gradient-to-r from-emerald-500 to-teal-500': ['Release','Released','Post-Release'].includes(phase),
+                                                'bg-gradient-to-r from-amber-500 to-orange-500': phase === 'Retrospective',
+                                                'bg-ink-400': !['Requirements','Design','Development','Testing','UAT','Pre-Release','Release','Released','Post-Release','Retrospective'].includes(phase)
+                                             }"></div>
+                                    </div>
+                                    <span class="text-[10px] font-semibold text-ink-600 w-6" x-text="count"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Release V-Cycle (CSS doughnut via conic-gradient) -->
+                    <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-[14px] font-semibold text-ink-800">Release Cycle</h2>
+                            <span class="text-[11px] text-ink-400" x-text="(dashStats?.releases || 0) + ' releases'"></span>
+                        </div>
+                        <div x-show="dashLoading" class="h-[200px] flex items-center justify-center">
+                            <div class="w-6 h-6 border-2 border-brand-200 border-t-brand-500 rounded-full animate-spin"></div>
+                        </div>
+                        <div x-show="!dashLoading && !dashStats" class="h-[200px] flex flex-col items-center justify-center gap-2 text-ink-400">
+                            <span class="text-[11px]">Unable to load chart</span>
+                            <button @click="loadDashboard()" class="text-[11px] text-brand-600 font-medium hover:text-brand-700">Retry</button>
+                        </div>
+                        <div x-show="!dashLoading && dashStats" class="h-[200px] flex flex-col items-center justify-center">
+                            <template x-if="dashStats?.release_status_distribution">
+                                <div class="flex items-center gap-3">
+                                    <div class="relative w-[110px] h-[110px] rounded-full"
+                                         :style="(() => {
+                                             const data = dashStats.release_status_distribution;
+                                             const total = Object.values(data).reduce((a,b) => a+b, 0) || 1;
+                                             const colors = { 'Planning': '#6366f1', 'In Progress': '#8b5cf6', 'Testing': '#a855f7', 'UAT': '#3b82f6', 'Pre-Release': '#7c3aed', 'Released': '#10b981', 'Post-Release': '#f59e0b', 'Cancelled': '#ef4444' };
+                                             let acc = 0;
+                                             const segments = Object.entries(data).map(([label, val]) => {
+                                                 const pct = val / total * 100;
+                                                 const seg = `${colors[label] || '#94a3b8'} ${acc}% ${acc + pct}%`;
+                                                 acc += pct;
+                                                 return seg;
+                                             });
+                                             return `background: conic-gradient(${segments.join(', ')})`;
+                                         })()">
+                                        <div class="absolute inset-[18px] bg-white rounded-full flex items-center justify-center">
+                                            <span class="text-[20px] font-bold text-ink-700" x-text="dashStats?.releases || 0"></span>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-1">
+                                        <template x-for="(count, status) in (dashStats?.release_status_distribution || {})" :key="status">
+                                            <div class="flex items-center gap-1.5">
+                                                <div class="w-2 h-2 rounded-full"
+                                                     :class="{
+                                                        'bg-indigo-500': status === 'Planning',
+                                                        'bg-violet-500': status === 'In Progress',
+                                                        'bg-purple-500': status === 'Testing',
+                                                        'bg-blue-500': status === 'UAT',
+                                                        'bg-violet-700': status === 'Pre-Release',
+                                                        'bg-emerald-500': status === 'Released',
+                                                        'bg-amber-500': status === 'Post-Release',
+                                                        'bg-red-500': status === 'Cancelled',
+                                                        'bg-ink-400': !['Planning','In Progress','Testing','UAT','Pre-Release','Released','Post-Release','Cancelled'].includes(status)
+                                                     }"></div>
+                                                <span class="text-[9px] text-ink-600" x-text="status + ' (' + count + ')'"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Backlog Priority (CSS doughnut via conic-gradient) -->
+                    <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-[14px] font-semibold text-ink-800">Priority Mix</h2>
+                            <span class="text-[11px] text-ink-400">by priority</span>
+                        </div>
+                        <div x-show="dashLoading" class="h-[200px] flex items-center justify-center">
+                            <div class="w-6 h-6 border-2 border-brand-200 border-t-brand-500 rounded-full animate-spin"></div>
+                        </div>
+                        <div x-show="!dashLoading && !dashStats" class="h-[200px] flex flex-col items-center justify-center gap-2 text-ink-400">
+                            <span class="text-[11px]">Unable to load chart</span>
+                            <button @click="loadDashboard()" class="text-[11px] text-brand-600 font-medium hover:text-brand-700">Retry</button>
+                        </div>
+                        <div x-show="!dashLoading && dashStats" class="h-[200px] flex flex-col items-center justify-center">
+                            <template x-if="dashStats?.priority_distribution">
+                                <div class="flex items-center gap-3">
+                                    <div class="relative w-[110px] h-[110px] rounded-full"
+                                         :style="(() => {
+                                             const data = dashStats.priority_distribution;
+                                             const total = Object.values(data).reduce((a,b) => a+b, 0) || 1;
+                                             const colors = { 'Critical': '#ef4444', 'High': '#f59e0b', 'Medium': '#6366f1', 'Low': '#94a3b8' };
+                                             let acc = 0;
+                                             const segments = Object.entries(data).map(([label, val]) => {
+                                                 const pct = val / total * 100;
+                                                 const seg = `${colors[label] || '#94a3b8'} ${acc}% ${acc + pct}%`;
+                                                 acc += pct;
+                                                 return seg;
+                                             });
+                                             return `background: conic-gradient(${segments.join(', ')})`;
+                                         })()">
+                                        <div class="absolute inset-[18px] bg-white rounded-full flex items-center justify-center">
+                                            <span class="text-[20px] font-bold text-ink-700" x-text="dashStats?.backlog_items || 0"></span>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-1">
+                                        <template x-for="(count, priority) in (dashStats?.priority_distribution || {})" :key="priority">
+                                            <div class="flex items-center gap-1.5">
+                                                <div class="w-2 h-2 rounded-full"
+                                                     :class="{
+                                                        'bg-red-500': priority === 'Critical',
+                                                        'bg-amber-500': priority === 'High',
+                                                        'bg-indigo-500': priority === 'Medium',
+                                                        'bg-ink-400': priority === 'Low'
+                                                     }"></div>
+                                                <span class="text-[9px] text-ink-600" x-text="priority + ' (' + count + ')'"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project Progress + Side panels -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                    <!-- Project Health (2 cols) -->
+                    <div class="lg:col-span-2 surface rounded-2xl border border-ink-200/60 overflow-hidden">
+                        <div class="px-6 py-4 border-b border-black/[0.06] flex items-center justify-between">
+                            <h2 class="text-[14px] font-semibold text-ink-800">Project Health</h2>
+                            <button @click="navigate('projects')" class="text-[12px] font-medium text-brand-600 hover:text-brand-700 flex items-center gap-1 group">
+                                View all
+                                <svg class="w-3 h-3 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                            </button>
+                        </div>
+                        <div class="p-2">
+                            <template x-if="projects.length === 0">
+                                <div class="text-center py-12">
+                                    <div class="w-14 h-14 mx-auto mb-3 rounded-2xl bg-ink-100 flex items-center justify-center">
+                                        <svg class="w-7 h-7 text-ink-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
+                                    </div>
+                                    <p class="text-[13px] text-ink-400">No projects yet</p>
+                                </div>
+                            </template>
+                            <div class="space-y-1">
+                                <template x-for="pp in (dashStats?.project_progress || [])" :key="pp.id">
+                                    <div @click="openProject({id: pp.id, name: pp.name, client_id: null})" class="p-3 rounded-xl hover:bg-ink-100 transition-colors group cursor-pointer">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <div class="flex items-center gap-3 min-w-0">
+                                                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-ink-100 to-ink-100 flex items-center justify-center ring-1 ring-brand-100/50 flex-shrink-0">
+                                                    <span class="text-[13px] font-bold text-brand-600" x-text="pp.name.charAt(0)"></span>
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <div class="text-[13px] font-semibold text-ink-800 truncate" x-text="pp.name"></div>
+                                                    <div class="text-[11px] text-ink-400" x-text="pp.client_name"></div>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center gap-3">
+                                                <div class="flex items-center gap-1.5 text-[10px] font-medium text-ink-400">
+                                                    <span x-text="pp.backlog_done + '/' + pp.backlog_total + ' items'"></span>
+                                                    <span class="text-ink-200">·</span>
+                                                    <span x-text="pp.releases_count + ' rel'"></span>
+                                                </div>
+                                                <span class="flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded-lg"
+                                                      :class="pp.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'">
+                                                    <span class="w-1.5 h-1.5 rounded-full" :class="pp.status === 'Active' ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+                                                    <span x-text="pp.status"></span>
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <!-- Progress bar -->
+                                        <div class="flex items-center gap-2">
+                                            <div class="flex-1 h-2 bg-ink-100 rounded-full overflow-hidden">
+                                                <div class="h-full rounded-full transition-all duration-500"
+                                                     :class="pp.progress_pct >= 75 ? 'bg-gradient-to-r from-emerald-400 to-teal-400' : pp.progress_pct >= 40 ? 'bg-gradient-to-r from-brand-400 to-violet-400' : 'bg-gradient-to-r from-amber-400 to-orange-400'"
+                                                     :style="'width: ' + pp.progress_pct + '%'"></div>
+                                            </div>
+                                            <span class="text-[11px] font-bold tabular-nums" :class="pp.progress_pct >= 75 ? 'text-emerald-600' : pp.progress_pct >= 40 ? 'text-brand-600' : 'text-amber-600'" x-text="pp.progress_pct + '%'"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Upcoming Milestones + Pending Approvals -->
+                    <div class="space-y-5">
+                        <!-- Upcoming Milestones -->
+                        <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                            <h2 class="text-[14px] font-semibold text-ink-800 mb-3 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                Upcoming Milestones
+                            </h2>
+                            <template x-if="!dashStats?.upcoming_milestones || dashStats.upcoming_milestones.length === 0">
+                                <div class="text-[12px] text-ink-400 bg-ink-100 rounded-xl p-4 text-center">No upcoming milestones.</div>
+                            </template>
+                            <div class="space-y-2">
+                                <template x-for="ms in (dashStats?.upcoming_milestones || [])" :key="ms.id">
+                                    <div class="flex items-start gap-2.5 p-2.5 rounded-xl bg-ink-100/60">
+                                        <div class="w-2 h-2 rounded-full mt-1.5 flex-shrink-0"
+                                             :class="{'bg-emerald-400': ms.status === 'On Track', 'bg-rose-400': ms.status === 'At Risk', 'bg-ink-300': ms.status === 'Completed'}"></div>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="text-[12px] font-medium text-ink-700 truncate" x-text="ms.title"></div>
+                                            <div class="flex items-center gap-2 mt-0.5">
+                                                <span class="text-[10px] text-ink-400" x-text="ms.project_name"></span>
+                                                <span class="text-ink-200">·</span>
+                                                <span class="text-[10px] text-ink-400" x-text="ms.target_date || 'TBD'"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Pending Approvals -->
+                        <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                            <h2 class="text-[14px] font-semibold text-ink-800 mb-3 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                                Pending Approvals
+                            </h2>
+                            <template x-if="!dashStats?.pending_approval_details || dashStats.pending_approval_details.length === 0">
+                                <div class="text-[12px] text-ink-400 bg-ink-100 rounded-xl p-4 text-center">No pending approvals.</div>
+                            </template>
+                            <div class="space-y-2">
+                                <template x-for="apv in (dashStats?.pending_approval_details || [])" :key="apv.id">
+                                    <div class="p-2.5 rounded-xl bg-ink-100/60">
+                                        <div class="flex items-center justify-between">
+                                            <div class="text-[12px] font-medium text-ink-700 truncate" x-text="apv.title"></div>
+                                            <span class="text-[10px] font-medium text-amber-600 ml-2" x-text="apv.approved_steps + '/' + apv.total_steps"></span>
+                                        </div>
+                                        <div class="text-[10px] text-ink-400 mt-0.5" x-text="apv.project_name + ' · ' + apv.request_type"></div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KPI Progress Row -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-5" x-show="dashStats?.kpi_progress && dashStats.kpi_progress.length > 0">
+                    <h2 class="text-[14px] font-semibold text-ink-800 mb-4">KPI Progress</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <template x-for="kpi in (dashStats?.kpi_progress || [])" :key="kpi.id">
+                            <div class="p-3 rounded-xl bg-gradient-to-br from-slate-50 to-brand-50/20 border border-black/[0.06]">
+                                <div class="flex items-center justify-between mb-2">
+                                    <div class="text-[12px] font-medium text-ink-700 truncate" x-text="kpi.name"></div>
+                                    <span class="text-[10px] text-ink-400" x-text="kpi.project_name"></span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="text-[16px] font-bold tabular-nums" :class="kpiProgressPct(kpi) >= 75 ? 'text-emerald-600' : kpiProgressPct(kpi) >= 50 ? 'text-brand-600' : 'text-rose-600'">
+                                        <span x-text="kpiDisplayValue(kpi, 'current_value')"></span><span class="text-ink-300 text-[12px]"> / </span><span x-text="kpiDisplayValue(kpi, 'target_value')" class="text-[12px] text-ink-500"></span>
+                                    </div>
+                                </div>
+                                <div class="mt-2 h-1.5 bg-ink-100 rounded-full overflow-hidden">
+                                    <div class="h-full rounded-full transition-all duration-500"
+                                         :class="kpiProgressPct(kpi) >= 75 ? 'bg-emerald-400' : kpiProgressPct(kpi) >= 50 ? 'bg-brand-400' : 'bg-rose-400'"
+                                         :style="'width: ' + kpiProgressPct(kpi) + '%'"></div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- My Tasks Widget — dashboard only -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-5" x-show="route === 'dashboard' && taskSummary && taskSummary.active > 0">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-[14px] font-semibold text-ink-800">My Tasks</h2>
+                        <button @click="navigate('tasks')" class="text-[12px] font-medium text-brand-600 hover:text-brand-700">View all →</button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="text-center p-3 rounded-xl bg-ink-100">
+                            <div class="text-[20px] font-bold text-ink-700" x-text="taskSummary.pending ?? 0"></div>
+                            <div class="text-[10px] text-ink-400 uppercase tracking-wide mt-0.5">Pending</div>
+                        </div>
+                        <div class="text-center p-3 rounded-xl" :class="taskSummary.due_soon > 0 ? 'bg-amber-50' : 'bg-ink-100'">
+                            <div class="text-[20px] font-bold" :class="taskSummary.due_soon > 0 ? 'text-amber-600' : 'text-ink-700'" x-text="taskSummary.due_soon ?? 0"></div>
+                            <div class="text-[10px] text-ink-400 uppercase tracking-wide mt-0.5">Due Soon</div>
+                        </div>
+                        <div class="text-center p-3 rounded-xl" :class="taskSummary.overdue > 0 ? 'bg-rose-50' : 'bg-ink-100'">
+                            <div class="text-[20px] font-bold" :class="taskSummary.overdue > 0 ? 'text-rose-600' : 'text-ink-700'" x-text="taskSummary.overdue ?? 0"></div>
+                            <div class="text-[10px] text-ink-400 uppercase tracking-wide mt-0.5">Overdue</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activity Feed -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-5" x-show="route === 'dashboard'">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-[14px] font-semibold text-ink-800">Recent Activity</h2>
+                        <button @click="loadActivity()" :disabled="activityLoading" class="w-7 h-7 flex items-center justify-center rounded-lg text-ink-400 hover:text-brand-600 hover:bg-ink-100 transition-colors disabled:opacity-50" title="Refresh">
+                            <svg class="w-3.5 h-3.5" :class="activityLoading ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+                        </button>
+                    </div>
+                    <template x-if="activityFeed.length === 0">
+                        <p class="text-[12px] text-ink-400 py-4 text-center">No recent activity</p>
+                    </template>
+                    <div class="space-y-1">
+                        <template x-for="a in activityFeed.slice(0, 8)" :key="a.id">
+                            <div class="flex items-start gap-3 py-2 px-2 rounded-lg hover:bg-ink-50/50 transition-colors">
+                                <div class="w-7 h-7 rounded-lg bg-ink-100 flex items-center justify-center text-[12px] flex-shrink-0" :class="activityColor(a.action)" x-text="activityIcon(a.action)"></div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-[12px] text-ink-700" x-text="a.summary"></p>
+                                    <p class="text-[10px] text-ink-400 mt-0.5">
+                                        <span x-text="a.user_name || 'System'"></span> · <span x-text="formatTimeAgo(a.created_at)"></span>
+                                    </p>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+            </div>

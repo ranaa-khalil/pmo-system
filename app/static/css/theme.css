@@ -1,0 +1,22 @@
+
+    :root {
+
+        /* Default brand color: violet #7c3aed */
+        --brand-r: 124; --brand-g: 58; --brand-b: 237;
+        --brand-color: #7c3aed;
+    }
+    [x-cloak] { display: none !important; }
+    * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    body { font-feature-settings: 'cv11', 'ss01', 'ss03'; letter-spacing: -0.015em; }
+
+    /* Brand color — all shades derived from --brand-color via color-mix */
+    .brand-primary { background-color: var(--brand-color, #7c3aed) !important; }
+    .brand-text { color: var(--brand-color, #7c3aed) !important; }
+    .brand-border { border-color: var(--brand-color, #7c3aed) !important; }
+    .brand-ring:focus { box-shadow: 0 0 0 3px rgba(var(--brand-r, 124), var(--brand-g, 58), var(--brand-b, 237), 0.1) !important; }
+
+    /* Scrollbar — minimal */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.15); }

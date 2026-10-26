@@ -1,0 +1,90 @@
+            <!-- ============ ADMIN: DASHBOARD ============ -->
+            <div x-show="route === 'admin-dashboard' && !selectedTenantDetail" x-cloak class="view-enter space-y-6 max-w-7xl">
+                <!-- Header -->
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-[28px] font-bold text-ink-900 tracking-tight">Dashboard</h1>
+                        <p class="text-[14px] text-ink-500 mt-1.5">System-wide insights and statistics.</p>
+                    </div>
+                    <button @click="loadAdminInsights()" class="text-[13px] font-medium text-ink-600 hover:text-ink-800 bg-ink-100 hover:bg-ink-200 px-4 py-2 rounded-xl transition-all">Refresh</button>
+                </div>
+
+                <!-- Stats cards -->
+                <div class="grid grid-cols-4 gap-5" x-show="adminInsights">
+                    <div @click="route = 'admin-tenants'" class="surface rounded-2xl border border-ink-200/60 p-5 cursor-pointer hover:border-brand-300 hover:shadow-md transition-all group">
+                        <div class="text-[12px] font-semibold text-ink-400 uppercase tracking-wider">Total Tenants</div>
+                        <div class="text-[32px] font-bold text-ink-900 mt-1 group-hover:text-brand-600 transition-colors" x-text="adminInsights?.totals?.tenants || 0"></div>
+                        <div class="text-[11px] text-emerald-600 mt-1"><span x-text="adminInsights?.totals?.active_tenants || 0"></span> active · <span x-text="adminInsights?.totals?.suspended_tenants || 0"></span> suspended</div>
+                    </div>
+                    <div @click="route = 'admin-tenants'" class="surface rounded-2xl border border-ink-200/60 p-5 cursor-pointer hover:border-brand-300 hover:shadow-md transition-all group">
+                        <div class="text-[12px] font-semibold text-ink-400 uppercase tracking-wider">Total Users</div>
+                        <div class="text-[32px] font-bold text-ink-900 mt-1 group-hover:text-brand-600 transition-colors" x-text="adminInsights?.totals?.members || 0"></div>
+                        <div class="text-[11px] text-ink-400 mt-1">across all tenants</div>
+                    </div>
+                    <div @click="route = 'admin-tenants'" class="surface rounded-2xl border border-ink-200/60 p-5 cursor-pointer hover:border-brand-300 hover:shadow-md transition-all group">
+                        <div class="text-[12px] font-semibold text-ink-400 uppercase tracking-wider">Total Projects</div>
+                        <div class="text-[32px] font-bold text-ink-900 mt-1 group-hover:text-brand-600 transition-colors" x-text="adminInsights?.totals?.projects || 0"></div>
+                        <div class="text-[11px] text-ink-400 mt-1"><span x-text="adminInsights?.totals?.releases || 0"></span> releases</div>
+                    </div>
+                    <div @click="route = 'admin-tenants'" class="surface rounded-2xl border border-ink-200/60 p-5 cursor-pointer hover:border-brand-300 hover:shadow-md transition-all group">
+                        <div class="text-[12px] font-semibold text-ink-400 uppercase tracking-wider">Backlog Items</div>
+                        <div class="text-[32px] font-bold text-ink-900 mt-1 group-hover:text-brand-600 transition-colors" x-text="adminInsights?.totals?.backlog_items || 0"></div>
+                        <div class="text-[11px] text-ink-400 mt-1"><span x-text="adminInsights?.totals?.api_keys || 0"></span> API keys</div>
+                    </div>
+                </div>
+
+                <!-- Plan distribution -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-5" x-show="adminInsights">
+                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Plan Distribution</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <template x-for="(count, plan) in (adminInsights?.plan_distribution || {})" :key="plan">
+                            <div @click="route = 'admin-plans'" class="bg-ink-100/60 rounded-xl p-3 text-center cursor-pointer hover:bg-brand-50 hover:border-brand-300 border border-transparent transition-all group">
+                                <div class="text-[11px] font-bold uppercase tracking-wider text-ink-600 group-hover:text-brand-600 transition-colors" x-text="plan"></div>
+                                <div class="text-[24px] font-bold text-ink-900 mt-1 group-hover:text-brand-600 transition-colors" x-text="count"></div>
+                                <div class="text-[10px] text-ink-400 mt-0.5" x-text="count === 1 ? 'tenant' : 'tenants'"></div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Per-tenant usage breakdown -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-5" x-show="adminInsights">
+                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Tenant Usage Overview</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-[12px]">
+                            <thead>
+                                <tr class="text-left text-[10px] font-semibold text-ink-400 uppercase tracking-wider border-b border-ink-100">
+                                    <th class="pb-2 pr-4">Tenant</th>
+                                    <th class="pb-2 pr-4">Plan</th>
+                                    <th class="pb-2 pr-4">Status</th>
+                                    <th class="pb-2 pr-4 text-center">Users</th>
+                                    <th class="pb-2 pr-4 text-center">Projects</th>
+                                    <th class="pb-2 pr-4 text-center">Releases</th>
+                                    <th class="pb-2 pr-4 text-center">Backlog</th>
+                                    <th class="pb-2 pr-4">Created</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="t in (adminInsights?.tenants || [])" :key="t.id">
+                                    <tr class="border-b border-ink-100/60 hover:bg-ink-50/50 transition-colors cursor-pointer" @click="loadTenantDetail(t.id)">
+                                        <td class="py-2.5 pr-4 font-semibold text-ink-900" x-text="t.name"></td>
+                                        <td class="py-2.5 pr-4">
+                                            <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider bg-ink-100 text-ink-600" x-text="t.plan"></span>
+                                        </td>
+                                        <td class="py-2.5 pr-4">
+                                            <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider"
+                                                  :class="{'bg-emerald-100 text-emerald-700': t.status === 'active', 'bg-rose-100 text-rose-700': t.status === 'suspended', 'bg-ink-200 text-ink-500': t.status === 'cancelled'}"
+                                                  x-text="t.status"></span>
+                                        </td>
+                                        <td class="py-2.5 pr-4 text-center font-medium text-ink-700" x-text="t.members"></td>
+                                        <td class="py-2.5 pr-4 text-center font-medium text-ink-700" x-text="t.projects"></td>
+                                        <td class="py-2.5 pr-4 text-center font-medium text-ink-700" x-text="t.releases"></td>
+                                        <td class="py-2.5 pr-4 text-center font-medium text-ink-700" x-text="t.backlog_items"></td>
+                                        <td class="py-2.5 pr-4 text-[10px] text-ink-400" x-text="t.created_at ? new Date(t.created_at).toLocaleDateString() : ''"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>

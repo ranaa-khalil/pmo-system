@@ -1,0 +1,79 @@
+    <!-- Sidebar — clean white, Apple-style -->
+    <aside class="w-[240px] bg-white border-r border-black/[0.06] flex flex-col flex-shrink-0">
+        <!-- Logo -->
+        <div class="h-16 flex items-center px-5 border-b border-black/[0.06]">
+            <div class="flex items-center gap-2.5">
+                <template x-if="tenantBranding && tenantBranding.logo_url">
+                    <img :src="tenantBranding.logo_url" class="h-7" :alt="tenantBranding.app_name || 'Logo'"/>
+                </template>
+                <template x-if="!tenantBranding || !tenantBranding.logo_url">
+                    <img src="/static/logos/Obelion logo H.svg" class="h-7" alt="Obelion"/>
+                </template>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+            <!-- Super admin nav -->
+            <template x-if="isSuperAdmin">
+                <div>
+                    <div class="px-3 pb-2 text-[10px] font-semibold text-ink-400 uppercase tracking-wider">Admin</div>
+                    <template x-for="item in navItems.filter(i => i.group === 'admin')" :key="item.id">
+                        <a href="#"
+                           @click.prevent="navigate(item.id)"
+                           :class="route === item.id ? 'nav-active' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'"
+                           class="group flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-150">
+                            <span x-html="item.icon" class="w-[18px] h-[18px] flex-shrink-0"></span>
+                            <span x-text="item.label"></span>
+                        </a>
+                    </template>
+                </div>
+            </template>
+            <!-- Regular user nav -->
+            <template x-if="!isSuperAdmin">
+                <div>
+            <div class="px-3 pb-2 text-[10px] font-semibold text-ink-400 uppercase tracking-wider">Workspace</div>
+            <template x-for="item in navItems.filter(i => i.group === 'workspace')" :key="item.id">
+                <a href="#"
+                   @click.prevent="navigate(item.id)"
+                   :class="route === item.id ? 'nav-active' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'"
+                   class="group flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-150">
+                    <span x-html="item.icon" class="w-[18px] h-[18px] flex-shrink-0"></span>
+                    <span x-text="item.label"></span>
+                    <template x-if="item.badge !== undefined">
+                        <span class="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-md"
+                              :class="route === item.id ? 'bg-brand-100 text-brand-700' : 'bg-ink-100 text-ink-500'"
+                              x-text="item.badge"></span>
+                    </template>
+                </a>
+            </template>
+
+            <div class="px-3 pt-5 pb-2 text-[10px] font-semibold text-ink-400 uppercase tracking-wider">Planning</div>
+            <template x-for="item in navItems.filter(i => i.group === 'planning')" :key="item.id">
+                <a href="#"
+                   @click.prevent="navigate(item.id)"
+                   :class="route === item.id ? 'nav-active' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'"
+                   class="group flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-150">
+                    <span x-html="item.icon" class="w-[18px] h-[18px] flex-shrink-0"></span>
+                    <span x-text="item.label"></span>
+                </a>
+            </template>
+                </div>
+            </template>
+        </nav>
+
+        <!-- User section -->
+        <div class="p-3 border-t border-black/[0.06]">
+            <div class="flex items-center gap-3 px-2 py-2.5 rounded-[10px] hover:bg-ink-100 transition-colors cursor-pointer" @click="logout()">
+                <div class="relative">
+                    <div class="w-9 h-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white text-sm font-semibold" x-text="currentUser ? currentUser.full_name.charAt(0) : 'R'"></div>
+                    <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white"></div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="text-ink-900 text-[13px] font-medium truncate" x-text="currentUser ? currentUser.full_name : 'Loading...'"></div>
+                    <div class="text-ink-400 text-[11px]">Click to sign out</div>
+                </div>
+                <svg class="w-4 h-4 text-ink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            </div>
+        </div>
+    </aside>

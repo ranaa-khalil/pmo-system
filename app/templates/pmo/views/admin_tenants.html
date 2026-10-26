@@ -1,0 +1,95 @@
+            <!-- ============ ADMIN: TENANTS ============ -->
+            <div x-show="route === 'admin-tenants' && !selectedTenantDetail" x-cloak class="view-enter space-y-6 max-w-7xl">
+                <!-- Header -->
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-[28px] font-bold text-ink-900 tracking-tight">Tenants</h1>
+                        <p class="text-[14px] text-ink-500 mt-1.5">Manage all tenant organizations.</p>
+                    </div>
+                    <button @click="loadAdminInsights(); loadAdminPlans()" class="text-[13px] font-medium text-ink-600 hover:text-ink-800 bg-ink-100 hover:bg-ink-200 px-4 py-2 rounded-xl transition-all">Refresh</button>
+                </div>
+
+                <!-- Create new tenant -->
+                <div class="flex justify-end mb-3">
+                    <button @click="showCreateTenantForm = !showCreateTenantForm" class="inline-flex items-center gap-1.5 text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-all"
+                            x-text="showCreateTenantForm ? 'Close' : '+ Add Tenant'"></button>
+                </div>
+                <div x-show="showCreateTenantForm" x-cloak class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Create New Tenant</h3>
+                    <div class="grid grid-cols-3 gap-3">
+                        <input x-model="newTenantForm.tenant_name" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Company name">
+                        <input x-model="newTenantForm.owner_name" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Owner name">
+                        <input x-model="newTenantForm.owner_email" type="email" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Owner email">
+                        <input x-model="newTenantForm.owner_password" type="password" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Password (min 8 chars)">
+                        <select x-model="newTenantForm.plan_id" class="input-premium text-[13px] rounded-[10px] px-3 py-2 bg-white">
+                            <option value="" selected disabled>Select Plan</option>
+                            <template x-for="p in (adminPlans || [])" :key="p.id">
+                                <option :value="p.id" x-text="p.name + ' (' + p.max_users + 'u / ' + p.max_projects + 'p / ' + p.max_clients + 'c)'"></option>
+                            </template>
+                        </select>
+                        <button @click="createTenant()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Create Tenant</button>
+                    </div>
+                </div>
+
+                <!-- All tenants table -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h3 class="text-[14px] font-semibold text-ink-800 mb-4">All Tenants</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-[13px]">
+                            <thead>
+                                <tr class="text-left text-[11px] font-semibold text-ink-400 uppercase tracking-wider border-b border-ink-100">
+                                    <th class="pb-3 pr-4">Tenant</th>
+                                    <th class="pb-3 pr-4">Plan</th>
+                                    <th class="pb-3 pr-4">Status</th>
+                                    <th class="pb-3 pr-4 text-center">Members</th>
+                                    <th class="pb-3 pr-4 text-center">Projects</th>
+                                    <th class="pb-3 pr-4 text-center">Releases</th>
+                                    <th class="pb-3 pr-4 text-center">Backlog</th>
+                                    <th class="pb-3 pr-4">Created</th>
+                                    <th class="pb-3">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="t in (adminInsights?.tenants || [])" :key="t.id">
+                                    <tr class="border-b border-ink-100/60 hover:bg-ink-50/50 transition-colors cursor-pointer" @click="loadTenantDetail(t.id)">
+                                        <td class="py-3 pr-4">
+                                            <div class="font-semibold text-ink-900" x-text="t.name"></div>
+                                            <div class="text-[11px] text-ink-400" x-text="t.slug"></div>
+                                        </td>
+                                        <td class="py-3 pr-4">
+                                            <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider bg-ink-100 text-ink-600" x-text="t.plan"></span>
+                                        </td>
+                                        <td class="py-3 pr-4">
+                                            <span class="text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider"
+                                                  :class="{'bg-emerald-100 text-emerald-700': t.status === 'active', 'bg-rose-100 text-rose-700': t.status === 'suspended', 'bg-ink-200 text-ink-500': t.status === 'cancelled'}"
+                                                  x-text="t.status"></span>
+                                        </td>
+                                        <td class="py-3 pr-4 text-center font-medium text-ink-700" x-text="t.members"></td>
+                                        <td class="py-3 pr-4 text-center font-medium text-ink-700" x-text="t.projects"></td>
+                                        <td class="py-3 pr-4 text-center font-medium text-ink-700" x-text="t.releases"></td>
+                                        <td class="py-3 pr-4 text-center font-medium text-ink-700" x-text="t.backlog_items"></td>
+                                        <td class="py-3 pr-4 text-[11px] text-ink-400" x-text="t.created_at ? new Date(t.created_at).toLocaleDateString() : ''"></td>
+                                        <td class="py-3" @click.stop>
+                                            <div class="flex items-center gap-1">
+                                                <select @change="assignTenantPlan(t.id, $event.target.value); $event.target.value=''" class="input-premium text-[10px] rounded-lg px-2 py-1 bg-white" x-cloak>
+                                                    <option value="" selected disabled>Plan</option>
+                                                    <template x-for="p in (adminPlans || [])" :key="p.id">
+                                                        <option :value="p.id" x-text="p.name"></option>
+                                                    </template>
+                                                </select>
+                                                <select @change="updateTenantStatus(t.id, $event.target.value); $event.target.value=''" class="input-premium text-[10px] rounded-lg px-2 py-1 bg-white" x-cloak>
+                                                    <option value="" selected disabled>Status</option>
+                                                    <option value="active">Activate</option>
+                                                    <option value="suspended">Suspend</option>
+                                                    <option value="cancelled">Cancel</option>
+                                                </select>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="text-[11px] text-ink-400 mt-3 text-center">Click a tenant row to view full details</div>
+                </div>
+            </div>

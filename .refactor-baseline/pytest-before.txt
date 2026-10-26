@@ -1,0 +1,3 @@
+ERROR tests/test_routers/test_protected_routes.py::TestProtectedRoutes::test_create_client_without_token_returns_401
+ERROR tests/test_routers/test_protected_routes.py::TestProtectedRoutes::test_get_projects_without_token_returns_401
+78 failed, 5 passed, 4 warnings, 83 errors in 6.84s

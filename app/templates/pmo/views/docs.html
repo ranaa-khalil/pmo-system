@@ -1,0 +1,269 @@
+            <!-- ============ DOCUMENTATION VIEW ============ -->
+            <div x-show="route === 'docs'" class="view-enter space-y-6 max-w-5xl">
+                <div>
+                    <h1 class="text-[28px] font-bold text-ink-900 tracking-tight">Documentation</h1>
+                    <p class="text-[14px] text-ink-500 mt-1.5">PMO System — complete feature guide and reference.</p>
+                </div>
+
+                <!-- Quick Nav -->
+                <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                    <h3 class="text-[13px] font-semibold text-ink-800 mb-3">Quick Navigation</h3>
+                    <div class="flex flex-wrap gap-2">
+                        <a href="#doc-overview" class="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 transition-colors">1. Overview</a>
+                        <a href="#doc-roles" class="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 transition-colors">2. Roles &amp; RBAC</a>
+                        <a href="#doc-workspace" class="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 transition-colors">3. Workspace</a>
+                        <a href="#doc-projects" class="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 transition-colors">4. Projects</a>
+                        <a href="#doc-backlog" class="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 transition-colors">5. Backlog</a>
+                        <a href="#doc-releases" class="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 transition-colors">6. Releases</a>
+                        <a href="#doc-approvals" class="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 transition-colors">7. Approvals</a>
+                        <a href="#doc-docs" class="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 transition-colors">8. Docs &amp; PDFs</a>
+                        <a href="#doc-tasks" class="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 transition-colors">9. My Tasks</a>
+                        <a href="#doc-planning" class="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 transition-colors">10. Planning</a>
+                    </div>
+                    <div class="mt-3 pt-3 border-t border-black/[0.06] flex items-center gap-2 text-[11px] text-ink-500">
+                        <svg class="w-3.5 h-3.5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                        <span>Testing Guide has been moved to the <strong class="text-ink-700">Obsidian Vault</strong> — search for "PMO System — Testing Guide"</span>
+                    </div>
+                </div>
+
+                <!-- 1. Overview -->
+                <div id="doc-overview" class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h2 class="text-[17px] font-bold text-ink-900 mb-3">1. System Overview</h2>
+                    <p class="text-[13px] text-ink-600 leading-relaxed mb-3">The PMO System is a project management office platform built for Obelion. It manages the full delivery lifecycle — from vision and requirements through release and post-release monitoring — using a V-model (V-cycle) approach aligned with the RACI matrix.</p>
+                    <div class="grid grid-cols-2 gap-3 mt-4">
+                        <div class="p-3 rounded-xl bg-ink-100">
+                            <div class="text-[11px] font-bold text-ink-400 uppercase tracking-wide mb-1">Tech Stack</div>
+                            <div class="text-[12px] text-ink-700">FastAPI + Jinja2 (SPA) + Alpine.js + Tailwind CSS + SQLite</div>
+                        </div>
+                        <div class="p-3 rounded-xl bg-ink-100">
+                            <div class="text-[11px] font-bold text-ink-400 uppercase tracking-wide mb-1">Authentication</div>
+                            <div class="text-[12px] text-ink-700">JWT-based, 4 system roles, 12 RACI roles per project</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Roles & RBAC -->
+                <div id="doc-roles" class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h2 class="text-[17px] font-bold text-ink-900 mb-3">2. Roles &amp; RBAC</h2>
+                    <p class="text-[13px] text-ink-600 leading-relaxed mb-4">The system has two role layers: <strong>system roles</strong> (control what you can do globally) and <strong>RACI roles</strong> (control what you can do per project, aligned to the RACI matrix).</p>
+
+                    <div class="text-[12px] font-bold text-ink-500 uppercase tracking-wide mb-2">System Roles</div>
+                    <div class="space-y-2 mb-5">
+                        <div class="flex items-start gap-3 p-3 rounded-xl bg-ink-100">
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-violet-100 text-violet-700 whitespace-nowrap">super_admin</span>
+                            <span class="text-[12px] text-ink-600">Full access to all features. Can manage all clients, projects, users, and settings.</span>
+                        </div>
+                        <div class="flex items-start gap-3 p-3 rounded-xl bg-ink-100">
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-brand-100 text-brand-700 whitespace-nowrap">account_manager</span>
+                            <span class="text-[12px] text-ink-600">Can manage clients and projects they're assigned to. Can create projects and assign PMs.</span>
+                        </div>
+                        <div class="flex items-start gap-3 p-3 rounded-xl bg-ink-100">
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 whitespace-nowrap">project_manager</span>
+                            <span class="text-[12px] text-ink-600">Manages their assigned projects — backlog, releases, milestones, KPIs, stakeholders.</span>
+                        </div>
+                        <div class="flex items-start gap-3 p-3 rounded-xl bg-ink-100">
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-ink-200 text-ink-600 whitespace-nowrap">member</span>
+                            <span class="text-[12px] text-ink-600">Basic access. Can view assigned projects and complete assigned tasks.</span>
+                        </div>
+                    </div>
+
+                    <div class="text-[12px] font-bold text-ink-500 uppercase tracking-wide mb-2">RACI Roles (12 — per project)</div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <template x-for="role in ['Product Owner','Product Manager','Business Lead','UX Designer','Tech Lead','Engineering Team','QA Lead','QA Engineer','DevOps Lead','DevOps Engineer','CX Engineer','PMO']" :key="role">
+                            <div class="text-[11px] font-medium text-ink-600 px-3 py-1.5 rounded-lg bg-ink-100 text-center" x-text="role"></div>
+                        </template>
+                    </div>
+                    <p class="text-[11px] text-ink-400 mt-3">RACI roles are assigned per project via the Stakeholders tab. They determine who receives approval requests at each phase gate.</p>
+                </div>
+
+                <!-- 3. Workspace -->
+                <div id="doc-workspace" class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h2 class="text-[17px] font-bold text-ink-900 mb-3">3. Workspace Modules</h2>
+                    <div class="space-y-3">
+                        <div class="flex items-start gap-3">
+                            <span class="text-[16px]">📊</span>
+                            <div>
+                                <div class="text-[13px] font-semibold text-ink-800">Dashboard</div>
+                                <div class="text-[12px] text-ink-500">Overview stats (clients, projects, backlog, approvals), My Tasks widget with pending/due soon/overdue counts, and quick navigation.</div>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <span class="text-[16px]">🏢</span>
+                            <div>
+                                <div class="text-[13px] font-semibold text-ink-800">Clients</div>
+                                <div class="text-[12px] text-ink-500">Manage client organizations — name, contact, email, description. Each client can have multiple projects.</div>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <span class="text-[16px]">📁</span>
+                            <div>
+                                <div class="text-[13px] font-semibold text-ink-800">Projects</div>
+                                <div class="text-[12px] text-ink-500">List of all projects. Click a project to open its detail page with 9 tabs (Overview, Vision, KPIs, Roadmap, Backlog, Docs, Approvals, Releases, Stakeholders).</div>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <span class="text-[16px]">✅</span>
+                            <div>
+                                <div class="text-[13px] font-semibold text-ink-800">My Tasks</div>
+                                <div class="text-[12px] text-ink-500">Personal to-do list with filters: All, Today, Pending, In Progress, Overdue, Completed. Tasks can be linked to projects and milestones.</div>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <span class="text-[16px]">🗺️</span>
+                            <div>
+                                <div class="text-[13px] font-semibold text-ink-800">Roadmaps</div>
+                                <div class="text-[12px] text-ink-500">Gantt-style timeline showing milestones across all projects with a "today" marker.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Projects -->
+                <div id="doc-projects" class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h2 class="text-[17px] font-bold text-ink-900 mb-3">4. Project Detail</h2>
+                    <p class="text-[13px] text-ink-600 leading-relaxed mb-4">Each project has 9 tabs:</p>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="p-3 rounded-xl bg-ink-100"><div class="text-[12px] font-bold text-ink-700">Overview</div><div class="text-[11px] text-ink-500 mt-1">Project summary, health, team, recent releases</div></div>
+                        <div class="p-3 rounded-xl bg-ink-100"><div class="text-[12px] font-bold text-ink-700">Vision</div><div class="text-[11px] text-ink-500 mt-1">Vision statement, objectives, strategic alignment</div></div>
+                        <div class="p-3 rounded-xl bg-ink-100"><div class="text-[12px] font-bold text-ink-700">KPIs</div><div class="text-[11px] text-ink-500 mt-1">Key Performance Indicators with targets and progress</div></div>
+                        <div class="p-3 rounded-xl bg-ink-100"><div class="text-[12px] font-bold text-ink-700">Roadmap</div><div class="text-[11px] text-ink-500 mt-1">Milestones timeline with target dates and progress</div></div>
+                        <div class="p-3 rounded-xl bg-ink-100"><div class="text-[12px] font-bold text-ink-700">Backlog</div><div class="text-[11px] text-ink-500 mt-1">Epics, features, bugs — item-level phase tracking</div></div>
+                        <div class="p-3 rounded-xl bg-ink-100"><div class="text-[12px] font-bold text-ink-700">Docs</div><div class="text-[11px] text-ink-500 mt-1">Sign-off PDF documents per release</div></div>
+                        <div class="p-3 rounded-xl bg-ink-100"><div class="text-[12px] font-bold text-ink-700">Approvals</div><div class="text-[11px] text-ink-500 mt-1">Phase gate approval requests routed by RACI role</div></div>
+                        <div class="p-3 rounded-xl bg-ink-100"><div class="text-[12px] font-bold text-ink-700">Releases</div><div class="text-[11px] text-ink-500 mt-1">V-cycle release management with phase gates</div></div>
+                        <div class="p-3 rounded-xl bg-ink-100"><div class="text-[12px] font-bold text-ink-700">Stakeholders</div><div class="text-[11px] text-ink-500 mt-1">RACI role assignments, team members</div></div>
+                    </div>
+                </div>
+
+                <!-- 5. Backlog -->
+                <div id="doc-backlog" class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h2 class="text-[17px] font-bold text-ink-900 mb-3">5. Backlog Management</h2>
+                    <p class="text-[13px] text-ink-600 leading-relaxed mb-4">Items are grouped by Epic. Each item has an item-level phase lifecycle that stops at "Ready for UAT" — after that, the release drives the phase.</p>
+
+                    <div class="text-[12px] font-bold text-ink-500 uppercase tracking-wide mb-2">Item-Level Phases (5)</div>
+                    <div class="flex items-center gap-1 mb-4">
+                        <template x-for="(phase, idx) in ['Requirements','Design','Development','Testing','Ready for UAT']" :key="phase">
+                            <div class="flex items-center">
+                                <div class="px-3 py-1.5 rounded-lg bg-brand-50 text-brand-700 text-[11px] font-medium" x-text="phase"></div>
+                                <span class="text-ink-300 mx-1" x-show="idx < 4">→</span>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="p-3 rounded-xl bg-amber-50 border border-amber-100 mb-4">
+                        <div class="text-[12px] font-semibold text-amber-700">Send Back</div>
+                        <div class="text-[11px] text-amber-600 mt-0.5">From Testing, an item can be sent back to Development (status = In Progress). This allows QA to reject items that fail testing.</div>
+                    </div>
+
+                    <div class="text-[12px] font-bold text-ink-500 uppercase tracking-wide mb-2">Filters</div>
+                    <div class="space-y-1.5">
+                        <div class="text-[12px] text-ink-600"><strong class="text-brand-600">Phase filters:</strong> Requirements, Design, Development, Testing, Ready for UAT</div>
+                        <div class="text-[12px] text-ink-600"><strong class="text-amber-600">In Release:</strong> Items in UAT or Pre-Release (in a release but not yet deployed)</div>
+                        <div class="text-[12px] text-ink-600"><strong class="text-emerald-600">Released:</strong> Items in Release, Post-Release, Retrospective, or status=Done</div>
+                    </div>
+
+                    <div class="p-3 rounded-xl bg-emerald-50 border border-emerald-100 mt-4">
+                        <div class="text-[12px] font-semibold text-emerald-700">Progress Bar</div>
+                        <div class="text-[11px] text-emerald-600 mt-0.5">When an item enters a release-level phase (UAT+), its item-level progress bar turns all green — all 5 item phases are complete. The release-level progress bar (emerald) shows position in the release lifecycle.</div>
+                    </div>
+                </div>
+
+                <!-- 6. Releases -->
+                <div id="doc-releases" class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h2 class="text-[17px] font-bold text-ink-900 mb-3">6. Release Management (V-Cycle)</h2>
+                    <p class="text-[13px] text-ink-600 leading-relaxed mb-4">Releases follow a 7-phase V-cycle. Each phase has a gate-keeper role that must approve before the release can advance.</p>
+
+                    <div class="text-[12px] font-bold text-ink-500 uppercase tracking-wide mb-2">V-Cycle Phases (7)</div>
+                    <div class="space-y-1.5 mb-4">
+                        <template x-for="(phase, idx) in [
+                            {name:'Planning', role:'Product Owner', desc:'Requirements gathered, items selected'},
+                            {name:'In Progress', role:'Tech Lead', desc:'Design + Development underway'},
+                            {name:'Testing', role:'QA Lead', desc:'System Integration Testing (SIT)'},
+                            {name:'UAT', role:'Product Manager', desc:'User Acceptance Testing'},
+                            {name:'Pre-Release', role:'DevOps Lead', desc:'Release notes, deployment prep'},
+                            {name:'Released', role:'DevOps Lead', desc:'Deployed to production'},
+                            {name:'Post-Release', role:'—', desc:'Monitoring, hotfixes if needed'}
+                        ]" :key="phase.name">
+                            <div class="flex items-center gap-2 p-2 rounded-lg bg-ink-100">
+                                <span class="text-[10px] font-bold w-5 h-5 rounded bg-brand-100 text-brand-700 flex items-center justify-center" x-text="idx + 1"></span>
+                                <span class="text-[12px] font-semibold text-ink-700 w-28" x-text="phase.name"></span>
+                                <span class="text-[10px] font-medium px-2 py-0.5 rounded bg-violet-50 text-violet-600" x-text="phase.role"></span>
+                                <span class="text-[11px] text-ink-400" x-text="phase.desc"></span>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="p-3 rounded-xl bg-brand-50 border border-brand-100">
+                        <div class="text-[12px] font-semibold text-brand-700">How it works</div>
+                        <ol class="text-[11px] text-brand-600 mt-1 space-y-0.5 list-decimal list-inside">
+                            <li>Release starts at "Planning" with SemVer auto-numbering (e.g., 1.0.0)</li>
+                            <li>Click "Advance" to trigger the gate approval for the current phase</li>
+                            <li>The gate-keeper role receives an approval request in the Approvals tab</li>
+                            <li>When approved, the release advances to the next phase</li>
+                            <li>All linked backlog items are automatically synced to the new phase</li>
+                            <li>The cycle continues until Post-Release</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <!-- 7. Approvals -->
+                <div id="doc-approvals" class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h2 class="text-[17px] font-bold text-ink-900 mb-3">7. Approvals &amp; Sign-Offs</h2>
+                    <p class="text-[13px] text-ink-600 leading-relaxed mb-3">When a release advances, an approval request is auto-created and routed to the user who holds the gate-keeper RACI role on that project. No manual forms — the system handles it automatically.</p>
+                    <div class="space-y-2">
+                        <div class="flex items-start gap-3 p-3 rounded-xl bg-ink-100">
+                            <span class="text-[14px]">📋</span>
+                            <div><div class="text-[12px] font-semibold text-ink-700">Auto-Routing</div><div class="text-[11px] text-ink-500">Approval step is assigned to the user with the matching RACI role (e.g., Tech Lead for the In Progress gate).</div></div>
+                        </div>
+                        <div class="flex items-start gap-3 p-3 rounded-xl bg-ink-100">
+                            <span class="text-[14px]">☑️</span>
+                            <div><div class="text-[12px] font-semibold text-ink-700">Checklist Auto-Check</div><div class="text-[11px] text-ink-500">Each gate has 3-5 checklist items that are automatically evaluated against actual release data (items linked, phase progress, release notes, etc.).</div></div>
+                        </div>
+                        <div class="flex items-start gap-3 p-3 rounded-xl bg-ink-100">
+                            <span class="text-[14px]">✅</span>
+                            <div><div class="text-[12px] font-semibold text-ink-700">Approve / Reject</div><div class="text-[11px] text-ink-500">The assigned user approves or rejects. On approval, the release auto-advances and the next gate approval is created.</div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 8. Docs & PDFs -->
+                <div id="doc-docs" class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h2 class="text-[17px] font-bold text-ink-900 mb-3">8. Docs &amp; PDFs</h2>
+                    <p class="text-[13px] text-ink-600 leading-relaxed mb-3">The Docs tab (per project) lists all releases with their sign-off documents. Each release generates a PDF containing:</p>
+                    <ul class="text-[12px] text-ink-600 space-y-1 list-disc list-inside mb-3">
+                        <li>Release info (project, version, status, dates)</li>
+                        <li>Phase gate summary table (gate, role, status, approver, date, checklist progress)</li>
+                        <li>Detailed checklists per gate (each item marked [x] or [ ])</li>
+                        <li>All release items with their phase and status</li>
+                    </ul>
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-50 text-violet-600 text-[11px] font-medium">👁 View — opens PDF in an inline viewer modal</div>
+                        <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-50 text-brand-600 text-[11px] font-medium">⬇ Download — saves the PDF file</div>
+                    </div>
+                    <p class="text-[11px] text-ink-400 mt-3">Release notes can also be generated as DOCX files from the release detail modal.</p>
+                </div>
+
+                <!-- 9. My Tasks -->
+                <div id="doc-tasks" class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h2 class="text-[17px] font-bold text-ink-900 mb-3">9. My Tasks</h2>
+                    <p class="text-[13px] text-ink-600 leading-relaxed mb-3">Personal task management. The My Tasks widget appears on the Dashboard; the full task list is on the My Tasks page.</p>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="p-2 rounded-lg bg-ink-100 text-center"><div class="text-[11px] font-semibold text-ink-700">All</div><div class="text-[10px] text-ink-400">All tasks</div></div>
+                        <div class="p-2 rounded-lg bg-indigo-50 text-center"><div class="text-[11px] font-semibold text-indigo-700">Today</div><div class="text-[10px] text-indigo-400">Due today</div></div>
+                        <div class="p-2 rounded-lg bg-ink-100 text-center"><div class="text-[11px] font-semibold text-ink-700">Pending</div><div class="text-[10px] text-ink-400">Not started</div></div>
+                        <div class="p-2 rounded-lg bg-ink-100 text-center"><div class="text-[11px] font-semibold text-ink-700">In Progress</div><div class="text-[10px] text-ink-400">Active</div></div>
+                        <div class="p-2 rounded-lg bg-rose-50 text-center"><div class="text-[11px] font-semibold text-rose-700">Overdue</div><div class="text-[10px] text-rose-400">Past due</div></div>
+                        <div class="p-2 rounded-lg bg-emerald-50 text-center"><div class="text-[11px] font-semibold text-emerald-700">Completed</div><div class="text-[10px] text-emerald-400">Done</div></div>
+                    </div>
+                </div>
+
+                <!-- 10. Planning -->
+                <div id="doc-planning" class="surface rounded-2xl border border-ink-200/60 p-6">
+                    <h2 class="text-[17px] font-bold text-ink-900 mb-3">10. Planning (Vision, KPIs, Roadmap)</h2>
+                    <div class="space-y-3">
+                        <div><div class="text-[13px] font-semibold text-ink-800">Vision</div><div class="text-[12px] text-ink-500">Strategic vision statement, objectives, and alignment for each project. Editable inline.</div></div>
+                        <div><div class="text-[13px] font-semibold text-ink-800">KPIs</div><div class="text-[12px] text-ink-500">Key Performance Indicators with target value, current value, unit, category, and linked objective. Progress bars show achievement.</div></div>
+                        <div><div class="text-[13px] font-semibold text-ink-800">Roadmap &amp; Milestones</div><div class="text-[12px] text-ink-500">Milestones with target dates, progress percentages, and status. The Roadmaps page shows a Gantt-style timeline across all projects.</div></div>
+                    </div>
+                </div>
+            </div>

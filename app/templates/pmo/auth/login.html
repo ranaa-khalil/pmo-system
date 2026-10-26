@@ -1,0 +1,122 @@
+<!-- ==================== LOGIN SCREEN — Clean Apple-style ==================== -->
+<div x-show="!isLoggedIn" x-cloak class="fixed inset-0 z-50 flex">
+    <!-- Left: Showcase panel -->
+    <div class="hidden lg:flex lg:w-[45%] relative flex-col justify-between p-12 bg-ink-100">
+        <!-- Logo -->
+        <div class="relative flex items-center gap-3">
+            <template x-if="tenantBranding && tenantBranding.logo_url">
+                <img :src="tenantBranding.logo_url" class="h-8" :alt="tenantBranding.app_name || 'Logo'"/>
+            </template>
+            <template x-if="!tenantBranding || !tenantBranding.logo_url">
+                <img src="/static/logos/Obelion logo H.svg" class="h-8" alt="Obelion"/>
+            </template>
+        </div>
+
+        <!-- Hero text -->
+        <div class="relative max-w-md">
+            <h1 class="text-ink-900 text-[40px] font-bold leading-[1.1] tracking-tight">
+                <span x-text="tenantBranding && tenantBranding.app_name ? tenantBranding.app_name : 'Project'"></span><br>
+                <span class="brand-text" x-text="tenantBranding && tenantBranding.app_name ? '' : 'Management'"></span><span x-text="tenantBranding && tenantBranding.app_name ? '' : 'Office'"></span>
+            </h1>
+            <p class="text-ink-500 text-[16px] mt-5 leading-relaxed font-normal">
+                V-cycle release management, traceability chains, hierarchical RBAC, and real-time project health — all in one workspace.
+            </p>
+            <div class="flex flex-wrap gap-4 mt-7">
+                <div class="flex items-center gap-2 text-[13px] text-ink-600">
+                    <div class="w-5 h-5 rounded-lg bg-brand-100 flex items-center justify-center">
+                        <svg class="w-3 h-3 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    </div>
+                    V-Cycle Tracking
+                </div>
+                <div class="flex items-center gap-2 text-[13px] text-ink-600">
+                    <div class="w-5 h-5 rounded-lg bg-emerald-100 flex items-center justify-center">
+                        <svg class="w-3 h-3 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    </div>
+                    Gantt Timeline
+                </div>
+                <div class="flex items-center gap-2 text-[13px] text-ink-600">
+                    <div class="w-5 h-5 rounded-lg bg-amber-100 flex items-center justify-center">
+                        <svg class="w-3 h-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    </div>
+                    RBAC Hierarchy
+                </div>
+            </div>
+        </div>
+
+        <div class="relative text-ink-400 text-[11px] font-medium tracking-wide">© 2026 Obelion · Project Management Office</div>
+    </div>
+
+    <!-- Right: Login form -->
+    <div class="flex-1 flex items-center justify-center bg-white px-6">
+        <div class="relative w-full max-w-[380px]">
+            <!-- Mobile logo -->
+            <div class="lg:hidden text-center mb-8">
+                <template x-if="tenantBranding && tenantBranding.logo_url">
+                    <img :src="tenantBranding.logo_url" class="h-10 mx-auto mb-4" :alt="tenantBranding.app_name || 'Logo'"/>
+                </template>
+                <template x-if="!tenantBranding || !tenantBranding.logo_url">
+                    <div class="w-14 h-14 mx-auto mb-4 rounded-2xl brand-primary flex items-center justify-center">
+                        <svg class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/></svg>
+                    </div>
+                </template>
+                <h1 class="text-[20px] font-bold text-ink-900 tracking-tight" x-text="tenantBranding && tenantBranding.app_name ? tenantBranding.app_name : 'PMO System'"></h1>
+            </div>
+
+            <div class="surface rounded-3xl shadow-modal p-8 modal-enter border border-black/[0.06]">
+                <h2 class="text-[24px] font-bold text-ink-900 tracking-tight mb-1">Welcome back</h2>
+                <p class="text-[14px] text-ink-500 mb-7 font-normal">Sign in to your workspace to continue.</p>
+
+                <!-- Reset token banner (from email link) -->
+                <div x-show="hasResetTokenFromUrl" x-cloak x-transition
+                     class="mb-5 p-4 rounded-xl bg-brand-50 border border-brand-200 flex items-center justify-between gap-3">
+                    <p class="text-[13px] text-brand-700 font-medium">You clicked a password reset link.</p>
+                    <button @click="useUrlResetToken()" class="text-[12px] font-semibold text-white bg-brand-600 hover:bg-brand-700 px-4 py-2 rounded-lg transition-colors whitespace-nowrap">
+                        Set New Password
+                    </button>
+                </div>
+
+                <form @submit.prevent="login()" class="space-y-4">
+                    <div>
+                        <label class="block text-[12px] font-medium text-ink-700 mb-1.5">Email</label>
+                        <input x-model="loginForm.email" type="email" required
+                               class="input-premium w-full text-[14px] rounded-xl px-4 py-3 placeholder-ink-300 transition-all"
+                               placeholder="you@company.com">
+                    </div>
+                    <div>
+                        <label class="block text-[12px] font-medium text-ink-700 mb-1.5">Password</label>
+                        <div class="relative">
+                            <input x-model="loginForm.password" :type="showPassword ? 'text' : 'password'" required
+                                   class="input-premium w-full text-[14px] border rounded-xl px-4 py-3 pr-11 placeholder-ink-300 transition-all"
+                                   placeholder="••••••••">
+                            <button type="button" @click="showPassword = !showPassword"
+                                    class="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700 transition-colors"
+                                    :title="showPassword ? 'Hide password' : 'Show password'">
+                                <!-- Eye icon (show) -->
+                                <svg x-show="!showPassword" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                </svg>
+                                <!-- Eye-off icon (hide) -->
+                                <svg x-show="showPassword" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <template x-if="loginError">
+                        <div class="text-[12px] text-rose-600 bg-rose-50 border border-rose-100 px-3 py-2.5 rounded-xl flex items-center gap-2" x-text="loginError"></div>
+                    </template>
+                    <button type="submit" :disabled="loginLoading"
+                            class="btn-primary w-full text-[14px] font-medium text-white px-4 py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                        <svg x-show="!loginLoading" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                        <span x-show="!loginLoading">Sign In</span>
+                        <span x-show="loginLoading">Signing in...</span>
+                    </button>
+                </form>
+                <div class="mt-5 text-center">
+                    <button @click="showForgotPassword = true" class="text-[12px] font-medium text-brand-600 hover:text-brand-700 transition-colors">Forgot password?</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

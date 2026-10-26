@@ -17,7 +17,7 @@ from app.models.approval import ApprovalRequest, ApprovalStep
 from app.models.backlog_item import BacklogItem
 from app.models.project import Project
 from app.models.release import Release
-from app.models.risk import Risk
+from app.models.risk import PROBABILITY_LEVELS, SEVERITY_LEVELS, Risk
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.models.user_task import UserTask
@@ -190,15 +190,51 @@ def build_context(
 
     epic_tree = _epic_tree(db, proj_ids)
 
+    # ── Project identity: what the copilot needs to be project-specific ───
+    manager = (
+        db.query(User).filter(User.id == projects[0].project_manager_id).first()
+        if projects[0].project_manager_id else None
+    )
+    project_identity = {
+        "entity_type": "project",
+        "entity_id": projects[0].id,
+        "title": projects[0].name,
+        "status": projects[0].status,
+        "description": projects[0].description or "",
+        "project_type": projects[0].project_type or "",
+        "client": projects[0].client.name if projects[0].client else None,
+        "manager": manager.name if manager else None,
+    }
+
+    # ── Risks on the scoped projects (register rows, computed score) ─────
+    open_risks = []
+    from app.models.risk import Risk
+    risks = db.query(Risk).filter(
+        Risk.project_id.in_(proj_ids),
+        Risk.status != "Closed",
+    ).order_by(Risk.id.desc()).limit(15).all()
+    for r in risks:
+        score = _risk_score(r.severity, r.probability)
+        open_risks.append({
+            "entity_type": "risk", "entity_id": r.id,
+            "record_type": "Risk",
+            "title": r.title, "project_id": r.project_id,
+            "severity": r.severity, "probability": r.probability,
+            "score": score, "status": r.status,
+            "owner_id": r.owner_id, "source": r.source,
+        })
+
     return {
         "projects": [
             {"entity_type": "project", "entity_id": p.id, "title": p.name,
              "status": p.status} for p in projects
         ],
+        "project_identity": project_identity,
         "pending_approvals": pending_approvals,
         "aging_items": aging_items,
         "overdue_tasks": overdue_tasks,
         "at_risk_releases": at_risk_releases,
+        "open_risks": open_risks,
         "epic_tree": epic_tree,
     }
 
@@ -218,6 +254,11 @@ def _epic_tree(db: Session, proj_ids: list[int]) -> dict:
             "status": item.status, "item_type": item.item_type,
         })
     return tree
+
+
+def _risk_score(severity: str, probability: str) -> int:
+    """Risk score = severity level × probability level; unknown strings score 0."""
+    return SEVERITY_LEVELS.get(severity, 0) * PROBABILITY_LEVELS.get(probability, 0)
 
 
 def _days_since(value) -> int:
@@ -251,7 +292,17 @@ def summarize_context(ctx: dict, max_items: int = 40) -> str:
     types can't be blurred, and ages are only ever attached to their own record.
     """
     lines: list[str] = []
-    if ctx["projects"]:
+    identity = ctx.get("project_identity")
+    if identity:
+        parts = [f"Project {identity['entity_id']}: {identity['title']} ({identity['status']})"]
+        if identity.get("description"):
+            parts.append(f"description: {identity['description']}")
+        if identity.get("client"):
+            parts.append(f"client: {identity['client']}")
+        if identity.get("manager"):
+            parts.append(f"PM: {identity['manager']}")
+        lines.append("THIS PROJECT: " + "; ".join(parts))
+    elif ctx["projects"]:
         lines.append("PROJECTS: " + "; ".join(
             f"Project {p['entity_id']}: {p['title']} ({p['status']})" for p in ctx["projects"]))
     if ctx["pending_approvals"]:
@@ -266,6 +317,18 @@ def summarize_context(ctx: dict, max_items: int = 40) -> str:
     if ctx["at_risk_releases"]:
         rows = [f"- Release {r['entity_id']}: {r['title']} — {'; '.join(r['reasons'])}" for r in ctx["at_risk_releases"][:max_items]]
         lines.append("AT-RISK RELEASES (computed: overdue target or pending gate — no manual flag):\n" + "\n".join(rows))
+    if ctx.get("open_risks"):
+        rows = [f"- Risk {r['entity_id']}: {r['title']} (severity {r['severity']} × probability {r['probability']}, score {r['score']}, {r['status']})" for r in ctx["open_risks"][:max_items]]
+        lines.append("OPEN RISKS:\n" + "\n".join(rows))
+    tree = ctx.get("epic_tree") or {}
+    if tree:
+        rows = []
+        for epic, node in list(tree.items())[:12]:
+            feats = ", ".join(
+                f"{f['title']} ({f['status']}/{f['phase']})" for f in node["features"][:8]
+            )
+            rows.append(f"- Epic '{epic}': {feats}")
+        lines.append("BACKLOG (epics → features):\n" + "\n".join(rows))
     return "\n\n".join(lines) if lines else "No signal data found for your assignments."
 
 

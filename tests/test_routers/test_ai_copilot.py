@@ -109,6 +109,47 @@ def test_chat_returns_grounded_answer(client, auth_headers, copilot_world, ai_co
     assert "PNU Cloud" in seen_prompts["user"]  # grounded in real context
 
 
+def test_chat_scoped_is_project_specific(client, auth_headers, copilot_world, ai_configured, monkeypatch):
+    """Scoped chat carries project identity: description, client, epics,
+    features, and risks in the prompt — the copilot can answer specifically
+    about THIS project, never generically."""
+    seen_prompts = {}
+
+    def fake_call_llm(system_prompt, user_prompt, tenant_config=None, max_tokens=900):
+        seen_prompts["user"] = user_prompt
+        return json.dumps({"answer": "ok", "sources": []})
+
+    monkeypatch.setattr(copilot_service, "_call_llm", fake_call_llm)
+
+    from app.models.backlog_item import BacklogItem as BI
+
+    proj = copilot_world["project"]
+    proj.description = "Cloud platform for PNU student services"
+    extra = BI(
+        tenant_id=copilot_world["tenant"].id, project_id=proj.id,
+        title="Grades export", epic="Reporting", current_phase="Requirements",
+        status="Draft",
+    )
+    copilot_world["tenant"].name = "Chat Co"
+    from tests.conftest import TestSessionLocal
+    _s = TestSessionLocal()
+    _s.add(extra)
+    _s.merge(proj)
+    _s.merge(copilot_world["tenant"])
+    _s.commit()
+    _s.close()
+
+    resp = client.post(
+        "/api/ai/copilot/chat",
+        json={"question": "what's the status?", "project_id": proj.id},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    prompt = seen_prompts["user"]
+    assert "Cloud platform for PNU student services" in prompt  # description
+    assert "Grades export" in prompt  # the project's features
+    assert "Reporting" in prompt  # epic names
+
 def test_chat_persists_interaction(client, auth_headers, copilot_world, ai_configured, monkeypatch, db):
     """Every chat logs an AiInteraction kind=query."""
     monkeypatch.setattr(copilot_service, "_call_llm", lambda *a, **k: json.dumps({"answer": "ok", "sources": []}))

@@ -75,8 +75,8 @@ toggleCopilot() {
     this.copilotOpen = !this.copilotOpen;
     if (this.copilotOpen && this.copilotMessages.length === 0) {
         const scope = this.selectedProject
-            ? `I'm scoped to ${this.selectedProject.name} — the project you have open.`
-            : "I cover all your assigned projects. Open a project to scope me to it.";
+            ? `I'm scoped to **${this.selectedProject.name}** — the project you have open. I know its backlog, epics, risks, approvals, and releases, and I'll cite record ids.`
+            : "I cover all your assigned projects. Open a project to scope me to it — then I know that project's backlog, risks, approvals, and releases specifically.";
         this.copilotMessages.push({
             role: 'assistant',
             text: `Ask me anything about your projects — overdue work, aging items, pending approvals, or releases at risk. I read your data and cite sources. ${scope}`,

@@ -8,12 +8,11 @@ Returns 429 with Retry-After header when limit is exceeded.
 import time
 from collections import defaultdict
 
-from fastapi import Request, Response
+from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.models.tenant import PLAN_FREE
-
 
 # Rate limits per plan (requests per minute)
 RATE_LIMITS = {

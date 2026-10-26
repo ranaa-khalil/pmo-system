@@ -8,7 +8,6 @@ when a per-tenant setting is not set, so the system works in both modes.
 """
 import base64
 import hashlib
-import json
 
 from cryptography.fernet import Fernet, InvalidToken
 from sqlalchemy.orm import Session

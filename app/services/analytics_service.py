@@ -11,7 +11,6 @@ Provides:
 from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 
 from app.models.backlog_item import BacklogItem
 from app.models.kpi import KPI

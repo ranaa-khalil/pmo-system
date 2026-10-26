@@ -3,8 +3,7 @@
 Resolves an API key from the X-API-Key header, validates it against
 the database, and returns the associated tenant + scopes.
 """
-import hashlib
-from fastapi import Depends, HTTPException, Header, Request
+from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_db

@@ -9,8 +9,8 @@ from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.analytics_service import (
     burndown_data,
-    cycle_time,
     cumulative_flow,
+    cycle_time,
     kpi_trend,
     phase_distribution,
     project_analytics_summary,

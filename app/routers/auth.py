@@ -5,9 +5,9 @@ from datetime import UTC, datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.config import settings
 from app.models.password_reset_token import PasswordResetToken
 from app.models.tenant import TenantMembership
 from app.models.user import User
@@ -16,7 +16,6 @@ from app.schemas.auth import (
     ResetPasswordRequest,
     TokenResponse,
     UserLogin,
-    UserResponse,
     ValidateTokenRequest,
 )
 from app.services.auth import create_access_token, hash_password, verify_password

@@ -84,7 +84,7 @@ def get_authorization_url(provider_name: str, redirect_uri: str, state: str = No
     params = "&".join([
         f"client_id={provider.client_id}",
         f"redirect_uri={redirect_uri}",
-        f"response_type=code",
+        "response_type=code",
         f"scope={' '.join(provider.scopes)}",
         f"state={state}",
     ])

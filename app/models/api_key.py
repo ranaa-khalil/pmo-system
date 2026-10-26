@@ -7,12 +7,11 @@ is shown once at creation time.
 import hashlib
 import secrets
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
-
 
 # Available scopes
 SCOPE_READ = "read"

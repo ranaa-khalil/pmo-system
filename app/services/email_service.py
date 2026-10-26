@@ -8,8 +8,8 @@ Configure via env vars:
 
 If SMTP is not configured, emails are logged but not sent (dev mode).
 """
-import smtplib
 import logging
+import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from string import Template

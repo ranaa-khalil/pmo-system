@@ -8,6 +8,7 @@ and every report is persisted as an AiInteraction kind=report.
 """
 import hashlib
 import json
+
 from sqlalchemy.orm import Session
 
 from app.models.ai_interaction import AiInteraction

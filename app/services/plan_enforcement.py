@@ -11,8 +11,7 @@ Plans and features:
 """
 from fastapi import HTTPException
 
-from app.models.tenant import PLAN_FREE, PLAN_BUSINESS, PLAN_ENTERPRISE, PLAN_TEAM
-
+from app.models.tenant import PLAN_BUSINESS, PLAN_ENTERPRISE, PLAN_FREE, PLAN_TEAM
 
 # Feature → minimum plan required
 FEATURE_GATES = {

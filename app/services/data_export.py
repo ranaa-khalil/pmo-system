@@ -3,7 +3,6 @@
 Exports all tenant-scoped data: clients, projects, backlog items, releases,
 stakeholders, personas, KPIs, roadmaps, milestones, approvals, forms, etc.
 """
-import json
 from datetime import datetime
 
 from sqlalchemy.orm import Session

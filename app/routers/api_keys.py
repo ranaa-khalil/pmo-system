@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.api_key import ApiKey, ALL_SCOPES
+from app.models.api_key import ApiKey
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.tenant import get_current_tenant, require_tenant_role

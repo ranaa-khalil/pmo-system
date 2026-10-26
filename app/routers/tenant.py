@@ -3,7 +3,7 @@ import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
@@ -15,7 +15,6 @@ from app.models.tenant import (
     MEMBER_ROLE_ADMIN,
     MEMBER_ROLE_MEMBER,
     MEMBER_ROLE_OWNER,
-    PLAN_LIMITS,
     Invitation,
     Tenant,
     TenantMembership,
@@ -26,7 +25,6 @@ from app.schemas.tenant import (
     AdminCreateUserRequest,
     InvitationResponse,
     InviteRequest,
-    RegisterRequest,
     SwitchTenantRequest,
     TenantMembershipResponse,
     TenantResponse,
@@ -494,7 +492,7 @@ def create_invitation(
 ):
     """Invite a new member to the tenant (owner/admin only)."""
     # Check quota
-    from app.services.usage_service import check_quota, METRIC_USERS
+    from app.services.usage_service import METRIC_USERS, check_quota
     check_quota(db, current_tenant, METRIC_USERS)
 
     # Check if already invited
@@ -696,7 +694,7 @@ def get_usage(
     _user: User = Depends(get_current_user),
 ):
     """Get current usage metrics for the tenant."""
-    from app.services.usage_service import get_usage_counts, get_limits, METRIC_USERS, METRIC_PROJECTS
+    from app.services.usage_service import METRIC_PROJECTS, METRIC_USERS, get_limits, get_usage_counts
     counts = get_usage_counts(db, current_tenant.id)
     limits = get_limits(current_tenant)
     return UsageResponse(
@@ -716,7 +714,7 @@ def get_usage_history_endpoint(
     _user: User = Depends(require_tenant_role(MEMBER_ROLE_OWNER, MEMBER_ROLE_ADMIN)),
 ):
     """Get usage history for the last N days (for charts)."""
-    from app.services.usage_service import get_usage_history, get_usage_counts, get_limits
+    from app.services.usage_service import get_limits, get_usage_counts, get_usage_history
     history = get_usage_history(db, current_tenant.id, days)
     counts = get_usage_counts(db, current_tenant.id)
     limits = get_limits(current_tenant)
@@ -753,7 +751,7 @@ def update_tenant_settings(
     are encrypted at rest. Empty values clear the setting.
     """
     from app.models.tenant_setting import SECRET_KEYS
-    from app.services.settings_service import set_setting, delete_setting
+    from app.services.settings_service import delete_setting, set_setting
 
     updated = []
     for key, value in req.items():
@@ -848,8 +846,9 @@ def admin_update_plan(
 ):
     """Update a plan and propagate limits to all tenants on this plan."""
     _require_super_admin(current_user)
-    from app.models.plan import Plan
     import json as _json
+
+    from app.models.plan import Plan
     plan = db.query(Plan).filter(Plan.id == plan_id).first()
     if not plan:
         raise HTTPException(404, "Plan not found")
@@ -909,8 +908,9 @@ def admin_assign_tenant_plan(
 ):
     """Assign a plan to a tenant — copies plan limits to tenant.limits."""
     _require_super_admin(current_user)
-    from app.models.plan import Plan
     import json as _json
+
+    from app.models.plan import Plan
     tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not tenant:
         raise HTTPException(404, "Tenant not found")
@@ -1037,10 +1037,10 @@ def get_admin_insights(
     """
     _require_super_admin(current_user)
 
+    from app.models.api_key import ApiKey
     from app.models.backlog_item import BacklogItem
     from app.models.project import Project
     from app.models.release import Release
-    from app.models.api_key import ApiKey
 
     tenants = db.query(Tenant).all()
     active_tenants = [t for t in tenants if t.status == "active"]
@@ -1122,10 +1122,11 @@ def get_tenant_detail(
     _require_super_admin(current_user)
 
     import json as _json
+
+    from app.models.api_key import ApiKey
     from app.models.backlog_item import BacklogItem
     from app.models.project import Project
     from app.models.release import Release
-    from app.models.api_key import ApiKey
 
     tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not tenant:
@@ -1337,8 +1338,8 @@ def tenant_admin_create_user(
     current_user: User = Depends(get_current_user),
 ):
     """Create a new user in the current tenant (tenant admin/owner only)."""
-    from app.services.usage_service import check_quota, METRIC_USERS
     from app.services.plan_enforcement import require_feature
+    from app.services.usage_service import METRIC_USERS, check_quota
     require_feature(current_tenant.plan, "team_management")
 
     # Check role
@@ -1555,21 +1556,21 @@ def delete_tenant_data(
     deleted = {}
 
     # Delete in dependency order
-    from app.models.release import ReleaseItem, Release
+    from app.models.activity_log import ActivityLog
     from app.models.approval import ApprovalRequest, ApprovalStep
-    from app.models.backlog_item import BacklogItem, backlog_dependencies
+    from app.models.backlog_item import BacklogItem
     from app.models.form_template import FormInstance, FormTemplate
+    from app.models.github_board_config import GitHubBoardConfig
     from app.models.kpi import KPI
     from app.models.milestone import Milestone
+    from app.models.notification import Notification
+    from app.models.project_test_account import ProjectTestAccount
+    from app.models.project_vision import ProjectVision
+    from app.models.release import Release, ReleaseItem
     from app.models.roadmap import Roadmap
     from app.models.stakeholder import Stakeholder
     from app.models.user_persona import UserPersona
-    from app.models.project_test_account import ProjectTestAccount
-    from app.models.project_vision import ProjectVision
-    from app.models.github_board_config import GitHubBoardConfig
     from app.models.user_task import UserTask
-    from app.models.notification import Notification
-    from app.models.activity_log import ActivityLog
 
     deleted["release_items"] = db.query(ReleaseItem).filter(ReleaseItem.tenant_id == tid).delete()
     deleted["releases"] = db.query(Release).filter(Release.tenant_id == tid).delete()

@@ -1,7 +1,6 @@
 """Password reset token model."""
-from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Integer, String, Boolean
+from sqlalchemy import Boolean, Column, DateTime, Integer, String
 from sqlalchemy.sql import func
 
 from app.database import Base

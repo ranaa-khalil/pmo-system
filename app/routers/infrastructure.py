@@ -1,5 +1,5 @@
 """Infrastructure management router — environments, secrets, assets, services, databases."""
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -15,7 +15,6 @@ from app.models.infrastructure import (
     SecretAccessLog,
     SecretVersion,
 )
-from app.models.project import Project
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.encryption import decrypt_value, encrypt_value
@@ -61,7 +60,7 @@ def get_infra_overview(
     db_count = db.query(InfraDatabase).filter(InfraDatabase.tenant_id == tid).count()
 
     # Expiring secrets (within 30 days)
-    thirty_days = datetime.now(timezone.utc) + timedelta(days=30)
+    thirty_days = datetime.now(UTC) + timedelta(days=30)
     expiring = (
         db.query(Secret)
         .filter(

@@ -9,7 +9,6 @@ from sqlalchemy.sql import func
 
 from app.database import Base
 
-
 # Setting keys
 SETTING_GITHUB_TOKEN = "github_token"
 SETTING_AI_API_KEY = "ai_api_key"

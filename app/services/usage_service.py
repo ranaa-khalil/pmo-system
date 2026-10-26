@@ -8,14 +8,14 @@ Provides:
 """
 from datetime import date as _date
 
-from fastapi import HTTPException, Request, Response
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models.backlog_item import BacklogItem
 from app.models.client import Client
 from app.models.project import Project
 from app.models.release import Release
-from app.models.tenant import PLAN_LIMITS, Tenant, TenantMembership
+from app.models.tenant import Tenant, TenantMembership
 from app.models.usage_record import (
     METRIC_BACKLOG_ITEMS,
     METRIC_CLIENTS,

@@ -120,8 +120,9 @@ def seed():
     db.commit()
 
     # ── Subscription Plans ──────────────────────────────────────────────
-    from app.models.plan import Plan
     import json as _json
+
+    from app.models.plan import Plan
     plans_data = DEFAULT_PLANS
     for pd in plans_data:
         existing = db.query(Plan).filter(Plan.name == pd["name"]).first()
@@ -341,8 +342,9 @@ def seed():
         db.commit()
 
         # Approval chain: Planning→In Progress (approved), In Progress→Testing (pending)
-        from app.models.approval import ApprovalRequest, ApprovalStep
         from sqlalchemy.sql import func
+
+        from app.models.approval import ApprovalRequest, ApprovalStep
 
         ap1 = ApprovalRequest(
             project_id=pnu.id,
@@ -553,7 +555,7 @@ def seed():
         print("✅ Created 3 user tasks")
 
     # ── Infrastructure ──────────────────────────────────────────────────
-    from app.models.infrastructure import InfraEnvironment, InfraSecret, InfraAsset, InfraService, InfraDatabase
+    from app.models.infrastructure import InfraAsset, InfraDatabase, InfraEnvironment, InfraSecret, InfraService
     if db.query(InfraEnvironment).filter(InfraEnvironment.project_id == pnu.id).count() == 0:
         dev_env = InfraEnvironment(project_id=pnu.id, name="Development", env_type="development",
                                    url="https://dev.pnu-cloud.opex.com.sa", status="Active",
@@ -642,8 +644,8 @@ def seed():
     print("PMO System — Seed Complete")
     print("=" * 60)
     print(f"  Tenant:      {tenant.name} (slug: {tenant.slug})")
-    print(f"  Super admin: admin@pmosystem.app")
-    print(f"  Tenant admin: rana@opex.com.sa")
+    print("  Super admin: admin@pmosystem.app")
+    print("  Tenant admin: rana@opex.com.sa")
     print(f"  Password:    {DEFAULT_PASSWORD} (change after first login!)")
     print(f"  Clients:     {db.query(Client).count()}")
     print(f"  Projects:    {db.query(Project).count()}")

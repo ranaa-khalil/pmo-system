@@ -1,12 +1,12 @@
 """Middleware package — quota headers, rate limiting, security headers, subdomain."""
 
+# Keep the QuotaHeaderMiddleware from the original __init__.py
+from starlette.middleware.base import BaseHTTPMiddleware
+
+from app.middleware import rate_limit as rate_limit_module
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.middleware.subdomain import SubdomainMiddleware
-from app.middleware import rate_limit as rate_limit_module
-
-# Keep the QuotaHeaderMiddleware from the original __init__.py
-from starlette.middleware.base import BaseHTTPMiddleware
 
 
 class QuotaHeaderMiddleware(BaseHTTPMiddleware):
@@ -16,8 +16,8 @@ class QuotaHeaderMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         try:
             if hasattr(request.state, "tenant_id") and hasattr(request.state, "db"):
-                from app.services.usage_service import get_quota_headers
                 from app.models.tenant import Tenant
+                from app.services.usage_service import get_quota_headers
                 db = request.state.db
                 tenant = db.query(Tenant).filter(Tenant.id == request.state.tenant_id).first()
                 if tenant:

@@ -1,7 +1,7 @@
 """Email service — sends emails via Resend API or SMTP fallback."""
+import json
 import smtplib
 import urllib.request
-import json
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 

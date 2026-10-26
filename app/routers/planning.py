@@ -21,7 +21,6 @@ from app.schemas.planning import (
     KPIUpdate,
     MilestoneCreate,
     MilestoneResponse,
-    MilestoneUpdate,
     RoadmapCreate,
     RoadmapResponse,
     RoadmapUpdate,

@@ -1,6 +1,7 @@
 """Import all models so SQLAlchemy registers them with Base.metadata."""
 from app.models.activity_log import ActivityLog
 from app.models.ai_interaction import AiInteraction
+from app.models.api_key import ApiKey
 from app.models.approval import ApprovalRequest, ApprovalStep
 from app.models.backlog_item import BacklogItem
 from app.models.client import Client
@@ -18,9 +19,9 @@ from app.models.infrastructure import (
 from app.models.kpi import KPI
 from app.models.milestone import Milestone
 from app.models.notification import Notification, NotificationPreference
+from app.models.password_reset_token import PasswordResetToken
 from app.models.permission import Permission
 from app.models.plan import Plan
-from app.models.password_reset_token import PasswordResetToken
 from app.models.project import Project
 from app.models.project_test_account import ProjectTestAccount
 from app.models.project_vision import ProjectVision
@@ -34,7 +35,6 @@ from app.models.stakeholder import Stakeholder
 from app.models.tenant import Invitation, Tenant, TenantMembership
 from app.models.tenant_setting import TenantSetting
 from app.models.usage_record import UsageRecord
-from app.models.api_key import ApiKey
 from app.models.user import User
 from app.models.user_persona import UserPersona
 from app.models.user_task import UserTask

@@ -33,8 +33,8 @@ from app.schemas.github_sync import (
 )
 from app.services.github import GitHubService
 from app.services.notifications import log_activity
-from app.services.tenant import get_current_tenant
 from app.services.settings_service import get_github_token
+from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["github-sync"])
 

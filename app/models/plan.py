@@ -4,7 +4,7 @@ Each Plan defines resource limits (max_users, max_projects, etc.).
 Tenants are assigned to a Plan via Tenant.plan_id (FK).
 When a plan is assigned or updated, limits are propagated to tenant.limits.
 """
-from sqlalchemy import Column, DateTime, Integer, String, Text, Boolean
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
 from sqlalchemy.sql import func
 
 from app.database import Base

@@ -9,7 +9,7 @@ from sqlalchemy.sql import func
 from app.database import Base
 
 # What kind of AI interaction this row records
-AI_KINDS = ["query", "proposal", "intake", "brief", "report"]
+AI_KINDS = ["query", "proposal", "intake", "interview", "brief", "report"]
 
 # Lifecycle of a proposal / intake draft
 AI_STATUSES = ["pending", "approved", "applied", "rejected", "expired"]

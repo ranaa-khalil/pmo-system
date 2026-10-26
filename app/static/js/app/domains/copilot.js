@@ -22,6 +22,15 @@ intakeApplying: false,
 intakeResult: null,         // {features_created, personas_created, kpis_created}
 backlogVerdict: null,       // feature verdict chip: {verdict, epic, confidence, reasoning, sibling_duplicates}
 
+// ===== Interview state (P2.1) =====
+interviewSession: null,     // {session_id, question, progress, answers_so_far, done}
+interviewFlow: 'project',
+interviewBusy: false,
+interviewDraft: null,       // assembled draft (same shape as intake draft)
+interviewFinished: false,
+interviewApplying: false,
+interviewResult: null,
+
 // ===== Daily briefing state =====
 briefingSummary: '',
 briefingVerdict: '',
@@ -327,5 +336,119 @@ async intakeApply() {
         this.showToast(e?.message || 'Intake apply failed.', 'error');
     }
     this.intakeApplying = false;
+},
+
+// ===== Interview engine (guided Q&A — P2.1) =====
+// The AI PM asks 4-8 questions one at a time; the human answers (text, chip,
+// or accept-default). State persists server-side (AiInteraction kind=interview),
+// so closing the drawer and coming back resumes mid-interview. Apply remains
+// the only write — the finished draft feeds the existing intake pipeline.
+async interviewStart(flow, projectId) {
+    if (this.interviewBusy) return;
+    this.interviewBusy = true;
+    this.copilotOpen = true;
+    this.copilotTab = 'interview';
+    this.interviewDraft = null;
+    this.interviewFinished = false;
+    try {
+        const data = await this.api('POST', `/ai/interview/${flow}/start`, {
+            flow, project_id: projectId ?? (this.selectedProject ? this.selectedProject.id : null),
+        });
+        this.interviewSession = data;
+        this.interviewFlow = flow;
+        this.copilotMessages.push({
+            role: 'assistant',
+            text: `**${data.title}** — I'll ask a few short questions. Tap a chip, type your answer, or hit "Use default" to accept mine. Skip anything and I'll fill it in.\n\n${data.question.prompt}`,
+        });
+    } catch (e) {
+        this.showToast(e?.message || 'Interview failed to start.', 'error');
+    }
+    this.interviewBusy = false;
+    this.copilotScroll();
+},
+
+async interviewAnswer(value, skipped = false) {
+    if (!this.interviewSession || this.interviewBusy) return;
+    const q = this.interviewSession.question;
+    const shown = skipped ? '(skipped — using default)' : value;
+    this.copilotMessages.push({ role: 'user', text: shown || '(default)' });
+    this.interviewBusy = true;
+    this.copilotScroll();
+    const path = skipped ? 'skip' : 'answer';
+    try {
+        const data = await this.api('POST', `/ai/interview/${this.interviewSession.session_id}/${path}`, {
+            question_id: q.id, answer: value || '',
+        });
+        if (data.error) {
+            this.showToast(data.error, 'error');
+        } else if (data.done) {
+            this.interviewSession = { ...this.interviewSession, done: true };
+            this.copilotMessages.push({
+                role: 'assistant',
+                text: 'That\'s everything I need. Assembling the draft for your review…',
+            });
+            this.interviewBusy = false;
+            await this.interviewFinish();
+        } else {
+            this.interviewSession = data;
+            const chipHint = data.question.choices ? ` Options: ${data.question.choices.join(' · ')}.` : '';
+            const defaultHint = data.question.default && !data.question.required
+                ? ` (default: "${data.question.default}")` : '';
+            this.copilotMessages.push({
+                role: 'assistant',
+                text: `${data.question.prompt}${chipHint}${defaultHint}`,
+            });
+        }
+    } catch (e) {
+        this.showToast(e?.message || 'Interview answer failed.', 'error');
+    }
+    this.interviewBusy = false;
+    this.copilotScroll();
+},
+
+async interviewFinish() {
+    if (!this.interviewSession || this.interviewBusy) return;
+    this.interviewBusy = true;
+    try {
+        const data = await this.api('POST', `/ai/interview/${this.interviewSession.session_id}/finish`, {});
+        this.interviewDraft = data.draft;
+        this.interviewFinished = true;
+        if (data.flow === 'project') {
+            const d = data.draft;
+            const featCount = (d.epics || []).reduce((n, e) => n + (e.features || []).length, 0);
+            this.copilotMessages.push({
+                role: 'assistant',
+                text: `Here's the structured draft: **${(d.summary || '').slice(0, 200)}**\n\n- ${(d.epics || []).length} epics / ${featCount} features\n- ${(d.personas || []).length} personas\n- ${(d.kpis || []).length} KPIs\n\nReview it in the panel — edit inline if needed, then **Apply** to create the records. Nothing is created until you do.`,
+            });
+        } else {
+            this.copilotMessages.push({
+                role: 'assistant',
+                text: 'Draft assembled — review it in the panel below.',
+            });
+        }
+    } catch (e) {
+        this.showToast(e?.message || 'Interview assembly failed.', 'error');
+    }
+    this.interviewBusy = false;
+    this.copilotScroll();
+},
+
+async interviewApply() {
+    if (!this.interviewDraft || this.interviewFlow !== 'project' || this.interviewApplying) return;
+    this.interviewApplying = true;
+    try {
+        // Reuse the existing intake apply — the only write path
+        const data = await this.api('POST', '/ai/intake/apply', {
+            draft: this.interviewDraft,
+            project_id: this.selectedProject ? this.selectedProject.id : null,
+        });
+        this.interviewResult = data;
+        this.showToast(`Applied: ${data.features_created} features, ${data.personas_created} personas, ${data.kpis_created} KPIs.`, 'success');
+        this.loadBacklog();
+        this.loadReleases();
+    } catch (e) {
+        this.showToast(e?.message || 'Apply failed.', 'error');
+    }
+    this.interviewApplying = false;
 },
 };

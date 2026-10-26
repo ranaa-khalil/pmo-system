@@ -453,6 +453,128 @@ def intake_capture_endpoint(
     return {"capture_id": interaction.id, "status": "captured"}
 
 
+# ── Interview engine (guided Q&A for create flows) ───────────────────────
+
+class InterviewStartRequest(BaseModel):
+    flow: str = "project"
+    project_id: int | None = None
+
+
+class InterviewAnswerRequest(BaseModel):
+    question_id: str
+    answer: str = ""
+
+
+class InterviewSkipRequest(BaseModel):
+    question_id: str
+
+
+def _interview_error(result: dict):
+    if "error" in result:
+        raise HTTPException(result.get("status", 400), result["error"])
+    return result
+
+
+@router.post("/interview/{flow}/start")
+def interview_start_endpoint(
+    flow: str,
+    req: InterviewStartRequest | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Open a guided interview: first question with its smart default."""
+    from app.services.plan_enforcement import require_feature
+    require_feature(current_tenant.plan, "ai_assistant")
+    from app.services import interview as interview_service
+    try:
+        return interview_service.start_interview(
+            db, current_user, current_tenant, flow=flow,
+            project_id=(req.project_id if req else None),
+        )
+    except ValueError:
+        raise HTTPException(400, f"Unknown interview flow: {flow}")
+    except Exception as e:
+        raise HTTPException(502, f"Interview start failed: {str(e)}")
+
+
+@router.post("/interview/{session_id}/answer")
+def interview_answer_endpoint(
+    session_id: int,
+    req: InterviewAnswerRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Answer the current question; advances or returns a capped follow-up."""
+    from app.services import interview as interview_service
+    try:
+        return _interview_error(interview_service.submit_answer(
+            db, current_user, current_tenant, session_id, req.question_id, req.answer,
+        ))
+    except PermissionError:
+        raise HTTPException(404, "Interview session not found in this tenant.")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/interview/{session_id}/skip")
+def interview_skip_endpoint(
+    session_id: int,
+    req: InterviewSkipRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Skip = accept the smart default and advance."""
+    from app.services import interview as interview_service
+    try:
+        return _interview_error(interview_service.skip_question(
+            db, current_user, current_tenant, session_id, req.question_id,
+        ))
+    except PermissionError:
+        raise HTTPException(404, "Interview session not found in this tenant.")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.get("/interview/{session_id}/state")
+def interview_state_endpoint(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Resume: returns the persisted interview state (question, progress, answers)."""
+    from app.services import interview as interview_service
+    try:
+        return interview_service.current_state(db, current_user, current_tenant, session_id)
+    except PermissionError:
+        raise HTTPException(404, "Interview session not found in this tenant.")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/interview/{session_id}/finish")
+def interview_finish_endpoint(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Assemble the final draft. Apply (the only write) happens separately."""
+    from app.services import interview as interview_service
+    try:
+        return interview_service.finish_interview(db, current_user, current_tenant, session_id)
+    except PermissionError:
+        raise HTTPException(404, "Interview session not found in this tenant.")
+    except ValueError as e:
+        msg = str(e)
+        if msg == "interview_incomplete":
+            raise HTTPException(409, "Interview is not finished — answer or skip the remaining questions first.")
+        raise HTTPException(400, msg)
+
+
 def _fallback_project(db: Session, tenant: Tenant) -> Project | None:
     """First project in the tenant, used when no project_id is given for capture."""
     return db.query(Project).filter(Project.tenant_id == tenant.id).order_by(Project.id).first()

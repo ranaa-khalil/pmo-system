@@ -383,7 +383,7 @@ async saveBacklogItem(saveAndNew = false) {
                 title: this.backlogForm.title,
                 description: this.backlogForm.description,
                 priority: this.backlogForm.priority,
-                kpi_id: this.backlogForm.kpi_id,
+                kpi_id: this.backlogForm.kpi_id || null,
                 epic: this.backlogForm.epic,
                 item_type: this.backlogForm.item_type,
                 primary_actor: this.backlogForm.primary_actor,

@@ -104,6 +104,14 @@ FLOWS = {
         "produces": "Pre-filled feature form fields (backlog save path)",
         "questions": [
             {
+                "id": "title",
+                "prompt": "What should this feature be called?",
+                "type": "text",
+                "default": "",
+                "default_resolver": None,
+                "required": True,
+            },
+            {
                 "id": "acceptance_criteria",
                 "prompt": "What are the acceptance criteria for this feature?",
                 "type": "textarea",
@@ -526,6 +534,7 @@ def finish_interview(db: Session, user: User, tenant: Tenant, session_id: int) -
 
     if flow_id == "feature":
         form = {
+            "title": (answers.get("title", "") or "").strip(),
             "acceptance_criteria": answers.get("acceptance_criteria", ""),
             "priority": answers.get("priority", "Medium"),
             "target_release": answers.get("target_release", ""),

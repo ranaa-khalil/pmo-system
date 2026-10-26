@@ -501,10 +501,11 @@ async interviewApply() {
             const d = this.interviewDraft || {};
             this.backlogForm = {
                 ...this.backlogForm,
+                title: d.title || this.backlogForm.title,
                 description: d.acceptance_criteria || this.backlogForm.description,
                 priority: d.priority || 'Medium',
                 target_release: d.target_release || '',
-                dependencies: d.dependencies || '',
+                dependencies: (d.dependencies && d.dependencies !== 'none') ? d.dependencies : '',
             };
             this.interviewSession = null;
             this.interviewDraft = null;

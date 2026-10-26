@@ -1,6 +1,6 @@
 """Pydantic schemas for backlog items."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class BacklogItemBrief(BaseModel):
@@ -24,6 +24,14 @@ class BacklogItemBase(BaseModel):
     target_release: str | None = None
     acceptance_criteria: str | None = None
     dependencies: str | None = None
+
+    @field_validator("kpi_id", mode="before")
+    @classmethod
+    def _empty_kpi_id_to_none(cls, v):
+        """Forms send the untouched KPI select as "" — treat it as unset."""
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
 
 
 class BacklogItemCreate(BacklogItemBase):

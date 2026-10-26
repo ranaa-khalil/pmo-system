@@ -250,12 +250,12 @@ def test_skip_all_produces_defaults_draft(interview_world, db, monkeypatch):
 # ── Feature mini-interview (follow-ups after a "new" verdict) ────────────
 
 def test_feature_flow_short_and_mapable(interview_world, db):
-    """The feature interview stays a mini-interview (4 questions) and its
-    answers map onto the existing backlog form fields."""
+    """The feature interview stays a mini-interview (5 questions incl. title) and
+    its answers map onto the existing backlog form fields."""
     spec = interview_service.FLOWS["feature"]
-    assert len(spec["questions"]) == 4
+    assert len(spec["questions"]) == 5
     ids = {q["id"] for q in spec["questions"]}
-    assert {"acceptance_criteria", "priority", "target_release"} <= ids
+    assert {"title", "acceptance_criteria", "priority", "target_release"} <= ids
 
 
 # ── Router endpoints ─────────────────────────────────────────────────────

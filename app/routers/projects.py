@@ -26,7 +26,7 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 def create_project(project: ProjectCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
     """Create a new project (super admin or account manager for this client)."""
     # Check quota before creating
-    from app.services.usage_service import check_quota, METRIC_PROJECTS
+    from app.services.usage_service import METRIC_PROJECTS, check_quota
     check_quota(db, current_tenant, METRIC_PROJECTS)
 
     client = db.query(Client).filter(Client.id == project.client_id, Client.tenant_id == current_tenant.id).first()

@@ -7,13 +7,12 @@ traceable to real records. Writes only ever happen via the proposal pattern:
 draft → human confirm → execute.
 """
 import json
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.models.ai_interaction import AiInteraction
 from app.models.activity_log import ActivityLog
+from app.models.ai_interaction import AiInteraction
 from app.models.approval import ApprovalRequest, ApprovalStep
 from app.models.backlog_item import BacklogItem
 from app.models.project import Project
@@ -422,7 +421,6 @@ def _execute_op(db: Session, user: User, tenant: Tenant, op: dict) -> dict:
     Authority ceiling: the proposal executes with the user's rights — an op the
     user couldn't do manually raises and lands in `failed`.
     """
-    from app.services.tenant import require_tenant_role
 
     kind = op.get("op")
 

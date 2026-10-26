@@ -1,11 +1,9 @@
 """AI router — LLM-powered suggestions for vision, features, and field filling."""
-import os
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.ai_interaction import AiInteraction
@@ -17,7 +15,6 @@ from app.models.user import User
 from app.models.user_persona import UserPersona
 from app.services.ai import (
     fill_field,
-    is_ai_configured,
     suggest_features,
     suggest_vision_improvements,
 )
@@ -25,9 +22,7 @@ from app.services.settings_service import (
     SETTING_AI_API_KEY,
     SETTING_AI_BASE_URL,
     SETTING_AI_MODEL,
-    SETTING_GITHUB_TOKEN,
     get_ai_config,
-    is_ai_configured_for_tenant,
     set_setting,
 )
 from app.services.tenant import get_current_tenant, require_tenant_role

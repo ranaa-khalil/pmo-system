@@ -17,6 +17,7 @@ from app.models.approval import ApprovalRequest, ApprovalStep
 from app.models.backlog_item import BacklogItem
 from app.models.project import Project
 from app.models.release import Release
+from app.models.risk import Risk
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.models.user_task import UserTask
@@ -28,7 +29,7 @@ AGING_THRESHOLD_DAYS = 7
 PROPOSAL_EXPIRY_DAYS = 7
 
 # v1 operation vocabulary — each maps to an existing service call
-PROPOSAL_OPS = ["advance_item", "assign_user", "create_risk_draft", "escalate_approval"]
+PROPOSAL_OPS = ["advance_item", "assign_user", "create_risk", "escalate_approval"]
 
 
 def _assigned_project_ids(db: Session, user: User, tenant: Tenant) -> list[int]:
@@ -355,7 +356,7 @@ def copilot_propose(
         scope = f"ONLY project id={project_id}" if project_id else "the user's assigned projects"
         system = (
             "You compile PMO write operations. Reply ONLY with JSON: "
-            '{"operations": [{"op": "advance_item"|"assign_user"|"create_risk_draft"|"escalate_approval", ...args}]}. '
+            '{"operations": [{"op": "advance_item"|"assign_user"|"create_risk"|"escalate_approval", ...args}]}. '
             f"Use only these four ops. Reference records by id from the data below — scope is {scope}, never reference records outside it. "
             "If the intent is out of scope, reply {\"operations\": []}."
         )
@@ -486,21 +487,34 @@ def _execute_op(db: Session, user: User, tenant: Tenant, op: dict) -> dict:
         db.commit()
         return {"item_id": item.id, "assigned_to": assignee.id}
 
-    if kind == "create_risk_draft":
-        # v1: a risk DRAFT is an activity-log entry + note, not a Risk row (Risk model is P3)
+    if kind == "create_risk":
+        # P3: a confirmed proposal writes a real Risk row (replaces P1 risk drafts)
         project_id = op.get("project_id")
         project = db.query(Project).filter(
             Project.id == project_id, Project.tenant_id == tenant.id,
         ).first() if project_id else None
         if not project:
             raise ValueError(f"Project {project_id} not found")
+        if project.project_manager_id != user.id and user.system_role != "super_admin":
+            raise PermissionError("Only the project manager can draft risks")
+        risk = Risk(
+            tenant_id=tenant.id, project_id=project.id,
+            release_id=op.get("release_id"),
+            title=(op.get("description") or "Risk (Copilot)")[:255],
+            description=op.get("detail"),
+            severity=op.get("severity") or "Medium",
+            probability=op.get("probability") or "Medium",
+            status="Open", owner_id=user.id, source="copilot",
+        )
+        db.add(risk)
+        db.flush()
         db.add(ActivityLog(
             tenant_id=tenant.id, user_id=user.id, project_id=project.id,
-            entity_type="risk_draft", entity_id=project.id, action="created",
-            summary=f"Risk draft (Copilot): {op.get('description', '')[:200]}",
+            entity_type="risk", entity_id=risk.id, action="created",
+            summary=f"Risk created via Copilot: {risk.title[:180]}",
         ))
         db.commit()
-        return {"project_id": project.id, "drafted": True}
+        return {"risk_id": risk.id, "score": risk.score, "title": risk.title}
 
     if kind == "escalate_approval":
         approval = db.query(ApprovalRequest).filter(

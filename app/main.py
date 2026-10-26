@@ -25,6 +25,7 @@ from app.routers import (
     github_sync,
     infrastructure,
     lifecycle,
+    risks,
     notifications,
     personas,
     planning,
@@ -101,6 +102,7 @@ app.include_router(personas.router)
 app.include_router(notifications.router)
 app.include_router(ai.router)
 app.include_router(lifecycle.router)
+app.include_router(risks.router)
 app.include_router(github_sync.router)
 app.include_router(api_keys.router)
 app.include_router(analytics.router)

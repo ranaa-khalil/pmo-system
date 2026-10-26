@@ -25,6 +25,7 @@ from app.models.project import Project
 from app.models.project_test_account import ProjectTestAccount
 from app.models.project_vision import ProjectVision
 from app.models.release import Release, ReleaseItem
+from app.models.risk import Risk
 from app.models.roadmap import Roadmap
 from app.models.role import Role
 from app.models.role_assignment import RoleAssignment
@@ -47,7 +48,7 @@ __all__ = [
     "FormTemplate", "FormInstance",
     "ApprovalRequest", "ApprovalStep",
     "Stakeholder",
-    "Release", "ReleaseItem",
+    "Release", "ReleaseItem", "Risk",
     "UserPersona", "ProjectTestAccount",
     "Notification", "NotificationPreference",
     "ActivityLog",

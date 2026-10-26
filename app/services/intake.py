@@ -108,6 +108,7 @@ def feature_verdict(
     feature_title: str,
     feature_description: str = "",
     llm_fn=None,
+    tenant_config: dict | None = None,
 ) -> dict:
     """Verdict for adding one feature: exists / fits an epic / new.
 
@@ -158,7 +159,7 @@ def feature_verdict(
         'Reply ONLY with JSON: {"verdict": "exists"|"fits_epic"|"new", "epic": str|null, '
         '"confidence": 0-1, "reasoning": str}'
     )
-    raw = llm_fn(INTAKE_SYSTEM_PROMPT, prompt, None, 500)
+    raw = llm_fn(INTAKE_SYSTEM_PROMPT, prompt, tenant_config, 500)
     parsed = _extract_json(raw)
 
     return {

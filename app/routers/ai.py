@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.models.ai_interaction import AiInteraction
 from app.models.backlog_item import BacklogItem
 from app.models.project import Project
 from app.models.project_vision import ProjectVision
@@ -295,3 +296,166 @@ def copilot_reject_endpoint(
     if "error" in result:
         raise HTTPException(result["status"], result["error"])
     return result
+
+
+# ── Conversational project intake ────────────────────────────────────────
+
+class IntakeStructureRequest(BaseModel):
+    kickoff: str
+    project_id: int | None = None
+    project_name: str | None = None
+
+
+class IntakeVerdictRequest(BaseModel):
+    title: str
+    description: str = ""
+    project_id: int | None = None
+
+
+class IntakeApplyRequest(BaseModel):
+    draft: dict | None = None
+    draft_id: int | None = None
+    project_id: int | None = None
+
+
+class IntakeCaptureRequest(BaseModel):
+    notes: str
+    source: str = "meeting"
+    project_id: int | None = None
+
+
+def _intake_project(db: Session, current_tenant: Tenant, project_id: int | None) -> Project | None:
+    """Resolve the intake target project inside the current tenant."""
+    if project_id is None:
+        return None
+    return db.query(Project).filter(
+        Project.id == project_id, Project.tenant_id == current_tenant.id,
+    ).first()
+
+
+@router.post("/intake/structure")
+def intake_structure_endpoint(
+    req: IntakeStructureRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Kickoff text → structured draft (epics, features, personas, KPIs). No writes."""
+    from app.services.plan_enforcement import require_feature
+    require_feature(current_tenant.plan, "ai_assistant")
+
+    if not req.kickoff or not req.kickoff.strip():
+        raise HTTPException(400, "Kickoff text is required.")
+
+    project = _intake_project(db, current_tenant, req.project_id)
+    tenant_config = get_ai_config(db, current_tenant.id)
+    if not tenant_config["api_key"]:
+        raise HTTPException(400, "AI is not configured. Set the API key in Settings.")
+
+    from app.services import intake as intake_service
+    try:
+        return intake_service.structure_intake(
+            db, current_user, current_tenant, req.kickoff,
+            project_name=req.project_name or (project.name if project else ""),
+            tenant_config=tenant_config,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(502, f"AI request failed: {str(e)}")
+
+
+@router.post("/intake/verdict")
+def intake_verdict_endpoint(
+    req: IntakeVerdictRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Feature verdict: exists / fits an epic / new — with sibling duplicate check."""
+    from app.services.plan_enforcement import require_feature
+    require_feature(current_tenant.plan, "ai_assistant")
+
+    project = _intake_project(db, current_tenant, req.project_id)
+    if not project:
+        raise HTTPException(400, "A valid project_id is required for a feature verdict.")
+    if not req.title or not req.title.strip():
+        raise HTTPException(400, "Feature title is required.")
+
+    tenant_config = get_ai_config(db, current_tenant.id)
+    if not tenant_config["api_key"]:
+        raise HTTPException(400, "AI is not configured. Set the API key in Settings.")
+
+    from app.services import intake as intake_service
+    try:
+        return intake_service.feature_verdict(
+            db, current_tenant, project, req.title.strip(), req.description,
+            tenant_config=tenant_config,
+        )
+    except Exception as e:
+        raise HTTPException(502, f"AI request failed: {str(e)}")
+
+
+@router.post("/intake/apply")
+def intake_apply_endpoint(
+    req: IntakeApplyRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """THE ONLY intake write path. Applies a reviewed draft to the project."""
+    project = _intake_project(db, current_tenant, req.project_id)
+    if not project:
+        raise HTTPException(400, "A valid project_id is required to apply intake.")
+
+    draft = req.draft
+    if draft is None and req.draft_id is not None:
+        row = db.query(AiInteraction).filter(
+            AiInteraction.id == req.draft_id,
+            AiInteraction.tenant_id == current_tenant.id,
+            AiInteraction.user_id == current_user.id,
+            AiInteraction.kind == "intake_draft",
+        ).first()
+        if not row:
+            raise HTTPException(409, "Draft not found in this tenant — it may belong to another tenant or user.")
+        try:
+            draft = json.loads(row.answer or "{}")
+        except ValueError:
+            raise HTTPException(409, "Draft content is invalid.")
+        draft["draft_id"] = row.id
+
+    if not draft or not isinstance(draft, dict):
+        raise HTTPException(400, "A draft (inline or by draft_id) is required.")
+
+    from app.services import intake as intake_service
+    try:
+        result = intake_service.apply_intake(db, current_user, current_tenant, project, draft)
+    except Exception as e:
+        raise HTTPException(502, f"Intake apply failed: {str(e)}")
+    return result
+
+
+@router.post("/intake/capture")
+def intake_capture_endpoint(
+    req: IntakeCaptureRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Capture ongoing notes (meetings, chats) as source-anchored records."""
+    if not req.notes or not req.notes.strip():
+        raise HTTPException(400, "Notes are required.")
+    project = _intake_project(db, current_tenant, req.project_id)
+
+    from app.services import intake as intake_service
+    interaction = intake_service.capture_ongoing(
+        db, current_user, current_tenant,
+        project or _fallback_project(db, current_tenant),
+        req.notes.strip(), source=req.source,
+    )
+    return {"capture_id": interaction.id, "status": "captured"}
+
+
+def _fallback_project(db: Session, tenant: Tenant) -> Project | None:
+    """First project in the tenant, used when no project_id is given for capture."""
+    return db.query(Project).filter(Project.tenant_id == tenant.id).order_by(Project.id).first()

@@ -12,6 +12,13 @@ copilotInput: '',
 copilotBusy: false,
 copilotPendingProposal: null,  // {proposal_id, operations}
 
+// ===== Daily briefing state =====
+briefingSummary: '',
+briefingVerdict: '',
+briefingRisks: [],
+briefingLoading: false,
+briefingGeneratedAt: null,
+
 
 // ===== Copilot methods =====
 toggleCopilot() {
@@ -133,5 +140,36 @@ copilotSubmit() {
     } else {
         this.copilotAsk(q);
     }
+},
+
+// ===== Daily briefing (exec verdict shape, computed from live data) =====
+async generateBriefing() {
+    if (this.briefingLoading) return;
+    this.briefingLoading = true;
+    try {
+        // Ask the copilot in briefing mode — grounded in the same data spine
+        const data = await this.api('POST', '/ai/copilot/chat', {
+            question: 'Give me my daily briefing: overall verdict (on track / needs attention), what changed, and what is at risk. Be brief.',
+            project_id: this.selectedProject ? this.selectedProject.id : null,
+        });
+        const answer = data.answer || '';
+        this.briefingSummary = answer.length > 220 ? answer.slice(0, 217) + '…' : answer;
+        // Derive verdict + risk chips from the answer text
+        const lower = answer.toLowerCase();
+        this.briefingVerdict = lower.includes('needs attention') || lower.includes('at risk')
+            ? 'needs attention' : 'on track';
+        this.briefingRisks = [];
+        const riskMatch = answer.match(/(?:risk|overdue|awaiting)[^.\n]*/gi) || [];
+        for (const r of riskMatch.slice(0, 3)) {
+            const chip = r.trim().slice(0, 48);
+            if (chip && !this.briefingRisks.includes(chip)) this.briefingRisks.push(chip);
+        }
+        this.briefingGeneratedAt = new Date().toISOString();
+    } catch (e) {
+        this.briefingSummary = e?.message || 'Briefing unavailable — check AI configuration in Settings.';
+        this.briefingVerdict = '';
+        this.briefingRisks = [];
+    }
+    this.briefingLoading = false;
 },
 };

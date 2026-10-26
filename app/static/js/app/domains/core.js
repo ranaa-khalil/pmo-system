@@ -265,6 +265,8 @@ async login() {
             await this.loadTenant();  // Load tenant branding for sidebar/logo
             this.applyBranding();  // Apply CSS variables + title
             await Promise.all([this.loadClients(), this.loadProjects(), this.loadDashboard(), this.loadRoles(), this.loadNotifications(), this.loadActivity(), this.checkAIStatus()]);
+            // Fire-and-forget: the daily briefing card generates after the shell loads
+            this.generateBriefing();
             setInterval(() => this.loadNotifications(), 30000);
         }
     } catch (e) {

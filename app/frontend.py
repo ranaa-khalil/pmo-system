@@ -3,7 +3,6 @@ PMO System — Frontend UI
 A clean, modern single-page app served by FastAPI.
 Uses Tailwind CSS + Alpine.js for reactivity.
 """
-import json as _json
 from datetime import datetime
 from pathlib import Path
 

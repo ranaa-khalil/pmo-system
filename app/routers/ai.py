@@ -647,3 +647,114 @@ def interview_apply_endpoint(
 def _fallback_project(db: Session, tenant: Tenant) -> Project | None:
     """First project in the tenant, used when no project_id is given for capture."""
     return db.query(Project).filter(Project.tenant_id == tenant.id).order_by(Project.id).first()
+
+
+# ── Self-proposing automation (P4.2) ─────────────────────────────────────
+
+@router.get("/automation/rules")
+def list_automation_rules(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """All automation rules for the tenant (mined + template + manual)."""
+    from app.services.plan_enforcement import require_feature
+    require_feature(current_tenant.plan, "ai_assistant")
+    from app.models.automation_rule import AutomationRule
+    rules = (
+        db.query(AutomationRule)
+        .filter(AutomationRule.tenant_id == current_tenant.id)
+        .order_by(AutomationRule.id.desc())
+        .all()
+    )
+    return {
+        "rules": [
+            {
+                "id": r.id, "name": r.name, "description": r.description,
+                "trigger": r.trigger, "conditions": r.conditions,
+                "actions": r.actions, "source": r.source,
+                "evidence": r.evidence, "enabled": r.enabled,
+                "fire_count": r.fire_count, "last_fired_at": r.last_fired_at,
+            }
+            for r in rules
+        ]
+    }
+
+
+@router.post("/automation/scan")
+def automation_scan(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Mine ActivityLog/approval/task patterns → propose rules + coverage scan."""
+    from app.services.plan_enforcement import require_feature
+    require_feature(current_tenant.plan, "ai_assistant")
+    from app.services.automation_mining import mine_rules, coverage_scan
+    proposed = mine_rules(db, current_tenant)
+    coverage = coverage_scan(db, current_tenant)
+    return {
+        "proposed": [
+            {
+                "id": r.id, "name": r.name, "trigger": r.trigger,
+                "conditions": r.conditions, "actions": r.actions,
+                "evidence": r.evidence, "enabled": r.enabled,
+            }
+            for r in proposed
+        ],
+        "coverage": coverage,
+    }
+
+
+@router.post("/automation/rules/{rule_id}/enable")
+def enable_automation_rule(
+    rule_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Human one-click enable — the only way a rule goes live."""
+    from app.services.plan_enforcement import require_feature
+    require_feature(current_tenant.plan, "ai_assistant")
+    from app.models.automation_rule import AutomationRule
+    rule = (
+        db.query(AutomationRule)
+        .filter(AutomationRule.id == rule_id, AutomationRule.tenant_id == current_tenant.id)
+        .first()
+    )
+    if not rule:
+        raise HTTPException(404, "Rule not found in this tenant.")
+    rule.enabled = True
+    from app.models.activity_log import ActivityLog
+    db.add(ActivityLog(
+        tenant_id=current_tenant.id, user_id=current_user.id,
+        entity_type="automation_rule", entity_id=rule.id, action="updated",
+        summary=f"Automation rule '{rule.name}' enabled by {current_user.name}",
+    ))
+    db.commit()
+    db.refresh(rule)
+    return {"id": rule.id, "enabled": rule.enabled}
+
+
+@router.delete("/automation/rules/{rule_id}")
+def delete_automation_rule(
+    rule_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Remove an automation rule."""
+    from app.services.plan_enforcement import require_feature
+    require_feature(current_tenant.plan, "ai_assistant")
+    from app.models.automation_rule import AutomationRule
+    rule = (
+        db.query(AutomationRule)
+        .filter(AutomationRule.id == rule_id, AutomationRule.tenant_id == current_tenant.id)
+        .first()
+    )
+    if not rule:
+        raise HTTPException(404, "Rule not found in this tenant.")
+    name = rule.name
+    db.delete(rule)
+    db.commit()
+    return {"deleted": name}

@@ -63,7 +63,7 @@ def build_context(
     UI can render source chips and the LLM can cite record ids.
     """
     tid = tenant.id
-    uid = user.id
+    uid = user.id if user is not None else None
 
     if project_id is not None:
         project = db.query(Project).filter(
@@ -76,7 +76,7 @@ def build_context(
             }
         proj_ids = [project.id]
     else:
-        proj_ids = _assigned_project_ids(db, user, tenant)
+        proj_ids = _assigned_project_ids(db, user, tenant) if user is not None else []
 
     if not proj_ids:
         return {
@@ -138,7 +138,7 @@ def build_context(
     # ── Overdue tasks assigned to this user ──────────────────────────────
     today = date.today()
     tasks = db.query(UserTask).filter(
-        UserTask.assigned_to == uid,
+        UserTask.assigned_to == uid if user is not None else None,
         UserTask.status == "Pending",
         UserTask.project_id.in_(proj_ids),
     ).all()

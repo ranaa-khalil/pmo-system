@@ -644,6 +644,22 @@
 
     <!-- Backlog tab -->
     <div x-show="projectTab==='backlog'" class="max-w-6xl">
+        <!-- P4: BRD coverage strip -->
+        <div x-show="brdCoverage" x-cloak class="surface rounded-xl border border-ink-200/60 px-4 py-3 mb-3 flex items-center gap-4 flex-wrap">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-ink-400">BRD Coverage</div>
+            <div class="flex items-center gap-4 text-[12px]">
+                <span class="text-ink-600"><span class="font-bold text-ink-900" x-text="brdCoverage?.summary?.total_items ?? '—'"></span> items</span>
+                <span class="text-ink-600"><span class="font-bold text-ink-900" x-text="brdCoverage?.summary?.total_epics ?? '—'"></span> epics</span>
+                <span class="text-ink-600" title="Items with no intake source marker"><span class="font-bold text-ink-900" x-text="brdCoverage?.summary?.untraced_items ?? '—'"></span> untraced</span>
+                <span class="text-ink-600" title="Epics promised in intake but with no backlog items"><span class="font-bold" :class="(brdCoverage?.summary?.requirement_gap_count || 0) > 0 ? 'text-amber-600' : 'text-ink-900'" x-text="brdCoverage?.summary?.requirement_gap_count ?? '—'"></span> requirement gaps</span>
+            </div>
+            <div class="flex items-center gap-1.5 ml-auto flex-wrap" x-show="(brdCoverage?.requirement_gaps || []).length">
+                <template x-for="g in (brdCoverage?.requirement_gaps || []).slice(0, 3)" :key="'gap-' + g.epic">
+                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/60" x-text="'⚠ ' + g.epic"></span>
+                </template>
+                <span x-show="(brdCoverage?.requirement_gaps || []).length > 3" class="text-[10px] text-ink-400" x-text="'+' + ((brdCoverage?.requirement_gaps || []).length - 3) + ' more'"></span>
+            </div>
+        </div>
         <!-- Export + AI buttons -->
         <div class="flex justify-end items-center gap-2 mb-2">
             <button @click="aiSuggestFeatures()" :disabled="aiLoading" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-600 hover:text-white hover:bg-brand-600 px-3 py-1.5 rounded-lg border border-brand-200 transition-all disabled:opacity-50">

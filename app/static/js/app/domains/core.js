@@ -385,7 +385,7 @@ navigate(route) {
     }
     if (route === 'dashboard') { setTimeout(() => this.renderCharts(), 150); this.refreshTaskSummary(); }
     if (route === 'tasks') { this.loadTasks(); }
-    if (route === 'settings') { this.loadTenant(); this.loadMembers(); this.loadIntegrations(); this.loadTenantLimits(); }
+    if (route === 'settings') { this.loadTenant(); this.loadMembers(); this.loadIntegrations(); this.loadTenantLimits(); this.loadAutomation(); this.loadLifecycle(); }
     if (route === 'admin-dashboard' || route === 'admin-tenants' || route === 'admin-plans') { this.loadAdminInsights(); this.loadAdminPlans(); }
 },
 

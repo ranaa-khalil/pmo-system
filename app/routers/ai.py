@@ -736,6 +736,36 @@ def enable_automation_rule(
     return {"id": rule.id, "enabled": rule.enabled}
 
 
+@router.post("/automation/rules/{rule_id}/disable")
+def disable_automation_rule(
+    rule_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Turn a rule off without deleting it (proposals/evidence survive)."""
+    from app.services.plan_enforcement import require_feature
+    require_feature(current_tenant.plan, "ai_assistant")
+    from app.models.automation_rule import AutomationRule
+    rule = (
+        db.query(AutomationRule)
+        .filter(AutomationRule.id == rule_id, AutomationRule.tenant_id == current_tenant.id)
+        .first()
+    )
+    if not rule:
+        raise HTTPException(404, "Rule not found in this tenant.")
+    rule.enabled = False
+    from app.models.activity_log import ActivityLog
+    db.add(ActivityLog(
+        tenant_id=current_tenant.id, user_id=current_user.id,
+        entity_type="automation_rule", entity_id=rule.id, action="updated",
+        summary=f"Automation rule '{rule.name}' disabled by {current_user.name}",
+    ))
+    db.commit()
+    db.refresh(rule)
+    return {"id": rule.id, "enabled": rule.enabled}
+
+
 @router.delete("/automation/rules/{rule_id}")
 def delete_automation_rule(
     rule_id: int,

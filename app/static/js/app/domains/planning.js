@@ -10,6 +10,7 @@ projectTab: 'overview',
 vision: null,
 kpis: [],
 roadmaps: [],
+brdCoverage: null,
 visionForm: { statement: '', strategic_objectives: '' },
 kpiForm: { name: '', target_value: '', current_value: '', unit: '', category: '', vision_objective: '' },
 roadmapForm: { title: '', start_date: '', end_date: '' },
@@ -279,7 +280,13 @@ async openProject(project) {
     this.route = 'project-detail';
     this.projectTab = 'overview';
     this.initEnvForm();
-    await Promise.all([this.loadVision(), this.loadKPIs(), this.loadRoadmaps(), this.loadBacklog(), this.loadForms(), this.loadApprovals(), this.loadRisks(), this.loadStakeholders(), this.loadReleases(), this.loadTraceability(), this.loadPersonas(), this.loadTestAccounts(), this.loadProjectHealth(project.id), this.loadGithubBoardConfig(project.id), this.loadGithubSyncStatus(project.id), this.loadInfrastructure()]);
+    await Promise.all([this.loadVision(), this.loadKPIs(), this.loadRoadmaps(), this.loadBacklog(), this.loadForms(), this.loadApprovals(), this.loadRisks(), this.loadStakeholders(), this.loadReleases(), this.loadTraceability(), this.loadPersonas(), this.loadTestAccounts(), this.loadProjectHealth(project.id), this.loadGithubBoardConfig(project.id), this.loadGithubSyncStatus(project.id), this.loadInfrastructure(), this.loadBrdCoverage(project.id)]);
+},
+
+async loadBrdCoverage(projectId) {
+    try {
+        this.brdCoverage = await this.api('GET', `/projects/${projectId}/brd-coverage`);
+    } catch { this.brdCoverage = null; }
 },
 
 backToProjects() {

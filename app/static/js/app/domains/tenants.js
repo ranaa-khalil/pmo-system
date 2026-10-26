@@ -11,6 +11,13 @@ inviteForm: { email: '', role: 'member' },
 integrations: {},
 integrationForm: { github_token: '', ai_api_key: '', ai_base_url: '', ai_model: '' },
 usageMetrics: [],
+// P4 automation + lifecycle state
+automationRules: [],
+automationScan: null,
+lifecycleTemplates: [],
+lifecycleTypes: [],
+lifecycleForm: { project_type: '', name: '', description: '', item_phases: '', release_stages: '', fields_text: '' },
+showLifecycleForm: false,
 
 
 // ===== Super Admin state =====
@@ -583,6 +590,99 @@ async deleteProject(project) {
 showToast(message, type = 'success') {
     this.toast = { show: true, message, type };
     setTimeout(() => this.toast.show = false, 3000);
+},
+
+// ===== P4 automation methods =====
+async loadAutomation() {
+    try {
+        const data = await this.api('GET', '/ai/automation/rules');
+        this.automationRules = data.rules || data || [];
+    } catch { this.automationRules = []; }
+},
+
+async runAutomationScan() {
+    try {
+        this.automationScan = await this.api('POST', '/ai/automation/scan', {});
+        this.automationScan.scanning = false;
+        await this.loadAutomation();
+        const n = (this.automationScan.proposals || []).length;
+        this.showToast(n ? `Scan found ${n} pattern${n === 1 ? '' : 's'} — review and enable` : 'Scan complete — no repeated patterns yet');
+    } catch (e) { this.showToast(e.message, 'error'); }
+},
+
+async enableRule(id) {
+    try {
+        await this.api('POST', `/ai/automation/rules/${id}/enable`, {});
+        await this.loadAutomation();
+        this.showToast('Rule enabled — it now runs on every scan', 'success');
+    } catch (e) { this.showToast(e.message, 'error'); }
+},
+
+async disableRule(id) {
+    try {
+        await this.api('POST', `/ai/automation/rules/${id}/disable`, {});
+        await this.loadAutomation();
+        this.showToast('Rule disabled', 'success');
+    } catch (e) { this.showToast(e.message, 'error'); }
+},
+
+async deleteRule(id) {
+    if (!confirm('Delete this automation rule?')) return;
+    try {
+        await this.api('DELETE', `/ai/automation/rules/${id}`);
+        await this.loadAutomation();
+        this.showToast('Rule deleted');
+    } catch (e) { this.showToast(e.message, 'error'); }
+},
+
+// ===== P4 lifecycle template builder methods =====
+async loadLifecycle() {
+    try {
+        const data = await this.api('GET', '/lifecycle/templates');
+        this.lifecycleTemplates = data.templates || [];
+        this.lifecycleTypes = await this.api('GET', '/lifecycle/types');
+    } catch { this.lifecycleTemplates = []; this.lifecycleTypes = []; }
+},
+
+async saveLifecycleTemplate() {
+    const f = this.lifecycleForm;
+    try {
+        await this.api('POST', '/lifecycle/templates', {
+            project_type: f.project_type,
+            name: f.name,
+            description: f.description || null,
+            item_phases: f.item_phases.split(',').map(s => s.trim()).filter(Boolean),
+            release_stages: f.release_stages.split(',').map(s => s.trim()).filter(Boolean),
+            gate_deliverables: {},
+            gate_roles: {},
+            fields: [],
+        });
+        this.showLifecycleForm = false;
+        this.lifecycleForm = { project_type: '', name: '', description: '', item_phases: '', release_stages: '', fields_text: '' };
+        await this.loadLifecycle();
+        this.showToast('Lifecycle template saved — new projects of this type use it', 'success');
+    } catch (e) { this.showToast(e.message, 'error'); }
+},
+
+async editLifecycleTemplate(t) {
+    this.lifecycleForm = {
+        project_type: t.project_type,
+        name: t.name,
+        description: t.description || '',
+        item_phases: (t.item_phases || []).join(', '),
+        release_stages: (t.release_stages || []).join(', '),
+        fields_text: '',
+    };
+    this.showLifecycleForm = true;
+},
+
+async deleteLifecycleTemplate(id) {
+    if (!confirm('Remove this template? The project type falls back to the built-in lifecycle.')) return;
+    try {
+        await this.api('DELETE', `/lifecycle/templates/${id}`);
+        await this.loadLifecycle();
+        this.showToast('Template removed — built-in lifecycle restored', 'success');
+    } catch (e) { this.showToast(e.message, 'error'); }
 },
 
 };

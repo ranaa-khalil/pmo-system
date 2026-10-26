@@ -337,6 +337,46 @@
                         <button @click="saveTenantBranding()" class="mt-4 text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Branding</button>
                     </div>
 
+                    <!-- P4: Automation Rules card -->
+                    <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                        <div class="flex items-center justify-between mb-1">
+                            <h3 class="text-[14px] font-semibold text-ink-800">Automation Rules</h3>
+                            <button @click="runAutomationScan()" class="text-[12px] font-medium text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-all">Scan for patterns</button>
+                        </div>
+                        <p class="text-[11px] text-ink-400 mb-4">The system learns from your approvals, tasks, and activity — proposed rules with evidence. A rule only runs once you enable it.</p>
+                        <template x-if="automationScan && (automationScan.proposals || []).length">
+                            <div class="bg-brand-50/60 border border-brand-100 rounded-xl p-3 mb-3">
+                                <div class="text-[11px] font-semibold text-brand-700 mb-2" x-text="'Proposed from your last scan (' + (automationScan.proposals || []).length + ')'"></div>
+                                <template x-for="p in (automationScan.proposals || [])" :key="'prop-' + p.id">
+                                    <div class="flex items-start gap-2 py-1.5 border-b border-brand-100/60 last:border-0">
+                                        <div class="flex-1 min-w-0">
+                                            <div class="text-[12px] font-medium text-ink-800 truncate" x-text="p.name"></div>
+                                            <div class="text-[10px] text-ink-400" x-text="(p.evidence && p.evidence.matches ? p.evidence.matches + ' occurrences' : 'pattern') + ' · trigger: ' + p.trigger"></div>
+                                        </div>
+                                        <button @click="enableRule(p.id)" class="text-[11px] font-medium text-white btn-primary px-2.5 py-1 rounded-lg whitespace-nowrap">Enable</button>
+                                        <button @click="deleteRule(p.id)" class="text-[11px] text-ink-400 hover:text-red-500 px-1">✕</button>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                        <div class="space-y-2">
+                            <template x-for="r in automationRules" :key="'rule-' + r.id">
+                                <div class="flex items-center gap-3 py-2 border-b border-ink-100 last:border-0">
+                                    <span class="w-2 h-2 rounded-full shrink-0" :class="r.enabled ? 'bg-emerald-500' : 'bg-ink-300'"></span>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-[12px] font-medium text-ink-800 truncate" x-text="r.name"></div>
+                                        <div class="text-[10px] text-ink-400 truncate" x-text="r.trigger + (r.fire_count ? ' · fired ' + r.fire_count + '×' : '')"></div>
+                                    </div>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full capitalize" :class="r.source === 'mined' ? 'bg-brand-50 text-brand-600' : 'bg-ink-100 text-ink-400'" x-text="r.source"></span>
+                                    <button x-show="!r.enabled" @click="enableRule(r.id)" class="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-2">Enable</button>
+                                    <button x-show="r.enabled" @click="disableRule(r.id)" class="text-[11px] text-ink-400 hover:text-ink-600 px-2">Disable</button>
+                                    <button @click="deleteRule(r.id)" class="text-[11px] text-ink-300 hover:text-red-500 px-1">✕</button>
+                                </div>
+                            </template>
+                        </div>
+                        <p x-show="!automationRules.length" class="text-[12px] text-ink-400 py-2">No rules yet — run a scan and the system proposes automations from real patterns.</p>
+                    </div>
+
                     <!-- Plan card (read-only — assigned by system admin) -->
                     <div class="surface rounded-2xl border border-ink-200/60 p-6">
                         <h3 class="text-[14px] font-semibold text-ink-800 mb-1">Subscription Plan</h3>
@@ -396,6 +436,52 @@
                             </div>
                         </div>
                         <button @click="saveIntegrations()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Integrations</button>
+                    </div>
+
+                    <!-- P4: Lifecycle Template Builder card -->
+                    <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                        <div class="flex items-center justify-between mb-1">
+                            <h3 class="text-[14px] font-semibold text-ink-800">Lifecycle Templates</h3>
+                            <button @click="showLifecycleForm = !showLifecycleForm" class="text-[12px] font-medium text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-all" x-text="showLifecycleForm ? 'Close' : '+ New Template'"></button>
+                        </div>
+                        <p class="text-[11px] text-ink-400 mb-4">Define your own methodology for edge project types — phases, stages, gates. Built-in lifecycles (Software, AI/CPMAI, Marketing, Operations) stay as fallback.</p>
+                        <!-- Builder form -->
+                        <div x-show="showLifecycleForm" x-cloak class="bg-ink-100/60 rounded-xl p-4 mb-4 border border-black/[0.04]">
+                            <div class="grid grid-cols-2 gap-3 mb-3">
+                                <div>
+                                    <label class="text-[11px] font-medium text-ink-500 block mb-1">Project type key</label>
+                                    <input x-model="lifecycleForm.project_type" class="input-premium text-[13px] rounded-[10px] px-3 py-2 w-full" placeholder="e.g. research, poc">
+                                </div>
+                                <div>
+                                    <label class="text-[11px] font-medium text-ink-500 block mb-1">Template name</label>
+                                    <input x-model="lifecycleForm.name" class="input-premium text-[13px] rounded-[10px] px-3 py-2 w-full" placeholder="e.g. Research Study">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="text-[11px] font-medium text-ink-500 block mb-1">Item phases (comma-separated, in order)</label>
+                                <input x-model="lifecycleForm.item_phases" class="input-premium text-[13px] rounded-[10px] px-3 py-2 w-full" placeholder="Proposal, Collection, Analysis, Writeup">
+                            </div>
+                            <div class="mb-3">
+                                <label class="text-[11px] font-medium text-ink-500 block mb-1">Release stages (comma-separated, in order)</label>
+                                <input x-model="lifecycleForm.release_stages" class="input-premium text-[13px] rounded-[10px] px-3 py-2 w-full" placeholder="Proposal, Fieldwork, Analysis, Publication">
+                            </div>
+                            <button @click="saveLifecycleTemplate()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Template</button>
+                        </div>
+                        <!-- Saved templates -->
+                        <div class="space-y-2">
+                            <template x-for="t in lifecycleTemplates" :key="'lt-' + t.id">
+                                <div class="flex items-center gap-3 py-2 border-b border-ink-100 last:border-0">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-[12px] font-medium text-ink-800 truncate" x-text="t.name"></div>
+                                        <div class="text-[10px] text-ink-400 truncate" x-text="'type: ' + t.project_type + ' · ' + (t.item_phases || []).length + ' phases'"></div>
+                                    </div>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 text-brand-600">Custom</span>
+                                    <button @click="editLifecycleTemplate(t)" class="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-2">Edit</button>
+                                    <button @click="deleteLifecycleTemplate(t.id)" class="text-[11px] text-ink-300 hover:text-red-500 px-1">✕</button>
+                                </div>
+                            </template>
+                        </div>
+                        <p x-show="!lifecycleTemplates.length" class="text-[12px] text-ink-400 py-2">No custom templates yet — new project types use the built-in Software lifecycle.</p>
                     </div>
                 </div>
 

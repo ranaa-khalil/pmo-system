@@ -36,6 +36,22 @@ def get_project_analytics(
     return project_analytics_summary(db, current_tenant.id, project_id)
 
 
+@router.get("/projects/{project_id}/brd-coverage")
+def get_brd_coverage(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """BRD depth (P4.3): requirements → epics → features traceability coverage."""
+    from fastapi import HTTPException
+    from app.services.brd import build_brd_coverage
+    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
+    if not project:
+        raise HTTPException(404, "Project not found")
+    return build_brd_coverage(db, current_tenant, project)
+
+
 @router.get("/projects/{project_id}/analytics/velocity")
 def get_velocity(
     project_id: int,

@@ -274,12 +274,15 @@ def summarize_context(ctx: dict, max_items: int = 40) -> str:
 CHAT_SYSTEM_PROMPT = (
     "You are the PMO Copilot — a project management assistant inside the PMO System. "
     "Answer only from the provided project data. Cite sources by record type and id "
-    "(e.g. 'Task 2', 'Approval #7', 'Item 5', 'Release 1') — never attach one record's "
+    "(e.g. 'Task 2', 'Approval 7', 'Item 5', 'Release 1') — never attach one record's "
     "age or status to a different record; every entry's facts belong to that entry alone. "
     "The system computes at-risk releases (overdue target or pending gate); never say a "
     "release was 'flagged' unless the data shows a flag. "
     "If the data doesn't contain the answer, say so plainly — never invent records. "
-    "Be concise and operational: the user is a PM who needs to act."
+    "Reply ONLY with a JSON object with EXACTLY these keys: "
+    '{"answer": "<your answer as concise markdown>", "sources": ["Task 2", "Approval 7"]}. '
+    "Never use schema.org JSON-LD (no @type), never add other keys, never wrap the JSON "
+    "in prose. Be concise and operational: the user is a PM who needs to act."
 )
 
 
@@ -287,6 +290,62 @@ def _call_llm(system_prompt: str, user_prompt: str, tenant_config: dict, max_tok
     """Thin wrapper so tests can monkeypatch copilot_service._call_llm."""
     from app.services.ai import _call_llm as _ai_call
     return _ai_call(system_prompt, user_prompt, max_tokens=max_tokens, json_mode=True, tenant_config=tenant_config)
+
+
+def _unwrap_chat_answer(raw: str, parsed: dict) -> tuple[str, list]:
+    """Extract (answer, sources) from a chat response, whatever shape the model used.
+
+    The model sometimes ignores the exact-keys instruction and returns schema.org
+    JSON-LD ({"@type": "Answer", "text": ...}), its own key names, or plain
+    markdown. Unwrap every observed shape so the drawer never renders raw JSON:
+      1. parsed["answer"] (the contract)
+      2. parsed["text"] / parsed["response"] / parsed["message"] (renamed answer)
+      3. schema.org JSON-LD: {"@type": "Answer", "text": ...} at any nesting
+      4. dict of sections (briefing-style: verdict/summary/risks...) → rendered
+      5. plain markdown string (no JSON at all)
+    """
+    def _find_answer(node, depth: int = 0) -> str:
+        if depth > 4 or not isinstance(node, dict):
+            return ""
+        for key in ("answer", "text", "response", "message", "summary"):
+            value = node.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        for key in ("mainEntity", "acceptedAnswer", "object", "item"):
+            found = _find_answer(node.get(key), depth + 1)
+            if found:
+                return found
+        for value in node.values():
+            if isinstance(value, dict):
+                found = _find_answer(value, depth + 1)
+                if found:
+                    return found
+        return ""
+
+    # 1/2/3: the contract key, renamed keys, or nested JSON-LD
+    if isinstance(parsed, dict) and parsed:
+        answer = _find_answer(parsed)
+        if answer:
+            sources = parsed.get("sources")
+            return answer, sources if isinstance(sources, list) else []
+
+        # 4: section-shaped dict with no answer key — render as readable text
+        sections = []
+        for key, value in parsed.items():
+            if key.startswith("@"):
+                continue  # JSON-LD metadata (@context, @type...)
+            label = key.replace("_", " ").title()
+            if isinstance(value, list):
+                items = "\n".join(f"- {item}" for item in value)
+                sections.append(f"**{label}**\n{items}" if items else "")
+            elif value is not None and str(value).strip():
+                sections.append(f"**{label}**\n{value}")
+        rendered = "\n\n".join(s for s in sections if s)
+        if rendered:
+            return rendered, []
+
+    # 5: not JSON, or JSON that yielded nothing — the raw text itself
+    return raw.strip(), []
 
 
 def copilot_chat(
@@ -316,8 +375,7 @@ def copilot_chat(
 
     raw = _call_llm(CHAT_SYSTEM_PROMPT, user_prompt, tenant_config, max_tokens=900)
     parsed = _extract_json(raw) or {}
-    answer = parsed.get("answer") or str(raw)
-    sources = parsed.get("sources") or []
+    answer, sources = _unwrap_chat_answer(raw, parsed)
 
     interaction = AiInteraction(
         tenant_id=tenant.id,

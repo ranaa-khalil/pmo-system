@@ -140,3 +140,37 @@ def test_approval_entry_never_borrows_task_age(db, merge_world):
     )
     assert "days overdue" not in approval_line
     assert "pending for" in approval_line  # its own age, labeled
+
+def test_unwrap_chat_answer_shapes():
+    """The drawer never renders raw JSON — every observed LLM shape unwraps."""
+    from app.services.copilot import _unwrap_chat_answer
+
+    # 1. The contract shape
+    answer, sources = _unwrap_chat_answer(
+        '{"answer": "Overdue: Task 2", "sources": ["Task 2"]}',
+        {"answer": "Overdue: Task 2", "sources": ["Task 2"]},
+    )
+    assert answer == "Overdue: Task 2" and sources == ["Task 2"]
+
+    # 2. Schema.org JSON-LD (the user-reported bug)
+    raw = '{"@type": "Answer", "text": "You have 3 overdue tasks:\\n1. Task 2"}'
+    answer, _ = _unwrap_chat_answer(raw, {"@type": "Answer", "text": "You have 3 overdue tasks:\n1. Task 2"})
+    assert answer == "You have 3 overdue tasks:\n1. Task 2"
+    assert "@type" not in answer
+
+    # 3. Renamed keys (response/message)
+    answer, _ = _unwrap_chat_answer('{"response": "hi"}', {"response": "hi"})
+    assert answer == "hi"
+
+    # 4. Section-shaped dict (briefing style) renders readable text
+    answer, _ = _unwrap_chat_answer(
+        '{"verdict": "needs_attention", "risks": ["gate stalled"]}',
+        {"verdict": "needs_attention", "risks": ["gate stalled"]},
+    )
+    assert "Verdict" in answer and "needs_attention" in answer
+    assert "- gate stalled" in answer
+    assert "{" not in answer
+
+    # 5. Plain markdown (no JSON) passes through
+    answer, _ = _unwrap_chat_answer("Plain markdown answer", {})
+    assert answer == "Plain markdown answer"

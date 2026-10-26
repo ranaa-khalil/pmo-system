@@ -30,6 +30,37 @@ briefingGeneratedAt: null,
 
 
 // ===== Copilot methods =====
+// Structured chat answer rendering: escape HTML, then convert the copilot's
+// concise markdown (bold, bullets, numbered lists, line breaks) to HTML.
+renderChatMarkdown(text) {
+    if (!text) return '';
+    const esc = String(text)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const lines = esc.split(/\r?\n/);
+    let html = '', inList = false, listType = 'ul';
+    const closeList = () => { if (inList) { html += `</${listType}>`; inList = false; } };
+    for (const raw of lines) {
+        const line = raw.trimEnd();
+        const bullet = line.match(/^\s*[-*]\s+(.*)$/);
+        const numbered = line.match(/^\s*\d+\.\s+(.*)$/);
+        if (bullet) {
+            if (!inList || listType !== 'ul') { closeList(); html += '<ul>'; inList = true; listType = 'ul'; }
+            html += `<li>${bullet[1]}</li>`;
+        } else if (numbered) {
+            if (!inList || listType !== 'ol') { closeList(); html += '<ol>'; inList = true; listType = 'ol'; }
+            html += `<li>${numbered[1]}</li>`;
+        } else if (line.trim() === '') {
+            closeList();
+        } else {
+            closeList();
+            html += `<p>${line}</p>`;
+        }
+    }
+    closeList();
+    // Inline markdown: **bold** last (after list parsing)
+    return html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+},
+
 toggleCopilot() {
     this.copilotOpen = !this.copilotOpen;
     if (this.copilotOpen && this.copilotMessages.length === 0) {

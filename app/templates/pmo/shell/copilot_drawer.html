@@ -162,7 +162,13 @@
                      :class="msg.role === 'user'
                          ? 'bg-brand-600 text-white rounded-br-md'
                          : (msg.error ? 'bg-rose-50 text-rose-700 border border-rose-200 rounded-bl-md' : 'bg-ink-100/80 text-ink-700 rounded-bl-md')">
-                    <span x-text="msg.text"></span>
+                    <!-- Structured answer: markdown rendered (bold, bullets, line breaks) -->
+                    <template x-if="msg.role === 'user'">
+                        <span x-text="msg.text"></span>
+                    </template>
+                    <template x-if="msg.role !== 'user'">
+                        <div class="md-content" x-html="renderChatMarkdown(msg.text)"></div>
+                    </template>
 
                     <!-- Source chips (grounding rule: every answer cites records) -->
                     <template x-if="msg.sources && msg.sources.length > 0">

@@ -138,9 +138,45 @@ LIFECYCLE_TEMPLATES = {
 DEFAULT_TYPE = "software"
 
 
-def template_for(project_type: str | None) -> dict:
-    """Template for a project type; None/unknown defaults to software."""
-    return LIFECYCLE_TEMPLATES.get((project_type or "").lower(), LIFECYCLE_TEMPLATES[DEFAULT_TYPE])
+def template_for(project_type: str | None, tenant_id: int | None = None, db=None) -> dict:
+    """Template for a project type; None/unknown defaults to software.
+
+    P4.4 methodology depth: a tenant-defined template for the project_type
+    key overrides the built-in. Built-ins stay verbatim otherwise.
+    Pass db= to reuse the caller's session (tests, request handlers);
+    otherwise a short-lived SessionLocal is used.
+    """
+    key = (project_type or "").lower()
+    if tenant_id:
+        from app.models.lifecycle_template import TenantLifecycleTemplate
+        own_session = db is None
+        if own_session:
+            from app.database import SessionLocal
+            db = SessionLocal()
+        try:
+            row = (
+                db.query(TenantLifecycleTemplate)
+                .filter(
+                    TenantLifecycleTemplate.tenant_id == tenant_id,
+                    TenantLifecycleTemplate.project_type == key,
+                )
+                .first()
+            )
+            if row:
+                return {
+                    "name": row.name,
+                    "description": row.description,
+                    "item_phases": row.item_phases,
+                    "release_stages": row.release_stages,
+                    "gate_deliverables": row.gate_deliverables,
+                    "gate_roles": row.gate_roles,
+                    "fields": row.fields or [],
+                    "custom": True,
+                }
+        finally:
+            if own_session:
+                db.close()
+    return LIFECYCLE_TEMPLATES.get(key, LIFECYCLE_TEMPLATES[DEFAULT_TYPE])
 
 
 def item_phases(project_type: str | None) -> list[str]:

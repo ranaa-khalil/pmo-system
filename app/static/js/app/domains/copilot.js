@@ -186,27 +186,54 @@ copilotSubmit() {
 },
 
 // ===== Daily briefing (exec verdict shape, computed from live data) =====
+// Parse the copilot's structured briefing answer into sections:
+// "**Verdict: ...**", "**Overdue tasks (3):**\n- item", "**At-risk releases (2):**"
+// — no regex-on-prose chips, no truncation.
+parseBriefing(answer) {
+    const text = String(answer || '').trim();
+    const sections = {};   // lowercase section title → [items] or string
+    let current = null;
+    for (const raw of text.split(/\r?\n/)) {
+        const line = raw.trim();
+        if (!line) continue;
+        const header = line.match(/^\*\*(.+?):?\*\*\s*—?\s*(.*)$/);
+        if (header) {
+            const title = header[1].replace(/:$/, '').trim().toLowerCase();
+            const rest = header[2].trim();
+            sections[title] = rest ? [rest] : [];
+            current = title;
+            continue;
+        }
+        if (current) {
+            const bullet = line.match(/^[-*]\s+(.*)$/) || line.match(/^\d+\.\s+(.*)$/);
+            if (bullet) sections[current].push(bullet[1]);
+            else if (Array.isArray(sections[current]) && sections[current].length === 0) sections[current] = [line];
+            else sections[current] = (sections[current] || []) ;
+        }
+    }
+    return { text, sections };
+},
+
 async generateBriefing() {
     if (this.briefingLoading) return;
     this.briefingLoading = true;
     try {
         // Ask the copilot in briefing mode — grounded in the same data spine
         const data = await this.api('POST', '/ai/copilot/chat', {
-            question: 'Give me my daily briefing: overall verdict (on track / needs attention), what changed, and what is at risk. Be brief.',
+            question: 'Give me my daily briefing: overall verdict (on track / needs attention), overdue tasks, pending gate approvals, and at-risk releases. Be brief.',
             project_id: this.selectedProject ? this.selectedProject.id : null,
         });
-        const answer = data.answer || '';
-        this.briefingSummary = answer.length > 220 ? answer.slice(0, 217) + '…' : answer;
-        // Derive verdict + risk chips from the answer text
-        const lower = answer.toLowerCase();
-        this.briefingVerdict = lower.includes('needs attention') || lower.includes('at risk')
-            ? 'needs attention' : 'on track';
-        this.briefingRisks = [];
-        const riskMatch = answer.match(/(?:risk|overdue|awaiting)[^.\n]*/gi) || [];
-        for (const r of riskMatch.slice(0, 3)) {
-            const chip = r.trim().slice(0, 48);
-            if (chip && !this.briefingRisks.includes(chip)) this.briefingRisks.push(chip);
-        }
+        const { text, sections } = this.parseBriefing(data.answer || '');
+        // Full answer, never truncated — the card renders it as markdown
+        this.briefingSummary = text;
+        // Verdict: from the parsed Verdict section, not string sniffing
+        const verdictRaw = (sections['verdict'] || [])[0] || '';
+        this.briefingVerdict = /needs attention|at risk/i.test(verdictRaw) ? 'needs attention' : 'on track';
+        // Risk chips: the bullet items of the at-risk section (real items, not regex fragments)
+        const riskItems = sections['at-risk releases'] || sections['risks'] || sections['at risk'] || [];
+        this.briefingRisks = riskItems
+            .map(r => String(r).replace(/\*\*/g, '').split(/[:—-]/)[0].trim())
+            .filter(Boolean).slice(0, 3);
         this.briefingGeneratedAt = new Date().toISOString();
     } catch (e) {
         this.briefingSummary = e?.message || 'Briefing unavailable — check AI configuration in Settings.';

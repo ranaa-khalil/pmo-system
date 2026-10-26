@@ -79,7 +79,8 @@
                                     <h2 class="text-[14px] font-semibold text-ink-800">Your daily briefing</h2>
                                     <span class="px-2 py-0.5 rounded-full bg-brand-100 text-brand-700 text-[9px] font-bold uppercase tracking-wider">AI</span>
                                 </div>
-                                <p class="text-[12px] text-ink-500 mt-1" x-text="briefingSummary || 'Generating your briefing…'"></p>
+                                <p class="text-[12px] text-ink-500 mt-1 leading-relaxed md-content" x-html="briefingSummary ? renderChatMarkdown(briefingSummary) : ''" x-show="briefingSummary"></p>
+                                <p class="text-[12px] text-ink-500 mt-1" x-show="!briefingSummary" x-text="'Generating your briefing…'"></p>
                                 <!-- Briefing chips -->
                                 <div class="flex flex-wrap gap-1.5 mt-2" x-show="briefingVerdict">
                                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"

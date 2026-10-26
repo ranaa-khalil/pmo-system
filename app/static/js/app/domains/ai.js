@@ -29,6 +29,13 @@ async aiSuggestVision() {
         this.showToast('AI is not configured. Set API key in Settings.', 'error');
         return;
     }
+    // Fall back to the first visible project when none is open — the button is
+    // reachable from the dashboard, where selectedProject may be null.
+    const project = this.selectedProject || this.projects[0];
+    if (!project) {
+        this.showToast('Open a project first — AI analysis needs a project.', 'error');
+        return;
+    }
     this.aiLoading = true;
     this.aiModalType = 'vision';
     this.aiModalTitle = '✨ AI Vision Analysis';
@@ -36,7 +43,7 @@ async aiSuggestVision() {
     this.aiModalContent = null;
     try {
         this.aiModalContent = await this.api('POST', '/ai/suggest-vision', {
-            project_id: this.selectedProject.id
+            project_id: project.id
         });
     } catch (e) {
         this.aiModalContent = { error: e?.message || 'Failed to get AI suggestion' };
@@ -56,8 +63,11 @@ async aiSuggestFeatures() {
     this.aiModalContent = null;
     this.aiSuggestionStatus = {};
     try {
+        // Same null-project guard as aiSuggestVision
+        const project = this.selectedProject || this.projects[0];
+        if (!project) throw new Error('Open a project first — AI suggestions need a project.');
         this.aiModalContent = await this.api('POST', '/ai/suggest-features', {
-            project_id: this.selectedProject.id
+            project_id: project.id
         });
         // Initialize all as pending
         const epics = this.aiModalContent.suggested_epics || [];

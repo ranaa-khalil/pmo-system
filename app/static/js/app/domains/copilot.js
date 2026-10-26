@@ -11,6 +11,15 @@ copilotMessages: [],        // [{role: 'user'|'assistant', text, sources, propos
 copilotInput: '',
 copilotBusy: false,
 copilotPendingProposal: null,  // {proposal_id, operations}
+copilotTab: 'chat',         // 'chat' | 'intake'
+
+// ===== Intake state =====
+intakeKickoff: '',
+intakeProjectType: 'software',
+intakeBusy: false,
+intakeDraft: null,          // {summary, epics, personas, kpis, assumptions, draft_id}
+intakeApplying: false,
+intakeResult: null,         // {features_created, personas_created, kpis_created}
 
 // ===== Daily briefing state =====
 briefingSummary: '',
@@ -171,5 +180,44 @@ async generateBriefing() {
         this.briefingRisks = [];
     }
     this.briefingLoading = false;
+},
+
+// ===== Conversational intake (structure → review → Apply) =====
+async intakeStructure() {
+    const kickoff = (this.intakeKickoff || '').trim();
+    if (!kickoff || this.intakeBusy) return;
+    this.intakeBusy = true;
+    this.intakeDraft = null;
+    this.intakeResult = null;
+    try {
+        const data = await this.api('POST', '/ai/intake/structure', {
+            kickoff,
+            project_id: this.selectedProject ? this.selectedProject.id : null,
+            project_name: this.selectedProject ? this.selectedProject.name : '',
+        });
+        this.intakeDraft = data;
+    } catch (e) {
+        this.showToast(e?.message || 'Intake structuring failed.', 'error');
+    }
+    this.intakeBusy = false;
+},
+
+async intakeApply() {
+    if (!this.intakeDraft || this.intakeApplying) return;
+    this.intakeApplying = true;
+    try {
+        const data = await this.api('POST', '/ai/intake/apply', {
+            draft: this.intakeDraft,
+            project_id: this.selectedProject ? this.selectedProject.id : null,
+        });
+        this.intakeResult = data;
+        this.showToast(`Intake applied: ${data.features_created} features, ${data.personas_created} personas, ${data.kpis_created} KPIs.`, 'success');
+        // Refresh backlog + releases so the created records are visible
+        this.loadBacklog();
+        this.loadReleases();
+    } catch (e) {
+        this.showToast(e?.message || 'Intake apply failed.', 'error');
+    }
+    this.intakeApplying = false;
 },
 };

@@ -22,13 +22,132 @@
                 <div class="text-[10px] text-white/70 leading-tight">Grounded in your project data</div>
             </div>
         </div>
-        <button @click="copilotOpen = false" class="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
-            <svg class="w-4 h-4 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-        </button>
+        <div class="flex items-center gap-2">
+            <!-- Tabs: Chat | Intake -->
+            <div class="flex items-center gap-1 bg-white/10 rounded-lg p-0.5">
+                <button @click="copilotTab = 'chat'"
+                        class="px-2.5 py-1 rounded-md text-[10.5px] font-semibold transition-colors"
+                        :class="copilotTab === 'chat' ? 'bg-white text-brand-700' : 'text-white/70 hover:text-white'">Chat</button>
+                <button @click="copilotTab = 'intake'"
+                        class="px-2.5 py-1 rounded-md text-[10.5px] font-semibold transition-colors"
+                        :class="copilotTab === 'intake' ? 'bg-white text-brand-700' : 'text-white/70 hover:text-white'">Intake</button>
+            </div>
+            <button @click="copilotOpen = false" class="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
+                <svg class="w-4 h-4 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
     </div>
 
+    <!-- ═══ INTAKE TAB: conversational project initiation ═══ -->
+    <div x-show="copilotTab === 'intake'" x-cloak class="flex-1 flex flex-col overflow-hidden">
+        <div class="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+            <!-- Kickoff input -->
+            <template x-if="!intakeDraft && !intakeResult">
+                <div class="space-y-3">
+                    <div class="bg-ink-100/80 rounded-2xl rounded-bl-md px-3.5 py-2.5 text-[12.5px] text-ink-700 leading-relaxed">
+                        Paste your kickoff notes — a paragraph, meeting notes, or a doc. I'll structure them into epics, features, personas, and KPIs. You review, edit, and Apply — nothing is created until you confirm.
+                    </div>
+                    <textarea x-model="intakeKickoff" rows="7"
+                              placeholder="We are building a cloud platform for PNU to manage student services. Students log in with SSO and browse available courses. Faculty members approve registrations and publish grades…"
+                              class="w-full px-3.5 py-2.5 rounded-xl border border-ink-200 text-[12.5px] focus:ring-2 focus:ring-brand-400 focus:border-brand-400 outline-none transition-all bg-white resize-none"></textarea>
+                    <button @click="intakeStructure()" :disabled="intakeBusy || !intakeKickoff.trim()"
+                            class="w-full px-4 py-2.5 rounded-xl bg-brand-600 text-white text-[12.5px] font-semibold hover:shadow-md transition-shadow disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" :class="intakeBusy ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path x-show="!intakeBusy" stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                            <circle x-show="intakeBusy" cx="12" cy="12" r="9" stroke-dasharray="40" stroke-dashoffset="18"/>
+                        </svg>
+                        <span x-text="intakeBusy ? 'Structuring…' : 'Structure kickoff'"></span>
+                    </button>
+                </div>
+            </template>
+
+            <!-- Structured draft (review before Apply) -->
+            <template x-if="intakeDraft && !intakeResult">
+                <div class="space-y-3">
+                    <div class="surface rounded-xl border border-ink-200/60 p-3.5">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[9px] font-bold uppercase tracking-wider">Draft</span>
+                            <span class="text-[10px] text-ink-400">review before Apply</span>
+                        </div>
+                        <p class="text-[12.5px] font-semibold text-ink-800" x-text="intakeDraft.summary"></p>
+                        <!-- Epics & features -->
+                        <div class="mt-3 space-y-2.5" x-show="intakeDraft.epics && intakeDraft.epics.length">
+                            <template x-for="(epic, ei) in intakeDraft.epics" :key="ei">
+                                <div class="border-l-2 border-brand-300 pl-2.5">
+                                    <div class="text-[11.5px] font-bold text-ink-700" x-text="epic.name"></div>
+                                    <ul class="mt-1 space-y-0.5">
+                                        <template x-for="(feat, fi) in epic.features" :key="fi">
+                                            <li class="text-[11.5px] text-ink-500 flex items-start gap-1.5">
+                                                <span class="text-brand-400 mt-0.5">•</span>
+                                                <span><span class="text-ink-700 font-medium" x-text="feat.title"></span> — <span x-text="feat.description"></span></span>
+                                            </li>
+                                        </template>
+                                    </ul>
+                                </div>
+                            </template>
+                        </div>
+                        <!-- Personas -->
+                        <div class="mt-3" x-show="intakeDraft.personas && intakeDraft.personas.length">
+                            <div class="text-[10px] font-bold text-ink-400 uppercase tracking-wider mb-1">Personas</div>
+                            <div class="flex flex-wrap gap-1.5">
+                                <template x-for="(p, pi) in intakeDraft.personas" :key="pi">
+                                    <span class="px-2 py-0.5 rounded-full bg-ink-100 border border-ink-200 text-[10.5px] font-medium text-ink-600" x-text="p.name"></span>
+                                </template>
+                            </div>
+                        </div>
+                        <!-- KPIs -->
+                        <div class="mt-3" x-show="intakeDraft.kpis && intakeDraft.kpis.length">
+                            <div class="text-[10px] font-bold text-ink-400 uppercase tracking-wider mb-1">KPIs</div>
+                            <div class="space-y-0.5">
+                                <template x-for="(k, ki) in intakeDraft.kpis" :key="ki">
+                                    <div class="text-[11.5px] text-ink-600"><span class="font-medium text-ink-700" x-text="k.name"></span> — target <span x-text="k.target"></span></div>
+                                </template>
+                            </div>
+                        </div>
+                        <!-- Assumptions -->
+                        <div class="mt-3 bg-amber-50/70 border border-amber-100 rounded-lg p-2.5" x-show="intakeDraft.assumptions && intakeDraft.assumptions.length">
+                            <div class="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">Assumptions</div>
+                            <template x-for="(a, ai) in intakeDraft.assumptions" :key="ai">
+                                <div class="text-[11px] text-amber-700" x-text="'· ' + a"></div>
+                            </template>
+                        </div>
+                    </div>
+                    <!-- Apply bar (the only write) -->
+                    <div class="flex items-center gap-2">
+                        <button @click="intakeDraft = null"
+                                class="flex-1 px-3 py-2 rounded-xl text-[12px] font-semibold text-ink-500 hover:bg-ink-100 transition-colors">Discard</button>
+                        <button @click="intakeApply()" :disabled="intakeApplying"
+                                class="flex-1 px-3 py-2 rounded-xl bg-emerald-600 text-white text-[12px] font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                            <span x-text="intakeApplying ? 'Applying…' : 'Apply intake'"></span>
+                        </button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Applied result -->
+            <template x-if="intakeResult">
+                <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 space-y-2">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                        <span class="text-[13px] font-bold text-emerald-800">Intake applied</span>
+                    </div>
+                    <div class="text-[12px] text-emerald-700 space-y-0.5">
+                        <div x-text="`${intakeResult.features_created} features created${intakeResult.features_skipped ? ' · ' + intakeResult.features_skipped + ' duplicates skipped' : ''}`"></div>
+                        <div x-text="`${intakeResult.personas_created} personas · ${intakeResult.kpis_created} KPIs`"></div>
+                    </div>
+                    <div class="text-[10.5px] text-emerald-600">Every record carries its intake source. Review them in Backlog and Releases.</div>
+                    <button @click="intakeKickoff = ''; intakeDraft = null; intakeResult = null"
+                            class="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 underline">Structure another kickoff</button>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- ═══ CHAT TAB ═══ -->
+    <div x-show="copilotTab === 'chat'" x-cloak class="flex-1 flex flex-col overflow-hidden">
     <!-- Messages -->
     <div id="copilot-messages" class="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         <template x-for="(msg, idx) in copilotMessages" :key="idx">
@@ -121,6 +240,7 @@
             </button>
         </form>
     </div>
+    </div><!-- /chat tab -->
 </div>
 
 <!-- Copilot launcher button (bottom-right, above content) -->

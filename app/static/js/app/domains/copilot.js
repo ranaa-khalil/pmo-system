@@ -20,6 +20,7 @@ intakeBusy: false,
 intakeDraft: null,          // {summary, epics, personas, kpis, assumptions, draft_id}
 intakeApplying: false,
 intakeResult: null,         // {features_created, personas_created, kpis_created}
+backlogVerdict: null,       // feature verdict chip: {verdict, epic, confidence, reasoning, sibling_duplicates}
 
 // ===== Daily briefing state =====
 briefingSummary: '',
@@ -257,6 +258,39 @@ async generateBriefing() {
 },
 
 // ===== Conversational intake (structure → review → Apply) =====
+// Open the copilot intake tab from a core flow (new project / backlog).
+openCopilotIntake() {
+    this.copilotOpen = true;
+    this.copilotTab = 'intake';
+},
+
+// Feature verdict (exists / fits an epic / new) — debounced fetch as the PM
+// types the title; the chip renders above the form and fits_epic pre-fills
+// the epic selector. Manual form is never gated: saving stays possible.
+async checkBacklogVerdict() {
+    const title = (this.backlogForm?.title || '').trim();
+    if (title.length <= 2 || !this.selectedProject) { this.backlogVerdict = null; return; }
+    clearTimeout(this._verdictTimer);
+    this._verdictTimer = setTimeout(async () => {
+        try {
+            const data = await this.api('POST', '/ai/intake/verdict', {
+                title,
+                description: this.backlogForm.description || '',
+                project_id: this.selectedProject.id,
+            });
+            // Ignore stale responses (title changed while the request ran)
+            if ((this.backlogForm?.title || '').trim() !== title) return;
+            this.backlogVerdict = data;
+            // fits_epic → pre-fill the epic selector (PM can adjust)
+            if (data.verdict === 'fits_epic' && data.epic && !this.backlogForm.epic) {
+                this.backlogForm.epic = data.epic;
+            }
+        } catch (e) {
+            this.backlogVerdict = null;  // verdict is assistive only — never blocks
+        }
+    }, 900);
+},
+
 async intakeStructure() {
     const kickoff = (this.intakeKickoff || '').trim();
     if (!kickoff || this.intakeBusy) return;

@@ -664,6 +664,10 @@
         </div>
         <!-- Form toggle button -->
         <div class="flex justify-end mb-3">
+            <button @click="openCopilotIntake()" class="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-700 border border-ink-200 bg-white px-4 py-2.5 rounded-xl hover:border-brand-300 hover:text-brand-700 transition-all mr-2">
+                <svg class="w-4 h-4 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                Structure with Copilot
+            </button>
             <button @click="showBacklogForm = !showBacklogForm" class="inline-flex items-center gap-1.5 text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-all"
                     x-text="showBacklogForm ? 'Close' : '+ Add Backlog Item'"></button>
         </div>
@@ -695,8 +699,30 @@
             <!-- Feature / Story form -->
             <template x-if="backlogFormMode === 'feature'">
                 <div class="space-y-3">
+                    <!-- Copilot verdict chip: exists / fits an epic / new — checked when title is filled -->
+                    <div x-show="backlogVerdict && backlogForm.title.trim().length > 2" x-cloak
+                         class="rounded-xl border px-3.5 py-2.5 flex items-start gap-2.5"
+                         :class="backlogVerdict.verdict === 'exists' ? 'border-amber-300 bg-amber-50/70'
+                               : backlogVerdict.verdict === 'fits_epic' ? 'border-violet-200 bg-violet-50/50'
+                               : 'border-emerald-200 bg-emerald-50/50'">
+                        <svg class="w-4 h-4 mt-0.5 shrink-0" :class="backlogVerdict.verdict === 'exists' ? 'text-amber-500' : backlogVerdict.verdict === 'fits_epic' ? 'text-violet-600' : 'text-emerald-500'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="text-[9px] font-bold uppercase tracking-wider" :class="backlogVerdict.verdict === 'exists' ? 'text-amber-600' : backlogVerdict.verdict === 'fits_epic' ? 'text-violet-700' : 'text-emerald-600'">Copilot</span>
+                                <span class="text-[12px] font-semibold text-ink-800" x-text="backlogVerdict.verdict === 'exists' ? 'Already exists — ' + (backlogVerdict.existing_epic ? 'in epic ' + backlogVerdict.existing_epic : 'in this backlog') + ' (#' + backlogVerdict.existing_item_id + ')' : backlogVerdict.verdict === 'fits_epic' ? 'Fits epic: ' + backlogVerdict.epic : 'New capability — no existing fit'"></span>
+                                <span class="text-[10px] text-ink-400" x-text="'confidence ' + Math.round((backlogVerdict.confidence || 0) * 100) + '%'"></span>
+                            </div>
+                            <div class="text-[11px] text-ink-500 mt-0.5" x-text="backlogVerdict.reasoning"></div>
+                            <div class="flex flex-wrap gap-1.5 mt-1.5" x-show="backlogVerdict.sibling_duplicates && backlogVerdict.sibling_duplicates.length > 0">
+                                <template x-for="(dup, di) in (backlogVerdict.sibling_duplicates || [])" :key="di">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-medium" x-text="'⚠ Similar in ' + dup.project + ': #' + dup.item_id + ' ' + (dup.title || '').slice(0, 30)"></span>
+                                </template>
+                            </div>
+                            <div class="mt-1.5 text-[10.5px] text-ink-400" x-text="backlogVerdict.verdict === 'exists' ? 'Review the existing item before adding a duplicate.' : backlogVerdict.verdict === 'fits_epic' ? 'Pre-filled the epic below — adjust if needed.' : 'Saving as a new item — no duplicate detected.'"></div>
+                        </div>
+                    </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <input x-model="backlogForm.title" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Feature / Story title…">
+                        <input x-model="backlogForm.title" @input="checkBacklogVerdict()" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Feature / Story title…">
                         <div class="flex items-center gap-2">
                             <select x-model="backlogForm.epic" class="input-premium text-[12px] px-3 py-2 bg-white flex-1">
                                 <option value="">— No epic —</option>

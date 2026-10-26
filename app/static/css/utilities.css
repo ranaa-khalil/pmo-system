@@ -1,0 +1,134 @@
+/* ============================================================
+   TAILWIND UTILITY FALLBACKS — ink & brand palettes
+   ============================================================
+   tailwind.min.js is a BUILD-TIME compiled subset with no JIT and
+   no runtime config: custom palettes (ink-*, brand-*) defined in
+   tailwind-config.js are NEVER generated, so every class like
+   text-ink-400 / bg-brand-600 silently renders nothing — white
+   text and icons over transparent surfaces (the "invisible" bug).
+
+   These plain-CSS utilities replace the runtime tokens. Brand shades
+   derive from --brand-color via color-mix so tenant branding still
+   works; --brand-color itself falls back to violet #7c3aed.
+   ============================================================ */
+
+/* ── Ink (neutral) palette ─────────────────────────────────── */
+.bg-ink-50 { background-color: #fbfbfd; }
+.bg-ink-100 { background-color: #f5f5f7; }
+.bg-ink-200 { background-color: #e8e8ed; }
+.bg-ink-300 { background-color: #d2d2d7; }
+.bg-ink-400 { background-color: #aeaeb2; }
+.bg-ink-500 { background-color: #86868b; }
+.bg-ink-600 { background-color: #6e6e73; }
+.bg-ink-700 { background-color: #3a3a3c; }
+.bg-ink-800 { background-color: #1d1d1f; }
+.bg-ink-900 { background-color: #1d1d1f; }
+.bg-ink-950 { background-color: #0d0d0f; }
+
+.text-ink-50 { color: #fbfbfd; }
+.text-ink-100 { color: #f5f5f7; }
+.text-ink-200 { color: #e8e8ed; }
+.text-ink-300 { color: #d2d2d7; }
+.text-ink-400 { color: #aeaeb2; }
+.text-ink-500 { color: #86868b; }
+.text-ink-600 { color: #6e6e73; }
+.text-ink-700 { color: #3a3a3c; }
+.text-ink-800 { color: #1d1d1f; }
+.text-ink-900 { color: #1d1d1f; }
+.text-ink-950 { color: #0d0d0f; }
+
+.border-ink-50 { border-color: #fbfbfd; }
+.border-ink-100 { border-color: #f5f5f7; }
+.border-ink-200 { border-color: #e8e8ed; }
+.border-ink-300 { border-color: #d2d2d7; }
+.border-ink-400 { border-color: #aeaeb2; }
+.border-ink-500 { border-color: #86868b; }
+.border-ink-600 { border-color: #6e6e73; }
+.border-ink-700 { border-color: #3a3a3c; }
+.border-ink-800 { border-color: #1d1d1f; }
+.border-ink-900 { border-color: #1d1d1f; }
+
+.divide-ink-100 > * + * { border-color: #f5f5f7; }
+.placeholder-ink-300::placeholder { color: #d2d2d7; }
+.placeholder-ink-400::placeholder { color: #aeaeb2; }
+.shadow-ink-900 { --tw-shadow-color: #1d1d1f; }
+
+/* ── Brand palette (derived from --brand-color, violet fallback) ── */
+.bg-brand-50 { background-color: color-mix(in srgb, var(--brand-color, #7c3aed) 8%, white); }
+.bg-brand-100 { background-color: color-mix(in srgb, var(--brand-color, #7c3aed) 12%, white); }
+.bg-brand-200 { background-color: color-mix(in srgb, var(--brand-color, #7c3aed) 20%, white); }
+.bg-brand-300 { background-color: color-mix(in srgb, var(--brand-color, #7c3aed) 32%, white); }
+.bg-brand-400 { background-color: color-mix(in srgb, var(--brand-color, #7c3aed) 55%, white); }
+.bg-brand-500 { background-color: color-mix(in srgb, var(--brand-color, #7c3aed) 82%, white); }
+.bg-brand-600 { background-color: var(--brand-color, #7c3aed); }
+.bg-brand-700 { background-color: color-mix(in srgb, var(--brand-color, #7c3aed) 85%, black); }
+.bg-brand-800 { background-color: color-mix(in srgb, var(--brand-color, #7c3aed) 68%, black); }
+.bg-brand-900 { background-color: color-mix(in srgb, var(--brand-color, #7c3aed) 48%, black); }
+
+.text-brand-50 { color: color-mix(in srgb, var(--brand-color, #7c3aed) 8%, white); }
+.text-brand-100 { color: color-mix(in srgb, var(--brand-color, #7c3aed) 12%, white); }
+.text-brand-200 { color: color-mix(in srgb, var(--brand-color, #7c3aed) 20%, white); }
+.text-brand-300 { color: color-mix(in srgb, var(--brand-color, #7c3aed) 32%, white); }
+.text-brand-400 { color: color-mix(in srgb, var(--brand-color, #7c3aed) 55%, white); }
+.text-brand-500 { color: color-mix(in srgb, var(--brand-color, #7c3aed) 78%, white); }
+.text-brand-600 { color: var(--brand-color, #7c3aed); }
+.text-brand-700 { color: color-mix(in srgb, var(--brand-color, #7c3aed) 85%, black); }
+.text-brand-800 { color: color-mix(in srgb, var(--brand-color, #7c3aed) 68%, black); }
+.text-brand-900 { color: color-mix(in srgb, var(--brand-color, #7c3aed) 48%, black); }
+
+.border-brand-50 { border-color: color-mix(in srgb, var(--brand-color, #7c3aed) 8%, white); }
+.border-brand-100 { border-color: color-mix(in srgb, var(--brand-color, #7c3aed) 14%, white); }
+.border-brand-200 { border-color: color-mix(in srgb, var(--brand-color, #7c3aed) 22%, white); }
+.border-brand-300 { border-color: color-mix(in srgb, var(--brand-color, #7c3aed) 34%, white); }
+.border-brand-400 { border-color: color-mix(in srgb, var(--brand-color, #7c3aed) 55%, white); }
+.border-brand-500 { border-color: color-mix(in srgb, var(--brand-color, #7c3aed) 78%, white); }
+.border-brand-600 { border-color: var(--brand-color, #7c3aed); }
+.border-brand-700 { border-color: color-mix(in srgb, var(--brand-color, #7c3aed) 85%, black); }
+
+.from-brand-50 { --tw-gradient-from: color-mix(in srgb, var(--brand-color, #7c3aed) 8%, white); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, transparent); }
+.from-brand-100 { --tw-gradient-from: color-mix(in srgb, var(--brand-color, #7c3aed) 12%, white); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, transparent); }
+.from-brand-200 { --tw-gradient-from: color-mix(in srgb, var(--brand-color, #7c3aed) 20%, white); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, transparent); }
+.from-brand-300 { --tw-gradient-from: color-mix(in srgb, var(--brand-color, #7c3aed) 32%, white); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, transparent); }
+.from-brand-400 { --tw-gradient-from: color-mix(in srgb, var(--brand-color, #7c3aed) 55%, white); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, transparent); }
+.from-brand-500 { --tw-gradient-from: color-mix(in srgb, var(--brand-color, #7c3aed) 78%, white); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, transparent); }
+.from-brand-600 { --tw-gradient-from: var(--brand-color, #7c3aed); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, transparent); }
+
+.to-brand-50 { --tw-gradient-to: color-mix(in srgb, var(--brand-color, #7c3aed) 8%, white); }
+.to-brand-100 { --tw-gradient-to: color-mix(in srgb, var(--brand-color, #7c3aed) 12%, white); }
+.to-brand-200 { --tw-gradient-to: color-mix(in srgb, var(--brand-color, #7c3aed) 20%, white); }
+.to-brand-300 { --tw-gradient-to: color-mix(in srgb, var(--brand-color, #7c3aed) 32%, white); }
+.to-brand-400 { --tw-gradient-to: color-mix(in srgb, var(--brand-color, #7c3aed) 55%, white); }
+.to-brand-500 { --tw-gradient-to: color-mix(in srgb, var(--brand-color, #7c3aed) 78%, white); }
+.to-brand-600 { --tw-gradient-to: var(--brand-color, #7c3aed); }
+
+.via-brand-50 { --tw-gradient-stops: var(--tw-gradient-from), color-mix(in srgb, var(--brand-color, #7c3aed) 8%, white), var(--tw-gradient-to, transparent); }
+.via-brand-100 { --tw-gradient-stops: var(--tw-gradient-from), color-mix(in srgb, var(--brand-color, #7c3aed) 12%, white), var(--tw-gradient-to, transparent); }
+.via-brand-200 { --tw-gradient-stops: var(--tw-gradient-from), color-mix(in srgb, var(--brand-color, #7c3aed) 20%, white), var(--tw-gradient-to, transparent); }
+
+.ring-brand-100 { --tw-ring-color: color-mix(in srgb, var(--brand-color, #7c3aed) 14%, white); }
+.ring-brand-400 { --tw-ring-color: color-mix(in srgb, var(--brand-color, #7c3aed) 55%, white); }
+.ring-brand-500 { --tw-ring-color: color-mix(in srgb, var(--brand-color, #7c3aed) 78%, white); }
+
+.shadow-brand-500 { --tw-shadow-color: color-mix(in srgb, var(--brand-color, #7c3aed) 78%, white); }
+.shadow-brand-600 { --tw-shadow-color: var(--brand-color, #7c3aed); }
+
+/* ── Hover variants used in templates ─────────────────────── */
+.hover\:bg-brand-50:hover { background-color: color-mix(in srgb, var(--brand-color, #7c3aed) 8%, white); }
+.hover\:bg-brand-100:hover { background-color: color-mix(in srgb, var(--brand-color, #7c3aed) 12%, white); }
+.hover\:bg-brand-600:hover { background-color: var(--brand-color, #7c3aed); }
+.hover\:bg-brand-700:hover { background-color: color-mix(in srgb, var(--brand-color, #7c3aed) 85%, black); }
+.hover\:text-brand-600:hover { color: var(--brand-color, #7c3aed); }
+.hover\:text-brand-700:hover { color: color-mix(in srgb, var(--brand-color, #7c3aed) 85%, black); }
+.hover\:border-brand-300:hover { border-color: color-mix(in srgb, var(--brand-color, #7c3aed) 34%, white); }
+.hover\:border-brand-400:hover { border-color: color-mix(in srgb, var(--brand-color, #7c3aed) 55%, white); }
+
+/* ── Ink hover variants ───────────────────────────────────── */
+.hover\:bg-ink-50:hover { background-color: #fbfbfd; }
+.hover\:bg-ink-100:hover { background-color: #f5f5f7; }
+.hover\:bg-ink-200:hover { background-color: #e8e8ed; }
+.hover\:text-ink-600:hover { color: #6e6e73; }
+.hover\:text-ink-700:hover { color: #3a3a3c; }
+.hover\:text-ink-800:hover { color: #1d1d1f; }
+.hover\:text-ink-900:hover { color: #1d1d1f; }
+.hover\:border-ink-200:hover { border-color: #e8e8ed; }
+.hover\:border-ink-300:hover { border-color: #d2d2d7; }

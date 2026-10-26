@@ -1,0 +1,133 @@
+<!-- ==================== PMO COPILOT DRAWER ==================== -->
+<!-- Grounded chat + action proposals. Reads show sources; writes require Confirm. -->
+<div x-show="copilotOpen" x-cloak
+     x-transition:enter="transition ease-out duration-200"
+     x-transition:enter-start="opacity-0 translate-x-6"
+     x-transition:enter-end="opacity-100 translate-x-0"
+     x-transition:leave="transition ease-in duration-150"
+     x-transition:leave-start="opacity-100 translate-x-0"
+     x-transition:leave-end="opacity-0 translate-x-6"
+     class="fixed bottom-6 right-6 w-[400px] h-[600px] max-h-[calc(100vh-3rem)] z-50 surface rounded-2xl shadow-modal border border-ink-200/60 flex flex-col overflow-hidden"
+     @keydown.escape.window="copilotOpen = false">
+    <!-- Header -->
+    <div class="px-4 py-3 border-b border-ink-100 flex items-center justify-between bg-gradient-to-r from-brand-600 to-violet-600">
+        <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center">
+                <svg class="w-4.5 h-4.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+            </div>
+            <div>
+                <div class="text-[13px] font-bold text-white leading-tight">PMO Copilot</div>
+                <div class="text-[10px] text-white/70 leading-tight">Grounded in your project data</div>
+            </div>
+        </div>
+        <button @click="copilotOpen = false" class="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
+            <svg class="w-4 h-4 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Messages -->
+    <div id="copilot-messages" class="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        <template x-for="(msg, idx) in copilotMessages" :key="idx">
+            <div :class="msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
+                <div class="max-w-[85%] rounded-2xl px-3.5 py-2.5 text-[12.5px] leading-relaxed"
+                     :class="msg.role === 'user'
+                         ? 'bg-brand-600 text-white rounded-br-md'
+                         : (msg.error ? 'bg-rose-50 text-rose-700 border border-rose-200 rounded-bl-md' : 'bg-ink-100/80 text-ink-700 rounded-bl-md')">
+                    <span x-text="msg.text"></span>
+
+                    <!-- Source chips (grounding rule: every answer cites records) -->
+                    <template x-if="msg.sources && msg.sources.length > 0">
+                        <div class="flex flex-wrap gap-1.5 mt-2">
+                            <template x-for="(src, si) in msg.sources" :key="si">
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-ink-200 text-[10px] font-medium text-ink-500"
+                                      x-text="src"></span>
+                            </template>
+                        </div>
+                    </template>
+
+                    <!-- Proposal operations (draft → confirm) -->
+                    <template x-if="msg.ops && msg.ops.length > 0">
+                        <div class="mt-2 space-y-1.5">
+                            <template x-for="(op, oi) in msg.ops" :key="oi">
+                                <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-ink-200 text-[11px]">
+                                    <span class="px-1.5 py-0.5 rounded-md bg-violet-100 text-violet-700 font-semibold uppercase tracking-wide text-[9px]" x-text="op.op"></span>
+                                    <span class="text-ink-600 font-medium" x-text="op.description || op.title || ('#' + (op.item_id || op.approval_id || op.project_id))"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+        <!-- Typing indicator -->
+        <template x-if="copilotBusy">
+            <div class="flex justify-start">
+                <div class="bg-ink-100/80 rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-ink-400 animate-bounce"></span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-ink-400 animate-bounce" style="animation-delay: 0.15s"></span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-ink-400 animate-bounce" style="animation-delay: 0.3s"></span>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- Confirm / Reject bar (write proposals) -->
+    <template x-if="copilotPendingProposal">
+        <div class="px-4 py-2.5 border-t border-amber-200 bg-amber-50/80 flex items-center gap-2">
+            <div class="flex-1 text-[11px] font-medium text-amber-700">
+                Confirm to execute — nothing has been written yet.
+            </div>
+            <button @click="copilotReject()"
+                    class="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-ink-500 hover:bg-ink-100 transition-colors">
+                Discard
+            </button>
+            <button @click="copilotConfirm()"
+                    class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 transition-colors flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                </svg>
+                Confirm
+            </button>
+        </div>
+    </template>
+
+    <!-- Suggested prompts -->
+    <div class="px-4 pb-2 flex flex-wrap gap-1.5" x-show="copilotMessages.length <= 2">
+        <button @click="copilotAsk('What is overdue for me?')"
+                class="px-2.5 py-1 rounded-full bg-ink-100/80 hover:bg-ink-200/60 text-[10.5px] font-medium text-ink-500 transition-colors">What's overdue?</button>
+        <button @click="copilotAsk('What approvals are pending?')"
+                class="px-2.5 py-1 rounded-full bg-ink-100/80 hover:bg-ink-200/60 text-[10.5px] font-medium text-ink-500 transition-colors">Pending approvals</button>
+        <button @click="copilotAsk('Which items are aging in a phase?')"
+                class="px-2.5 py-1 rounded-full bg-ink-100/80 hover:bg-ink-200/60 text-[10.5px] font-medium text-ink-500 transition-colors">Aging items</button>
+    </div>
+
+    <!-- Input -->
+    <div class="px-4 pb-4">
+        <form @submit.prevent="copilotSubmit()" class="relative">
+            <input x-model="copilotInput" type="text" id="copilot-input"
+                   placeholder="Ask, or type an action: 'move SSO to Testing'…"
+                   class="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-ink-200 text-[12.5px] focus:ring-2 focus:ring-brand-400 focus:border-brand-400 outline-none transition-all bg-white"
+                   @keydown.escape="copilotOpen = false">
+            <button type="submit" :disabled="copilotBusy || !copilotInput.trim()"
+                    class="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg bg-brand-600 text-white flex items-center justify-center hover:bg-brand-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/>
+                </svg>
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Copilot launcher button (bottom-right, above content) -->
+<button x-show="isLoggedIn && !copilotOpen" x-cloak @click="toggleCopilot()"
+        class="fixed bottom-6 right-6 w-12 h-12 rounded-full z-40 bg-gradient-to-br from-brand-600 to-violet-600 text-white shadow-lg shadow-violet-500/30 flex items-center justify-center hover:shadow-xl hover:shadow-violet-500/40 hover:scale-105 transition-all"
+        title="PMO Copilot">
+    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+    </svg>
+</button>

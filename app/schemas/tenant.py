@@ -28,6 +28,14 @@ class TenantResponse(TenantBase):
 
     model_config = {"from_attributes": True}
 
+    from pydantic import field_validator
+
+    @field_validator("branding", mode="before")
+    @classmethod
+    def _null_branding_is_empty(cls, v):
+        """Legacy rows carry NULL branding — coerce to {} instead of a 500."""
+        return v if isinstance(v, dict) else {}
+
 
 class TenantMembershipResponse(BaseModel):
     id: int

@@ -690,7 +690,7 @@ def automation_scan(
     """Mine ActivityLog/approval/task patterns → propose rules + coverage scan."""
     from app.services.plan_enforcement import require_feature
     require_feature(current_tenant.plan, "ai_assistant")
-    from app.services.automation_mining import mine_rules, coverage_scan
+    from app.services.automation_mining import coverage_scan, mine_rules
     proposed = mine_rules(db, current_tenant)
     coverage = coverage_scan(db, current_tenant)
     return {

@@ -45,6 +45,7 @@ def get_brd_coverage(
 ):
     """BRD depth (P4.3): requirements → epics → features traceability coverage."""
     from fastapi import HTTPException
+
     from app.services.brd import build_brd_coverage
     project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
     if not project:

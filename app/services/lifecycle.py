@@ -1,0 +1,163 @@
+"""Lifecycle templates — phases/stages/gates become DATA per project type.
+
+template_for(project_type) selects the vocabulary; the gate MECHANISM and
+RBAC never change (ApprovalRequest/ApprovalStep + RACI roles stay exactly
+as they are). Software keeps today's V-cycle verbatim as the default;
+AI/CPMAI adds dataset, bias, and drift gates; Marketing Campaign and
+Operations get their own phases and gate deliverables.
+"""
+
+# ── Software (default) — today's V-cycle, verbatim ───────────────────────
+
+_SOFTWARE = {
+    "name": "Software",
+    "item_phases": [
+        "Requirements", "Design", "Development", "Testing", "Ready for UAT",
+    ],
+    "release_stages": [
+        "UAT", "Pre-Release", "Release", "Post-Release", "Retrospective",
+    ],
+    "gate_deliverables": {
+        "Requirements": ["BRD", "Requirements traceability matrix"],
+        "Design": ["Design review sign-off"],
+        "Development": ["Code review", "Test evidence pack"],
+        "Testing": ["Test summary report"],
+        "Ready for UAT": ["Release notes draft", "Rollback plan"],
+    },
+    "gate_roles": {
+        "Requirements": "Product Manager",
+        "Design": "Product Owner",
+        "Development": "Tech Lead",
+        "Testing": "QA Lead",
+        "Ready for UAT": "Product Manager",
+    },
+    "fields": [],  # no extra fields beyond the standard schema
+}
+
+# ── AI Project (CPMAI-aligned) ───────────────────────────────────────────
+
+_AI = {
+    "name": "AI Project (CPMAI)",
+    "item_phases": [
+        "Data Readiness", "Model Design", "Development & Training",
+        "Evaluation", "Ready for Deployment",
+    ],
+    "release_stages": [
+        "Business Understanding", "Data Readiness & Processing",
+        "Model Development & Training", "Evaluation",
+        "Model Deployment", "Post-Deployment Monitoring",
+    ],
+    "gate_deliverables": {
+        "Data Readiness": ["Dataset readiness report", "Data provenance & consent record"],
+        "Model Design": ["Model design review", "ML experiment plan"],
+        "Development & Training": ["Training run log", "Model card draft"],
+        "Evaluation": ["Model performance report", "Bias & fairness assessment"],
+        "Ready for Deployment": ["Inference cost estimate", "Drift-monitoring plan", "Rollback plan"],
+    },
+    "gate_roles": {
+        "Data Readiness": "Data/ML Lead",
+        "Model Design": "Data/ML Lead",
+        "Development & Training": "Tech Lead",
+        "Evaluation": "Product Manager",
+        "Ready for Deployment": "DevOps Lead",
+    },
+    "fields": [
+        {"name": "dataset_refs", "label": "Dataset refs", "type": "text"},
+        {"name": "model_version", "label": "Model version", "type": "text"},
+        {"name": "eval_metrics", "label": "Eval metrics", "type": "markdown"},
+        {"name": "bias_status", "label": "Bias status", "type": "select",
+         "options": ["not assessed", "pass", "fail", "mitigating"]},
+        {"name": "inference_cost", "label": "Inference cost / 1k calls", "type": "text"},
+        {"name": "drift_alerts", "label": "Drift alerts", "type": "toggle"},
+    ],
+}
+
+# ── Marketing Campaign ───────────────────────────────────────────────────
+
+_MARKETING = {
+    "name": "Marketing Campaign",
+    "item_phases": ["Brief", "Creative", "Content Production", "Review", "Ready for Launch"],
+    "release_stages": ["Briefing", "Creative Development", "Content Production", "Review", "Launch", "Post-Campaign Analysis"],
+    "gate_deliverables": {
+        "Brief": ["Budget approval", "Campaign brief sign-off"],
+        "Creative": ["Creative direction approval"],
+        "Content Production": ["Content calendar", "Asset checklist"],
+        "Review": ["Legal/compliance review", "Final QA checklist"],
+        "Ready for Launch": ["Launch plan", "Channel schedule"],
+    },
+    "gate_roles": {
+        "Brief": "Product Manager",
+        "Creative": "Product Manager",
+        "Content Production": "Content Lead",
+        "Review": "Product Manager",
+        "Ready for Launch": "Product Manager",
+    },
+    "fields": [
+        {"name": "budget", "label": "Budget", "type": "text"},
+        {"name": "channels", "label": "Channels", "type": "text"},
+        {"name": "cac_target", "label": "CAC target", "type": "text"},
+        {"name": "ctr_target", "label": "CTR target", "type": "text"},
+        {"name": "roas_target", "label": "ROAS target", "type": "text"},
+    ],
+}
+
+# ── Operations / non-technical ───────────────────────────────────────────
+
+_OPERATIONS = {
+    "name": "Operations",
+    "item_phases": ["Intake", "Plan", "Execute", "Verify", "Done"],
+    "release_stages": ["Intake", "Planning", "Execution", "Verification", "Closure"],
+    "gate_deliverables": {
+        "Intake": ["Request intake form", "Cost center confirmation"],
+        "Plan": ["Plan of record", "Vendor quote (if any)"],
+        "Execute": ["Execution checklist"],
+        "Verify": ["Verification report", "Lessons learned"],
+        "Done": ["Closure sign-off"],
+    },
+    "gate_roles": {
+        "Intake": "Product Manager",
+        "Plan": "Product Manager",
+        "Execute": "Operations Lead",
+        "Verify": "Product Manager",
+        "Done": "Product Manager",
+    },
+    "fields": [
+        {"name": "cost_center", "label": "Cost center", "type": "text"},
+        {"name": "vendor", "label": "Vendor", "type": "text"},
+        {"name": "capacity_impact", "label": "Capacity impact", "type": "text"},
+    ],
+}
+
+LIFECYCLE_TEMPLATES = {
+    "software": _SOFTWARE,
+    "ai": _AI,
+    "marketing": _MARKETING,
+    "operations": _OPERATIONS,
+}
+
+DEFAULT_TYPE = "software"
+
+
+def template_for(project_type: str | None) -> dict:
+    """Template for a project type; None/unknown defaults to software."""
+    return LIFECYCLE_TEMPLATES.get((project_type or "").lower(), LIFECYCLE_TEMPLATES[DEFAULT_TYPE])
+
+
+def item_phases(project_type: str | None) -> list[str]:
+    return template_for(project_type)["item_phases"]
+
+
+def release_stages(project_type: str | None) -> list[str]:
+    return template_for(project_type)["release_stages"]
+
+
+def gate_deliverables(project_type: str | None) -> dict[str, list[str]]:
+    return template_for(project_type)["gate_deliverables"]
+
+
+def gate_roles(project_type: str | None) -> dict[str, str]:
+    return template_for(project_type)["gate_roles"]
+
+
+def template_fields(project_type: str | None) -> list[dict]:
+    return template_for(project_type)["fields"]

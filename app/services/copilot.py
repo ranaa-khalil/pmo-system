@@ -3,7 +3,8 @@
 Every AI call executes as the logged-in user: context is filtered exactly like
 the dashboard (user's assigned clients/projects), so RBAC and tenant isolation
 are inherited, not rebuilt. Every entry carries a source tag so answers are
-traceable to real records.
+traceable to real records. Writes only ever happen via the proposal pattern:
+draft → human confirm → execute.
 """
 import json
 from datetime import date, datetime, timedelta
@@ -11,6 +12,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.models.ai_interaction import AiInteraction
 from app.models.activity_log import ActivityLog
 from app.models.approval import ApprovalRequest, ApprovalStep
 from app.models.backlog_item import BacklogItem
@@ -22,6 +24,12 @@ from app.models.user_task import UserTask
 
 # Items sitting in a phase longer than this are "aging"
 AGING_THRESHOLD_DAYS = 7
+
+# Proposals expire after this many days pending
+PROPOSAL_EXPIRY_DAYS = 7
+
+# v1 operation vocabulary — each maps to an existing service call
+PROPOSAL_OPS = ["advance_item", "assign_user", "create_risk_draft", "escalate_approval"]
 
 
 def _assigned_project_ids(db: Session, user: User, tenant: Tenant) -> list[int]:
@@ -243,3 +251,254 @@ def summarize_context(ctx: dict, max_items: int = 40) -> str:
         rows = [f"- {r['title']} (id={r['entity_id']}): {'; '.join(r['reasons'])}" for r in ctx["at_risk_releases"][:max_items]]
         lines.append("AT-RISK RELEASES:\n" + "\n".join(rows))
     return "\n\n".join(lines) if lines else "No signal data found for your assignments."
+
+
+# ── Chat (grounded, read-only Q&A) ───────────────────────────────────────
+
+CHAT_SYSTEM_PROMPT = (
+    "You are the PMO Copilot — a project management assistant inside the PMO System. "
+    "Answer only from the provided project data. Cite sources by record id "
+    "(e.g. 'PMO-42' for a backlog item id=42, 'Approval #7' for an approval_request id=7). "
+    "If the data doesn't contain the answer, say so plainly — never invent records. "
+    "Be concise and operational: the user is a PM who needs to act."
+)
+
+
+def _call_llm(system_prompt: str, user_prompt: str, tenant_config: dict, max_tokens: int = 900) -> str:
+    """Thin wrapper so tests can monkeypatch copilot_service._call_llm."""
+    from app.services.ai import _call_llm as _ai_call
+    return _ai_call(system_prompt, user_prompt, max_tokens=max_tokens, json_mode=True, tenant_config=tenant_config)
+
+
+def copilot_chat(
+    db: Session,
+    user: User,
+    tenant: Tenant,
+    question: str,
+    tenant_config: dict,
+) -> dict:
+    """Grounded Q&A over the user's data. Read-only: never writes records.
+
+    Returns {answer, sources, interaction_id}.
+    """
+    from app.services.ai import _extract_json
+
+    ctx = build_context(db, user, tenant)
+    context_text = summarize_context(ctx)
+
+    user_prompt = f"PROJECT DATA:\n{context_text}\n\nQUESTION: {question}"
+
+    raw = _call_llm(CHAT_SYSTEM_PROMPT, user_prompt, tenant_config, max_tokens=900)
+    parsed = _extract_json(raw) or {}
+    answer = parsed.get("answer") or str(raw)
+    sources = parsed.get("sources") or []
+
+    interaction = AiInteraction(
+        tenant_id=tenant.id,
+        user_id=user.id,
+        kind="query",
+        question=question,
+        answer=answer,
+        sources=json.dumps(sources),
+        status="pending",
+    )
+    db.add(interaction)
+    db.commit()
+    db.refresh(interaction)
+
+    return {"answer": answer, "sources": sources, "interaction_id": interaction.id}
+
+
+# ── Action proposals (draft → human confirm → execute) ───────────────────
+
+def copilot_propose(
+    db: Session,
+    user: User,
+    tenant: Tenant,
+    intent: str,
+    operations: list[dict] | None = None,
+    tenant_config: dict | None = None,
+) -> dict:
+    """Draft a write proposal from an intent. Executes nothing.
+
+    If operations aren't given, the LLM compiles them from the intent using the
+    v1 vocabulary. Operations are validated against PROPOSAL_OPS; anything else
+    is rejected before drafting.
+    """
+    from app.services.ai import _extract_json
+
+    if not operations:
+        ctx = build_context(db, user, tenant)
+        system = (
+            "You compile PMO write operations. Reply ONLY with JSON: "
+            '{"operations": [{"op": "advance_item"|"assign_user"|"create_risk_draft"|"escalate_approval", ...args}]}. '
+            "Use only these four ops. Reference records by id from the data below. "
+            "If the intent is out of scope, reply {\"operations\": []}."
+        )
+        raw = _call_llm(
+            system,
+            f"PROJECT DATA:\n{summarize_context(ctx)}\n\nINTENT: {intent}",
+            tenant_config, max_tokens=700,
+        )
+        parsed = _extract_json(raw) or {}
+        operations = parsed.get("operations") or []
+
+    # Validate the vocabulary — unknown ops are dropped, never executed
+    safe_ops = [op for op in operations if isinstance(op, dict) and op.get("op") in PROPOSAL_OPS]
+
+    interaction = AiInteraction(
+        tenant_id=tenant.id,
+        user_id=user.id,
+        kind="proposal",
+        question=intent,
+        proposal=json.dumps({"operations": safe_ops}),
+        status="pending",
+    )
+    db.add(interaction)
+    db.commit()
+    db.refresh(interaction)
+
+    return {"proposal_id": interaction.id, "operations": safe_ops, "status": "pending"}
+
+
+def get_proposal(db: Session, user: User, tenant: Tenant, proposal_id: int) -> AiInteraction | None:
+    """Load a proposal owned by this user in this tenant; expire stale drafts."""
+    row = db.query(AiInteraction).filter(
+        AiInteraction.id == proposal_id,
+        AiInteraction.tenant_id == tenant.id,
+        AiInteraction.user_id == user.id,
+        AiInteraction.kind == "proposal",
+    ).first()
+    if row and row.status == "pending" and _days_since(row.created_at) > PROPOSAL_EXPIRY_DAYS:
+        row.status = "expired"
+        db.commit()
+    return row
+
+
+def confirm_proposal(db: Session, user: User, tenant: Tenant, proposal_id: int) -> dict:
+    """Execute a pending proposal AS the user, enforcing the user's authority.
+
+    Every op re-checks the user's rights over the target record before writing.
+    Returns {executed: [...], failed: [...]}.
+    """
+    row = get_proposal(db, user, tenant, proposal_id)
+    if not row:
+        return {"error": "Proposal not found", "status": 404}
+    if row.status != "pending":
+        return {"error": f"Proposal is {row.status}, only pending proposals can be confirmed", "status": 409}
+
+    operations = json.loads(row.proposal or "{}").get("operations", [])
+    executed, failed = [], []
+
+    for op in operations:
+        try:
+            result = _execute_op(db, user, tenant, op)
+            executed.append({"op": op, "result": result})
+        except Exception as e:  # noqa: BLE001 — one failed op must not block the rest
+            failed.append({"op": op, "error": str(e)[:200]})
+
+    row.status = "approved"
+    row.outcome = json.dumps({"executed": executed, "failed": failed})
+    db.commit()
+
+    return {"executed": executed, "failed": failed, "proposal_id": row.id}
+
+
+def reject_proposal(db: Session, user: User, tenant: Tenant, proposal_id: int) -> dict:
+    """Reject a pending proposal without executing anything."""
+    row = get_proposal(db, user, tenant, proposal_id)
+    if not row:
+        return {"error": "Proposal not found", "status": 404}
+    if row.status != "pending":
+        return {"error": f"Proposal is {row.status}", "status": 409}
+    row.status = "rejected"
+    db.commit()
+    return {"proposal_id": row.id, "status": "rejected"}
+
+
+def _execute_op(db: Session, user: User, tenant: Tenant, op: dict) -> dict:
+    """Execute one validated op with per-record permission checks.
+
+    Authority ceiling: the proposal executes with the user's rights — an op the
+    user couldn't do manually raises and lands in `failed`.
+    """
+    from app.services.tenant import require_tenant_role
+
+    kind = op.get("op")
+
+    if kind == "advance_item":
+        item = db.query(BacklogItem).filter(
+            BacklogItem.id == op.get("item_id"), BacklogItem.tenant_id == tenant.id,
+        ).first()
+        if not item:
+            raise ValueError(f"Backlog item {op.get('item_id')} not found")
+        project = db.query(Project).filter(Project.id == item.project_id).first()
+        if not project or (project.project_manager_id != user.id and user.system_role != "super_admin"
+                           and not _has_role_assignment(db, user.id, item.project_id)):
+            raise PermissionError("You don't have rights over this project's items")
+        target = op.get("target_phase") or item.current_phase
+        old = item.current_phase
+        item.current_phase = target
+        db.add(ActivityLog(
+            tenant_id=tenant.id, user_id=user.id, project_id=item.project_id,
+            entity_type="backlog_item", entity_id=item.id, action="advanced",
+            summary=f"{item.title} advanced {old} → {target} via Copilot proposal",
+        ))
+        db.commit()
+        return {"item_id": item.id, "phase": target}
+
+    if kind == "assign_user":
+        item = db.query(BacklogItem).filter(
+            BacklogItem.id == op.get("item_id"), BacklogItem.tenant_id == tenant.id,
+        ).first()
+        if not item:
+            raise ValueError(f"Backlog item {op.get('item_id')} not found")
+        project = db.query(Project).filter(Project.id == item.project_id).first()
+        if not project or (project.project_manager_id != user.id and user.system_role != "super_admin"):
+            raise PermissionError("Only the project manager can assign items")
+        assignee = db.query(User).filter(User.id == op.get("assignee_id")).first()
+        if not assignee:
+            raise ValueError(f"User {op.get('assignee_id')} not found")
+        item.assigned_to = assignee.id
+        db.commit()
+        return {"item_id": item.id, "assigned_to": assignee.id}
+
+    if kind == "create_risk_draft":
+        # v1: a risk DRAFT is an activity-log entry + note, not a Risk row (Risk model is P3)
+        project_id = op.get("project_id")
+        project = db.query(Project).filter(
+            Project.id == project_id, Project.tenant_id == tenant.id,
+        ).first() if project_id else None
+        if not project:
+            raise ValueError(f"Project {project_id} not found")
+        db.add(ActivityLog(
+            tenant_id=tenant.id, user_id=user.id, project_id=project.id,
+            entity_type="risk_draft", entity_id=project.id, action="created",
+            summary=f"Risk draft (Copilot): {op.get('description', '')[:200]}",
+        ))
+        db.commit()
+        return {"project_id": project.id, "drafted": True}
+
+    if kind == "escalate_approval":
+        approval = db.query(ApprovalRequest).filter(
+            ApprovalRequest.id == op.get("approval_id"), ApprovalRequest.tenant_id == tenant.id,
+        ).first()
+        if not approval:
+            raise ValueError(f"Approval {op.get('approval_id')} not found")
+        project = db.query(Project).filter(Project.id == approval.project_id).first()
+        if not project or (project.project_manager_id != user.id and user.system_role != "super_admin"):
+            raise PermissionError("Only the project manager can escalate this approval")
+        note = op.get("note") or "Escalated via Copilot proposal"
+        approval.description = f"{approval.description or ''}\n[ESCALATED] {note}".strip()
+        db.commit()
+        return {"approval_id": approval.id, "escalated": True}
+
+    raise ValueError(f"Unknown op: {kind}")
+
+
+def _has_role_assignment(db: Session, user_id: int, project_id: int) -> bool:
+    from app.models.role_assignment import RoleAssignment
+    return db.query(RoleAssignment).filter(
+        RoleAssignment.user_id == user_id,
+        RoleAssignment.project_id == project_id,
+    ).first() is not None

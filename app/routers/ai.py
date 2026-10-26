@@ -199,3 +199,99 @@ def ai_fill_field(
         )
     except Exception as e:
         raise HTTPException(502, f"AI request failed: {str(e)}")
+
+
+# ── PMO Copilot: grounded chat + action proposals ────────────────────────
+
+class CopilotChatRequest(BaseModel):
+    question: str
+    project_id: int | None = None
+
+
+class CopilotProposeRequest(BaseModel):
+    intent: str
+    project_id: int | None = None
+    operations: list[dict] | None = None
+
+
+@router.post("/copilot/chat")
+def copilot_chat_endpoint(
+    req: CopilotChatRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Grounded, read-only Q&A over the user's data. Sources returned with every answer."""
+    from app.services.plan_enforcement import require_feature
+    require_feature(current_tenant.plan, "ai_assistant")
+
+    tenant_config = get_ai_config(db, current_tenant.id)
+    if not tenant_config["api_key"]:
+        raise HTTPException(400, "AI is not configured. Set the API key in Settings.")
+
+    from app.services import copilot as copilot_service
+    try:
+        return copilot_service.copilot_chat(
+            db, current_user, current_tenant, req.question, tenant_config,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(502, f"AI request failed: {str(e)}")
+
+
+@router.post("/copilot/propose")
+def copilot_propose_endpoint(
+    req: CopilotProposeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Draft a write proposal. Executes nothing until confirmed."""
+    from app.services.plan_enforcement import require_feature
+    require_feature(current_tenant.plan, "ai_assistant")
+
+    tenant_config = get_ai_config(db, current_tenant.id)
+    if not tenant_config["api_key"] and not req.operations:
+        raise HTTPException(400, "AI is not configured. Set the API key in Settings.")
+
+    from app.services import copilot as copilot_service
+    try:
+        return copilot_service.copilot_propose(
+            db, current_user, current_tenant, req.intent,
+            operations=req.operations, tenant_config=tenant_config,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(502, f"AI request failed: {str(e)}")
+
+
+@router.post("/copilot/proposals/{proposal_id}/confirm")
+def copilot_confirm_endpoint(
+    proposal_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Execute a pending proposal as the user. Every op re-checks the user's rights."""
+    from app.services import copilot as copilot_service
+    result = copilot_service.confirm_proposal(db, current_user, current_tenant, proposal_id)
+    if "error" in result:
+        raise HTTPException(result["status"], result["error"])
+    return result
+
+
+@router.post("/copilot/proposals/{proposal_id}/reject")
+def copilot_reject_endpoint(
+    proposal_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Reject a pending proposal without executing anything."""
+    from app.services import copilot as copilot_service
+    result = copilot_service.reject_proposal(db, current_user, current_tenant, proposal_id)
+    if "error" in result:
+        raise HTTPException(result["status"], result["error"])
+    return result

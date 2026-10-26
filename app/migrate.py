@@ -32,6 +32,11 @@ COLUMNS = [
     ("risks", "mitigation TEXT"),
     ("risks", "owner_id INTEGER"),
     ("risks", "source VARCHAR(20) DEFAULT 'manual' NOT NULL"),
+    # Client portal (P4): hashed passcode + enable flag
+    # NOTE: Postgres requires DEFAULT FALSE for BOOLEAN (DEFAULT 0 fails);
+    # SQLite accepts both.
+    ("clients", "portal_passcode_hash VARCHAR(255)"),
+    ("clients", "portal_enabled BOOLEAN NOT NULL DEFAULT FALSE"),
     *((table, "tenant_id INTEGER") for table in TENANT_TABLES),
     ("tenants", "branding TEXT"),
     ("tenants", "limits TEXT"),

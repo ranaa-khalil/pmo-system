@@ -28,6 +28,7 @@ from app.routers import (
     notifications,
     personas,
     planning,
+    portal,
     projects,
     releases,
     risks,
@@ -107,6 +108,8 @@ app.include_router(github_sync.router)
 app.include_router(api_keys.router)
 app.include_router(analytics.router)
 app.include_router(infrastructure.router)
+app.include_router(portal.router)
+app.include_router(portal.mgmt_router)
 
 # Register frontend UI
 app.include_router(frontend_router)

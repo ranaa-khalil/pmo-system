@@ -60,3 +60,27 @@ def decode_access_token(token: str, current_token_version: int | None = None) ->
     if current_token_version is not None and payload.get("tv") != current_token_version:
         return None
     return payload
+
+
+def create_portal_token(client_id: int, expires_delta: timedelta | None = None) -> str:
+    """Create a client-portal JWT.
+
+    Scope claim `scope: "portal"` makes it unusable on user APIs: every
+    user-API dependency requires a token WITHOUT the portal scope, and the
+    portal dependency requires it. Mutual exclusion by construction.
+    """
+    to_encode = {
+        "sub": f"client:{client_id}",
+        "scope": "portal",
+        "exp": datetime.now(UTC) + (expires_delta or timedelta(hours=12)),
+        "jti": str(uuid.uuid4()),
+    }
+    return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
+
+
+def decode_portal_token(token: str) -> dict | None:
+    """Decode a portal token. Returns the payload ONLY if scope == "portal"."""
+    payload = decode_access_token(token)
+    if payload is None or payload.get("scope") != "portal":
+        return None
+    return payload

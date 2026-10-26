@@ -14,9 +14,10 @@ import { ai } from './domains/ai.js';
 import { copilot } from './domains/copilot.js';
 import { workflows } from './domains/workflows.js';
 import { tenants } from './domains/tenants.js';
+import { portal } from './domains/portal.js';
 import { fab } from './fab.js';
 
-const DOMAINS = [core, tasks, backlog, planning, projects, ai, copilot, workflows, tenants];
+const DOMAINS = [core, tasks, backlog, planning, projects, ai, copilot, workflows, tenants, portal];
 
 // Merge a domain's properties into a descriptor set.
 // - Plain values (state) are copied.

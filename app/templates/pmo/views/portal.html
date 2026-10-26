@@ -1,0 +1,124 @@
+<!-- ============ CLIENT PORTAL VIEW (P4) ============
+     Shown instead of the SPA shell when a client logs in via the portal.
+     Read-only: this client's projects, progress, releases, milestones. -->
+<div x-show="portalMode && !isLoggedIn" x-cloak class="fixed inset-0 z-40 bg-ink-50 overflow-y-auto">
+    <div class="max-w-4xl mx-auto px-6 py-10 space-y-6">
+
+        <!-- Portal header -->
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl brand-primary flex items-center justify-center shadow-sm">
+                    <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-[20px] font-bold text-ink-900 tracking-tight" x-text="portalSession ? portalSession.name : 'Client Portal'"></h1>
+                    <p class="text-[12px] text-ink-400">Project progress overview — read only</p>
+                </div>
+            </div>
+            <button @click="portalLogout()" class="text-[12px] font-medium text-ink-500 hover:text-ink-800 px-3 py-2 rounded-xl hover:bg-ink-100 transition-colors">Sign out</button>
+        </div>
+
+        <!-- Loading -->
+        <div x-show="portalLoading" class="surface rounded-2xl border border-ink-200/60 p-8 text-center text-[13px] text-ink-400">Loading your projects…</div>
+
+        <!-- Error -->
+        <div x-show="portalError" class="surface rounded-2xl border border-rose-200 bg-rose-50 p-5 text-[13px] text-rose-700" x-text="portalError"></div>
+
+        <template x-if="portalData">
+            <div class="space-y-6">
+                <!-- Projects with progress -->
+                <div class="space-y-4">
+                    <h2 class="text-[15px] font-bold text-ink-900">Projects</h2>
+                    <template x-if="portalData.projects.length === 0">
+                        <div class="surface rounded-2xl border border-ink-200/60 p-8 text-center text-[13px] text-ink-400">No active projects yet.</div>
+                    </template>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <template x-for="p in portalData.projects" :key="p.id">
+                            <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                                <div class="flex items-start justify-between mb-3">
+                                    <h3 class="text-[15px] font-bold text-ink-900 tracking-tight" x-text="p.name"></h3>
+                                    <span class="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg"
+                                          :class="portalStatusColor(p.status)">
+                                        <span class="w-1.5 h-1.5 rounded-full" :class="p.status === 'Active' ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+                                        <span x-text="p.status"></span>
+                                    </span>
+                                </div>
+                                <p class="text-[12px] text-ink-500 line-clamp-2 mb-4" x-text="p.description || ''"></p>
+                                <!-- Progress bar -->
+                                <div class="mb-2">
+                                    <div class="flex items-center justify-between text-[11px] text-ink-500 mb-1.5">
+                                        <span x-text="`${p.backlog_done} of ${p.backlog_total} items delivered`"></span>
+                                        <span class="font-bold text-ink-700" x-text="p.progress_pct + '%'"></span>
+                                    </div>
+                                    <div class="h-2 rounded-full bg-ink-100 overflow-hidden">
+                                        <div class="h-full rounded-full bg-gradient-to-r from-brand-500 to-violet-500 transition-all" :style="'width:' + p.progress_pct + '%'"></div>
+                                    </div>
+                                </div>
+                                <div class="text-[11px] text-ink-400 pt-2 border-t border-ink-100" x-text="`${p.releases_count} release(s)`"></div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Releases -->
+                <div class="space-y-4">
+                    <h2 class="text-[15px] font-bold text-ink-900">Releases</h2>
+                    <template x-if="portalData.releases.length === 0">
+                        <div class="surface rounded-2xl border border-ink-200/60 p-8 text-center text-[13px] text-ink-400">No releases yet.</div>
+                    </template>
+                    <div class="surface rounded-2xl border border-ink-200/60 divide-y divide-ink-100">
+                        <template x-for="r in portalData.releases" :key="r.id">
+                            <div class="px-5 py-4">
+                                <div class="flex items-center justify-between mb-2">
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-[13px] font-bold text-ink-800" x-text="'v' + r.version"></span>
+                                        <span class="text-[12px] text-ink-500" x-text="r.name"></span>
+                                    </div>
+                                    <span class="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-ink-100 text-ink-600" x-text="r.status"></span>
+                                </div>
+                                <!-- V-cycle progress -->
+                                <div class="h-1.5 rounded-full bg-ink-100 overflow-hidden">
+                                    <div class="h-full rounded-full bg-gradient-to-r from-brand-500 to-emerald-500 transition-all" :style="'width:' + portalPhasePct(r) + '%'"></div>
+                                </div>
+                                <div class="flex items-center gap-4 mt-2 text-[11px] text-ink-400">
+                                    <span x-show="r.target_date" x-text="'Target: ' + r.target_date"></span>
+                                    <span x-show="r.release_date" x-text="'Released: ' + r.release_date"></span>
+                                    <span x-text="r.project_name"></span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Milestones -->
+                <div class="space-y-4">
+                    <h2 class="text-[15px] font-bold text-ink-900">Upcoming Milestones</h2>
+                    <template x-if="portalData.milestones.length === 0">
+                        <div class="surface rounded-2xl border border-ink-200/60 p-8 text-center text-[13px] text-ink-400">No milestones scheduled.</div>
+                    </template>
+                    <div class="surface rounded-2xl border border-ink-200/60 divide-y divide-ink-100">
+                        <template x-for="m in portalData.milestones" :key="m.id">
+                            <div class="px-5 py-3.5 flex items-center justify-between">
+                                <div>
+                                    <div class="text-[13px] font-medium text-ink-800" x-text="m.title"></div>
+                                    <div class="text-[11px] text-ink-400" x-text="m.project_name"></div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="text-[11px] text-ink-500" x-text="m.target_date || '—'"></span>
+                                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-md"
+                                          :class="m.status === 'Completed' ? 'bg-emerald-50 text-emerald-600' : m.status === 'At Risk' ? 'bg-rose-50 text-rose-600' : 'bg-brand-50 text-brand-600'"
+                                          x-text="m.status"></span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+</div>
+
+<!-- ============ PORTAL LOGIN (client contacts) ============ -->
+<div x-show="!portalMode && !isLoggedIn" x-cloak class="fixed bottom-6 right-6 z-30">
+    <button @click="showPortalLogin = !showPortalLogin" class="text-[11px] font-medium text-ink-400 hover:text-ink-600 transition-colors">Client portal</button>
+</div>

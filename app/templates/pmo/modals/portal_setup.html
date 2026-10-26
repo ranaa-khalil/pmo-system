@@ -1,0 +1,45 @@
+<!-- ============ PORTAL SETUP CARD (PM side, in client detail) ============
+     Inline card in client_detail.html: enable/disable the portal, show the
+     generated passcode ONCE. -->
+<div class="surface rounded-2xl border border-ink-200/60 p-6">
+    <div class="flex items-center justify-between mb-4">
+        <div>
+            <h3 class="text-[14px] font-semibold text-ink-800">Client Portal</h3>
+            <p class="text-[12px] text-ink-400 mt-0.5">Let the client track progress in a read-only view.</p>
+        </div>
+        <span class="text-[11px] font-semibold px-2.5 py-1 rounded-lg"
+              :class="portalStatus(selectedClient?.id)?.portal_enabled ? 'bg-emerald-50 text-emerald-600' : 'bg-ink-100 text-ink-500'"
+              x-text="portalStatus(selectedClient?.id)?.portal_enabled ? 'Enabled' : 'Disabled'"></span>
+    </div>
+
+    <template x-if="!portalStatus(selectedClient?.id)?.portal_enabled">
+        <button @click="enablePortal()"
+                :disabled="portalSetupBusy || !selectedClient?.contact_email"
+                class="btn-primary text-[12px] font-medium text-white px-4 py-2 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+            <span x-text="portalSetupBusy ? 'Enabling...' : 'Enable Portal'"></span>
+        </button>
+    </template>
+    <template x-if="portalStatus(selectedClient?.id)?.portal_enabled">
+        <div class="flex items-center gap-2">
+            <button @click="disablePortal(selectedClient)"
+                    :disabled="portalSetupBusy"
+                    class="text-[12px] font-medium text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-4 py-2 rounded-xl transition-colors disabled:opacity-50">
+                Disable Portal
+            </button>
+        </div>
+    </template>
+
+    <p x-show="!selectedClient?.contact_email" class="text-[11px] text-amber-600 mt-3">Add a contact email first — the portal login uses it.</p>
+
+    <!-- Passcode shown ONCE after enabling -->
+    <template x-if="portalPasscodeShown && portalPasscodeShown.clientName === selectedClient?.name">
+        <div class="mt-4 p-4 rounded-xl bg-brand-50 border border-brand-200">
+            <div class="text-[12px] font-semibold text-brand-700 mb-2">Passcode (shown once — copy it now):</div>
+            <div class="flex items-center gap-2">
+                <code class="text-[13px] font-bold text-ink-800 bg-white px-3 py-1.5 rounded-lg border border-brand-200 select-all" x-text="portalPasscodeShown.passcode"></code>
+                <button @click="copyPortalPasscode()" class="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-2 py-1.5 rounded-lg hover:bg-brand-100 transition-colors">Copy</button>
+            </div>
+            <div class="text-[11px] text-ink-500 mt-2" x-text="'Login: ' + portalPasscodeShown.email + ' at / (Client portal link)'"></div>
+        </div>
+    </template>
+</div>

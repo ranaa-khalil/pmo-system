@@ -20,6 +20,8 @@ FEATURE_GATES = {
     "approvals": PLAN_TEAM,
     "kpis": PLAN_TEAM,
     "releases": PLAN_TEAM,
+    "sprint_planning": PLAN_BUSINESS,
+    "risk_register": PLAN_TEAM,
     "data_export": PLAN_BUSINESS,
     "audit_log_export": PLAN_BUSINESS,
     "sso_oidc": PLAN_BUSINESS,

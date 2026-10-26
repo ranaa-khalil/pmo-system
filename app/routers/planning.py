@@ -107,6 +107,32 @@ def delete_kpi(kpi_id: int, db: Session = Depends(get_db), current_user: User = 
     db.commit()
 
 
+# ── Velocity / sprint planning (Business plan+) ──────────────────────────
+@router.get("/projects/{project_id}/velocity")
+def project_velocity(
+    project_id: int,
+    sprint_days: int = 14,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Rolling velocity + recommended next-sprint scope. Gated: sprint_planning."""
+    from app.services.plan_enforcement import require_feature
+    require_feature(current_tenant.plan, "sprint_planning")
+
+    project = db.query(Project).filter(
+        Project.id == project_id, Project.tenant_id == current_tenant.id,
+    ).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    from app.services.velocity import compute_velocity, recommend_scope
+    return {
+        "velocity": compute_velocity(db, project, sprint_days=sprint_days),
+        "scope": recommend_scope(db, project, sprint_days=sprint_days),
+    }
+
+
 @router.get("/kpis/{kpi_id}/detail")
 def get_kpi_detail(kpi_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
     """Get a KPI with related items: linked vision objective, releases, backlog items."""

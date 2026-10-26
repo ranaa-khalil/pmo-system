@@ -22,10 +22,72 @@ from app.services.auth import create_access_token, hash_password, verify_passwor
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
+# ---------------------------------------------------------------------------
+# Login brute-force protection
+# ---------------------------------------------------------------------------
+# /api/auth/login is excluded from the global per-tenant rate limiter (auth
+# happens before a tenant context exists), so login gets its own limiter:
+# per-IP and per-account sliding windows with 429 + Retry-After.
+import time as _time
+from collections import defaultdict as _defaultdict
+
+from fastapi import Request as _Request
+
+LOGIN_MAX_ATTEMPTS = 8          # attempts per window per IP
+LOGIN_ACCOUNT_MAX = 5           # attempts per window per account
+LOGIN_WINDOW_SECONDS = 300      # 5 minutes
+LOGIN_LOCKOUT_SECONDS = 900     # 15 minutes after limit hit
+
+_login_ip_attempts: dict[str, list[float]] = _defaultdict(list)
+_login_account_attempts: dict[str, list[float]] = _defaultdict(list)
+
+
+def _prune(bucket: dict[str, list[float]], key: str, now: float) -> list[float]:
+    cutoff = now - LOGIN_WINDOW_SECONDS
+    bucket[key] = [ts for ts in bucket[key] if ts > cutoff]
+    return bucket[key]
+
+
+def _check_login_limit(bucket: dict[str, list[float]], key: str, max_attempts: int) -> tuple[bool, int]:
+    """Return (allowed, retry_after_seconds)."""
+    now = _time.time()
+    attempts = _prune(bucket, key, now)
+    if len(attempts) >= max_attempts:
+        oldest = min(attempts)
+        # Escalate: once over the limit, lock out for the full lockout period
+        retry_after = max(1, int(oldest + LOGIN_LOCKOUT_SECONDS - now))
+        return False, retry_after
+    attempts.append(now)
+    return True, 0
+
+
+def _client_ip(request: _Request | None) -> str:
+    if request is None:
+        return "unknown"
+    fwd = request.headers.get("x-forwarded-for")
+    if fwd:
+        return fwd.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
 
 @router.post("/login", response_model=TokenResponse)
-def login(credentials: UserLogin, db: Session = Depends(get_db)):
+def login(
+    credentials: UserLogin,
+    db: Session = Depends(get_db),
+    request: _Request = None,
+):
     """Login and get a JWT access token."""
+    ip = _client_ip(request)
+    email_key = (credentials.email or "").strip().lower()
+    allowed_ip, retry_ip = _check_login_limit(_login_ip_attempts, ip, LOGIN_MAX_ATTEMPTS)
+    allowed_acct, retry_acct = _check_login_limit(_login_account_attempts, email_key, LOGIN_ACCOUNT_MAX)
+    if not allowed_ip or not allowed_acct:
+        retry_after = max(retry_ip, retry_acct)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Too many login attempts. Try again in {retry_after} seconds.",
+            headers={"Retry-After": str(retry_after)},
+        )
     user = db.query(User).filter(User.email == credentials.email).first()
     if not user or not user.hashed_password:
         raise HTTPException(

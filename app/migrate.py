@@ -45,6 +45,9 @@ INDEXES = [
     ("idx_stakeholders_tenant_project", "stakeholders", "tenant_id, project_id"),
     ("idx_kpis_tenant_project", "kpis", "tenant_id, project_id"),
     ("idx_notifications_tenant_user", "notifications", "tenant_id, user_id"),
+    # Unique per-tenant setting keys — prevents duplicate rows from
+    # concurrent query-then-insert races in set_setting().
+    ("uq_tenant_settings_key", "tenant_settings", "tenant_id, key"),
 ]
 
 

@@ -137,6 +137,28 @@ def auto_seed_on_startup():
         db.close()
 
 
+@app.on_event("startup")
+async def start_rate_limiter_cleanup():
+    """Periodically prune the in-memory rate limiter to prevent memory growth.
+
+    Sliding-window buckets accumulate one key per unique tenant/IP; without a
+    sweep they are never freed. Runs every 10 minutes in the background.
+    """
+    import asyncio
+
+    from app.middleware.rate_limit import rate_limiter
+
+    async def _cleanup_loop():
+        while True:
+            await asyncio.sleep(600)
+            try:
+                rate_limiter.cleanup()
+            except Exception as e:  # pragma: no cover — never kill the loop
+                logger.warning(f"Rate limiter cleanup error: {e}")
+
+    asyncio.create_task(_cleanup_loop())
+
+
 @app.get("/health")
 def health_check():
     """Health check endpoint."""

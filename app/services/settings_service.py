@@ -76,7 +76,11 @@ def get_setting(db: Session, tenant_id: int, key: str) -> str | None:
 
 
 def set_setting(db: Session, tenant_id: int, key: str, value: str) -> TenantSetting:
-    """Set a per-tenant setting value. Encrypts secrets."""
+    """Set a per-tenant setting value. Encrypts secrets.
+
+    Race-safe: on the unique (tenant_id, key) index, a concurrent insert
+    conflict falls back to updating the winning row instead of raising.
+    """
     is_secret = 1 if key in SECRET_KEYS else 0
     stored_value = _encrypt(value) if is_secret and value else value
 
@@ -96,8 +100,22 @@ def set_setting(db: Session, tenant_id: int, key: str, value: str) -> TenantSett
             is_secret=is_secret,
         )
         db.add(setting)
+        try:
+            db.flush()
+        except Exception:
+            # Lost an insert race — another worker created the row between
+            # our SELECT and INSERT. Update it instead.
+            db.rollback()
+            setting = db.query(TenantSetting).filter(
+                TenantSetting.tenant_id == tenant_id,
+                TenantSetting.key == key,
+            ).first()
+            if setting is None:
+                raise
+            setting.value = stored_value
+            setting.is_secret = is_secret
+            db.flush()
 
-    db.flush()
     return setting
 
 

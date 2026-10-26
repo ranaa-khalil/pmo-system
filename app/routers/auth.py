@@ -99,7 +99,25 @@ def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
-    token = create_access_token(data={"sub": str(user.id)})
+    token = create_access_token(
+        data={"sub": str(user.id)},
+        token_version=user.token_version or 0,
+    )
+    return TokenResponse(access_token=token)
+
+
+@router.post("/refresh", response_model=TokenResponse)
+def refresh_token(current_user: User = Depends(get_current_user)):
+    """Issue a fresh access token for the current user (sliding session).
+
+    The old token remains valid until its own expiry — acceptable for a
+    stateless setup; the token_version check covers revocation.
+    Call this from the frontend before a long-lived token expires.
+    """
+    token = create_access_token(
+        data={"sub": str(current_user.id)},
+        token_version=current_user.token_version or 0,
+    )
     return TokenResponse(access_token=token)
 
 
@@ -225,6 +243,7 @@ def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="User not found")
 
     user.hashed_password = hash_password(req.new_password)
+    user.token_version = (user.token_version or 0) + 1  # revoke all existing JWTs
     reset_token.used = True
     db.commit()
 

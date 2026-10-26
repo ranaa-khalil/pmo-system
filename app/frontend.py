@@ -3,6 +3,7 @@ PMO System — Frontend UI
 A clean, modern single-page app served by FastAPI.
 Uses Tailwind CSS + Alpine.js for reactivity.
 """
+import secrets
 from datetime import datetime
 from pathlib import Path
 
@@ -22,12 +23,18 @@ async def dashboard(request: Request):
     branding = getattr(request.state, "tenant_branding", None) or {}
     tenant_slug = getattr(request.state, "tenant_slug", None) or ""
 
+    # Per-response CSP nonce — strict CSP: every <script> in the shell carries
+    # nonce="{{ csp_nonce }}"; inline/eval are NOT allowed globally.
+    nonce = secrets.token_urlsafe(16)
+    request.state.csp_nonce = nonce
+
     response = templates.TemplateResponse(
         request=request,
         name="index.html",
         context={
             "tenant_branding": branding,
             "tenant_slug": tenant_slug,
+            "csp_nonce": nonce,
         },
     )
     # Prevent browser caching — always serve the latest version

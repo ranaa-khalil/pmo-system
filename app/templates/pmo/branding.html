@@ -1,4 +1,4 @@
-    <script>
+    <script nonce="{{ csp_nonce }}">
         window.__TENANT_BRANDING = {{ tenant_branding | tojson if tenant_branding else 'null' }};
         window.__TENANT_SLUG = "{{ tenant_slug or '' }}";
 

@@ -31,6 +31,10 @@ def get_current_user(
     user = db.query(User).filter(User.id == int(user_id)).first()
     if user is None or not user.is_active:
         raise credentials_exception
+    # Token version check: a bumped user.token_version (password reset,
+    # logout-everywhere) revokes every previously issued JWT.
+    if payload.get("tv") is not None and payload["tv"] != (user.token_version or 0):
+        raise credentials_exception
     return user
 
 

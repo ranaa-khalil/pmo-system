@@ -8,12 +8,12 @@
     <meta http-equiv="Expires" content="0">
     <title>PMO System — Obelion</title>
     <!-- Libraries (self-hosted in /static — no CDN dependency) -->
-    <script src="/static/tailwind.min.js"></script>
+    <script nonce="{{ csp_nonce }}" src="/static/tailwind.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;600;700;800;900&display=swap" rel="stylesheet">
-    <script src="/static/chart.umd.min.js"></script>
-    <script src="/static/marked.min.js"></script>
+    <script nonce="{{ csp_nonce }}" src="/static/chart.umd.min.js"></script>
+    <script nonce="{{ csp_nonce }}" src="/static/marked.min.js"></script>
     <!-- App CSS — modular (theme → components → views, original cascade order) -->
     <link rel="stylesheet" href="/static/css/theme.css">
     <link rel="stylesheet" href="/static/css/components.css">
@@ -22,12 +22,12 @@
          never generates custom palettes; see utilities.css header) -->
     <link rel="stylesheet" href="/static/css/utilities.css">
     <!-- Tailwind design tokens (brand colors, shadows, radii, easing) -->
-    <script src="/static/js/app/tailwind-config.js"></script>
+    <script nonce="{{ csp_nonce }}" src="/static/js/app/tailwind-config.js"></script>
     <!-- Tenant branding injected from server (subdomain middleware) -->
 {% include 'pmo/branding.html' %}
     <!-- App JS: store assembly (classic, no defer — must run before Alpine),
          then the FAB component module, then Alpine with defer -->
-    <script src="/static/js/app/pmo-app.js" type="module"></script>
+    <script nonce="{{ csp_nonce }}" src="/static/js/app/pmo-app.js" type="module"></script>
 </head>
 <body class="h-full bg-ink-50 font-sans text-ink-700" x-data="pmoApp()" x-init="init()" x-cloak
       @quick-add-task.window="quickAddTask($event.detail.title)"
@@ -95,9 +95,9 @@
 {% include 'pmo/modals/toast.html' %}
 
 <!-- ==================== ALPINE.JS ==================== -->
-<script src="/static/alpine.min.js" defer></script>
+<script nonce="{{ csp_nonce }}" src="/static/alpine.min.js" defer></script>
 <!-- Fallback: if Alpine.js doesn't load within 3s, show the page anyway -->
-<script src="/static/js/app/alpine-fallback.js" defer></script>
+<script nonce="{{ csp_nonce }}" src="/static/js/app/alpine-fallback.js" defer></script>
 
 </body>
 </html>

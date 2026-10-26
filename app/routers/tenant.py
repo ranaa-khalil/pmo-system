@@ -576,7 +576,10 @@ def accept_invitation(req: AcceptInviteRequest, db: Session = Depends(get_db)):
     invitation.accepted_at = datetime.now(UTC)
     db.commit()
 
-    token = create_access_token({"sub": str(user.id)})
+    token = create_access_token(
+        data={"sub": str(user.id)},
+        token_version=user.token_version or 0,
+    )
     tenant = db.query(Tenant).filter(Tenant.id == invitation.tenant_id).first()
     return {
         "token": token,

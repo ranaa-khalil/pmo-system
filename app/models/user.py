@@ -20,6 +20,7 @@ class User(Base):
     system_role = Column(String(50), default="member", nullable=False)  # kept for backward compat
     is_active = Column(Boolean, default=True, nullable=False)
     active_tenant_id = Column(Integer, nullable=True)  # which tenant the user is currently working in
+    token_version = Column(Integer, default=0, nullable=False, server_default="0")  # bump to revoke all JWTs
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

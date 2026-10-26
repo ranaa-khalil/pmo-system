@@ -25,6 +25,7 @@ TENANT_TABLES = [
 COLUMNS = [
     ("github_board_configs", "project_url VARCHAR(500)"),
     ("users", "active_tenant_id INTEGER"),
+    ("users", "token_version INTEGER NOT NULL DEFAULT 0"),
     ("projects", "project_type VARCHAR(50) NOT NULL DEFAULT 'software'"),
     ("risks", "tenant_id INTEGER"),
     ("risks", "release_id INTEGER"),

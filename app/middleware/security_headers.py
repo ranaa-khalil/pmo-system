@@ -24,19 +24,19 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # HSTS (only in production with HTTPS)
         # response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
-        # Basic CSP — everything is self-hosted (/static), no CDN dependency.
-        # 'unsafe-inline' + 'unsafe-eval' stay in script-src for Alpine.js
-        # (x-data expressions compile at runtime); drop them only together
-        # with a nonce/strict-CSP pass.
+        # Strict CSP with per-response nonce (set by app/frontend.py for the
+        # SPA shell): script-src allows only nonced scripts + self-hosted
+        # files — NO unsafe-inline/eval. External styles keep the fonts
+        # hosts; everything else is 'self'.
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+            "script-src 'self' 'nonce-%(nonce)s'; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; "
             "img-src 'self' data: https:; "
             "connect-src 'self' https:; "
             "frame-ancestors 'self'"
-        )
+        ) % {"nonce": getattr(request.state, "csp_nonce", "")}
 
         # Permissions policy
         response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"

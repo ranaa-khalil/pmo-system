@@ -320,6 +320,20 @@ async init() {
             setInterval(() => this.loadNotifications(), 30000);
         }
     }
+    // Sliding session: refresh the token before the 8h expiry (at 6h mark),
+    // then keep it fresh every 30 minutes of activity.
+    const REFRESH_MS = 30 * 60 * 1000;
+    setInterval(async () => {
+        if (!this.isLoggedIn || document.hidden) return;  // only active tabs
+        try {
+            const res = await this.api('POST', '/auth/refresh');
+            if (res && res.access_token) {
+                this.authToken = res.access_token;
+                localStorage.setItem('pmo_token', res.access_token);
+            }
+        } catch { /* 401 handled by api() — logs the user out */ }
+    }, REFRESH_MS);
+
     setInterval(() => {
         this.currentTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
     }, 60000);

@@ -3,6 +3,88 @@
 // Fragments are verbatim from the original monolith; pmo-app.js assembles them.
 
 export const planning = {
+// ===== Today + Work (R1 spine) =====
+today: null,
+todayLoading: false,
+workItems: [],
+workFilter: 'all',
+workSearch: '',
+workProjectFilter: '',
+workLoading: false,
+selectedWorkItem: null,
+workDetail: null,
+workDetailLoading: false,
+
+get workFiltered() {
+    let items = this.workItems;
+    if (this.workProjectFilter) items = items.filter(i => String(i.project_id) === String(this.workProjectFilter));
+    if (this.workSearch.trim()) {
+        const q = this.workSearch.trim().toLowerCase();
+        items = items.filter(i => (i.title || '').toLowerCase().includes(q) || (i.project || '').toLowerCase().includes(q));
+    }
+    return items;
+},
+
+async loadToday() {
+    this.todayLoading = true;
+    try {
+        this.today = await this.api('GET', '/today');
+    } catch { this.today = null; }
+    this.todayLoading = false;
+},
+
+async loadWork() {
+    this.workLoading = true;
+    try {
+        const qs = this.workFilter && this.workFilter !== 'all' ? `?filter=${this.workFilter}` : '';
+        this.workItems = (await this.api('GET', `/work${qs}`)).items || [];
+    } catch { this.workItems = []; }
+    this.workLoading = false;
+},
+
+setWorkFilter(f) {
+    this.workFilter = f;
+    this.loadWork();
+},
+
+async openWorkItem(item) {
+    this.selectedWorkItem = item;
+    this.workDetail = null;
+    this.workDetailLoading = true;
+    try {
+        const [brief, itemRow] = await Promise.all([
+            this.api('GET', `/projects/${item.project_id}/brief`).catch(() => null),
+            this.api('GET', `/backlog/${item.id}`).catch(() => null),
+        ]);
+        this.workDetail = { brief, item: itemRow };
+    } catch { this.workDetail = { brief: null, item: null }; }
+    this.workDetailLoading = false;
+},
+
+closeWorkItem() {
+    this.selectedWorkItem = null;
+    this.workDetail = null;
+},
+
+// Today row → Work detail drawer (approvals open the legacy project page for now)
+openWorkItemFromToday(row) {
+    if (row.kind === 'approval') {
+        this.navigate('projects');
+        return;
+    }
+    this.navigate('work');
+    this.openWorkItem({ id: row.ref_id, title: row.title, project: row.project, project_id: row.project_id, phase: '', status: row.kind === 'blocked' ? 'Blocked' : 'In Progress', priority: '', blocked: row.kind === 'blocked', overdue: row.kind === 'overdue' });
+},
+
+// Open the legacy project detail by id (used from the Work drawer)
+async openProjectById(projectId) {
+    let project = (this.projects || []).find(p => String(p.id) === String(projectId));
+    if (!project) {
+        try { project = await this.api('GET', `/projects/${projectId}`); } catch { return; }
+    }
+    if (project) await this.openProject(project);
+},
+
 // ===== Project detail state =====
 selectedProject: null,
 selectedClient: null,
@@ -64,22 +146,35 @@ navItems: [
     { id: 'admin-dashboard', label: 'Dashboard', group: 'admin', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>' },
     { id: 'admin-tenants', label: 'Tenants', group: 'admin', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>' },
     { id: 'admin-plans', label: 'Plans', group: 'admin', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>' },
-    { id: 'dashboard', label: 'Dashboard', group: 'workspace', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>' },
-    { id: 'clients', label: 'Clients', group: 'workspace', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>' },
-    { id: 'projects', label: 'Projects', group: 'workspace', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/></svg>' },
-    { id: 'tasks', label: 'My Tasks', group: 'workspace', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>' },
+    { id: 'today', label: 'Today', group: 'workspace', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>' },
+    { id: 'work', label: 'Work', group: 'workspace', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>' },
+    { id: 'dashboard', label: 'Dashboard', group: 'consultant', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>' },
+    { id: 'clients', label: 'Clients', group: 'consultant', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>' },
+    { id: 'projects', label: 'Projects', group: 'consultant', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/></svg>' },
+    { id: 'tasks', label: 'My Tasks', group: 'consultant', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>' },
     { id: 'roadmap', label: 'Roadmaps', group: 'planning', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>' },
     { id: 'docs', label: 'Documentation', group: 'planning', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>' },
     { id: 'settings', label: 'Settings', group: 'planning', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>' },
 ],
 
+consultantView: localStorage.getItem('consultantView') === '1',
+
+toggleConsultantView() {
+    this.consultantView = !this.consultantView;
+    localStorage.setItem('consultantView', this.consultantView ? '1' : '0');
+    if (!this.consultantView && ['dashboard', 'clients', 'projects', 'tasks', 'project-detail', 'client-detail', 'roadmap'].includes(this.route)) {
+        this.route = 'today';
+    }
+},
+
 get visibleNavItems() {
     if (this.isSuperAdmin) return this.navItems.filter(i => i.group === 'admin');
-    return this.navItems.filter(i => i.group !== 'admin');
+    const groups = this.consultantView ? ['workspace', 'consultant', 'planning'] : ['workspace', 'planning'];
+    return this.navItems.filter(i => groups.includes(i.group));
 },
 
 get pageTitle() {
-    return { dashboard: 'Dashboard', clients: 'Clients', 'client-detail': 'Client Detail', projects: 'Projects', 'project-detail': 'Project Detail', tasks: 'My Tasks', roadmap: 'Roadmaps', docs: 'Documentation', settings: 'Settings' }[this.route] || '';
+    return { today: 'Today', work: 'Work', dashboard: 'Dashboard', clients: 'Clients', 'client-detail': 'Client Detail', projects: 'Projects', 'project-detail': 'Project Detail', tasks: 'My Tasks', roadmap: 'Roadmaps', docs: 'Documentation', settings: 'Settings' }[this.route] || '';
 },
 get stats() {
     const ds = this.dashStats || {};

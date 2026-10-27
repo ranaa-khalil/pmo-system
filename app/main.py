@@ -34,6 +34,7 @@ from app.routers import (
     risks,
     stakeholders,
     tenant,
+    today,
     user_tasks,
 )
 
@@ -96,6 +97,7 @@ app.include_router(backlog.router)
 app.include_router(forms.router)
 app.include_router(approvals.router)
 app.include_router(dashboard.router)
+app.include_router(today.router)
 app.include_router(stakeholders.router)
 app.include_router(releases.router)
 app.include_router(user_tasks.router)

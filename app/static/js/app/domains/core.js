@@ -14,7 +14,7 @@ loginError: '',
 
 
 // ===== App state =====
-route: 'dashboard',
+route: 'today',
 clients: [],
 projects: [],
 projectFilter: '',
@@ -261,10 +261,10 @@ async login() {
             await this.loadAdminInsights();
             await this.loadAdminPlans();
         } else {
-            this.route = 'dashboard';
+            this.route = 'today';
             await this.loadTenant();  // Load tenant branding for sidebar/logo
             this.applyBranding();  // Apply CSS variables + title
-            await Promise.all([this.loadClients(), this.loadProjects(), this.loadDashboard(), this.loadRoles(), this.loadNotifications(), this.loadActivity(), this.checkAIStatus()]);
+            await Promise.all([this.loadClients(), this.loadProjects(), this.loadToday(), this.loadRoles(), this.loadNotifications(), this.loadActivity(), this.checkAIStatus()]);
             // Fire-and-forget: the daily briefing card generates after the shell loads
             this.generateBriefing();
             setInterval(() => this.loadNotifications(), 30000);
@@ -385,6 +385,8 @@ navigate(route) {
     }
     if (route === 'dashboard') { setTimeout(() => this.renderCharts(), 150); this.refreshTaskSummary(); }
     if (route === 'tasks') { this.loadTasks(); }
+    if (route === 'today') { this.loadToday(); }
+    if (route === 'work') { this.loadWork(); }
     if (route === 'settings') { this.loadTenant(); this.loadMembers(); this.loadIntegrations(); this.loadTenantLimits(); this.loadAutomation(); this.loadLifecycle(); }
     if (route === 'admin-dashboard' || route === 'admin-tenants' || route === 'admin-plans') { this.loadAdminInsights(); this.loadAdminPlans(); }
 },

@@ -1,0 +1,82 @@
+<!-- R1: Today — AI briefing + needs-you list -->
+<div x-show="route === 'today'" x-cloak class="view-enter space-y-5 max-w-5xl">
+
+    <!-- Header row -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-bold text-ink-900 tracking-tight">Today</h1>
+            <p class="text-[12px] text-ink-400 mt-0.5">What needs you — across every project</p>
+        </div>
+        <button @click="navigate('work')" class="text-[12px] font-medium text-brand-700 border border-brand-200 bg-white px-3.5 py-2 rounded-xl hover:bg-brand-50 transition-all">
+            Open Work →
+        </button>
+    </div>
+
+    <!-- Briefing card (indigo→violet left border, premium) -->
+    <div x-show="today" x-cloak class="surface rounded-2xl border border-ink-200/60 p-5 relative overflow-hidden">
+        <div class="absolute left-0 top-0 bottom-0 w-1" :class="today?.briefing?.verdict === 'at_risk' ? 'bg-rose-500' : today?.briefing?.verdict === 'needs_attention' ? 'bg-amber-500' : 'bg-gradient-to-b from-indigo-500 to-violet-500'"></div>
+        <div class="flex items-center gap-2 mb-2.5">
+            <svg class="w-4 h-4 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <span class="text-[9px] font-bold uppercase tracking-wider text-violet-700">Copilot Briefing</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                  :class="today?.briefing?.verdict === 'at_risk' ? 'bg-rose-50 text-rose-600' : today?.briefing?.verdict === 'needs_attention' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'"
+                  x-text="today?.briefing?.verdict === 'at_risk' ? 'At risk' : today?.briefing?.verdict === 'needs_attention' ? 'Needs attention' : 'On track'"></span>
+        </div>
+        <div class="space-y-1">
+            <template x-for="(line, i) in (today?.briefing?.lines || [])" :key="i">
+                <p class="text-[13px] leading-relaxed" :class="i === 0 ? 'text-ink-900 font-medium' : 'text-ink-600'">
+                    <span x-text="line"></span>
+                </p>
+            </template>
+        </div>
+    </div>
+
+    <!-- Loading skeleton -->
+    <div x-show="todayLoading" class="surface rounded-2xl border border-ink-200/60 p-5">
+        <div class="space-y-2.5">
+            <div class="h-3 bg-ink-100 rounded w-3/4 animate-pulse"></div>
+            <div class="h-3 bg-ink-100 rounded w-1/2 animate-pulse"></div>
+            <div class="h-3 bg-ink-100 rounded w-2/3 animate-pulse"></div>
+        </div>
+    </div>
+
+    <!-- Needs-you list -->
+    <div x-show="today && !todayLoading" x-cloak>
+        <div class="flex items-center justify-between mb-2.5">
+            <h2 class="text-[11px] font-bold uppercase tracking-wider text-ink-400">Needs you</h2>
+            <span class="text-[11px] text-ink-400" x-show="today && today.total_needs_you > today.needs_you.length"
+                  x-text="'showing ' + today.needs_you.length + ' of ' + today.total_needs_you"></span>
+        </div>
+
+        <div class="space-y-2">
+            <template x-for="row in (today?.needs_you || [])" :key="row.kind + '-' + row.ref_id">
+                <button @click="openWorkItemFromToday(row)"
+                        class="w-full text-left surface rounded-xl border border-ink-200/60 px-4 py-3 flex items-center gap-3 hover:border-brand-300 hover:bg-brand-50/40 transition-all group">
+                    <div class="w-1 self-stretch rounded-full"
+                         :class="row.kind === 'approval' ? 'bg-violet-400' : row.kind === 'blocked' ? 'bg-amber-400' : 'bg-rose-400'"></div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="text-[13px] font-semibold text-ink-900 truncate" x-text="row.title"></span>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0"
+                                  :class="row.kind === 'approval' ? 'bg-violet-50 text-violet-700' : row.kind === 'blocked' ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-600'"
+                                  x-text="row.kind === 'approval' ? 'Approval' : row.kind === 'blocked' ? 'Blocked' : 'Overdue'"></span>
+                        </div>
+                        <div class="text-[11.5px] text-ink-500 mt-0.5 truncate">
+                            <span x-text="row.project"></span>
+                            <span class="text-ink-300"> · </span>
+                            <span x-text="row.why"></span>
+                        </div>
+                    </div>
+                    <svg class="w-4 h-4 text-ink-300 group-hover:text-brand-500 transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                </button>
+            </template>
+
+            <!-- Empty state -->
+            <div x-show="today && today.needs_you.length === 0" class="surface rounded-xl border border-emerald-200/60 bg-emerald-50/40 px-4 py-5 text-center">
+                <svg class="w-6 h-6 text-emerald-500 mx-auto mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <p class="text-[13px] font-semibold text-emerald-700">You're clear — nothing needs you</p>
+                <p class="text-[11.5px] text-emerald-600/80 mt-0.5">No waiting approvals, blocked or overdue work.</p>
+            </div>
+        </div>
+    </div>
+</div>

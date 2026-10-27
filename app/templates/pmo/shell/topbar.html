@@ -9,6 +9,15 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-4">
+                    <!-- Consultant view toggle (two-depth model) -->
+                    <button @click="toggleConsultantView()"
+                            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-all"
+                            :class="consultantView ? 'bg-violet-50 text-violet-700 border-violet-200' : 'bg-white text-ink-500 border-ink-200 hover:border-ink-300'"
+                            x-tip="Show consultant surfaces: Dashboard, Clients, Projects depth">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                        <span x-text="consultantView ? 'Consultant view' : 'Work view'"></span>
+                    </button>
+
                     <!-- Notification Bell -->
                     <div class="relative" @click.away="notifPanelOpen = false">
                         <button @click="toggleNotifPanel()" class="relative p-2 rounded-lg hover:bg-ink-100 transition-colors">

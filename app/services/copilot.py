@@ -193,53 +193,68 @@ def build_context(
     epic_tree = _epic_tree(db, proj_ids)
 
     # ── Project identity: what the copilot needs to be project-specific ───
-    manager = (
-        db.query(User).filter(User.id == projects[0].project_manager_id).first()
-        if projects[0].project_manager_id else None
-    )
-    # Project story: vision + milestones + roadmap so the copilot can discuss
-    # what the project is about and where it's heading — not just ids.
     from app.models.milestone import Milestone
     from app.models.project_vision import ProjectVision
     from app.models.roadmap import Roadmap
-    vision_row = db.query(ProjectVision).filter(ProjectVision.project_id == projects[0].id).first()
-    milestones = (
-        db.query(Milestone)
-        .join(Roadmap, Milestone.roadmap_id == Roadmap.id)
-        .filter(Roadmap.project_id.in_(proj_ids))
-        .order_by(Milestone.id)
-        .limit(8)
-        .all()
-    )
-    recent_activity = (
-        db.query(ActivityLog)
-        .filter(
-            ActivityLog.project_id.in_(proj_ids),
-            ActivityLog.action.in_(["created", "applied", "advanced", "updated", "approved", "rejected"]),
+
+    def _identity_for(p: Project, with_activity: bool) -> dict:
+        """Identity block for one project: description, client, PM, vision,
+        milestones — everything the copilot needs to discuss THIS project."""
+        manager = (
+            db.query(User).filter(User.id == p.project_manager_id).first()
+            if p.project_manager_id else None
         )
-        .order_by(ActivityLog.id.desc())
-        .limit(10)
-        .all()
-    )
-    project_identity = {
-        "entity_type": "project",
-        "entity_id": projects[0].id,
-        "title": projects[0].name,
-        "status": projects[0].status,
-        "description": projects[0].description or "",
-        "project_type": projects[0].project_type or "",
-        "client": projects[0].client.name if projects[0].client else None,
-        "manager": manager.name if manager else None,
-        "vision": vision_row.statement if vision_row else None,
-        "milestones": [
-            {"title": m.title, "target_date": str(m.target_date) if m.target_date else None, "status": m.status}
-            for m in milestones if m.title
-        ],
-        "recent_activity": [
-            {"summary": a.summary, "action": a.action, "entity": a.entity_type}
-            for a in recent_activity if a.summary
-        ],
-    }
+        vision_row = db.query(ProjectVision).filter(ProjectVision.project_id == p.id).first()
+        p_milestones = (
+            db.query(Milestone)
+            .join(Roadmap, Milestone.roadmap_id == Roadmap.id)
+            .filter(Roadmap.project_id == p.id)
+            .order_by(Milestone.id)
+            .limit(6)
+            .all()
+        )
+        identity = {
+            "entity_type": "project",
+            "entity_id": p.id,
+            "title": p.name,
+            "status": p.status,
+            "description": p.description or "",
+            "project_type": p.project_type or "",
+            "client": p.client.name if p.client else None,
+            "manager": manager.name if manager else None,
+            "vision": vision_row.statement if vision_row else None,
+            "milestones": [
+                {"title": m.title, "target_date": str(m.target_date) if m.target_date else None, "status": m.status}
+                for m in p_milestones if m.title
+            ],
+        }
+        if with_activity:
+            recent_activity = (
+                db.query(ActivityLog)
+                .filter(
+                    ActivityLog.project_id == p.id,
+                    ActivityLog.action.in_(["created", "applied", "advanced", "updated", "approved", "rejected"]),
+                )
+                .order_by(ActivityLog.id.desc())
+                .limit(10)
+                .all()
+            )
+            identity["recent_activity"] = [
+                {"summary": a.summary, "action": a.action, "entity": a.entity_type}
+                for a in recent_activity if a.summary
+            ]
+        return identity
+
+    project_identity = None
+    portfolio_identity = None
+    if project_id is not None:
+        # Scoped: full identity for the one project the user has open.
+        project_identity = _identity_for(projects[0], with_activity=True)
+    else:
+        # Portfolio: identity for EVERY assigned project (up to 5) so the
+        # copilot is relevant across the whole portfolio — not just the
+        # first-assigned project. Features summary comes from epic_tree.
+        portfolio_identity = [_identity_for(p, with_activity=False) for p in projects[:5]]
 
     # ── Risks on the scoped projects (register rows, computed score) ─────
     open_risks = []
@@ -271,6 +286,7 @@ def build_context(
              "status": p.status} for p in projects
         ],
         "project_identity": project_identity,
+        "portfolio_identity": portfolio_identity,
         "pending_approvals": pending_approvals,
         "aging_items": aging_items,
         "overdue_tasks": overdue_tasks,
@@ -335,6 +351,7 @@ def summarize_context(ctx: dict, max_items: int = 40) -> str:
     """
     lines: list[str] = []
     identity = ctx.get("project_identity")
+    portfolio = ctx.get("portfolio_identity") or []
     if identity:
         parts = [f"Project {identity['entity_id']}: {identity['title']} ({identity['status']})"]
         if identity.get("description"):
@@ -355,6 +372,19 @@ def summarize_context(ctx: dict, max_items: int = 40) -> str:
         if identity.get("recent_activity"):
             acts = "; ".join(f"{a['summary']}" for a in identity["recent_activity"][:8])
             lines.append("RECENT ACTIVITY (newest first): " + acts)
+    elif portfolio:
+        # Portfolio mode: a story block per project — name, client, vision,
+        # description — so answers are relevant to the project the question
+        # is actually about, not just the first-assigned one.
+        for p in portfolio[:5]:
+            parts = [f"Project {p['entity_id']}: {p['title']} ({p['status']})"]
+            if p.get("client"):
+                parts.append(f"client: {p['client']}")
+            if p.get("description"):
+                parts.append(f"what it is: {p['description']}")
+            if p.get("vision"):
+                parts.append(f"vision: {p['vision']}")
+            lines.append("PORTFOLIO PROJECT: " + "; ".join(parts))
     elif ctx["projects"]:
         lines.append("PROJECTS: " + "; ".join(
             f"Project {p['entity_id']}: {p['title']} ({p['status']})" for p in ctx["projects"]))
@@ -391,15 +421,23 @@ def summarize_context(ctx: dict, max_items: int = 40) -> str:
 # ── Chat (grounded, read-only Q&A) ───────────────────────────────────────
 
 CHAT_SYSTEM_PROMPT = (
-    "You are the PMO Copilot — a project management assistant inside the PMO System. "
+    "You are the PMO Copilot — the user's AI PMO officer inside the PMO System. "
     "Answer only from the provided project data. Cite sources by record type and id "
-    "(e.g. 'Task 2', 'Approval 7', 'Item 5', 'Release 1') — never attach one record's "
+    "(e.g. 'Task 2', 'Approval 7', 'Item 5', 'Release 1') and by project NAME "
+    "(e.g. 'in PNU Cloud...') — never attach one record's "
     "age or status to a different record; every entry's facts belong to that entry alone. "
+    "Ground every answer in the specifics: name the project, the feature, the epic, "
+    "or the vision statement the answer is about. When the data includes project "
+    "descriptions or visions, use them — discuss what the project is FOR and where "
+    "it's heading, not just ids and counts. "
+    "Statements of work in the conversation are status updates: when the user says "
+    "'finished X' or 'SSO is done', treat it as project fact and reflect what it "
+    "means for the plan (phases, releases, approvals) in your answer. "
     "The system computes at-risk releases (overdue target or pending gate); never say a "
     "release was 'flagged' unless the data shows a flag. "
     "If the data doesn't contain the answer, say so plainly — never invent records. "
     "Reply ONLY with a JSON object with EXACTLY these keys: "
-    '{"answer": "<your answer as concise markdown>", "sources": ["Task 2", "Approval 7"]}. '
+    '{"answer": "<your answer as concise markdown>", "sources": ["Task 2", "Approval 7", "PNU Cloud"]}. '
     "Never use schema.org JSON-LD (no @type), never add other keys, never wrap the JSON "
     "in prose. Be concise and operational: the user is a PM who needs to act."
 )
@@ -474,12 +512,16 @@ def copilot_chat(
     question: str,
     tenant_config: dict,
     project_id: int | None = None,
+    history: list[dict] | None = None,
 ) -> dict:
     """Grounded Q&A scoped to the open project when one is selected.
 
     Read-only: never writes records. With a project_id the context covers that
     project only (when the user can see it); without one it covers every
-    assigned project. Returns {answer, sources, interaction_id}.
+    assigned project, with an identity block (client, description, vision) per
+    project so answers are relevant across the whole portfolio. `history` is
+    the recent conversation (oldest first, [{role, text}, ...]) so follow-up
+    questions keep their context. Returns {answer, sources, interaction_id}.
     """
     from app.services.ai import _extract_json
 
@@ -487,9 +529,22 @@ def copilot_chat(
     scope_label = f"the selected project (id={project_id})" if project_id else "all your assigned projects"
     context_text = summarize_context(ctx)
 
+    conversation = ""
+    if history:
+        turns = []
+        for turn in history[-8:]:
+            role = "User" if turn.get("role") == "user" else "Copilot"
+            text = (turn.get("text") or "").strip()
+            if text:
+                turns.append(f"{role}: {text[:500]}")
+        if turns:
+            conversation = "RECENT CONVERSATION (oldest first):\n" + "\n".join(turns) + "\n\n"
+
     user_prompt = (
         f"SCOPE: {scope_label}\n\n"
-        f"PROJECT DATA:\n{context_text}\n\nQUESTION: {question}"
+        f"PROJECT DATA:\n{context_text}\n\n"
+        + conversation
+        + f"QUESTION: {question}"
     )
 
     raw = _call_llm(CHAT_SYSTEM_PROMPT, user_prompt, tenant_config, max_tokens=900)

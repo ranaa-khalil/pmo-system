@@ -132,6 +132,7 @@ async copilotAsk(text) {
         const data = await this.api('POST', '/ai/copilot/chat', {
             question,
             project_id: this.selectedProject ? this.selectedProject.id : null,
+            history: this.copilotMessages.slice(-8).map(m => ({ role: m.role, text: m.text })),
         });
         this.copilotMessages.push({
             role: 'assistant',

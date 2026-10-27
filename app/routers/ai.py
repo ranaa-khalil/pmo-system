@@ -234,6 +234,7 @@ def ai_fill_field(
 class CopilotChatRequest(BaseModel):
     question: str
     project_id: int | None = None
+    history: list[dict] | None = None
 
 
 class CopilotProposeRequest(BaseModel):
@@ -262,6 +263,7 @@ def copilot_chat_endpoint(
         return copilot_service.copilot_chat(
             db, current_user, current_tenant, req.question, tenant_config,
             project_id=req.project_id,
+            history=req.history,
         )
     except HTTPException:
         raise

@@ -25,10 +25,10 @@ class BacklogItemBase(BaseModel):
     acceptance_criteria: str | None = None
     dependencies: str | None = None
 
-    @field_validator("kpi_id", mode="before")
+    @field_validator("kpi_id", "story_points", mode="before")
     @classmethod
-    def _empty_kpi_id_to_none(cls, v):
-        """Forms send the untouched KPI select as "" — treat it as unset."""
+    def _empty_ids_to_none(cls, v):
+        """Forms send untouched selects/number inputs as "" — treat as unset."""
         if isinstance(v, str) and not v.strip():
             return None
         return v
@@ -53,6 +53,14 @@ class BacklogItemUpdate(BaseModel):
     target_release: str | None = None
     acceptance_criteria: str | None = None
     dependencies: str | None = None
+
+    @field_validator("kpi_id", "story_points", "assigned_to", mode="before")
+    @classmethod
+    def _empty_ids_to_none(cls, v):
+        """Forms send untouched selects/number inputs as "" — treat as unset."""
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
 
 
 class BacklogItemResponse(BacklogItemBase):

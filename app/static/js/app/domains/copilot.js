@@ -81,9 +81,44 @@ toggleCopilot() {
             : "I cover all your assigned projects. Open a project to scope me to it — then I know that project's backlog, risks, approvals, and releases specifically.";
         this.copilotMessages.push({
             role: 'assistant',
-            text: `Ask me anything about your projects — overdue work, aging items, pending approvals, or releases at risk. I read your data and cite sources. ${scope}`,
+            text: `Hi — I'm your AI PMO officer. **Tell me what's happening** and I'll structure it, or ask me anything: overdue work, waiting approvals, aging items. I read your data and cite sources. ${scope}`,
         });
     }
+},
+
+// Quick action chip: labeled capability → asked as a plain chat message
+copilotQuickAsk(text) {
+    this.copilotOpen = true;
+    this.copilotAsk(text);
+},
+
+// New topic: clear the conversation, keep scope greeting
+copilotNewTopic() {
+    this.copilotMessages = [];
+    this.copilotPendingProposal = null;
+    this.toggleCopilot();
+    this.toggleCopilot();
+},
+
+copilotStartProjectKickoff() {
+    this.copilotOpen = true;
+    this.copilotMessages.push({ role: 'user', text: 'Start a project kickoff' });
+    this.copilotMessages.push({
+        role: 'assistant',
+        text: 'Paste your kickoff notes on the **Kickoff** tab (⚡ menu → Kickoff) — a paragraph, meeting notes, or a doc. I\'ll structure them into epics, features, personas, and KPIs; you review and Apply. Or just tell me about the project here and I\'ll ask for what\'s missing.',
+    });
+},
+
+copilotStartFeatureIntake() {
+    this.copilotOpen = true;
+    this.copilotTab = 'chat';
+    this.interviewStart('feature', this.selectedProject ? this.selectedProject.id : null);
+},
+
+copilotStartRiskIntake() {
+    this.copilotOpen = true;
+    this.copilotTab = 'chat';
+    this.interviewStart('risk', this.selectedProject ? this.selectedProject.id : null);
 },
 
 async copilotAsk(text) {

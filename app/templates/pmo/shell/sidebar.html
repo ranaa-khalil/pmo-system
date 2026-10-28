@@ -47,6 +47,18 @@
                     </template>
                 </a>
             </template>
+            <!-- Consultant items (Dashboard, Clients, Projects, My Tasks) — shown in Consultant view, on by default -->
+            <template x-if="consultantView">
+                <template x-for="item in navItems.filter(i => i.group === 'consultant')" :key="item.id">
+                    <a href="#"
+                       @click.prevent="navigate(item.id)"
+                       :class="route === item.id ? 'nav-active' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'"
+                       class="group flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-150">
+                        <span x-html="item.icon" class="w-[18px] h-[18px] flex-shrink-0"></span>
+                        <span x-text="item.label"></span>
+                    </a>
+                </template>
+            </template>
 
             <div class="px-3 pt-5 pb-2 text-[10px] font-semibold text-ink-400 uppercase tracking-wider">Planning</div>
             <template x-for="item in navItems.filter(i => i.group === 'planning')" :key="item.id">

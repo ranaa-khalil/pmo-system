@@ -501,6 +501,63 @@ def skip_question(db: Session, user: User, tenant: Tenant, session_id: int, ques
     }
 
 
+def back_question(db: Session, user: User, tenant: Tenant, session_id: int) -> dict:
+    """Undo the last answered/skipped question and re-ask it.
+
+    Back = remove the most recent answer from the resumable state (and its
+    skipped mark + follow-up trail), then return that question again so the
+    human can re-answer or choose a different path (e.g. abandon release
+    planning for a different capability). The first question cannot go back
+    further — Back on question 1 offers the exit instead (client-side).
+    """
+    row = _session_row(db, tenant, user, session_id)
+    try:
+        flow = _flow_of(row)
+    except ValueError:
+        return {"error": "unknown_flow", "status": 400}
+    state = _state_dict(row)
+    answers = state.get("answers", {})
+    if not answers:
+        return {"error": "nothing_to_undo", "status": 409}
+
+    # Drop follow-up trails first: a pending follow-up belongs to the last
+    # answered question, so back returns to the QUESTION, follow-up gone.
+    state.pop("followup_question", None)
+    followups = state.get("followups", {})
+
+    # The last touched question = the current step if it has no answer yet
+    # (a follow-up was pending), otherwise the most recently answered one.
+    answered_order = list(answers.keys())  # insertion order = ask order
+    last_qid = answered_order[-1]
+
+    answers.pop(last_qid, None)
+    followups.pop(last_qid, None)
+    if followups:
+        state["followups"] = followups
+    else:
+        state.pop("followups", None)
+    skipped = [qid for qid in state.get("skipped", []) if qid != last_qid]
+    if skipped:
+        state["skipped"] = skipped
+    else:
+        state.pop("skipped", None)
+
+    state["current_step"] = last_qid
+    row.proposal = json.dumps(state)
+    _sync(row, db)
+    remaining = _remaining(flow, answers, state.get("skipped", []))
+    return {
+        "done": False,
+        "session_id": session_id,
+        "question": _question_view(db, user, tenant, flow, last_qid),
+        "progress": {
+            "current": len(flow["questions"]) - len(remaining),
+            "total": len(flow["questions"]),
+        },
+        "answers_so_far": answers,
+    }
+
+
 def finish_interview(db: Session, user: User, tenant: Tenant, session_id: int) -> dict:
     """Assemble the final draft. Parity contract: the output has exactly the
     same keys and shapes as the one-shot intake draft — apply_intake remains

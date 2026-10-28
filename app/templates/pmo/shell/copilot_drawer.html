@@ -41,7 +41,7 @@
     <!-- Messages — single conversation stream -->
     <div id="copilot-messages" class="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         <template x-for="(msg, idx) in copilotMessages" :key="idx">
-            <div :class="msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
+            <div x-show="!msg.meta" :class="msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
                 <div class="max-w-[86%] rounded-2xl px-3.5 py-2.5 text-[12.5px] leading-relaxed"
                      :class="msg.role === 'user'
                          ? 'bg-brand-600 text-white rounded-br-md'
@@ -118,8 +118,27 @@
         </div>
     </template>
 
-    <!-- Quick actions — labeled capability chips (replace the 3-tab picker) -->
-    <div class="px-4 pt-2.5 pb-1 flex flex-wrap gap-1.5 border-t border-ink-100" x-show="copilotMessages.length <= 2">
+    <!-- Interview progress + Back bar: undo the last answer, or leave to another capability -->
+    <template x-if="interviewSession && !interviewFinished">
+        <div class="px-4 py-2.5 border-t border-ink-100 bg-white flex items-center gap-2">
+            <div class="flex-1 text-[11px] font-medium text-ink-500">
+                <template x-if="interviewSession.progress">
+                    <span x-text="'Question ' + interviewSession.progress.current + ' of ' + interviewSession.progress.total"></span>
+                </template>
+            </div>
+            <button @click="interviewBack()"
+                    class="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-ink-600 border border-ink-200 hover:bg-ink-50 transition-colors flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 12H5m6-6l-6 6 6 6"/>
+                </svg>
+                Back
+            </button>
+        </div>
+    </template>
+
+    <!-- Quick actions — labeled capability chips (replace the 3-tab picker).
+         Hidden while an interview is active: one flow at a time; Back leaves it. -->
+    <div class="px-4 pt-2.5 pb-1 flex flex-wrap gap-1.5 border-t border-ink-100" x-show="copilotMessages.length <= 2 && !(interviewSession && !interviewFinished)">
         <button @click="copilotQuickAsk('What needs me today?')"
                 class="px-2.5 py-1 rounded-full bg-ink-100/80 hover:bg-brand-50 hover:text-brand-700 text-[10.5px] font-medium text-ink-600 transition-colors">📋 What needs me today?</button>
         <button @click="copilotQuickAsk('What is overdue?')"
@@ -130,6 +149,8 @@
                 class="px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 hover:bg-violet-100 text-[10.5px] font-semibold border border-violet-200 transition-colors">🚀 Start a project kickoff</button>
         <button @click="copilotStartFeatureIntake()"
                 class="px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 hover:bg-violet-100 text-[10.5px] font-semibold border border-violet-200 transition-colors">✨ Add a feature</button>
+        <button @click="copilotStartReleaseIntake()"
+                class="px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 hover:bg-violet-100 text-[10.5px] font-semibold border border-violet-200 transition-colors">📦 Plan a release</button>
         <button @click="copilotStartRiskIntake()"
                 class="px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 hover:bg-violet-100 text-[10.5px] font-semibold border border-violet-200 transition-colors">⚠️ Log a risk</button>
     </div>

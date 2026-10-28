@@ -576,6 +576,25 @@ def interview_skip_endpoint(
         raise HTTPException(400, str(e))
 
 
+@router.post("/interview/{session_id}/back")
+def interview_back_endpoint(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Back = undo the last answered/skipped question and re-ask it."""
+    from app.services import interview as interview_service
+    try:
+        return _interview_error(interview_service.back_question(
+            db, current_user, current_tenant, session_id,
+        ))
+    except PermissionError:
+        raise HTTPException(404, "Interview session not found in this tenant.")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
 @router.get("/interview/{session_id}/state")
 def interview_state_endpoint(
     session_id: int,

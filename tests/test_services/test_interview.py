@@ -124,6 +124,50 @@ def test_skip_required_question_refuses(interview_world, db):
     assert result.get("error") == "question_required"
 
 
+def test_back_undoes_last_answer_and_reasks(interview_world, db):
+    """Back = remove the most recent answer; the SAME question is re-asked."""
+    session = interview_service.start_interview(db, interview_world["admin"], interview_world["tenant"], flow="project")
+    sid = session["session_id"]
+    q1 = session["question"]
+    state = interview_service.submit_answer(db, interview_world["admin"], interview_world["tenant"], sid, q1["id"], "answer one")
+    q2 = state["question"]
+    state = interview_service.submit_answer(db, interview_world["admin"], interview_world["tenant"], sid, q2["id"], "answer two")
+
+    back = interview_service.back_question(db, interview_world["admin"], interview_world["tenant"], sid)
+    assert back["done"] is False
+    assert back["question"]["id"] == q2["id"]          # re-asks the undone question
+    assert back["answers_so_far"].get(q2["id"]) is None  # answer removed
+    assert back["answers_so_far"].get(q1["id"]) == "answer one"  # earlier answer intact
+    # Resumable state persisted without the undone answer
+    row = db.query(AiInteraction).filter(AiInteraction.id == sid).first()
+    stored = json.loads(row.proposal)
+    assert q2["id"] not in stored["answers"]
+
+
+def test_back_removes_skip_and_allows_reanswer(interview_world, db):
+    """Back after a skip: the skip is undone too — the question returns unskipped."""
+    session = interview_service.start_interview(db, interview_world["admin"], interview_world["tenant"], flow="project")
+    sid = session["session_id"]
+    q1 = session["question"]
+    state = interview_service.submit_answer(db, interview_world["admin"], interview_world["tenant"], sid, q1["id"], "answer one")
+    q2 = state["question"]
+    interview_service.skip_question(db, interview_world["admin"], interview_world["tenant"], sid, q2["id"])
+
+    back = interview_service.back_question(db, interview_world["admin"], interview_world["tenant"], sid)
+    assert back["question"]["id"] == q2["id"]
+    assert q2["id"] not in back["answers_so_far"]
+    row = db.query(AiInteraction).filter(AiInteraction.id == sid).first()
+    stored = json.loads(row.proposal)
+    assert q2["id"] not in stored.get("skipped", [])
+
+
+def test_back_on_first_question_refuses(interview_world, db):
+    """Nothing answered yet → nothing_to_undo (client offers the exit)."""
+    session = interview_service.start_interview(db, interview_world["admin"], interview_world["tenant"], flow="project")
+    result = interview_service.back_question(db, interview_world["admin"], interview_world["tenant"], session["session_id"])
+    assert result.get("error") == "nothing_to_undo"
+
+
 def test_finish_assembles_intake_parity_draft(interview_world, db, monkeypatch):
     """CRITICAL: the interview assembler output == the one-shot intake output
     for the same answers. Interviews never create a second kind of record."""

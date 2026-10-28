@@ -121,6 +121,20 @@ copilotStartRiskIntake() {
     this.interviewStart('risk', this.selectedProject ? this.selectedProject.id : null);
 },
 
+copilotStartReleaseIntake() {
+    this.copilotOpen = true;
+    this.copilotTab = 'chat';
+    if (!this.selectedProject) {
+        this.copilotMessages.push({ role: 'user', text: 'Plan a release' });
+        this.copilotMessages.push({
+            role: 'assistant',
+            text: 'Happy to — open a project first (releases belong to a project), then tap **Plan a release** again. Or tell me here what should ship and I\'ll remember it.',
+        });
+        return;
+    }
+    this.interviewStart('release', this.selectedProject.id);
+},
+
 async copilotAsk(text) {
     const question = (text || this.copilotInput || '').trim();
     if (!question || this.copilotBusy) return;
@@ -219,6 +233,43 @@ copilotScroll() {
         const el = document.getElementById('copilot-messages');
         if (el) el.scrollTop = el.scrollHeight;
     });
+},
+
+// Back: undo the last interview answer and re-ask it. On the first question
+// (nothing to undo server-side), Back ends the interview and returns to the
+// capability chips — "choose another" without nuking the conversation.
+async interviewBack() {
+    if (!this.interviewSession || this.interviewBusy) return;
+    this.interviewBusy = true;
+    this.copilotScroll();
+    // Remove the marker + trailing assistant messages for the last question
+    while (this.copilotMessages.length && this.copilotMessages[this.copilotMessages.length - 1].meta) {
+        this.copilotMessages.pop();
+    }
+    try {
+        const data = await this.api('POST', `/ai/interview/${this.interviewSession.session_id}/back`, {});
+        if (data.error) {
+            // nothing_to_undo → this was question 1: offer the exit
+            this.interviewSession = null;
+            this.interviewDraft = null;
+            this.interviewFinished = false;
+            this.copilotMessages.push({
+                role: 'assistant',
+                text: 'No problem — choose another option below, or just tell me what you need.',
+            });
+        } else {
+            this.interviewSession = { ...this.interviewSession, ...data };
+            const chipHint = data.question.choices ? ` Options: ${data.question.choices.join(' · ')}.` : '';
+            this.copilotMessages.push({
+                role: 'assistant',
+                text: `Went back — let's redo this one.${chipHint}\n\n${data.question.prompt}`,
+            });
+        }
+    } catch (e) {
+        this.showToast(e?.message || 'Back failed.', 'error');
+    }
+    this.interviewBusy = false;
+    this.copilotScroll();
 },
 
 copilotSubmit() {
@@ -435,6 +486,7 @@ async interviewAnswer(value, skipped = false) {
     const q = this.interviewSession.question;
     const shown = skipped ? '(skipped — using default)' : value;
     this.copilotMessages.push({ role: 'user', text: shown || '(default)' });
+    this.copilotMessages.push({ role: 'assistant', text: `__Q:${q.id}`, meta: true, questionId: q.id });
     this.interviewBusy = true;
     this.copilotScroll();
     const path = skipped ? 'skip' : 'answer';

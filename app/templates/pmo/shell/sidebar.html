@@ -31,7 +31,7 @@
             </template>
             <!-- Regular user nav -->
             <template x-if="!isSuperAdmin">
-                <div>
+                <div x-show="!consultantView">
             <div class="px-3 pb-2 text-[10px] font-semibold text-ink-400 uppercase tracking-wider">Workspace</div>
             <template x-for="item in navItems.filter(i => i.group === 'workspace')" :key="item.id">
                 <a href="#"

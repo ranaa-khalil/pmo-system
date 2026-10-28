@@ -30,15 +30,15 @@ def project(db_session, auth_user):
 
 
 def _item(db, project, **kw):
-    defaults = dict(
-        project_id=project.id,
-        title=kw.pop("title", "Item"),
-        item_type="Feature",
-        current_phase=kw.pop("current_phase", "Development"),
-        status=kw.pop("status", "In Progress"),
-        priority=kw.pop("priority", "Medium"),
-        target_release=kw.pop("target_release", "2026-01"),
-    )
+    defaults = {
+        "project_id": project.id,
+        "title": kw.pop("title", "Item"),
+        "item_type": "Feature",
+        "current_phase": kw.pop("current_phase", "Development"),
+        "status": kw.pop("status", "In Progress"),
+        "priority": kw.pop("priority", "Medium"),
+        "target_release": kw.pop("target_release", "2026-01"),
+    }
     defaults.update(kw)
     it = BacklogItem(**defaults)
     db.add(it)

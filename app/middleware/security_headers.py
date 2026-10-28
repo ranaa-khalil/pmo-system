@@ -34,13 +34,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # self-hosted, nonced Alpine + app code only.
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "script-src 'self' 'nonce-%(nonce)s' 'unsafe-eval'; "
+            "script-src 'self' 'nonce-{nonce}' 'unsafe-eval'; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; "
             "img-src 'self' data: https:; "
             "connect-src 'self' https:; "
             "frame-ancestors 'self'"
-        ) % {"nonce": getattr(request.state, "csp_nonce", "")}
+        ).format(nonce=getattr(request.state, "csp_nonce", ""))
 
         # Permissions policy
         response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"

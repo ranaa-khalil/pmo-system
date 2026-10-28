@@ -52,7 +52,7 @@ def build_today(db: Session, tenant, user) -> dict:
         )
         .all()
     )
-    for step, req in pending_steps:
+    for _step, req in pending_steps:
         rows.append({
             "kind": "approval",
             "title": req.title,

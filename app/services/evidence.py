@@ -94,5 +94,19 @@ def draft_evidence(
     db.commit()
     db.refresh(interaction)
 
+    # Artifact Chain: the AI draft is an immutable, hash-linked entry on the
+    # approval's trail — the auditor sees exactly what the AI proposed.
+    from app.services.artifact_chain import append_artifact
+    append_artifact(
+        db, tenant.id, "approval_request", approval.id, "drafted",
+        actor_id=None, actor_name="Copilot (AI)",
+        payload={
+            "evidence_id": interaction.id, "target_phase": target_phase,
+            "deliverables": deliverables, "gate_role": role,
+        },
+        artifact_type="ai_draft",
+    )
+    db.commit()
+
     result["evidence_id"] = interaction.id
     return result

@@ -3,6 +3,7 @@ from app.models.activity_log import ActivityLog
 from app.models.ai_interaction import AiInteraction
 from app.models.api_key import ApiKey
 from app.models.approval import ApprovalRequest, ApprovalStep
+from app.models.artifact_chain import ArtifactChain
 from app.models.automation_rule import AutomationRule
 from app.models.backlog_item import BacklogItem
 from app.models.client import Client
@@ -44,6 +45,7 @@ from app.models.user_task import UserTask
 
 __all__ = [
     "AiInteraction",
+    "ArtifactChain",
     "Client", "Project", "User", "Role", "RoleAssignment",
     "Permission", "RolePermission",
     "ProjectVision", "KPI", "Roadmap", "Milestone", "BacklogItem",

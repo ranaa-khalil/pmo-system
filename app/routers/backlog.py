@@ -103,12 +103,23 @@ def create_backlog_item(
     current_user: User = Depends(get_current_user),
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
-    """Create a new backlog item for a project."""
+    """Create a new backlog item for a project.
+
+    Dynamic: the item starts at the project's lifecycle template's first phase
+    (Requirements for Software/SDLC/Hybrid, Agent Intent for ADLC), so a new
+    ADLC project's items never begin on a Software phase by mistake.
+    """
     if not db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first():
         raise HTTPException(status_code=404, detail="Project not found")
     if item.project_id != project_id:
         raise HTTPException(status_code=400, detail="project_id mismatch")
-    db_item = BacklogItem(**item.model_dump(), tenant_id=current_tenant.id)
+    payload = item.model_dump()
+    if not payload.get("current_phase"):
+        from app.services.lifecycle import item_phases
+
+        project = db.query(Project).filter(Project.id == project_id).first()
+        payload["current_phase"] = item_phases(getattr(project, "project_type", None))[0]
+    db_item = BacklogItem(**payload, tenant_id=current_tenant.id)
     db.add(db_item)
     db.commit()
     db.refresh(db_item)
@@ -168,34 +179,54 @@ def advance_backlog_phase(
     current_user: User = Depends(get_current_user),
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
-    """Advance a backlog item to the next item-level phase."""
-    from app.models.backlog_item import ITEM_PHASES, RELEASE_PHASES
+    """Advance a backlog item to the next phase of its project's lifecycle.
 
+    Dynamic: the phase vocabulary comes from the project's lifecycle template
+    (Software/SDLC/ADLC/Hybrid/AI/custom), not a hardcoded list. The release
+    stages stay release-level for every template.
+    """
     item = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Backlog item not found")
 
-    # Items in release-level phases (UAT, Pre-Release, Release, Post-Release,
-    # Retrospective) are managed by the release workflow — advancing must not
-    # reset them to Design.
+    from app.models.backlog_item import RELEASE_PHASES
+    from app.services.lifecycle import item_phases, release_stages
+
+    project = db.query(Project).filter(Project.id == item.project_id).first()
+    project_type = project.project_type if project else None
+
+    # Items in release-level phases (UAT, Pre-Release, ...) are managed by the
+    # release workflow — advancing must not reset them.
     if item.current_phase in RELEASE_PHASES:
         return item
 
-    current_idx = ITEM_PHASES.index(item.current_phase) if item.current_phase in ITEM_PHASES else 0
+    phases = item_phases(project_type)
+    release_level = release_stages(project_type)
+    if item.current_phase in release_level:
+        return item
+    if item.current_phase not in phases:
+        # Legacy phase value from another template — normalise to the project's
+        # template by jumping to its first phase.
+        item.current_phase = phases[0]
+        db.commit()
+        db.refresh(item)
+        return item
 
-    # Items cannot advance beyond "Ready for UAT" on their own
-    if current_idx >= len(ITEM_PHASES) - 1:
+    current_idx = phases.index(item.current_phase)
+    if current_idx >= len(phases) - 1:
         raise HTTPException(
             status_code=400,
-            detail="Item is Ready for UAT. Add it to a release to continue through UAT, Pre-Release, and Release phases.",
+            detail=f"Item is at the final item phase ({phases[-1]}). Add it to a release to continue through the release stages.",
         )
 
-    item.current_phase = ITEM_PHASES[current_idx + 1]
+    item.current_phase = phases[current_idx + 1]
     if item.status == "Draft":
         item.status = "In Progress"
 
-    # GitHub sync on entering Development
-    if item.current_phase == "Development" and not item.github_issue_number:
+    # GitHub sync on entering the build phase for this template
+    from app.services.lifecycle import GITHUB_SYNC_PHASES
+    sync_phases = GITHUB_SYNC_PHASES.get(project_type or "software", ["Development"])
+    if item.current_phase in sync_phases and not item.github_issue_number:
         _auto_export_to_github(db, item, current_tenant.id)
 
     db.commit()
@@ -204,6 +235,14 @@ def advance_backlog_phase(
     log_activity(db, current_user.id, current_user.name, item.project_id,
                  "backlog_item", item.id, "advanced",
                  f"Advanced '{item.title}' to {item.current_phase}")
+
+    # Artifact Chain: the phase move is an immutable, hash-linked entry
+    from app.services.artifact_chain import append_artifact
+    append_artifact(
+        db, current_tenant.id, "backlog_item", item.id, "advanced",
+        actor_id=current_user.id, actor_name=current_user.name,
+        payload={"title": item.title, "to_phase": item.current_phase, "status": item.status},
+    )
 
     return item
 
@@ -234,6 +273,14 @@ def send_back_to_development(
     log_activity(db, current_user.id, current_user.name, item.project_id,
                  "backlog_item", item.id, "sent_back",
                  f"Sent back '{item.title}' from Testing to Development")
+
+    # Artifact Chain: rework is an immutable, hash-linked entry
+    from app.services.artifact_chain import append_artifact
+    append_artifact(
+        db, current_tenant.id, "backlog_item", item.id, "sent_back",
+        actor_id=current_user.id, actor_name=current_user.name,
+        payload={"title": item.title, "from_phase": "Testing", "to_phase": "Development"},
+    )
 
     return item
 

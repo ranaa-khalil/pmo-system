@@ -17,6 +17,7 @@ from app.routers import (
     analytics,
     api_keys,
     approvals,
+    artifacts,
     auth,
     backlog,
     clients,
@@ -96,6 +97,7 @@ app.include_router(planning.router)
 app.include_router(backlog.router)
 app.include_router(forms.router)
 app.include_router(approvals.router)
+app.include_router(artifacts.router)
 app.include_router(dashboard.router)
 app.include_router(today.router)
 app.include_router(stakeholders.router)

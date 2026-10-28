@@ -128,14 +128,124 @@ _OPERATIONS = {
     ],
 }
 
+# ── SDLC — classic software delivery, explicit verification stages ───────
+
+_SDLC = {
+    "name": "SDLC",
+    "item_phases": [
+        "Requirements", "Design", "Implementation", "Testing", "Ready for UAT",
+    ],
+    "release_stages": [
+        "UAT", "Pre-Release", "Release", "Post-Release", "Retrospective",
+    ],
+    "gate_deliverables": {
+        "Requirements": ["SRS", "Requirements traceability matrix"],
+        "Design": ["Design document sign-off", "Architecture review"],
+        "Implementation": ["Code review", "Unit test evidence"],
+        "Testing": ["Test summary report", "Defect log"],
+        "Ready for UAT": ["UAT plan", "Rollback plan"],
+    },
+    "gate_roles": {
+        "Requirements": "Product Manager",
+        "Design": "Product Owner",
+        "Implementation": "Tech Lead",
+        "Testing": "QA Lead",
+        "Ready for UAT": "Product Manager",
+    },
+    "fields": [],
+}
+
+# ── ADLC — Agentic Development Life Cycle (AI agents as first-class work) ─
+
+_ADLC = {
+    "name": "ADLC (Agentic)",
+    "item_phases": [
+        "Agent Intent", "Tooling & Guardrails", "Agent Build", "Evaluation", "Ready for Release",
+    ],
+    "release_stages": [
+        "Intent Review", "Scenario Validation", "Agent Deployment",
+        "Live Monitoring", "Drift Retrospective",
+    ],
+    "gate_deliverables": {
+        "Agent Intent": ["Intent spec", "Success criteria & eval set"],
+        "Tooling & Guardrails": ["Tool allowlist", "Guardrail policy (injection, loops, spend caps)"],
+        "Agent Build": ["Agent run log", "Prompt/version card", "Sandbox trace evidence"],
+        "Evaluation": ["Eval report (pass rate, regressions)", "Safety assessment", "Human-handoff criteria"],
+        "Ready for Release": ["Rollback plan", "Monitoring plan (drift, cost, loops)"],
+    },
+    "gate_roles": {
+        "Agent Intent": "Product Manager",
+        "Tooling & Guardrails": "Tech Lead",
+        "Agent Build": "Tech Lead",
+        "Evaluation": "Product Manager",
+        "Ready for Release": "DevOps Lead",
+    },
+    "fields": [
+        {"name": "agent_version", "label": "Agent version", "type": "text"},
+        {"name": "model_refs", "label": "Model refs", "type": "text"},
+        {"name": "tool_allowlist", "label": "Tool allowlist", "type": "markdown"},
+        {"name": "eval_pass_rate", "label": "Eval pass rate", "type": "text"},
+        {"name": "guardrail_status", "label": "Guardrail status", "type": "select",
+         "options": ["not assessed", "pass", "fail", "mitigating"]},
+        {"name": "spend_cap", "label": "Spend cap / run", "type": "text"},
+        {"name": "drift_alerts", "label": "Drift alerts", "type": "toggle"},
+    ],
+}
+
+# ── Hybrid — SDLC spine + agentic track where the work involves agents ───
+
+_HYBRID = {
+    "name": "Hybrid (SDLC + ADLC)",
+    "item_phases": [
+        "Requirements", "Design", "Development", "Agent Build", "Testing", "Ready for UAT",
+    ],
+    "release_stages": [
+        "UAT", "Pre-Release", "Release", "Post-Release", "Retrospective",
+    ],
+    "gate_deliverables": {
+        "Requirements": ["BRD", "Requirements traceability matrix"],
+        "Design": ["Design review sign-off"],
+        "Development": ["Code review", "Test evidence pack"],
+        "Agent Build": ["Agent run log", "Guardrail policy", "Eval evidence"],
+        "Testing": ["Test summary report", "Agent eval regression report"],
+        "Ready for UAT": ["Release notes draft", "Rollback plan"],
+    },
+    "gate_roles": {
+        "Requirements": "Product Manager",
+        "Design": "Product Owner",
+        "Development": "Tech Lead",
+        "Agent Build": "Tech Lead",
+        "Testing": "QA Lead",
+        "Ready for UAT": "Product Manager",
+    },
+    "fields": [
+        {"name": "agent_version", "label": "Agent version", "type": "text"},
+        {"name": "eval_metrics", "label": "Eval metrics", "type": "markdown"},
+        {"name": "guardrail_status", "label": "Guardrail status", "type": "select",
+         "options": ["not assessed", "pass", "fail", "mitigating"]},
+    ],
+}
+
 LIFECYCLE_TEMPLATES = {
     "software": _SOFTWARE,
     "ai": _AI,
     "marketing": _MARKETING,
     "operations": _OPERATIONS,
+    "sdlc": _SDLC,
+    "adlc": _ADLC,
+    "hybrid": _HYBRID,
 }
 
 DEFAULT_TYPE = "software"
+
+# Phases that trigger GitHub issue export on entry, per template. Missing key
+# falls back to ["Development"].
+GITHUB_SYNC_PHASES = {
+    "software": ["Development"],
+    "sdlc": ["Implementation"],
+    "adlc": ["Agent Build"],
+    "hybrid": ["Development", "Agent Build"],
+}
 
 
 def template_for(project_type: str | None, tenant_id: int | None = None, db=None) -> dict:

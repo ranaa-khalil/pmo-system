@@ -156,6 +156,17 @@ def create_tenant_template(
         entity_type="lifecycle_template", entity_id=row.id, action="updated",
         summary=f"Lifecycle template '{data.name}' defined for type '{key}'",
     ))
+    # Artifact Chain: methodology changes are hash-linked — who redefined the
+    # lifecycle, when, and with what phases, is provable afterwards.
+    from app.services.artifact_chain import append_artifact
+    append_artifact(
+        db, current_tenant.id, "lifecycle_template", row.id, "updated",
+        actor_id=current_user.id, actor_name=current_user.name,
+        payload={
+            "name": data.name, "project_type": key,
+            "item_phases": data.item_phases, "release_stages": data.release_stages,
+        },
+    )
     db.commit()
     db.refresh(row)
     return {"id": row.id, "project_type": row.project_type, "name": row.name}

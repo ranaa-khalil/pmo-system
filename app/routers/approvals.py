@@ -88,6 +88,18 @@ def create_approval_request(
     # Load steps for response (with approver names)
     result = _enrich_steps(db, request, tid)
 
+    # Artifact Chain: the gate's creation is an immutable, hash-linked entry
+    from app.services.artifact_chain import append_artifact
+    append_artifact(
+        db, tid, "approval_request", request.id, "created",
+        actor_id=current_user.id, actor_name=current_user.name,
+        payload={
+            "title": request.title, "request_type": request.request_type,
+            "target_phase": request.target_phase, "release_id": request.release_id,
+        },
+        artifact_type="gate_event",
+    )
+
     # Notify the first approver
     first_step = result.steps[0] if result.steps else None
     if first_step and first_step.approver_id:
@@ -180,7 +192,18 @@ def approve_step(
     from sqlalchemy.sql import func
     step.decided_at = func.now()
 
-    # Check if this was the last step
+    # Artifact Chain: the gate decision is an immutable, hash-linked entry
+    from app.services.artifact_chain import append_artifact
+    append_artifact(
+        db, tid, "approval_request", approval_id, "approved",
+        actor_id=current_user.id, actor_name=current_user.name,
+        payload={
+            "step_id": step.id, "step_order": step.step_order,
+            "role": step.role_name, "comment": decision.comment,
+            "title": request.title, "target_phase": request.target_phase,
+        },
+        artifact_type="gate_event",
+    )
     all_steps = db.query(ApprovalStep).filter(ApprovalStep.request_id == approval_id, ApprovalStep.tenant_id == tid).order_by(ApprovalStep.step_order).all()
     if step.step_order >= all_steps[-1].step_order:
         # Last step approved — request is fully approved
@@ -268,6 +291,19 @@ def reject_step(
     step.decided_at = func.now()
 
     request.status = "Rejected"
+
+    # Artifact Chain: rejection is an immutable, hash-linked entry
+    from app.services.artifact_chain import append_artifact
+    append_artifact(
+        db, tid, "approval_request", approval_id, "rejected",
+        actor_id=current_user.id, actor_name=current_user.name,
+        payload={
+            "step_id": step.id, "step_order": step.step_order,
+            "role": step.role_name, "comment": decision.comment,
+            "title": request.title, "target_phase": request.target_phase,
+        },
+        artifact_type="gate_event",
+    )
 
     # Notify the PM
     if request.requested_by:

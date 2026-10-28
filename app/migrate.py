@@ -20,7 +20,7 @@ TENANT_TABLES = [
     "form_templates", "form_instances", "user_personas",
     "project_test_accounts", "project_visions", "github_board_configs",
     "notifications", "notification_preferences", "activity_logs",
-    "automation_rules", "lifecycle_templates",
+    "automation_rules", "lifecycle_templates", "artifact_chain",
 ]
 
 COLUMNS = [

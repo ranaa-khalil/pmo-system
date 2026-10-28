@@ -551,7 +551,9 @@ def back_question(db: Session, user: User, tenant: Tenant, session_id: int) -> d
         "session_id": session_id,
         "question": _question_view(db, user, tenant, flow, last_qid),
         "progress": {
-            "current": len(flow["questions"]) - len(remaining),
+            # Same convention as start/answer/current_state: 1-based
+            # position of the question on screen.
+            "current": len(flow["questions"]) - len(remaining) + 1,
             "total": len(flow["questions"]),
         },
         "answers_so_far": answers,

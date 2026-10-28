@@ -138,6 +138,9 @@ def test_back_undoes_last_answer_and_reasks(interview_world, db):
     assert back["question"]["id"] == q2["id"]          # re-asks the undone question
     assert back["answers_so_far"].get(q2["id"]) is None  # answer removed
     assert back["answers_so_far"].get(q1["id"]) == "answer one"  # earlier answer intact
+    # Progress uses the same 1-based convention as start/answer: back from
+    # question 3 lands on question 2, not 0/1.
+    assert back["progress"] == {"current": 2, "total": len(interview_service.FLOWS["project"]["questions"])}
     # Resumable state persisted without the undone answer
     row = db.query(AiInteraction).filter(AiInteraction.id == sid).first()
     stored = json.loads(row.proposal)

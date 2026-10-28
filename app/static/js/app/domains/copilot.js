@@ -248,25 +248,29 @@ async interviewBack() {
     }
     try {
         const data = await this.api('POST', `/ai/interview/${this.interviewSession.session_id}/back`, {});
-        if (data.error) {
-            // nothing_to_undo → this was question 1: offer the exit
+        // Server state wins: back moves the question pointer and progress,
+        // so merge fresh data AFTER the stale session copy.
+        this.interviewSession = { ...this.interviewSession, ...data };
+        const chipHint = data.question.choices ? ` Options: ${data.question.choices.join(' · ')}.` : '';
+        this.copilotMessages.push({
+            role: 'assistant',
+            text: `Went back — let's redo this one.${chipHint}\n\n${data.question.prompt}`,
+        });
+    } catch (e) {
+        if (e?.message === 'nothing_to_undo') {
+            // Nothing to undo → this was question 1: end the interview and
+            // return to the guided options list so the user can pick another.
             this.interviewSession = null;
             this.interviewDraft = null;
             this.interviewFinished = false;
+            this.copilotTab = 'interview';
             this.copilotMessages.push({
                 role: 'assistant',
-                text: 'No problem — choose another option below, or just tell me what you need.',
+                text: 'No problem — choose another guided option below, or just tell me what you need.',
             });
         } else {
-            this.interviewSession = { ...this.interviewSession, ...data };
-            const chipHint = data.question.choices ? ` Options: ${data.question.choices.join(' · ')}.` : '';
-            this.copilotMessages.push({
-                role: 'assistant',
-                text: `Went back — let's redo this one.${chipHint}\n\n${data.question.prompt}`,
-            });
+            this.showToast(e?.message || 'Back failed.', 'error');
         }
-    } catch (e) {
-        this.showToast(e?.message || 'Back failed.', 'error');
     }
     this.interviewBusy = false;
     this.copilotScroll();

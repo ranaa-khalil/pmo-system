@@ -1,5 +1,5 @@
-<!-- ==================== PMO COPILOT DRAWER — R1 redesign ==================== -->
-<!-- One conversation. No tabs. Quick actions as chips, then chat. -->
+<!-- ==================== PMO COPILOT DRAWER ==================== -->
+<!-- Grounded chat + action proposals. Reads show sources; writes require Confirm. -->
 <div x-show="copilotOpen" x-cloak
      x-transition:enter="transition ease-out duration-200"
      x-transition:enter-start="opacity-0 translate-x-6"
@@ -7,29 +7,40 @@
      x-transition:leave="transition ease-in duration-150"
      x-transition:leave-start="opacity-100 translate-x-0"
      x-transition:leave-end="opacity-0 translate-x-6"
-     class="fixed bottom-6 right-6 w-[410px] h-[640px] max-h-[calc(100vh-3rem)] z-50 surface rounded-2xl shadow-modal border border-ink-200/60 flex flex-col overflow-hidden"
+     class="fixed bottom-6 right-6 w-[400px] h-[600px] max-h-[calc(100vh-3rem)] z-50 surface rounded-2xl shadow-modal border border-ink-200/60 flex flex-col overflow-hidden"
      @keydown.escape.window="copilotOpen = false">
-
-    <!-- Header: identity + one reset action (no tabs) -->
+    <!-- Header -->
     <div class="px-4 py-3 border-b border-ink-100 flex items-center justify-between bg-gradient-to-r from-brand-600 to-violet-600">
         <div class="flex items-center gap-2.5">
-            <div class="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+            <div class="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center">
                 <svg class="w-4.5 h-4.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
                 </svg>
             </div>
             <div>
-                <div class="text-[13px] font-bold text-white leading-tight">Copilot</div>
-                <div class="text-[10px] text-white/70 leading-tight">Your AI PMO officer</div>
+                <div class="text-[13px] font-bold text-white leading-tight">PMO Copilot</div>
+                <div class="text-[10px] text-white/75 leading-tight flex items-center gap-1">
+                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                        <circle cx="12" cy="10" r="2.5"/>
+                    </svg>
+                    <span x-text="selectedProject ? selectedProject.name : 'All projects'"></span>
+                </div>
             </div>
         </div>
-        <div class="flex items-center gap-1">
-            <button @click="copilotNewTopic()" x-show="copilotMessages.length > 2"
-                    class="p-1.5 rounded-lg hover:bg-white/10 transition-colors" title="New topic">
-                <svg class="w-4 h-4 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
-                </svg>
-            </button>
+        <div class="flex items-center gap-2">
+            <!-- Tabs: Chat | Intake | Interview -->
+            <div class="flex items-center gap-1 bg-white/10 rounded-lg p-0.5">
+                <button @click="copilotTab = 'chat'"
+                        class="px-2.5 py-1 rounded-md text-[10.5px] font-semibold transition-colors"
+                        :class="copilotTab === 'chat' ? 'bg-white text-brand-700' : 'text-white/70 hover:text-white'">Chat</button>
+                <button @click="copilotTab = 'intake'"
+                        class="px-2.5 py-1 rounded-md text-[10.5px] font-semibold transition-colors"
+                        :class="copilotTab === 'intake' ? 'bg-white text-brand-700' : 'text-white/70 hover:text-white'">Kickoff</button>
+                <button @click="copilotTab = 'interview'"
+                        class="px-2.5 py-1 rounded-md text-[10.5px] font-semibold transition-colors"
+                        :class="copilotTab === 'interview' ? 'bg-white text-brand-700' : 'text-white/70 hover:text-white'">Guided</button>
+            </div>
             <button @click="copilotOpen = false" class="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
                 <svg class="w-4 h-4 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
@@ -38,14 +49,384 @@
         </div>
     </div>
 
-    <!-- Messages — single conversation stream -->
+    <!-- ═══ INTAKE TAB: conversational project initiation ═══ -->
+    <div x-show="copilotTab === 'intake'" x-cloak class="flex-1 flex flex-col overflow-hidden">
+        <div class="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+            <!-- Kickoff input -->
+            <template x-if="!intakeDraft && !intakeResult">
+                <div class="space-y-3">
+                    <div class="bg-ink-100/80 rounded-2xl rounded-bl-md px-3.5 py-2.5 text-[12.5px] text-ink-700 leading-relaxed">
+                        Paste your kickoff notes — a paragraph, meeting notes, or a doc. I'll structure them into epics, features, personas, and KPIs. You review, edit, and Apply — nothing is created until you confirm. No project open? Applying creates the project first, then fills it.
+                    </div>
+                    <textarea x-model="intakeKickoff" rows="7"
+                              placeholder="We are building a cloud platform for PNU to manage student services. Students log in with SSO and browse available courses. Faculty members approve registrations and publish grades…"
+                              class="w-full px-3.5 py-2.5 rounded-xl border border-ink-200 text-[12.5px] focus:ring-2 focus:ring-brand-400 focus:border-brand-400 outline-none transition-all bg-white resize-none"></textarea>
+                    <button @click="intakeStructure()" :disabled="intakeBusy || !intakeKickoff.trim()"
+                            class="w-full px-4 py-2.5 rounded-xl bg-brand-600 text-white text-[12.5px] font-semibold hover:shadow-md transition-shadow disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" :class="intakeBusy ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path x-show="!intakeBusy" stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                            <circle x-show="intakeBusy" cx="12" cy="12" r="9" stroke-dasharray="40" stroke-dashoffset="18"/>
+                        </svg>
+                        <span x-text="intakeBusy ? 'Structuring…' : 'Structure kickoff'"></span>
+                    </button>
+                </div>
+            </template>
+
+            <!-- Structured draft (review before Apply) -->
+            <template x-if="intakeDraft && !intakeResult">
+                <div class="space-y-3">
+                    <div class="surface rounded-xl border border-ink-200/60 p-3.5">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[9px] font-bold uppercase tracking-wider">Draft</span>
+                            <span class="text-[10px] text-ink-400">review before Apply</span>
+                        </div>
+                        <p class="text-[12.5px] font-semibold text-ink-800" x-text="intakeDraft.summary"></p>
+                        <!-- Epics & features -->
+                        <div class="mt-3 space-y-2.5" x-show="intakeDraft.epics && intakeDraft.epics.length">
+                            <template x-for="(epic, ei) in intakeDraft.epics" :key="ei">
+                                <div class="border-l-2 border-brand-300 pl-2.5">
+                                    <div class="text-[11.5px] font-bold text-ink-700" x-text="epic.name"></div>
+                                    <ul class="mt-1 space-y-0.5">
+                                        <template x-for="(feat, fi) in epic.features" :key="fi">
+                                            <li class="text-[11.5px] text-ink-500 flex items-start gap-1.5">
+                                                <span class="text-brand-400 mt-0.5">•</span>
+                                                <span><span class="text-ink-700 font-medium" x-text="feat.title"></span> — <span x-text="feat.description"></span></span>
+                                            </li>
+                                        </template>
+                                    </ul>
+                                </div>
+                            </template>
+                        </div>
+                        <!-- Personas -->
+                        <div class="mt-3" x-show="intakeDraft.personas && intakeDraft.personas.length">
+                            <div class="text-[10px] font-bold text-ink-400 uppercase tracking-wider mb-1">Personas</div>
+                            <div class="flex flex-wrap gap-1.5">
+                                <template x-for="(p, pi) in intakeDraft.personas" :key="pi">
+                                    <span class="px-2 py-0.5 rounded-full bg-ink-100 border border-ink-200 text-[10.5px] font-medium text-ink-600" x-text="p.name"></span>
+                                </template>
+                            </div>
+                        </div>
+                        <!-- KPIs -->
+                        <div class="mt-3" x-show="intakeDraft.kpis && intakeDraft.kpis.length">
+                            <div class="text-[10px] font-bold text-ink-400 uppercase tracking-wider mb-1">KPIs</div>
+                            <div class="space-y-0.5">
+                                <template x-for="(k, ki) in intakeDraft.kpis" :key="ki">
+                                    <div class="text-[11.5px] text-ink-600"><span class="font-medium text-ink-700" x-text="k.name"></span> — target <span x-text="k.target"></span></div>
+                                </template>
+                            </div>
+                        </div>
+                        <!-- Assumptions -->
+                        <div class="mt-3 bg-amber-50/70 border border-amber-100 rounded-lg p-2.5" x-show="intakeDraft.assumptions && intakeDraft.assumptions.length">
+                            <div class="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">Assumptions</div>
+                            <template x-for="(a, ai) in intakeDraft.assumptions" :key="ai">
+                                <div class="text-[11px] text-amber-700" x-text="'· ' + a"></div>
+                            </template>
+                        </div>
+                    </div>
+                    <!-- Apply bar (the only write) -->
+                    <div class="flex items-center gap-2">
+                        <button @click="intakeDraft = null"
+                                class="flex-1 px-3 py-2 rounded-xl text-[12px] font-semibold text-ink-500 hover:bg-ink-100 transition-colors">Discard</button>
+                        <button @click="intakeApply()" :disabled="intakeApplying"
+                                class="flex-1 px-3 py-2 rounded-xl bg-emerald-600 text-white text-[12px] font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                            <span x-text="intakeApplying ? 'Applying…' : 'Apply intake'"></span>
+                        </button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Applied result -->
+            <template x-if="intakeResult">
+                <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 space-y-2">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                        <span class="text-[13px] font-bold text-emerald-800">Intake applied</span>
+                    </div>
+                    <div class="text-[12px] text-emerald-700 space-y-0.5">
+                        <div x-text="`${intakeResult.features_created} features created${intakeResult.features_skipped ? ' · ' + intakeResult.features_skipped + ' duplicates skipped' : ''}`"></div>
+                        <div x-text="`${intakeResult.personas_created} personas · ${intakeResult.kpis_created} KPIs`"></div>
+                    </div>
+                    <div class="text-[10.5px] text-emerald-600">Every record carries its intake source. Review them in Backlog and Releases.</div>
+                    <button @click="intakeKickoff = ''; intakeDraft = null; intakeResult = null"
+                            class="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 underline">Structure another kickoff</button>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- ═══ INTERVIEW TAB (guided Q&A — P2.1) ═══ -->
+    <div x-show="copilotTab === 'interview'" x-cloak class="flex-1 flex flex-col overflow-hidden">
+        <!-- Flow picker (before a session starts) -->
+        <template x-if="!interviewSession && !interviewFinished">
+            <div class="flex-1 overflow-y-auto px-4 py-5 space-y-3">
+                <div class="text-[12.5px] text-ink-600 leading-relaxed">Start a guided interview — I ask, you answer (tap a chip, type, or accept my default). You review the draft before anything is created.</div>
+                <button @click="interviewStart('project')"
+                        class="w-full text-left rounded-xl border border-ink-200 bg-white px-4 py-3 hover:border-brand-300 hover:shadow-sm transition-all group">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center shrink-0">
+                            <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/></svg>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="text-[13px] font-semibold text-ink-800">New project kickoff</div>
+                            <div class="text-[11px] text-ink-400">6 questions → project + epics + features + personas + KPIs tree</div>
+                        </div>
+                        <svg class="w-4 h-4 text-ink-300 group-hover:text-brand-500 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                    </div>
+                </button>
+                <button @click="interviewStart('feature')"
+                        class="w-full text-left rounded-xl border border-ink-200 bg-white px-4 py-3 hover:border-brand-300 hover:shadow-sm transition-all group">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-ink-500 to-ink-700 flex items-center justify-center shrink-0">
+                            <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="text-[13px] font-semibold text-ink-800">Feature intake</div>
+                            <div class="text-[11px] text-ink-400">4 questions → backlog form pre-filled, you save it</div>
+                        </div>
+                        <svg class="w-4 h-4 text-ink-300 group-hover:text-brand-500 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                    </div>
+                </button>
+                <button @click="interviewStart('risk')"
+                        class="w-full text-left rounded-xl border border-ink-200 bg-white px-4 py-3 hover:border-brand-300 hover:shadow-sm transition-all group">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center shrink-0">
+                            <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="text-[13px] font-semibold text-ink-800">Risk entry</div>
+                            <div class="text-[11px] text-ink-400">4 questions → risk draft, severity × probability at Apply</div>
+                        </div>
+                        <svg class="w-4 h-4 text-ink-300 group-hover:text-brand-500 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                    </div>
+                </button>
+                <button @click="interviewStart('release')"
+                        class="w-full text-left rounded-xl border border-ink-200 bg-white px-4 py-3 hover:border-brand-300 hover:shadow-sm transition-all group">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center shrink-0">
+                            <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="text-[13px] font-semibold text-ink-800">Release planning</div>
+                            <div class="text-[11px] text-ink-400">4 questions → release draft, created on Apply</div>
+                        </div>
+                        <svg class="w-4 h-4 text-ink-300 group-hover:text-brand-500 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                    </div>
+                </button>
+                <button @click="interviewStart('escalation')"
+                        class="w-full text-left rounded-xl border border-ink-200 bg-white px-4 py-3 hover:border-brand-300 hover:shadow-sm transition-all group">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-red-700 flex items-center justify-center shrink-0">
+                            <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6a2 2 0 012 2v12m-6 0h6m-6 0a2 2 0 00-2 2v2h10v-2a2 2 0 00-2-2m-2-6h.01M17 5a2 2 0 012 2v10a2 2 0 01-2 2m-2-4h4"/></svg>
+                        </div>
+                        <div class="min-w-0">
+                            <div class="text-[13px] font-semibold text-ink-800">Escalation</div>
+                            <div class="text-[11px] text-ink-400">4 questions → escalation note, appended on Apply</div>
+                        </div>
+                        <svg class="w-4 h-4 text-ink-300 group-hover:text-brand-500 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                    </div>
+                </button>
+            </div>
+        </template>
+
+        <!-- Active interview -->
+        <template x-if="interviewSession && !interviewSession.done">
+            <div class="flex-1 flex flex-col overflow-hidden">
+                <!-- Progress -->
+                <div class="px-4 pt-3 pb-2 flex items-center gap-2">
+                    <div class="flex-1 h-1.5 rounded-full bg-ink-100 overflow-hidden">
+                        <div class="h-full rounded-full bg-gradient-to-r from-brand-500 to-violet-500 transition-all duration-300"
+                             :style="'width:' + Math.round((interviewSession.progress.current / interviewSession.progress.total) * 100) + '%'"></div>
+                    </div>
+                    <span class="text-[10px] font-semibold text-ink-400" x-text="interviewSession.progress.current + ' of ' + interviewSession.progress.total"></span>
+                    <button @click="interviewBack()" :disabled="interviewBusy"
+                            class="text-[10.5px] font-semibold text-brand-600 hover:text-brand-700 transition-colors disabled:opacity-40 whitespace-nowrap">← Back</button>
+                </div>
+                <!-- Current question + chips -->
+                <div class="flex-1 overflow-y-auto px-4 py-2 space-y-3">
+                    <div class="rounded-xl bg-ink-100/70 px-3.5 py-3">
+                        <div class="text-[9px] font-bold uppercase tracking-wider text-brand-600 mb-1">Copilot asks</div>
+                        <div class="text-[13px] text-ink-800 leading-relaxed" x-text="interviewSession.question.prompt"></div>
+                        <div class="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                            <span class="text-[10px] text-ink-400" x-show="interviewSession.question.required">required</span>
+                            <span class="text-[10.5px] text-ink-500" x-show="interviewSession.question.default && !interviewSession.question.required"
+                                  x-text="'default: ' + interviewSession.question.default"></span>
+                        </div>
+                    </div>
+                    <!-- Quick-pick chips -->
+                    <div class="flex flex-wrap gap-1.5" x-show="interviewSession.question.choices && interviewSession.question.choices.length">
+                        <template x-for="c in (interviewSession.question.choices || [])" :key="c">
+                            <button @click="interviewAnswer(c)"
+                                    class="px-3 py-1.5 rounded-full bg-white border border-brand-200 text-[11.5px] font-medium text-brand-700 hover:bg-brand-50 hover:border-brand-300 transition-all"
+                                    x-text="c"></button>
+                        </template>
+                    </div>
+                    <!-- Answers so far (the draft grows live) -->
+                    <div x-show="Object.keys(interviewSession.answers_so_far || {}).length > 0" class="rounded-xl border border-ink-200/60 bg-white px-3.5 py-3">
+                        <div class="text-[9px] font-bold uppercase tracking-wider text-ink-400 mb-1.5">Your answers so far</div>
+                        <div class="space-y-1">
+                            <template x-for="(val, key) in (interviewSession.answers_so_far || {})" :key="key">
+                                <div class="text-[11px] text-ink-600 flex gap-1.5">
+                                    <span class="font-medium text-ink-700 capitalize shrink-0" x-text="(key.replaceAll('_', ' ') + ':')"></span>
+                                    <span class="truncate" x-text="val || '—'"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+                <!-- Answer input + accept default -->
+                <div class="px-4 pb-4 pt-1 flex items-center gap-2">
+                    <form @submit.prevent="interviewAnswer(copilotInput); copilotInput = ''" class="relative flex-1">
+                        <input x-model="copilotInput" type="text" id="interview-input"
+                               placeholder="Type your answer…"
+                               class="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-ink-200 text-[12.5px] focus:ring-2 focus:ring-brand-400 focus:border-brand-400 outline-none transition-all bg-white">
+                        <button type="submit" :disabled="interviewBusy || !copilotInput.trim()"
+                                class="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-lg bg-brand-600 text-white flex items-center justify-center hover:bg-brand-700 transition-colors disabled:opacity-40">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/></svg>
+                        </button>
+                    </form>
+                    <button @click="interviewAnswer('', true)" :disabled="interviewBusy || interviewSession.question.required"
+                            class="px-3 py-2.5 rounded-xl text-[11.5px] font-semibold text-ink-500 border border-ink-200 hover:bg-ink-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap">Use default</button>
+                </div>
+            </div>
+        </template>
+
+        <!-- Finished: draft review panel (Apply is the only write) -->
+        <template x-if="interviewDraft && interviewFinished">
+            <div class="flex-1 flex flex-col overflow-hidden px-4 py-3 space-y-3">
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    <span class="text-[12.5px] font-bold text-ink-800">Draft ready — review before applying</span>
+                </div>
+                <div class="flex-1 overflow-y-auto rounded-xl border border-ink-200/60 bg-white p-3.5 space-y-3" x-show="interviewFlow === 'project'">
+                    <div>
+                        <div class="text-[9px] font-bold uppercase tracking-wider text-ink-400 mb-1">Summary</div>
+                        <textarea x-model="interviewDraft.summary" rows="2" class="w-full text-[12px] text-ink-700 bg-ink-50/50 border border-ink-200/60 rounded-lg px-2.5 py-2 focus:ring-1 focus:ring-brand-400 outline-none"></textarea>
+                    </div>
+                    <div>
+                        <div class="text-[9px] font-bold uppercase tracking-wider text-ink-400 mb-1">Epics & features</div>
+                        <div class="space-y-2">
+                            <template x-for="(epic, ei) in (interviewDraft.epics || [])" :key="ei">
+                                <div class="border-l-2 border-brand-300 pl-2.5">
+                                    <div class="text-[12px] font-semibold text-ink-800" x-text="epic.name"></div>
+                                    <div class="ml-1 space-y-0.5 mt-0.5">
+                                        <template x-for="(f, fi) in (epic.features || [])" :key="fi">
+                                            <div class="text-[11px] text-ink-500 flex items-center gap-1.5">
+                                                <span class="w-1 h-1 rounded-full bg-brand-400 shrink-0"></span>
+                                                <input x-model="f.title" class="flex-1 bg-transparent border-0 border-b border-transparent hover:border-ink-200 focus:border-brand-400 outline-none text-[11px] text-ink-600 p-0">
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                            <div x-show="!(interviewDraft.epics || []).length" class="text-[11px] text-ink-400">No epics detected — apply will create none; add features manually afterwards.</div>
+                        </div>
+                    </div>
+                    <div x-show="interviewDraft.personas && interviewDraft.personas.length">
+                        <div class="text-[9px] font-bold uppercase tracking-wider text-ink-400 mb-1">Personas</div>
+                        <div class="flex flex-wrap gap-1.5">
+                            <template x-for="(p, pi) in (interviewDraft.personas || [])" :key="pi">
+                                <span class="px-2 py-0.5 rounded-full bg-ink-100 border border-ink-200 text-[10.5px] font-medium text-ink-600" x-text="p.name"></span>
+                            </template>
+                        </div>
+                    </div>
+                    <div x-show="interviewDraft.kpis && interviewDraft.kpis.length">
+                        <div class="text-[9px] font-bold uppercase tracking-wider text-ink-400 mb-1">KPIs</div>
+                        <div class="space-y-0.5">
+                            <template x-for="(k, ki) in (interviewDraft.kpis || [])" :key="ki">
+                                <div class="text-[11.5px] text-ink-600"><span class="font-medium text-ink-700" x-text="k.name"></span> — target <span x-text="k.target"></span></div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+                <!-- Feature draft: these answers pre-fill the backlog form -->
+                <div class="flex-1 overflow-y-auto rounded-xl border border-ink-200/60 bg-white p-3.5 space-y-2" x-show="interviewFlow === 'feature'">
+                    <div class="rounded-lg bg-brand-50/70 border border-brand-100 px-3 py-2 text-[11.5px] text-brand-700 leading-relaxed">
+                        Applying opens the <span class="font-semibold">backlog form with these answers pre-filled</span> — review the fields (add a title), then save like any manual entry. Nothing is created until you save the form.
+                    </div>
+                    <template x-for="(val, key) in (interviewDraft || {})" :key="key">
+                        <div class="text-[11.5px] text-ink-600 flex gap-1.5">
+                            <span class="font-medium text-ink-700 capitalize shrink-0" x-text="(key.replaceAll('_', ' ') + ':')"></span>
+                            <span class="min-w-0" x-text="val"></span>
+                        </div>
+                    </template>
+                </div>
+                <!-- Non-project drafts (risk / release / escalation) -->
+                <div class="flex-1 overflow-y-auto rounded-xl border border-ink-200/60 bg-white p-3.5 space-y-1" x-show="interviewFlow === 'risk' || interviewFlow === 'release' || interviewFlow === 'escalation'">
+                    <template x-for="(val, key) in (interviewDraft || {})" :key="key">
+                        <div class="text-[11.5px] text-ink-600 flex gap-1.5">
+                            <span class="font-medium text-ink-700 capitalize shrink-0" x-text="(key.replaceAll('_', ' ') + ':')"></span>
+                            <span class="min-w-0" x-text="val"></span>
+                        </div>
+                    </template>
+                    <!-- Escalation: pick the approval to escalate -->
+                    <div x-show="interviewFlow === 'escalation'" class="pt-2">
+                        <div class="text-[9px] font-bold uppercase tracking-wider text-ink-400 mb-1.5">Escalate which approval?</div>
+                        <select x-model="interviewEscalationApprovalId"
+                                class="w-full text-[12px] rounded-lg border border-ink-200 px-2.5 py-2 bg-white focus:ring-1 focus:ring-brand-400 outline-none">
+                            <option value="">— choose an approval —</option>
+                            <template x-for="a in (interviewApprovals || [])" :key="a.id">
+                                <option :value="a.id" x-text="'#' + a.id + ' — ' + (a.title || a.request_type || 'Approval')"></option>
+                            </template>
+                        </select>
+                        <div x-show="!(interviewApprovals || []).length" class="text-[10.5px] text-ink-400 mt-1">No open approvals in this project — Apply needs one.</div>
+                    </div>
+                </div>
+                <!-- Feature flow needs an open project -->
+                <div x-show="interviewFlow === 'feature' && !selectedProject" class="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[11.5px] text-amber-700">
+                    Open a project first — feature intake pre-fills that project's backlog form.
+                </div>
+                <!-- Apply bar -->
+                <div class="flex items-center gap-2">
+                    <button @click="interviewSession = null; interviewDraft = null; interviewFinished = false"
+                            class="flex-1 px-3 py-2 rounded-xl text-[12px] font-semibold text-ink-500 hover:bg-ink-100 transition-colors">Discard</button>
+                    <button @click="interviewApply()" x-show="interviewFlow === 'project' || interviewFlow === 'feature' || interviewFlow === 'risk' || interviewFlow === 'release' || interviewFlow === 'escalation'" :disabled="interviewApplying || (interviewFlow === 'escalation' && !interviewEscalationApprovalId)
+                            class="flex-1 px-3 py-2 rounded-xl bg-emerald-600 text-white text-[12px] font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                        <span x-text="interviewApplying ? 'Applying…' : 'Apply draft'"></span>
+                    </button>
+                </div>
+            </div>
+        </template>
+
+        <!-- Applied result -->
+        <template x-if="interviewResult">
+            <div class="px-4 py-4">
+                <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 space-y-2">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                        <span class="text-[13px] font-bold text-emerald-800">Draft applied</span>
+                    </div>
+                    <div class="text-[12px] text-emerald-700 space-y-0.5">
+                        <template x-if="interviewResult.applied">
+                            <div x-text="interviewResult.label"></div>
+                        </template>
+                        <template x-if="!interviewResult.applied">
+                            <div>
+                                <div x-text="`${interviewResult.features_created} features created${interviewResult.features_skipped ? ' · ' + interviewResult.features_skipped + ' duplicates skipped' : ''}`"></div>
+                                <div x-text="`${interviewResult.personas_created} personas · ${interviewResult.kpis_created} KPIs`"></div>
+                            </div>
+                        </template>
+                    </div>
+                    <div class="text-[10.5px] text-emerald-600" x-text="interviewResult.applied ? 'Record created with its interview source. Review it in the project views.' : 'Every record carries its interview source. Review them in Backlog.'"></div>
+                    <button @click="interviewSession = null; interviewDraft = null; interviewFinished = false; interviewResult = null"
+                            class="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 underline">Start another interview</button>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- ═══ CHAT TAB ═══ -->
+    <div x-show="copilotTab === 'chat'" x-cloak class="flex-1 flex flex-col overflow-hidden">
+    <!-- Messages -->
     <div id="copilot-messages" class="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         <template x-for="(msg, idx) in copilotMessages" :key="idx">
-            <div x-show="!msg.meta" :class="msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
-                <div class="max-w-[86%] rounded-2xl px-3.5 py-2.5 text-[12.5px] leading-relaxed"
+            <div :class="msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
+                <div class="max-w-[85%] rounded-2xl px-3.5 py-2.5 text-[12.5px] leading-relaxed"
                      :class="msg.role === 'user'
                          ? 'bg-brand-600 text-white rounded-br-md'
                          : (msg.error ? 'bg-rose-50 text-rose-700 border border-rose-200 rounded-bl-md' : 'bg-ink-100/80 text-ink-700 rounded-bl-md')">
+                    <!-- Structured answer: markdown rendered (bold, bullets, line breaks) -->
                     <template x-if="msg.role === 'user'">
                         <span x-text="msg.text"></span>
                     </template>
@@ -53,7 +434,7 @@
                         <div class="md-content" x-html="renderChatMarkdown(msg.text)"></div>
                     </template>
 
-                    <!-- Source chips -->
+                    <!-- Source chips (grounding rule: every answer cites records) -->
                     <template x-if="msg.sources && msg.sources.length > 0">
                         <div class="flex flex-wrap gap-1.5 mt-2">
                             <template x-for="(src, si) in msg.sources" :key="si">
@@ -63,7 +444,7 @@
                         </div>
                     </template>
 
-                    <!-- Proposal operations -->
+                    <!-- Proposal operations (draft → confirm): op card per operation -->
                     <template x-if="msg.ops && msg.ops.length > 0">
                         <div class="mt-2.5 space-y-1.5">
                             <template x-for="(op, oi) in msg.ops" :key="oi">
@@ -100,14 +481,16 @@
         </template>
     </div>
 
-    <!-- Confirm / Reject bar -->
+    <!-- Confirm / Reject bar (write proposals) -->
     <template x-if="copilotPendingProposal">
         <div class="px-4 py-2.5 border-t border-amber-200 bg-amber-50/80 flex items-center gap-2">
             <div class="flex-1 text-[11px] font-medium text-amber-700">
                 Confirm to execute — nothing has been written yet.
             </div>
             <button @click="copilotReject()"
-                    class="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-ink-500 hover:bg-ink-100 transition-colors">Discard</button>
+                    class="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-ink-500 hover:bg-ink-100 transition-colors">
+                Discard
+            </button>
             <button @click="copilotConfirm()"
                     class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[11px] font-semibold hover:bg-emerald-700 transition-colors flex items-center gap-1">
                 <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
@@ -118,48 +501,21 @@
         </div>
     </template>
 
-    <!-- Interview progress + Back bar: undo the last answer, or leave to another capability -->
-    <template x-if="interviewSession && !interviewFinished">
-        <div class="px-4 py-2.5 border-t border-ink-100 bg-white flex items-center gap-2">
-            <div class="flex-1 text-[11px] font-medium text-ink-500">
-                <template x-if="interviewSession.progress">
-                    <span x-text="'Question ' + interviewSession.progress.current + ' of ' + interviewSession.progress.total"></span>
-                </template>
-            </div>
-            <button @click="interviewBack()"
-                    class="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-ink-600 border border-ink-200 hover:bg-ink-50 transition-colors flex items-center gap-1">
-                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 12H5m6-6l-6 6 6 6"/>
-                </svg>
-                Back
-            </button>
-        </div>
-    </template>
-
-    <!-- Quick actions — labeled capability chips (replace the 3-tab picker).
-         Hidden while an interview is active: one flow at a time; Back leaves it. -->
-    <div class="px-4 pt-2.5 pb-1 flex flex-wrap gap-1.5 border-t border-ink-100" x-show="copilotMessages.length <= 2 && !(interviewSession && !interviewFinished)">
-        <button @click="copilotQuickAsk('What needs me today?')"
-                class="px-2.5 py-1 rounded-full bg-ink-100/80 hover:bg-brand-50 hover:text-brand-700 text-[10.5px] font-medium text-ink-600 transition-colors">📋 What needs me today?</button>
-        <button @click="copilotQuickAsk('What is overdue?')"
-                class="px-2.5 py-1 rounded-full bg-ink-100/80 hover:bg-brand-50 hover:text-brand-700 text-[10.5px] font-medium text-ink-600 transition-colors">⏰ What's overdue?</button>
-        <button @click="copilotQuickAsk('What approvals are pending?')"
-                class="px-2.5 py-1 rounded-full bg-ink-100/80 hover:bg-brand-50 hover:text-brand-700 text-[10.5px] font-medium text-ink-600 transition-colors">✅ Pending approvals</button>
-        <button @click="copilotStartProjectKickoff()"
-                class="px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 hover:bg-violet-100 text-[10.5px] font-semibold border border-violet-200 transition-colors">🚀 Start a project kickoff</button>
-        <button @click="copilotStartFeatureIntake()"
-                class="px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 hover:bg-violet-100 text-[10.5px] font-semibold border border-violet-200 transition-colors">✨ Add a feature</button>
-        <button @click="copilotStartReleaseIntake()"
-                class="px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 hover:bg-violet-100 text-[10.5px] font-semibold border border-violet-200 transition-colors">📦 Plan a release</button>
-        <button @click="copilotStartRiskIntake()"
-                class="px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 hover:bg-violet-100 text-[10.5px] font-semibold border border-violet-200 transition-colors">⚠️ Log a risk</button>
+    <!-- Suggested prompts -->
+    <div class="px-4 pb-2 flex flex-wrap gap-1.5" x-show="copilotMessages.length <= 2">
+        <button @click="copilotAsk('What is overdue for me?')"
+                class="px-2.5 py-1 rounded-full bg-ink-100/80 hover:bg-ink-200/60 text-[10.5px] font-medium text-ink-500 transition-colors">What's overdue?</button>
+        <button @click="copilotAsk('What approvals are pending?')"
+                class="px-2.5 py-1 rounded-full bg-ink-100/80 hover:bg-ink-200/60 text-[10.5px] font-medium text-ink-500 transition-colors">Pending approvals</button>
+        <button @click="copilotAsk('Which items are aging in a phase?')"
+                class="px-2.5 py-1 rounded-full bg-ink-100/80 hover:bg-ink-200/60 text-[10.5px] font-medium text-ink-500 transition-colors">Aging items</button>
     </div>
 
     <!-- Input -->
-    <div class="px-4 pb-4 pt-1">
+    <div class="px-4 pb-4">
         <form @submit.prevent="copilotSubmit()" class="relative">
             <input x-model="copilotInput" type="text" id="copilot-input"
-                   placeholder="Tell me what's happening, or ask anything…"
+                   placeholder="Ask, or type an action: 'move SSO to Testing'…"
                    class="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-ink-200 text-[12.5px] focus:ring-2 focus:ring-brand-400 focus:border-brand-400 outline-none transition-all bg-white"
                    @keydown.escape="copilotOpen = false">
             <button type="submit" :disabled="copilotBusy || !copilotInput.trim()"
@@ -170,6 +526,7 @@
             </button>
         </form>
     </div>
+    </div><!-- /chat tab -->
 </div>
 
 <!-- Copilot launcher button — left of the task FAB (which floats bottom-right, draggable) -->

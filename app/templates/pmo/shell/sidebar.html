@@ -47,6 +47,7 @@
                     </template>
                 </a>
             </template>
+                </div>
             <!-- Consultant items (Dashboard, Clients, Projects, My Tasks) — shown in Consultant view, on by default -->
             <template x-if="consultantView">
                 <template x-for="item in navItems.filter(i => i.group === 'consultant')" :key="item.id">
@@ -70,7 +71,6 @@
                     <span x-text="item.label"></span>
                 </a>
             </template>
-                </div>
             </template>
         </nav>
 

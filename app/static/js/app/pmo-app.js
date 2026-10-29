@@ -109,7 +109,24 @@ if (window.Alpine) {
 // Load Alpine ONLY AFTER the registration path is in place — the dynamic
 // import guarantees Alpine boots after the listener exists (a static
 // <script defer> tag raced the module and broke the store merge).
-import('/static/alpine.min.js').then(() => {
+//
+// Retry with backoff: a single truncated download (or a stale 0-byte cache
+// entry) leaves the page with every x-cloak element visible and nothing
+// interactive. A versioned query forces revalidation so a corrupt cached
+// copy is refetched instead of re-served by the browser.
+const ALPINE_URL = '/static/alpine.min.js?v=2';
+async function loadAlpine(attempt = 1, max = 3) {
+    try {
+        await import(/* @vite-ignore */ ALPINE_URL);
+        if (typeof window.Alpine !== 'undefined') return;
+        throw new Error('Alpine global missing after import');
+    } catch (e) {
+        if (attempt >= max) throw e;
+        await new Promise((r) => setTimeout(r, 800 * attempt));
+        return loadAlpine(attempt + 1, max);
+    }
+}
+loadAlpine().then(() => {
     // Belt-and-braces: if the root component walked before the registration
     // took effect (scheduling edge case at boot), register now and re-walk
     // the root element so the real store data binds.
@@ -124,6 +141,8 @@ import('/static/alpine.min.js').then(() => {
         }
     }
 }).catch((e) => {
+    // alpine-fallback.js renders a retry screen after 3s — never strip
+    // x-cloak (that shows every modal at once).
     console.error('[PMO] Alpine failed to load:', e);
 });
 

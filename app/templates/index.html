@@ -115,7 +115,7 @@
      pmoRoot component via alpine:init). Order guarantee: pmo-app.js
      dynamically imports Alpine after registering the listener, so
      alpine:init can never fire before the component exists. -->
-<script nonce="{{ csp_nonce }}" src="/static/js/app/alpine-fallback.js" defer></script>
+<script nonce="{{ csp_nonce }}" src="/static/js/app/alpine-fallback.js?v={{ csp_nonce }}" defer></script>
 
 </body>
 </html>

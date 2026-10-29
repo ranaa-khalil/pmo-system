@@ -54,10 +54,31 @@ app = FastAPI(
     openapi_url=None if settings.is_production else "/openapi.json",
 )
 
-# Serve static files (JS/CSS) locally — no CDN dependency
+# Serve static files (JS/CSS) locally — no CDN dependency.
+# Starlette's StaticFiles sends no Cache-Control, so browsers heuristically
+# cache /static assets for days — a stale copy of pmo-app.js or
+# alpine-fallback.js then survives restarts and rebuilds (seen in the wild:
+# the old fallback un-cloaked all 69 overlays while the server already
+# served the fixed code). The middleware below gives every /static response
+# explicit caching rules:
+#   - versioned URLs (?v=...)  → long-lived + immutable (safe: new code
+#     always ships under a new query string)
+#   - unversioned URLs         → short revalidation window (5 min)
 static_path = Path(__file__).parent / "static"
 if static_path.exists():
     app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+
+    @app.middleware("http")
+    async def _static_cache_headers(request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/static/") and response.status_code == 200:
+            versioned = "v=" in request.url.query
+            response.headers["Cache-Control"] = (
+                "public, max-age=31536000, immutable"
+                if versioned
+                else "public, max-age=300, must-revalidate"
+            )
+        return response
 
 # Serve uploaded files (tenant logos, etc.)
 uploads_path = Path(__file__).parent.parent / "uploads"

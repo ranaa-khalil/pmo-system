@@ -4,7 +4,8 @@
         <div class="h-16 flex items-center px-5 border-b border-black/[0.06]">
             <div class="flex items-center gap-2.5">
                 <template x-if="tenantBranding && tenantBranding.logo_url">
-                    <img :src="tenantBranding.logo_url" class="h-7" :alt="tenantBranding.app_name || 'Logo'"/>
+                    <img :src="tenantBranding.logo_url" class="h-7" :alt="tenantBranding.app_name || 'Logo'"
+                         @error="if (!$el.dataset.fb) { $el.dataset.fb = '1'; $el.src = '/static/logos/Obelion logo H.svg'; }"/>
                 </template>
                 <template x-if="!tenantBranding || !tenantBranding.logo_url">
                     <img src="/static/logos/Obelion logo H.svg" class="h-7" alt="Obelion"/>

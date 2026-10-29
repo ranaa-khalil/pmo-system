@@ -5,7 +5,8 @@
         <!-- Logo -->
         <div class="relative flex items-center gap-3">
             <template x-if="tenantBranding && tenantBranding.logo_url">
-                <img :src="tenantBranding.logo_url" class="h-8" :alt="tenantBranding.app_name || 'Logo'"/>
+                <img :src="tenantBranding.logo_url" class="h-8" :alt="tenantBranding.app_name || 'Logo'"
+                     @error="if (!$el.dataset.fb) { $el.dataset.fb = '1'; $el.src = '/static/logos/Obelion logo H.svg'; }"/>
             </template>
             <template x-if="!tenantBranding || !tenantBranding.logo_url">
                 <img src="/static/logos/Obelion logo H.svg" class="h-8" alt="Obelion"/>
@@ -52,7 +53,8 @@
             <!-- Mobile logo -->
             <div class="lg:hidden text-center mb-8">
                 <template x-if="tenantBranding && tenantBranding.logo_url">
-                    <img :src="tenantBranding.logo_url" class="h-10 mx-auto mb-4" :alt="tenantBranding.app_name || 'Logo'"/>
+                    <img :src="tenantBranding.logo_url" class="h-10 mx-auto mb-4" :alt="tenantBranding.app_name || 'Logo'"
+                         @error="if (!$el.dataset.fb) { $el.dataset.fb = '1'; $el.src = '/static/logos/Obelion logo H.svg'; }"/>
                 </template>
                 <template x-if="!tenantBranding || !tenantBranding.logo_url">
                     <div class="w-14 h-14 mx-auto mb-4 rounded-2xl brand-primary flex items-center justify-center">

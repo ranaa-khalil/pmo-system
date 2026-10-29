@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import Response
 
 import app.models  # noqa: F401 — register all models
 from app.config import settings
@@ -55,30 +56,31 @@ app = FastAPI(
 )
 
 # Serve static files (JS/CSS) locally — no CDN dependency.
-# Starlette's StaticFiles sends no Cache-Control, so browsers heuristically
-# cache /static assets for days — a stale copy of pmo-app.js or
-# alpine-fallback.js then survives restarts and rebuilds (seen in the wild:
-# the old fallback un-cloaked all 69 overlays while the server already
-# served the fixed code). The middleware below gives every /static response
-# explicit caching rules:
-#   - versioned URLs (?v=...)  → long-lived + immutable (safe: new code
-#     always ships under a new query string)
-#   - unversioned URLs         → short revalidation window (5 min)
+#
+# Cache-Control is set on a StaticFiles subclass (get_response override),
+# NOT via @app.middleware("http"). A BaseHTTPMiddleware wraps every response
+# in a background streaming task; for Starlette's FileResponse/StaticFiles
+# that desyncs the declared Content-Length from the bytes actually written,
+# which intermittently truncates file-served assets (observed: the Obelion
+# logo SVGs came back 0 bytes while JS/CSS of similar size were fine) —
+# surfacing to users as "corrupted logo / blank page". Setting the header
+# directly on the FileResponse keeps the response a plain stream.
 static_path = Path(__file__).parent / "static"
 if static_path.exists():
-    app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+    class _CachedStaticFiles(StaticFiles):
+        async def get_response(self, path: str, scope) -> Response:
+            response = await super().get_response(path, scope)
+            # Versioned URLs (?v=...) → long-lived immutable; new code always
+            # ships under a fresh query string. Unversioned → short revalidate
+            # so a stale copy can't survive a deploy.
+            qs = scope.get("query_string", b"")
+            if b"v=" in qs:
+                response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            else:
+                response.headers["Cache-Control"] = "public, max-age=300, must-revalidate"
+            return response
 
-    @app.middleware("http")
-    async def _static_cache_headers(request, call_next):
-        response = await call_next(request)
-        if request.url.path.startswith("/static/") and response.status_code == 200:
-            versioned = "v=" in request.url.query
-            response.headers["Cache-Control"] = (
-                "public, max-age=31536000, immutable"
-                if versioned
-                else "public, max-age=300, must-revalidate"
-            )
-        return response
+    app.mount("/static", _CachedStaticFiles(directory=str(static_path)), name="static")
 
 # Serve uploaded files (tenant logos, etc.)
 uploads_path = Path(__file__).parent.parent / "uploads"

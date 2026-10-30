@@ -127,18 +127,23 @@ async function loadAlpine(attempt = 1, max = 3) {
     }
 }
 loadAlpine().then(() => {
-    // Belt-and-braces: if the root component walked before the registration
-    // took effect (scheduling edge case at boot), register now and re-walk
-    // the root element so the real store data binds.
+    // Re-register after Alpine booted (covers the window where Alpine's
+    // initial DOM walk ran before Alpine.data('pmoRoot') was registered —
+    // that race left x-data="pmoRoot" resolving to an empty scope: store
+    // built fine, but the sidebar rendered zero items and nothing was
+    // interactive).
+    registerPmoApp();
     const root = document.querySelector('[x-data="pmoRoot"]') || document.body;
-    const merged = root._x_dataStack?.some((s) => Object.getOwnPropertyNames(s).some((k) => !k.startsWith('$')));
-    if (window.Alpine && !merged) {
-        registerPmoApp();
+    // Force a clean re-walk of the root element so the real store data
+    // binds — unconditional: a first walk against an unregistered
+    // component left _x_dataStack empty, which the old `merged` check
+    // mis-detected and skipped.
+    try {
         root.removeAttribute('x-data');
         root.setAttribute('x-data', 'pmoRoot');
-        try { window.Alpine.initTree(root); } catch (e) {
-            console.error('[PMO] root re-walk failed:', e);
-        }
+        window.Alpine.initTree(root);
+    } catch (e) {
+        console.error('[PMO] root re-walk failed:', e);
     }
 }).catch((e) => {
     // alpine-fallback.js renders a retry screen after 3s — never strip

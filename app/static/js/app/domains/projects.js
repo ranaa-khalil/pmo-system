@@ -28,6 +28,8 @@ reqUserSearch: {},  // per-role search text for required role autocomplete
 reqUserFocused: null,  // which role's dropdown is open
 reqUserResults: [],  // filtered results for required role autocomplete
 stakeholderForm: { name: '', email: '', phone: '', company: '', role_name: 'Stakeholder', raci_type: 'I', notes: '' },
+editingStakeholderId: null,  // set → the add form edits an existing stakeholder
+editAssign: null,  // { id, role, name } → required-role change-assignee dropdown open
 
 
 // ===== Roles state =====
@@ -69,11 +71,62 @@ async loadStakeholders() {
 
 async saveStakeholder() {
     try {
-        await this.api('POST', `/projects/${this.selectedProject.id}/stakeholders`, this.stakeholderForm);
+        const editing = !!this.editingStakeholderId;
+        if (editing) {
+            await this.api('PUT', `/stakeholders/${this.editingStakeholderId}`, this.stakeholderForm);
+        } else {
+            await this.api('POST', `/projects/${this.selectedProject.id}/stakeholders`, this.stakeholderForm);
+        }
         this.stakeholderForm = { name: '', email: '', phone: '', company: '', role_name: 'Stakeholder', raci_type: 'I', notes: '' };
+        this.editingStakeholderId = null;
         this.showStakeholderForm = false;
         await this.loadStakeholders();
-        this.showToast('Stakeholder added', 'success');
+        this.showToast(editing ? 'Stakeholder updated' : 'Stakeholder added', 'success');
+    } catch (e) { this.showToast(e.message, 'error'); }
+},
+
+startEditStakeholder(s) {
+    // Edit inline in the same add form (view → edit on one surface)
+    this.editingStakeholderId = s.id;
+    this.stakeholderForm = {
+        name: s.name || '', email: s.email || '', phone: s.phone || '',
+        company: s.company || '', role_name: s.role_name || 'Stakeholder',
+        raci_type: s.raci_type || 'I', notes: s.notes || '',
+    };
+    this.showStakeholderForm = true;
+},
+
+cancelEditStakeholder() {
+    this.editingStakeholderId = null;
+    this.stakeholderForm = { name: '', email: '', phone: '', company: '', role_name: 'Stakeholder', raci_type: 'I', notes: '' };
+    this.showStakeholderForm = false;
+},
+
+async updateAssignmentRole(assignmentId, roleId) {
+    // Team-member chip: change the RACI role in place
+    if (!roleId) return;
+    try {
+        await this.api('PUT', `/assignments/${assignmentId}`, { role_id: parseInt(roleId) });
+        await this.loadStakeholders();
+        this.showToast('Role updated', 'success');
+    } catch (e) { this.showToast(e.message, 'error'); }
+},
+
+openEditAssign(a) {
+    // Required-role card: open change-assignee dropdown seeded with the current assignee
+    this.editAssign = { id: a.id, role: a.role_name, name: a.user_name };
+    this.reqUserSearch[a.role_name] = '';
+    this.filterReqUsers(a.role_name);
+},
+
+async changeAssignee(a, userId) {
+    // Required-role card: swap the assigned user, keep the role
+    if (!userId) return;
+    this.editAssign = null;
+    try {
+        await this.api('PUT', `/assignments/${a.id}`, { user_id: parseInt(userId) });
+        this.projectAssignments = await this.api('GET', `/projects/${this.selectedProject.id}/assignments`);
+        this.showToast('Assignee updated', 'success');
     } catch (e) { this.showToast(e.message, 'error'); }
 },
 

@@ -21,6 +21,7 @@ from app.permissions import (
 )
 from app.schemas.stakeholder import (
     RoleAssignmentCreate,
+    RoleAssignmentUpdate,
     RoleCreate,
     RoleResponse,
     RoleUpdate,
@@ -221,6 +222,46 @@ def create_assignment(
     db.commit()
     db.refresh(db_assignment)
     return {"id": db_assignment.id, "message": "Assignment created"}
+
+
+@router.put("/assignments/{assignment_id}")
+def update_assignment(
+    assignment_id: int,
+    update: RoleAssignmentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Re-assign a role assignment: change the user, the role, or both.
+
+    Super admin, tenant owner/admin, AM, or PM for this project. Validates
+    the same tenant-scope and duplicate rules as create. Accepts partial
+    updates: fields not sent keep their current value.
+    """
+    a = db.query(RoleAssignment).filter(
+        RoleAssignment.id == assignment_id, RoleAssignment.tenant_id == current_tenant.id
+    ).first()
+    if not a:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    if not can_assign_role(current_user, a.project, db):
+        raise HTTPException(status_code=403, detail="You don't have permission to assign roles on this project")
+    new_user_id = update.user_id if update.user_id is not None else a.user_id
+    new_role_id = update.role_id if update.role_id is not None else a.role_id
+    if new_user_id == a.user_id and new_role_id == a.role_id:
+        return {"id": a.id, "user_id": a.user_id, "role_id": a.role_id, "message": "No change"}
+    existing = db.query(RoleAssignment).filter(
+        RoleAssignment.user_id == new_user_id,
+        RoleAssignment.role_id == new_role_id,
+        RoleAssignment.project_id == a.project_id,
+        RoleAssignment.tenant_id == current_tenant.id,
+    ).first()
+    if existing and existing.id != a.id:
+        raise HTTPException(status_code=400, detail="Assignment already exists")
+    a.user_id = new_user_id
+    a.role_id = new_role_id
+    db.commit()
+    db.refresh(a)
+    return {"id": a.id, "user_id": a.user_id, "role_id": a.role_id, "message": "Assignment updated"}
 
 
 @router.delete("/assignments/{assignment_id}", status_code=204)

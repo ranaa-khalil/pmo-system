@@ -2166,7 +2166,40 @@
                             <div class="text-[12px] font-semibold text-ink-700" x-text="req.role"></div>
                             <div class="text-[9px] text-ink-400" x-text="req.gate"></div>
                             <template x-if="req.assignedName">
-                                <div class="text-[10px] text-emerald-600 font-medium mt-0.5" x-text="'✓ ' + req.assignedName"></div>
+                                <div class="mt-1" @click.stop>
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="text-[10px] text-emerald-600 font-medium" x-text="'✓ ' + req.assignedName"></div>
+                                        <button @click="openEditAssign({ id: (projectAssignments.find(a => a.role_name === req.role) || {}).id, role: req.role, name: req.assignedName })"
+                                                x-show="projectAssignments.some(a => a.role_name === req.role)"
+                                                class="text-[10px] text-brand-600 hover:text-brand-700 font-medium shrink-0">Change</button>
+                                    </div>
+                                    <!-- Change-assignee dropdown (same surface, inline edit) -->
+                                    <div x-show="editAssign && editAssign.role === req.role" x-cloak class="relative mt-1">
+                                        <input type="text"
+                                               x-model="reqUserSearch[req.role]"
+                                               @input="filterReqUsers(req.role)"
+                                               @focus="reqUserFocused = req.role; filterReqUsers(req.role)"
+                                               @blur="setTimeout(() => { if (reqUserFocused === req.role) reqUserFocused = null; }, 200)"
+                                               class="text-[11px] border border-brand-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-brand-500/10 text-ink-600 w-full"
+                                               placeholder="Search user to reassign…">
+                                        <div x-show="reqUserFocused === req.role && reqUserResults.length > 0" x-cloak
+                                             class="absolute top-full left-0 mt-1 bg-white border border-ink-200 rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto min-w-full">
+                                            <template x-for="u in reqUserResults" :key="u.id">
+                                                <button @mousedown.prevent="changeAssignee(editAssign, u.id)" type="button"
+                                                        class="w-full text-left px-3 py-2 hover:bg-brand-50 transition-colors border-b border-ink-100 last:border-0">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="w-6 h-6 rounded-full bg-brand-100 flex items-center justify-center text-[10px] font-bold text-brand-600 shrink-0" x-text="(u.name || '?').charAt(0)"></div>
+                                                        <div class="min-w-0">
+                                                            <div class="text-[11px] font-medium text-ink-700 truncate" x-text="u.name"></div>
+                                                            <div class="text-[9px] text-ink-400 truncate" x-text="u.email"></div>
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            </template>
+                                        </div>
+                                        <button @click="editAssign = null; reqUserSearch[req.role] = ''" class="text-[10px] text-ink-400 hover:text-ink-600 mt-1">Cancel</button>
+                                    </div>
+                                </div>
                             </template>
                             <!-- Inline assign with autocomplete search -->
                             <template x-if="!req.assignedName">
@@ -2222,7 +2255,14 @@
                             <div class="text-[12px] font-semibold text-ink-700 truncate" x-text="a.user_name"></div>
                             <div class="text-[10px] text-ink-400 truncate" x-text="a.user_email"></div>
                         </div>
-                        <span class="text-[10px] font-medium px-2 py-1 rounded-lg bg-brand-50 text-brand-600 whitespace-nowrap" x-text="a.role_name"></span>
+                        <!-- Role chip is a select: change the RACI role inline -->
+                        <select :value="a.role_id"
+                                @change="updateAssignmentRole(a.id, $event.target.value)"
+                                class="text-[10px] font-medium px-2 py-1 rounded-lg bg-brand-50 text-brand-600 border border-brand-200/60 focus:outline-none focus:ring-1 focus:ring-brand-500/20 whitespace-nowrap max-w-[140px] cursor-pointer">
+                            <template x-for="r in roles" :key="r.id">
+                                <option :value="r.id" x-text="r.name" :selected="r.id === a.role_id"></option>
+                            </template>
+                        </select>
                     </div>
                 </template>
             </div>
@@ -2230,12 +2270,12 @@
 
         <!-- Section: Add External Stakeholder -->
         <div class="flex justify-end mb-3">
-            <button @click="showStakeholderForm = !showStakeholderForm" class="inline-flex items-center gap-1.5 text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-all"
+            <button @click="showStakeholderForm = !showStakeholderForm; if (!showStakeholderForm) cancelEditStakeholder()" class="inline-flex items-center gap-1.5 text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-all"
                     x-text="showStakeholderForm ? 'Close' : '+ Add Stakeholder'"></button>
         </div>
         <div x-show="showStakeholderForm" x-cloak class="surface rounded-2xl border border-ink-200/60 p-5 mb-4">
-            <h3 class="text-[13px] font-semibold text-ink-800 mb-1">③ Add External Stakeholder</h3>
-            <p class="text-[10px] text-ink-400 mb-3">Add people outside the system (clients, partners, sponsors) who need to be Consulted or Informed about this project. They won't have system access but will be listed in the RACI matrix and can receive shared release notes.</p>
+            <h3 class="text-[13px] font-semibold text-ink-800 mb-1" x-text="editingStakeholderId ? '③ Edit Stakeholder' : '③ Add External Stakeholder'"></h3>
+            <p class="text-[10px] text-ink-400 mb-3" x-text="editingStakeholderId ? 'Update this stakeholder — role, RACI type, and contact details. Changes apply to the RACI matrix immediately.' : 'Add people outside the system (clients, partners, sponsors) who need to be Consulted or Informed about this project. They won\'t have system access but will be listed in the RACI matrix and can receive shared release notes.'"></p>
             <div class="grid grid-cols-3 gap-3">
                 <input x-model="stakeholderForm.name" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Full name *">
                 <input x-model="stakeholderForm.email" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Email">
@@ -2254,8 +2294,8 @@
                 </select>
             </div>
             <div class="flex items-center gap-2 mt-3">
-                <button @click="saveStakeholder()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Add Stakeholder</button>
-                <button @click="showStakeholderForm = false" class="text-[13px] text-ink-500 hover:text-ink-800 px-3 py-2">Cancel</button>
+                <button @click="saveStakeholder()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all" x-text="editingStakeholderId ? 'Save Changes' : 'Add Stakeholder'"></button>
+                <button @click="cancelEditStakeholder()" class="text-[13px] text-ink-500 hover:text-ink-800 px-3 py-2">Cancel</button>
             </div>
         </div>
 
@@ -2299,7 +2339,10 @@
                                 <div x-show="s.email" x-text="s.email"></div>
                                 <div x-show="s.phone" x-text="s.phone"></div>
                             </td>
-                            <td class="py-3 px-4 text-right"><button @click="deleteStakeholder(s.id)" class="text-[12px] text-rose-400 hover:text-rose-600">Remove</button></td>
+                            <td class="py-3 px-4 text-right whitespace-nowrap">
+                                <button @click="startEditStakeholder(s)" class="text-[12px] text-brand-600 hover:text-brand-700 font-medium mr-3">Edit</button>
+                                <button @click="deleteStakeholder(s.id)" class="text-[12px] text-rose-400 hover:text-rose-600">Remove</button>
+                            </td>
                         </tr>
                     </template>
                 </tbody>

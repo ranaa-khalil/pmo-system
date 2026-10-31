@@ -67,3 +67,9 @@ class RoleAssignmentResponse(BaseModel):
     role_id: int
     project_id: int
     model_config = {"from_attributes": True}
+
+
+class RoleAssignmentUpdate(BaseModel):
+    """Partial update for a role assignment — change user, role, or both."""
+    user_id: int | None = None
+    role_id: int | None = None

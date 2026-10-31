@@ -127,20 +127,17 @@ async function loadAlpine(attempt = 1, max = 3) {
     }
 }
 loadAlpine().then(() => {
-    // Re-register after Alpine booted (covers the window where Alpine's
-    // initial DOM walk ran before Alpine.data('pmoRoot') was registered —
-    // that race left x-data="pmoRoot" resolving to an empty scope: store
-    // built fine, but the sidebar rendered zero items and nothing was
-    // interactive).
     registerPmoApp();
-    const root = document.querySelector('[x-data="pmoRoot"]') || document.body;
-    // Force a clean re-walk of the root element so the real store data
-    // binds — unconditional: a first walk against an unregistered
-    // component left _x_dataStack empty, which the old `merged` check
-    // mis-detected and skipped.
+    const root = document.querySelector('[x-data="pmoRoot"]');
+    if (!root) return;
+    // Re-walk ONLY if the store never bound (the boot race). Re-initializing
+    // an already-bound tree forks the data scope (two stores on one element)
+    // and duplicates every x-for clone — menus duplicated in one view and
+    // empty in the other, because the toggle writes to one scope while the
+    // other never updates.
+    const bound = root._x_dataStack && root._x_dataStack[0] && root._x_dataStack[0].navItems !== undefined;
+    if (bound) return;
     try {
-        root.removeAttribute('x-data');
-        root.setAttribute('x-data', 'pmoRoot');
         window.Alpine.initTree(root);
     } catch (e) {
         console.error('[PMO] root re-walk failed:', e);

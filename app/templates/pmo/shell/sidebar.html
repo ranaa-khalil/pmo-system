@@ -50,17 +50,19 @@
             </template>
                 </div>
             <!-- Consultant items (Dashboard, Clients, Projects, My Tasks) —
-                 ALWAYS visible (no x-if gate): the view toggle only controls
-                 the Today/Work workspace block above. Gating these on
-                 consultantView is what kept making the consultant menu vanish. -->
-            <template x-for="item in navItems.filter(i => i.group === 'consultant')" :key="item.id">
-                <a href="#"
-                   @click.prevent="navigate(item.id)"
-                   :class="route === item.id ? 'nav-active' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'"
-                   class="group flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-150">
-                    <span x-html="item.icon" class="w-[18px] h-[18px] flex-shrink-0"></span>
-                    <span x-text="item.label"></span>
-                </a>
+                 gated on consultantView: visible in Consultant view only.
+                 Keep the gate AND the store binding healthy (pmo-app.js
+                 re-walks only when the store never bound). -->
+            <template x-if="consultantView">
+                <template x-for="item in navItems.filter(i => i.group === 'consultant')" :key="item.id">
+                    <a href="#"
+                       @click.prevent="navigate(item.id)"
+                       :class="route === item.id ? 'nav-active' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'"
+                       class="group flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-150">
+                        <span x-html="item.icon" class="w-[18px] h-[18px] flex-shrink-0"></span>
+                        <span x-text="item.label"></span>
+                    </a>
+                </template>
             </template>
 
             <div class="px-3 pt-5 pb-2 text-[10px] font-semibold text-ink-400 uppercase tracking-wider">Planning</div>

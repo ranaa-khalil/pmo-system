@@ -269,6 +269,8 @@ def apply_intake(
     ))
     db.commit()
 
+    created["project_id"] = project.id
+    created["project_name"] = project.name
     return created
 
 

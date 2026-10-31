@@ -418,6 +418,26 @@ async checkBacklogVerdict() {
     }, 900);
 },
 
+// AI-outcome tags: click a created-record tag → land in the project at the
+// right tab (features → Backlog, KPIs → KPIs, personas → Env & Personas,
+// risk → Backlog, release → Releases, escalation → Approvals).
+async openOutcomeRecord(kind) {
+    const r = this.intakeResult || this.interviewResult;
+    if (!r || !r.project_id) return;
+    try {
+        const projects = await this.api('GET', '/projects');
+        const project = (Array.isArray(projects) ? projects : []).find(p => p.id === r.project_id);
+        if (!project) return;
+        this.copilotOpen = false;
+        await this.openProject(project);
+        if (kind === 'kpi') this.projectTab = 'kpis';
+        else if (kind === 'persona') this.projectTab = 'env';
+        else if (kind === 'release') this.projectTab = 'releases';
+        else if (kind === 'escalation') this.projectTab = 'approvals';
+        else this.projectTab = 'backlog';
+    } catch (e) { /* non-fatal */ }
+},
+
 async intakeStructure() {
     const kickoff = (this.intakeKickoff || '').trim();
     if (!kickoff || this.intakeBusy) return;
@@ -646,7 +666,7 @@ async interviewApply() {
             const label = data.applied === 'risk' ? `Risk #${data.risk_id} (score ${data.score})`
                 : data.applied === 'release' ? `Release ${data.version}`
                 : `Approval #${data.approval_id} escalated`;
-            this.interviewResult = { applied: data.applied, label };
+            this.interviewResult = { applied: data.applied, label, project_id: data.project_id };
             this.showToast(`Applied: ${label}.`, 'success');
             if (data.applied === 'risk') this.loadBacklog();
             if (data.applied === 'release') this.loadReleases();

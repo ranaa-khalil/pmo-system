@@ -710,7 +710,7 @@ def apply_interview_draft(db: Session, user: User, tenant: Tenant, session_id: i
         db.commit()
         row.status = "applied"
         _sync(row, db)
-        return {"applied": "risk", "risk_id": risk.id, "score": risk.score, "title": risk.title}
+        return {"applied": "risk", "risk_id": risk.id, "score": risk.score, "title": risk.title, "project_id": project.id}
 
     if flow_id == "escalation":
         from app.models.approval import ApprovalRequest
@@ -728,7 +728,7 @@ def apply_interview_draft(db: Session, user: User, tenant: Tenant, session_id: i
         db.commit()
         row.status = "applied"
         _sync(row, db)
-        return {"applied": "escalation", "approval_id": approval.id, "escalated": True}
+        return {"applied": "escalation", "approval_id": approval.id, "escalated": True, "project_id": project.id}
 
     if flow_id == "release":
         from app.models.project import Project
@@ -761,7 +761,7 @@ def apply_interview_draft(db: Session, user: User, tenant: Tenant, session_id: i
         db.commit()
         row.status = "applied"
         _sync(row, db)
-        return {"applied": "release", "release_id": release.id, "version": release.version, "name": release.name}
+        return {"applied": "release", "release_id": release.id, "version": release.version, "name": release.name, "project_id": project.id}
 
     raise ValueError("flow_not_applyable")
 

@@ -147,7 +147,42 @@
                         <div x-text="`${intakeResult.features_created} features created${intakeResult.features_skipped ? ' · ' + intakeResult.features_skipped + ' duplicates skipped' : ''}`"></div>
                         <div x-text="`${intakeResult.personas_created} personas · ${intakeResult.kpis_created} KPIs`"></div>
                     </div>
-                    <div class="text-[10.5px] text-emerald-600">Every record carries its intake source. Review them in Backlog and Releases.</div>
+                    <!-- Clickable outcome tags: land in the project at the right tab -->
+                    <div class="flex flex-wrap gap-1.5 pt-1" x-show="intakeResult.features_created > 0 || intakeResult.personas_created > 0 || intakeResult.kpis_created > 0">
+                        <template x-if="intakeResult.features_created > 0">
+                            <button @click="openOutcomeRecord('feature')"
+                                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 border border-violet-200 text-[10px] font-semibold text-violet-700 hover:bg-violet-200 transition-colors">
+                                <span x-text="`${intakeResult.features_created} Feature${intakeResult.features_created === 1 ? '' : 's'}`"></span>
+                                <span class="text-violet-400">→</span>
+                            </button>
+                        </template>
+                        <template x-if="intakeResult.personas_created > 0">
+                            <button @click="openOutcomeRecord('persona')"
+                                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 border border-indigo-200 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-200 transition-colors">
+                                <span x-text="`${intakeResult.personas_created} Persona${intakeResult.personas_created === 1 ? '' : 's'}`"></span>
+                                <span class="text-indigo-400">→</span>
+                            </button>
+                        </template>
+                        <template x-if="intakeResult.kpis_created > 0">
+                            <button @click="openOutcomeRecord('kpi')"
+                                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 border border-indigo-200 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-200 transition-colors">
+                                <span x-text="`${intakeResult.kpis_created} KPI${intakeResult.kpis_created === 1 ? '' : 's'}`"></span>
+                                <span class="text-indigo-400">→</span>
+                            </button>
+                        </template>
+                        <template x-if="intakeResult.project_name">
+                            <button @click="openOutcomeRecord('feature')"
+                                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-emerald-200 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors">
+                                <span x-text="intakeResult.project_name"></span>
+                                <span class="text-emerald-400">→</span>
+                            </button>
+                        </template>
+                        <template x-if="intakeResult.features_skipped > 0">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-white border border-ink-200 text-[10px] font-medium text-ink-400"
+                                  x-text="`${intakeResult.features_skipped} duplicate${intakeResult.features_skipped === 1 ? '' : 's'} skipped`"></span>
+                        </template>
+                    </div>
+                    <div class="text-[10.5px] text-emerald-600">Every record carries its intake source. Click a tag to review.</div>
                     <button @click="intakeKickoff = ''; intakeDraft = null; intakeResult = null"
                             class="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 underline">Structure another kickoff</button>
                 </div>
@@ -408,7 +443,38 @@
                             </div>
                         </template>
                     </div>
-                    <div class="text-[10.5px] text-emerald-600" x-text="interviewResult.applied ? 'Record created with its interview source. Review it in the project views.' : 'Every record carries its interview source. Review them in Backlog.'"></div>
+                    <div class="text-[10.5px] text-emerald-600" x-text="interviewResult.applied ? 'Record created with its interview source. Click a tag to review.' : 'Every record carries its interview source. Click a tag to review.'"></div>
+                    <!-- Clickable outcome tags: land in the project at the right tab -->
+                    <div class="flex flex-wrap gap-1.5 pt-1">
+                        <template x-if="interviewResult.applied && interviewResult.project_id">
+                            <button @click="openOutcomeRecord(interviewResult.applied)"
+                                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 border border-violet-200 text-[10px] font-semibold text-violet-700 hover:bg-violet-200 transition-colors">
+                                <span x-text="interviewResult.applied === 'risk' ? 'Risk' : interviewResult.applied === 'release' ? 'Release' : 'Approval'"></span>
+                                <span class="text-violet-400">→</span>
+                            </button>
+                        </template>
+                        <template x-if="!interviewResult.applied && interviewResult.features_created > 0">
+                            <button @click="openOutcomeRecord('feature')"
+                                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 border border-violet-200 text-[10px] font-semibold text-violet-700 hover:bg-violet-200 transition-colors">
+                                <span x-text="`${interviewResult.features_created} Feature${interviewResult.features_created === 1 ? '' : 's'}`"></span>
+                                <span class="text-violet-400">→</span>
+                            </button>
+                        </template>
+                        <template x-if="!interviewResult.applied && interviewResult.personas_created > 0">
+                            <button @click="openOutcomeRecord('persona')"
+                                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 border border-indigo-200 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-200 transition-colors">
+                                <span x-text="`${interviewResult.personas_created} Persona${interviewResult.personas_created === 1 ? '' : 's'}`"></span>
+                                <span class="text-indigo-400">→</span>
+                            </button>
+                        </template>
+                        <template x-if="!interviewResult.applied && interviewResult.kpis_created > 0">
+                            <button @click="openOutcomeRecord('kpi')"
+                                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 border border-indigo-200 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-200 transition-colors">
+                                <span x-text="`${interviewResult.kpis_created} KPI${interviewResult.kpis_created === 1 ? '' : 's'}`"></span>
+                                <span class="text-indigo-400">→</span>
+                            </button>
+                        </template>
+                    </div>
                     <button @click="interviewSession = null; interviewDraft = null; interviewFinished = false; interviewResult = null"
                             class="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 underline">Start another interview</button>
                 </div>

@@ -268,6 +268,11 @@ def copilot_chat_endpoint(
     except HTTPException:
         raise
     except Exception as e:
+        import logging
+        import traceback
+        logging.getLogger("pmo.ai").error(
+            "copilot_chat failed: %s: %s\n%s", type(e).__name__, e, traceback.format_exc()
+        )
         raise HTTPException(502, f"AI request failed: {str(e)}")
 
 

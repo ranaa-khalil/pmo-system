@@ -115,6 +115,10 @@ epicForm: { name: '', description: '' },
 phases: ['Requirements', 'Design', 'Development', 'Testing', 'UAT', 'Pre-Release', 'Release', 'Post-Release', 'Retrospective'],
 // Item-level phases (features/bugs advance through these only)
 itemPhases: ['Requirements', 'Design', 'Development', 'Testing', 'Ready for UAT'],
+backlogView: 'list',  // 'list' | 'board' — board is the Kanban by phase
+backlogBoardColumns: [],  // [{ phase, items }] built by buildBacklogBoard
+dragItem: null,  // { id, fromPhase } while dragging a board card
+dragOverPhase: null,  // phase the dragged card is hovering over
 // Release-level phases (the release as a whole goes through these)
 releasePhases: ['UAT', 'Pre-Release', 'Release', 'Post-Release', 'Retrospective'],
 
@@ -468,6 +472,60 @@ async advanceBacklogItem(id) {
     } catch (e) {
         this.showToast(e.message, 'error');
     }
+},
+
+// ─── Board view (Kanban by phase) ───
+buildBacklogBoard() {
+    // One column per item-level phase; items grouped by current_phase.
+    // Epic-type items are not on the board (they're groupings, not work).
+    const pool = this.backlogItems.filter(i => i.item_type !== 'Epic');
+    this.backlogBoardColumns = this.itemPhases.map(phase => ({
+        phase,
+        items: pool.filter(i => (i.current_phase || '') === phase),
+    }));
+    // Stragglers in phases outside the template (legacy values) go to the last column's tail
+    const known = new Set(this.itemPhases);
+    const stragglers = pool.filter(i => !known.has(i.current_phase || ''));
+    if (stragglers.length) {
+        this.backlogBoardColumns[this.backlogBoardColumns.length - 1].items.push(...stragglers);
+    }
+},
+boardCount(phase) {
+    const col = (this.backlogBoardColumns || []).find(c => c.phase === phase);
+    return col ? col.items.length : 0;
+},
+dragStart(item, fromPhase) {
+    this.dragItem = { id: item.id, fromPhase };
+},
+dragEnd() {
+    this.dragItem = null;
+    this.dragOverPhase = null;
+},
+allowDrop(phase) {
+    this.dragOverPhase = phase;
+},
+async dropToPhase(phase) {
+    if (!this.dragItem || !this.selectedProject) { this.dragEnd(); return; }
+    const { id, fromPhase } = this.dragItem;
+    this.dragEnd();
+    if (phase === fromPhase) return;
+    // Release-level items are managed by the release workflow — don't drag them
+    if (this.releasePhases.includes(phase) || this.releasePhases.includes(fromPhase)) {
+        this.showToast('Release stages are managed by the release workflow', 'info');
+        return;
+    }
+    try {
+        await this.api('PUT', `/backlog/${id}`, { current_phase: phase });
+        // Optimistic refresh: rebuild the board from fresh data
+        await this.loadBacklog();
+        this.buildBacklogBoard();
+        if (phase === 'Development') this.showToast('Moved to Development — syncing to GitHub', 'success');
+        else this.showToast(`Moved to ${phase}`, 'success');
+    } catch (e) { this.showToast(e.message, 'error'); }
+},
+openBoard() {
+    this.backlogView = 'board';
+    this.buildBacklogBoard();
 },
 
 async deleteBacklogItem(id) {

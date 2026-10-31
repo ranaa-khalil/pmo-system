@@ -30,51 +30,56 @@
                     </template>
                 </div>
             </template>
-            <!-- Regular user nav -->
+            <!-- Regular user nav — ONE root element inside x-if (Alpine renders
+                 only the first element child of an x-if template; sibling
+                 elements after it are silently dropped). Sections gate with
+                 x-show, never nested template>template. -->
             <template x-if="!isSuperAdmin">
-                <div x-show="!consultantView">
-            <div class="px-3 pb-2 text-[10px] font-semibold text-ink-400 uppercase tracking-wider">Workspace</div>
-            <template x-for="item in navItems.filter(i => i.group === 'workspace')" :key="item.id">
-                <a href="#"
-                   @click.prevent="navigate(item.id)"
-                   :class="route === item.id ? 'nav-active' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'"
-                   class="group flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-150">
-                    <span x-html="item.icon" class="w-[18px] h-[18px] flex-shrink-0"></span>
-                    <span x-text="item.label"></span>
-                    <template x-if="item.badge !== undefined">
-                        <span class="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-md"
-                              :class="route === item.id ? 'bg-brand-100 text-brand-700' : 'bg-ink-100 text-ink-500'"
-                              x-text="item.badge"></span>
-                    </template>
-                </a>
-            </template>
+                <div>
+                    <!-- Workspace section — Work view -->
+                    <div x-show="!consultantView">
+                        <div class="px-3 pb-2 text-[10px] font-semibold text-ink-400 uppercase tracking-wider">Workspace</div>
+                        <template x-for="item in navItems.filter(i => i.group === 'workspace')" :key="item.id">
+                            <a href="#"
+                               @click.prevent="navigate(item.id)"
+                               :class="route === item.id ? 'nav-active' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'"
+                               class="group flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-150">
+                                <span x-html="item.icon" class="w-[18px] h-[18px] flex-shrink-0"></span>
+                                <span x-text="item.label"></span>
+                                <template x-if="item.badge !== undefined">
+                                    <span class="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-md"
+                                          :class="route === item.id ? 'bg-brand-100 text-brand-700' : 'bg-ink-100 text-ink-500'"
+                                          x-text="item.badge"></span>
+                                </template>
+                            </a>
+                        </template>
+                    </div>
+                    <!-- Consultant section — Consultant view -->
+                    <div x-show="consultantView">
+                        <template x-for="item in navItems.filter(i => i.group === 'consultant')" :key="item.id">
+                            <a href="#"
+                               @click.prevent="navigate(item.id)"
+                               :class="route === item.id ? 'nav-active' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'"
+                               class="group flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-150">
+                                <span x-html="item.icon" class="w-[18px] h-[18px] flex-shrink-0"></span>
+                                <span x-text="item.label"></span>
+                            </a>
+                        </template>
+                    </div>
+                    <!-- Planning — both views -->
+                    <div>
+                        <div class="px-3 pt-5 pb-2 text-[10px] font-semibold text-ink-400 uppercase tracking-wider">Planning</div>
+                        <template x-for="item in navItems.filter(i => i.group === 'planning')" :key="item.id">
+                            <a href="#"
+                               @click.prevent="navigate(item.id)"
+                               :class="route === item.id ? 'nav-active' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'"
+                               class="group flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-150">
+                                <span x-html="item.icon" class="w-[18px] h-[18px] flex-shrink-0"></span>
+                                <span x-text="item.label"></span>
+                            </a>
+                        </template>
+                    </div>
                 </div>
-            <!-- Consultant items (Dashboard, Clients, Projects, My Tasks) —
-                 gated on consultantView: visible in Consultant view only.
-                 Keep the gate AND the store binding healthy (pmo-app.js
-                 re-walks only when the store never bound). -->
-            <template x-if="consultantView">
-                <template x-for="item in navItems.filter(i => i.group === 'consultant')" :key="item.id">
-                    <a href="#"
-                       @click.prevent="navigate(item.id)"
-                       :class="route === item.id ? 'nav-active' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'"
-                       class="group flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-150">
-                        <span x-html="item.icon" class="w-[18px] h-[18px] flex-shrink-0"></span>
-                        <span x-text="item.label"></span>
-                    </a>
-                </template>
-            </template>
-
-            <div class="px-3 pt-5 pb-2 text-[10px] font-semibold text-ink-400 uppercase tracking-wider">Planning</div>
-            <template x-for="item in navItems.filter(i => i.group === 'planning')" :key="item.id">
-                <a href="#"
-                   @click.prevent="navigate(item.id)"
-                   :class="route === item.id ? 'nav-active' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'"
-                   class="group flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-[13px] font-medium transition-all duration-150">
-                    <span x-html="item.icon" class="w-[18px] h-[18px] flex-shrink-0"></span>
-                    <span x-text="item.label"></span>
-                </a>
-            </template>
             </template>
         </nav>
 

@@ -113,10 +113,15 @@ async updateAssignmentRole(assignmentId, roleId) {
 },
 
 openEditAssign(a) {
-    // Required-role card: open change-assignee dropdown seeded with the current assignee
-    this.editAssign = { id: a.id, role: a.role_name, name: a.user_name };
-    this.reqUserSearch[a.role_name] = '';
-    this.filterReqUsers(a.role_name);
+    // Required-role card: open change-assignee dropdown seeded with the current assignee.
+    // Template passes { id, role, name } — read role from a.role (fall back to role_name).
+    const role = a.role || a.role_name;
+    const asg = (this.projectAssignments || []).find(x => x.id === a.id);
+    this.editAssign = { id: a.id, role, name: a.name, user_id: asg ? asg.user_id : null };
+    this.reqUserSearch[role] = '';
+    this.filterReqUsers(role);
+    // Open the panel immediately — don't wait for the input's @focus
+    this.reqUserFocused = role;
 },
 
 async changeAssignee(a, userId) {

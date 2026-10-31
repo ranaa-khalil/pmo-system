@@ -447,9 +447,12 @@ async assignRole() {
 },
 
 assignableUsers(roleName) {
-    // All system users, but exclude those already assigned to THIS role on this project
+    // All system users, but exclude those already assigned to THIS role on
+    // this project. While a change-assignee dropdown is open for this role,
+    // keep the current assignee selectable (swap back to them).
+    const editingThis = this.editAssign && this.editAssign.role === roleName;
     const assignedIds = this.projectAssignments
-        .filter(a => a.role_name === roleName)
+        .filter(a => a.role_name === roleName && (!editingThis || a.id !== this.editAssign.id))
         .map(a => a.user_id);
     return (this.users || []).filter(u => !assignedIds.includes(u.id));
 },

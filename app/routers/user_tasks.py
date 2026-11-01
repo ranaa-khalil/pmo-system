@@ -28,6 +28,7 @@ def _enrich(task: UserTask, db: Session, tenant_id: int) -> dict:
         "created_by": task.created_by,
         "project_id": task.project_id,
         "milestone_id": task.milestone_id,
+        "parent_task_id": task.parent_task_id,
         "due_date": task.due_date.isoformat() if task.due_date else None,
         "reminder_days": task.reminder_days,
         "status": task.status,
@@ -90,7 +91,24 @@ def list_tasks(
         UserTask.due_date,
         UserTask.priority.desc(),
     ).all()
-    return [_enrich(t, db, current_tenant.id) for t in tasks]
+    # Bulk-load tags for all listed tasks (2 queries total, no N+1)
+    tag_map = {}
+    task_ids = [t.id for t in tasks]
+    if task_ids:
+        from app.models.tag import Tag, user_task_tags
+
+        rows = (
+            db.query(user_task_tags.c.user_task_id, Tag.id, Tag.name, Tag.color)
+            .join(Tag, Tag.id == user_task_tags.c.tag_id)
+            .filter(user_task_tags.c.user_task_id.in_(task_ids))
+            .all()
+        )
+        for utid, tag_id, tag_name, tag_color in rows:
+            tag_map.setdefault(utid, []).append({"id": tag_id, "name": tag_name, "color": tag_color})
+    result = [_enrich(t, db, current_tenant.id) for t in tasks]
+    for data in result:
+        data["tags"] = tag_map.get(data["id"], [])
+    return result
 
 
 @router.post("/tasks")
@@ -116,6 +134,16 @@ def create_task(
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {TASK_STATUSES}")
     if task.priority not in TASK_PRIORITIES:
         raise HTTPException(status_code=400, detail=f"Invalid priority. Must be one of: {TASK_PRIORITIES}")
+    # Validate subtask parent: must exist in tenant, and one level only
+    parent = None
+    if task.parent_task_id:
+        parent = db.query(UserTask).filter(
+            UserTask.id == task.parent_task_id, UserTask.tenant_id == tid
+        ).first()
+        if not parent:
+            raise HTTPException(status_code=404, detail="Parent task not found")
+        if parent.parent_task_id is not None:
+            raise HTTPException(status_code=400, detail="Subtasks can only be one level deep")
 
     db_task = UserTask(
         title=task.title,
@@ -124,6 +152,7 @@ def create_task(
         created_by=current_user.id,
         project_id=task.project_id,
         milestone_id=task.milestone_id,
+        parent_task_id=task.parent_task_id,
         due_date=task.due_date,
         reminder_days=task.reminder_days,
         status=task.status,
@@ -190,9 +219,43 @@ def delete_task(
         raise HTTPException(status_code=404, detail="Task not found")
     if task.assigned_to != current_user.id and current_user.system_role != "super_admin":
         raise HTTPException(status_code=403, detail="You can only delete your own tasks")
+    # Application-level cascade: remove subtasks first (SQLite doesn't fire
+    # DB-level ON DELETE CASCADE without the pragma; ORM delete also cleans
+    # the tag association rows).
+    subtasks = db.query(UserTask).filter(UserTask.parent_task_id == task.id).all()
+    for sub in subtasks:
+        db.delete(sub)
     db.delete(task)
     db.commit()
     return {"detail": "Task deleted"}
+
+
+@router.get("/tasks/{task_id}/subtasks")
+def list_subtasks(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """List a task's subtasks (checklist). Only the assignee, creator, or super_admin."""
+    task = db.query(UserTask).filter(UserTask.id == task_id, UserTask.tenant_id == current_tenant.id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if task.assigned_to != current_user.id and task.created_by != current_user.id and current_user.system_role != "super_admin":
+        raise HTTPException(status_code=403, detail="You can only view subtasks of your own tasks")
+    subtasks = (
+        db.query(UserTask)
+        .filter(UserTask.parent_task_id == task_id, UserTask.tenant_id == current_tenant.id)
+        .order_by(UserTask.status != "Completed", UserTask.created_at)
+        .all()
+    )
+    done = len([s for s in subtasks if s.status == "Completed"])
+    return {
+        "parent_id": task.id,
+        "total": len(subtasks),
+        "done": done,
+        "subtasks": [_enrich(s, db, current_tenant.id) for s in subtasks],
+    }
 
 
 @router.get("/tasks/summary")

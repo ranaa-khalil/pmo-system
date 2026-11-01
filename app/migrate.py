@@ -21,6 +21,7 @@ TENANT_TABLES = [
     "project_test_accounts", "project_visions", "github_board_configs",
     "notifications", "notification_preferences", "activity_logs",
     "automation_rules", "lifecycle_templates", "artifact_chain",
+    "tags",
 ]
 
 COLUMNS = [
@@ -44,6 +45,8 @@ COLUMNS = [
     ("tenants", "plan_id INTEGER"),
     # Kanban board ordering within a phase lane (lower = higher in the lane)
     ("backlog_items", "board_order INTEGER"),
+    # Subtasks (checklists): self-referencing parent, one level only
+    ("user_tasks", "parent_task_id INTEGER"),
 ]
 
 INDEXES = [

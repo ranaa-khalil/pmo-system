@@ -31,10 +31,12 @@ from app.routers import (
     personas,
     planning,
     portal,
+    preferences,
     projects,
     releases,
     risks,
     stakeholders,
+    tags,
     tenant,
     today,
     user_tasks,
@@ -126,6 +128,8 @@ app.include_router(today.router)
 app.include_router(stakeholders.router)
 app.include_router(releases.router)
 app.include_router(user_tasks.router)
+app.include_router(tags.router)
+app.include_router(preferences.router)
 app.include_router(personas.router)
 app.include_router(notifications.router)
 app.include_router(ai.router)

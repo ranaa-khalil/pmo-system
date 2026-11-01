@@ -12,6 +12,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.backlog_item import BacklogItem
 from app.models.project import Project
+from app.models.tag import Tag, backlog_item_tags
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.tenant import get_current_tenant
@@ -34,11 +35,15 @@ def today_endpoint(
 def work_endpoint(
     filter: str = "all",
     project_id: int | None = None,
+    tag_id: int | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
-    """Unified cross-project work list: one list, filter chips instead of tabs."""
+    """Unified cross-project work list: one list, filter chips instead of tabs.
+
+    tag_id filters via the cross-tagging M2M (one tag, many items).
+    """
     projects = db.query(Project).filter(Project.tenant_id == current_tenant.id).all()
     project_ids = [p.id for p in projects]
     names = {p.id: p.name for p in projects}
@@ -47,6 +52,15 @@ def work_endpoint(
         q = q.filter(BacklogItem.project_id.in_(project_ids))
     if project_id:
         q = q.filter(BacklogItem.project_id == project_id)
+    if tag_id:
+        # Validate the tag belongs to this tenant (404 otherwise), then join
+        if not db.query(Tag).filter(Tag.id == tag_id, Tag.tenant_id == current_tenant.id).first():
+            from fastapi import HTTPException
+
+            raise HTTPException(404, "Tag not found in this tenant.")
+        q = q.join(backlog_item_tags, BacklogItem.id == backlog_item_tags.c.backlog_item_id).filter(
+            backlog_item_tags.c.tag_id == tag_id
+        )
     if filter == "blocked":
         q = q.filter(BacklogItem.status == "Blocked")
     elif filter == "mine":

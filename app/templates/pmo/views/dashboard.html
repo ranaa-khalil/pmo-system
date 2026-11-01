@@ -1,5 +1,5 @@
             <!-- ============ DASHBOARD VIEW ============ -->
-            <div x-show="route === 'dashboard'" class="view-enter space-y-6 max-w-7xl">
+            <div x-show="route === 'dashboard'" class="view-enter flex flex-col gap-6 max-w-7xl">
 
                 <!-- Hero section -->
                 <div class="flex items-end justify-between">
@@ -10,6 +10,23 @@
                         <p class="text-[15px] text-ink-500 mt-2" x-text="greetingMessage()"></p>
                     </div>
                     <div class="flex items-center gap-3">
+                        <!-- Widget picker (per-user layout) -->
+                        <div class="relative" @click.outside="widgetPickerOpen = false">
+                            <button @click="widgetPickerOpen = !widgetPickerOpen" class="inline-flex items-center gap-2 text-[13px] font-medium text-ink-700 px-4 py-2.5 rounded-[10px] border border-black/[0.08] hover:bg-ink-100 transition-all">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                                Widgets
+                            </button>
+                            <div x-show="widgetPickerOpen" x-cloak class="absolute right-0 top-full mt-2 w-60 bg-white rounded-2xl shadow-xl border border-ink-200/60 p-2 z-40">
+                                <p class="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-ink-400">Dashboard widgets</p>
+                                <template x-for="key in DASH_WIDGET_KEYS" :key="key">
+                                    <label class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-ink-50 cursor-pointer">
+                                        <input type="checkbox" :checked="dashWidgetVisible(key)" @change="toggleDashWidget(key)" class="rounded border-ink-300 text-brand-600 focus:ring-brand-400">
+                                        <span class="text-[12px] text-ink-700" x-text="dashWidgetLabel(key)"></span>
+                                    </label>
+                                </template>
+                                <p class="px-2 pt-1.5 text-[10px] text-ink-300">Drag any widget to reorder. Layout is saved per user.</p>
+                            </div>
+                        </div>
                         <button @click="loadDashboard()" class="inline-flex items-center gap-2 text-[13px] font-medium text-ink-700 px-4 py-2.5 rounded-[10px] border border-black/[0.08] hover:bg-ink-100 transition-all" :disabled="dashLoading">
                             <svg class="w-4 h-4" :class="dashLoading ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
                             Refresh
@@ -41,8 +58,10 @@
                     </div>
                 </template>
 
-                <!-- Stats cards -->
-                <div class="grid grid-cols-2 lg:grid-cols-4 gap-5">
+                <!-- Stats cards (widget) -->
+                <div x-show="dashWidgetVisible('stats')" :style="'order:' + dashWidgetOrder('stats')" draggable="true"
+                     @dragstart="draggingWidget = 'stats'" @dragover.prevent @drop.prevent="onWidgetDrop('stats')"
+                     class="grid grid-cols-2 lg:grid-cols-4 gap-5">
                     <template x-for="stat in stats" :key="stat.label">
                         <div @click="navigate(stat.route)" class="relative surface stat-glow rounded-2xl border border-ink-200/60 p-5 card-lift cursor-pointer overflow-hidden hover:border-brand-300 hover:shadow-md transition-all group">
                             <div class="absolute top-0 right-0 w-24 h-24 rounded-full blur-2xl opacity-15" :class="stat.glow"></div>
@@ -65,8 +84,10 @@
                     </template>
                 </div>
 
-                <!-- AI Daily Briefing card (audience-differentiated: exec verdict / PM ops) -->
-                <div class="surface rounded-2xl border border-brand-200/50 bg-gradient-to-r from-brand-50/60 via-white to-violet-50/40 p-5">
+                <!-- AI Daily Briefing card (audience-differentiated: exec verdict / PM ops) (widget) -->
+                <div x-show="dashWidgetVisible('briefing')" :style="'order:' + dashWidgetOrder('briefing')" draggable="true"
+                     @dragstart="draggingWidget = 'briefing'" @dragover.prevent @drop.prevent="onWidgetDrop('briefing')"
+                     class="surface rounded-2xl border border-brand-200/50 bg-gradient-to-r from-brand-50/60 via-white to-violet-50/40 p-5">
                     <div class="flex items-start justify-between gap-4">
                         <div class="flex items-start gap-3 flex-1 min-w-0">
                             <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-600 to-violet-600 flex items-center justify-center flex-shrink-0 shadow-sm">
@@ -112,8 +133,10 @@
                     </div>
                 </div>
 
-                <!-- Charts row: 3 charts (pure CSS/HTML — no Chart.js dependency) -->
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                <!-- Charts row: 3 charts (pure CSS/HTML — no Chart.js dependency) (widget) -->
+                <div x-show="dashWidgetVisible('charts')" :style="'order:' + dashWidgetOrder('charts')" draggable="true"
+                     @dragstart="draggingWidget = 'charts'" @dragover.prevent @drop.prevent="onWidgetDrop('charts')"
+                     class="grid grid-cols-1 lg:grid-cols-3 gap-5">
                     <!-- Backlog Phase Distribution (CSS bar chart) -->
                     <div class="surface rounded-2xl border border-ink-200/60 p-5">
                         <div class="flex items-center justify-between mb-4">
@@ -264,8 +287,10 @@
                     </div>
                 </div>
 
-                <!-- Project Progress + Side panels -->
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                <!-- Project Progress + Side panels (widget) -->
+                <div x-show="dashWidgetVisible('projects')" :style="'order:' + dashWidgetOrder('projects')" draggable="true"
+                     @dragstart="draggingWidget = 'projects'" @dragover.prevent @drop.prevent="onWidgetDrop('projects')"
+                     class="grid grid-cols-1 lg:grid-cols-3 gap-5">
                     <!-- Project Health (2 cols) -->
                     <div class="lg:col-span-2 surface rounded-2xl border border-ink-200/60 overflow-hidden">
                         <div class="px-6 py-4 border-b border-black/[0.06] flex items-center justify-between">
@@ -378,8 +403,11 @@
                     </div>
                 </div>
 
-                <!-- KPI Progress Row -->
-                <div class="surface rounded-2xl border border-ink-200/60 p-5" x-show="dashStats?.kpi_progress && dashStats.kpi_progress.length > 0">
+                <!-- KPI Progress Row (widget) -->
+                <div x-show="dashWidgetVisible('kpis') && dashStats?.kpi_progress && dashStats.kpi_progress.length > 0"
+                     :style="'order:' + dashWidgetOrder('kpis')" draggable="true"
+                     @dragstart="draggingWidget = 'kpis'" @dragover.prevent @drop.prevent="onWidgetDrop('kpis')"
+                     class="surface rounded-2xl border border-ink-200/60 p-5">
                     <h2 class="text-[14px] font-semibold text-ink-800 mb-4">KPI Progress</h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <template x-for="kpi in (dashStats?.kpi_progress || [])" :key="kpi.id">
@@ -403,8 +431,11 @@
                     </div>
                 </div>
 
-                <!-- My Tasks Widget — dashboard only -->
-                <div class="surface rounded-2xl border border-ink-200/60 p-5" x-show="route === 'dashboard' && taskSummary && taskSummary.active > 0">
+                <!-- My Tasks Widget — dashboard only (widget) -->
+                <div x-show="dashWidgetVisible('mytasks') && route === 'dashboard' && taskSummary && taskSummary.active > 0"
+                     :style="'order:' + dashWidgetOrder('mytasks')" draggable="true"
+                     @dragstart="draggingWidget = 'mytasks'" @dragover.prevent @drop.prevent="onWidgetDrop('mytasks')"
+                     class="surface rounded-2xl border border-ink-200/60 p-5">
                     <div class="flex items-center justify-between mb-4">
                         <h2 class="text-[14px] font-semibold text-ink-800">My Tasks</h2>
                         <button @click="navigate('tasks')" class="text-[12px] font-medium text-brand-600 hover:text-brand-700">View all →</button>
@@ -425,8 +456,11 @@
                     </div>
                 </div>
 
-                <!-- Activity Feed -->
-                <div class="surface rounded-2xl border border-ink-200/60 p-5" x-show="route === 'dashboard'">
+                <!-- Activity Feed (widget) -->
+                <div x-show="dashWidgetVisible('activity') && route === 'dashboard'"
+                     :style="'order:' + dashWidgetOrder('activity')" draggable="true"
+                     @dragstart="draggingWidget = 'activity'" @dragover.prevent @drop.prevent="onWidgetDrop('activity')"
+                     class="surface rounded-2xl border border-ink-200/60 p-5">
                     <div class="flex items-center justify-between mb-4">
                         <h2 class="text-[14px] font-semibold text-ink-800">Recent Activity</h2>
                         <button @click="loadActivity()" :disabled="activityLoading" class="w-7 h-7 flex items-center justify-center rounded-lg text-ink-400 hover:text-brand-600 hover:bg-ink-100 transition-colors disabled:opacity-50" title="Refresh">

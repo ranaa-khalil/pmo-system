@@ -30,6 +30,9 @@ class UserTask(Base):
     created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=True)
     milestone_id = Column(Integer, ForeignKey("milestones.id", ondelete="SET NULL"), nullable=True)
+    # Subtasks (checklists): self-referencing parent, one level only — a
+    # subtask may never itself have a parent (guard in the router).
+    parent_task_id = Column(Integer, ForeignKey("user_tasks.id", ondelete="CASCADE"), nullable=True)
     due_date = Column(Date, nullable=True)
     reminder_days = Column(Integer, default=3, nullable=False)  # remind N days before due_date
     status = Column(String(50), default="Pending", nullable=False)

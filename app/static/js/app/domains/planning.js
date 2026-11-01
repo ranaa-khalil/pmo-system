@@ -8,6 +8,7 @@ today: null,
 todayLoading: false,
 workItems: [],
 workFilter: 'all',
+workTagFilter: null,  // cross-tagging filter (tag id or null)
 workSearch: '',
 workProjectFilter: '',
 workLoading: false,
@@ -36,14 +37,24 @@ async loadToday() {
 async loadWork() {
     this.workLoading = true;
     try {
-        const qs = this.workFilter && this.workFilter !== 'all' ? `?filter=${this.workFilter}` : '';
+        const params = [];
+        if (this.workFilter && this.workFilter !== 'all') params.push(`filter=${this.workFilter}`);
+        if (this.workTagFilter) params.push(`tag_id=${this.workTagFilter}`);
+        const qs = params.length ? `?${params.join('&')}` : '';
         this.workItems = (await this.api('GET', `/work${qs}`)).items || [];
     } catch { this.workItems = []; }
     this.workLoading = false;
+    // Tag chips for the cross-tagging filter (load once)
+    if (this.tagPool.length === 0) this.loadTagPool();
 },
 
 setWorkFilter(f) {
     this.workFilter = f;
+    this.loadWork();
+},
+
+setWorkTagFilter(tagId) {
+    this.workTagFilter = this.workTagFilter === tagId ? null : tagId;
     this.loadWork();
 },
 

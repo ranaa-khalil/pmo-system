@@ -17,6 +17,7 @@ class UserTaskBase(BaseModel):
 class UserTaskCreate(UserTaskBase):
     assigned_to: int | None = None  # defaults to current user
     status: str = "Pending"
+    parent_task_id: int | None = None  # subtask parent (one level only)
 
 
 class UserTaskUpdate(BaseModel):

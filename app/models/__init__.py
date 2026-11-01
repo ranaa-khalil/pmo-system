@@ -36,11 +36,13 @@ from app.models.role import Role
 from app.models.role_assignment import RoleAssignment
 from app.models.role_permission import RolePermission
 from app.models.stakeholder import Stakeholder
+from app.models.tag import Tag
 from app.models.tenant import Invitation, Tenant, TenantMembership
 from app.models.tenant_setting import TenantSetting
 from app.models.usage_record import UsageRecord
 from app.models.user import User
 from app.models.user_persona import UserPersona
+from app.models.user_preference import UserPreference
 from app.models.user_task import UserTask
 
 __all__ = [
@@ -62,7 +64,9 @@ __all__ = [
     "GitHubBoardConfig",
     "Tenant", "TenantMembership", "Invitation",
     "TenantSetting",
+    "Tag",
     "UsageRecord",
+    "UserPreference",
     "ApiKey",
     "Plan",
     "Environment", "Secret", "SecretVersion", "SecretAccessLog",

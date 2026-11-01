@@ -81,6 +81,77 @@
                         </select>
                     </div>
                 </div>
+                <!-- Tags (cross-tagging pool) -->
+                <div>
+                    <label class="block text-[12px] font-medium text-ink-600 mb-1.5">Tags</label>
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <template x-for="tag in taskTags" :key="tag.id">
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium" :class="tagChipClass(tag.color)">
+                                <span x-text="'#' + tag.name"></span>
+                                <button type="button" @click="detachTagFromTask(tag)" class="hover:opacity-60" title="Remove">
+                                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                            </span>
+                        </template>
+                        <!-- Add tag dropdown -->
+                        <div class="relative" @click.outside="showTagPicker = false">
+                            <button type="button" @click="showTagPicker = !showTagPicker" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-dashed border-ink-300 text-[11px] font-medium text-ink-500 hover:border-brand-400 hover:text-brand-600 transition-colors">
+                                + Add tag
+                            </button>
+                            <div x-show="showTagPicker" x-cloak class="absolute z-10 mt-1 w-60 rounded-xl border border-ink-200 bg-white shadow-lg p-2.5 left-0">
+                                <input x-model="newTagName" type="text" placeholder="New tag name..." @keydown.enter.prevent="createTagInline()"
+                                       class="w-full px-2.5 py-1.5 rounded-lg border border-ink-200 text-[12px] outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 mb-1.5">
+                                <div class="flex items-center gap-1.5 mb-2">
+                                    <template x-for="c in ['indigo', 'violet', 'blue', 'emerald', 'amber', 'rose', 'slate']" :key="c">
+                                        <button type="button" @click="newTagColor = c" class="w-4 h-4 rounded-full border border-black/10 transition-all"
+                                                :class="[tagDotClass(c), newTagColor === c ? 'ring-2 ring-offset-1 ring-brand-300' : '']"></button>
+                                    </template>
+                                </div>
+                                <div class="max-h-40 overflow-y-auto space-y-0.5">
+                                    <template x-for="tag in tagPool" :key="tag.id">
+                                        <button type="button" @click="attachTagToTask(tag)" class="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-ink-50 text-left transition-colors">
+                                            <span class="w-2 h-2 rounded-full flex-shrink-0" :class="tagDotClass(tag.color)"></span>
+                                            <span class="text-[12px] font-medium text-ink-700 flex-1" x-text="'#' + tag.name"></span>
+                                            <span class="text-[10px] text-ink-300" x-text="(tag.item_count + tag.task_count) + ' uses'"></span>
+                                        </button>
+                                    </template>
+                                    <div x-show="tagPool.length === 0" class="text-[11px] text-ink-300 px-2 py-1.5">Type a name to create the first tag.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Checklist (subtasks) — saved tasks only -->
+                <div x-show="editingTask" class="rounded-xl border border-ink-200/60 p-3.5 bg-ink-50/40">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="text-[12px] font-medium text-ink-600">Checklist
+                            <span x-show="subtaskTotal > 0" class="text-[11px] text-ink-400 font-normal ml-1" x-text="subtaskDone + '/' + subtaskTotal + ' done'"></span>
+                        </label>
+                        <div x-show="subtaskTotal > 0" class="w-24 h-1.5 rounded-full bg-ink-200 overflow-hidden">
+                            <div class="h-full rounded-full bg-emerald-500 transition-all" :style="'width:' + (subtaskTotal ? Math.round(subtaskDone / subtaskTotal * 100) : 0) + '%'"></div>
+                        </div>
+                    </div>
+                    <div class="space-y-1.5">
+                        <template x-for="sub in subtasks" :key="sub.id">
+                            <div class="flex items-center gap-2 group">
+                                <button type="button" @click="toggleSubtask(sub)" class="flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-all"
+                                        :class="sub.status === 'Completed' ? 'bg-emerald-500 border-emerald-500' : 'border-ink-300 hover:border-brand-400'">
+                                    <svg x-show="sub.status === 'Completed'" class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                </button>
+                                <span class="text-[13px] flex-1 min-w-0 truncate" :class="sub.status === 'Completed' ? 'text-ink-400 line-through' : 'text-ink-700'" x-text="sub.title"></span>
+                                <button type="button" @click="deleteSubtask(sub)" class="opacity-0 group-hover:opacity-100 text-ink-300 hover:text-rose-500 transition-all">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                            </div>
+                        </template>
+                        <div x-show="subtaskTotal === 0" class="text-[11px] text-ink-300">No steps yet — break this task down.</div>
+                    </div>
+                    <div class="flex items-center gap-2 mt-2.5">
+                        <input x-model="subtaskForm" type="text" placeholder="Add a step..." @keydown.enter.prevent="addSubtask()"
+                               class="flex-1 px-3 py-1.5 rounded-lg border border-ink-200 text-[12px] bg-white outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400">
+                        <button type="button" @click="addSubtask()" class="px-2.5 py-1.5 rounded-lg bg-brand-600 text-white text-[11px] font-semibold hover:bg-brand-700 transition-colors">Add</button>
+                    </div>
+                </div>
                 <!-- Actions -->
                 <div class="flex items-center justify-end gap-2 pt-2">
                     <button type="button" @click="closeTaskModal()" class="px-4 py-2.5 rounded-xl text-[13px] font-medium text-ink-600 hover:bg-ink-100 transition-colors">Cancel</button>

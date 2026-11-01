@@ -26,6 +26,20 @@ toast: { show: false, message: '', type: 'success' },
 currentTime: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
 
 
+// ===== ⌘K command palette =====
+paletteOpen: false,
+paletteQuery: '',
+paletteSelected: 0,
+_paletteBound: false,
+
+// ===== Per-user UI preferences =====
+// Dashboard widget layout: ordered visible-widget keys (per-user via /me/preferences)
+DASH_WIDGET_KEYS: ['stats', 'briefing', 'charts', 'projects', 'kpis', 'mytasks', 'activity'],
+dashWidgets: ['stats', 'briefing', 'charts', 'projects', 'kpis', 'mytasks', 'activity'],
+widgetPickerOpen: false,
+draggingWidget: null,
+
+
 // ===== Notification state =====
 notifications: [],
 unreadCount: 0,
@@ -264,7 +278,8 @@ async login() {
             this.route = 'today';
             await this.loadTenant();  // Load tenant branding for sidebar/logo
             this.applyBranding();  // Apply CSS variables + title
-            await Promise.all([this.loadClients(), this.loadProjects(), this.loadToday(), this.loadRoles(), this.loadNotifications(), this.loadActivity(), this.checkAIStatus()]);
+            this.initPaletteShortcuts();  // Global ⌘K/Ctrl+K
+            await Promise.all([this.loadClients(), this.loadProjects(), this.loadToday(), this.loadRoles(), this.loadNotifications(), this.loadActivity(), this.checkAIStatus(), this.loadPreferences()]);
             // Fire-and-forget: the daily briefing card generates after the shell loads
             this.generateBriefing();
             setInterval(() => this.loadNotifications(), 30000);
@@ -397,6 +412,127 @@ async loadAllRoadmaps() {
             p._roadmaps = await this.api('GET', `/projects/${p.id}/roadmaps`);
         } catch { p._roadmaps = []; }
     }
+},
+
+
+// ===== ⌘K palette methods =====
+initPaletteShortcuts() {
+    if (this._paletteBound) return;
+    this._paletteBound = true;
+    window.addEventListener('keydown', (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+            e.preventDefault();
+            this.togglePalette();
+        } else if (e.key === 'Escape' && this.paletteOpen) {
+            this.closePalette();
+        }
+    });
+},
+togglePalette() { this.paletteOpen ? this.closePalette() : this.openPalette(); },
+openPalette() {
+    this.paletteQuery = '';
+    this.paletteSelected = 0;
+    this.paletteOpen = true;
+    // Tasks may not be loaded yet — fetch in the background
+    if (this.tasks.length === 0 && this.isLoggedIn) this.loadTasks();
+    this.$nextTick(() => {
+        const el = document.getElementById('palette-input');
+        if (el) el.focus();
+    });
+},
+closePalette() { this.paletteOpen = false; },
+get paletteResults() {
+    const q = (this.paletteQuery || '').trim().toLowerCase();
+    const results = [];
+    const views = [
+        { type: 'view', label: 'Today', route: 'today', icon: '📅', sub: 'View' },
+        { type: 'view', label: 'Work', route: 'work', icon: '🗂️', sub: 'View' },
+        { type: 'view', label: 'Roadmap', route: 'roadmap', icon: '🛣️', sub: 'View' },
+        { type: 'view', label: 'Dashboard', route: 'dashboard', icon: '📊', sub: 'View' },
+        { type: 'view', label: 'Clients', route: 'clients', icon: '🏢', sub: 'View' },
+        { type: 'view', label: 'Projects', route: 'projects', icon: '📁', sub: 'View' },
+        { type: 'view', label: 'My Tasks', route: 'tasks', icon: '✅', sub: 'View' },
+        { type: 'view', label: 'Settings', route: 'settings', icon: '⚙️', sub: 'View' },
+    ];
+    for (const v of views) {
+        if (!q || v.label.toLowerCase().includes(q)) results.push(v);
+    }
+    for (const p of this.projects) {
+        if (!q || p.name.toLowerCase().includes(q)) results.push({ type: 'project', label: p.name, icon: '📁', sub: 'Project' });
+    }
+    for (const c of this.clients) {
+        if (!q || c.name.toLowerCase().includes(q)) results.push({ type: 'client', label: c.name, icon: '🏢', sub: 'Client' });
+    }
+    for (const t of this.tasks) {
+        if (!q || (t.title || '').toLowerCase().includes(q)) results.push({ type: 'task', label: t.title, task: t, icon: '✅', sub: 'Task' });
+    }
+    return results.slice(0, 12);
+},
+paletteHandleKey(e) {
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        this.paletteSelected = Math.min(this.paletteSelected + 1, this.paletteResults.length - 1);
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        this.paletteSelected = Math.max(this.paletteSelected - 1, 0);
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const r = this.paletteResults[this.paletteSelected];
+        if (r) this.paletteGo(r);
+    }
+},
+paletteGo(result) {
+    this.closePalette();
+    if (result.type === 'view') { this.navigate(result.route); }
+    else if (result.type === 'project') { this.navigate('projects'); }
+    else if (result.type === 'client') { this.navigate('clients'); }
+    else if (result.type === 'task') { this.navigate('tasks'); this.openTaskModal(result.task); }
+},
+
+
+// ===== Preferences & dashboard widget layout =====
+async loadPreferences() {
+    try {
+        const prefs = await this.api('GET', '/me/preferences');
+        if (prefs.task_view_mode && ['list', 'board', 'calendar'].includes(prefs.task_view_mode)) {
+            this.taskViewMode = prefs.task_view_mode;
+        }
+        if (Array.isArray(prefs.dashboard_widgets) && prefs.dashboard_widgets.length) {
+            const valid = prefs.dashboard_widgets.filter(k => this.DASH_WIDGET_KEYS.includes(k));
+            if (valid.length) this.dashWidgets = valid;
+        }
+    } catch { /* defaults are fine */ }
+},
+dashWidgetVisible(key) { return this.dashWidgets.includes(key); },
+dashWidgetOrder(key) { const i = this.dashWidgets.indexOf(key); return i === -1 ? 99 : i; },
+dashWidgetLabel(key) {
+    const labels = {
+        stats: 'Stat cards', briefing: 'Daily briefing', charts: 'Charts',
+        projects: 'Project health', kpis: 'KPI progress', mytasks: 'My Tasks', activity: 'Activity feed',
+    };
+    return labels[key] || key;
+},
+toggleDashWidget(key) {
+    if (this.dashWidgets.includes(key)) {
+        if (this.dashWidgets.length <= 1) { this.showToast('At least one widget must stay visible', 'error'); return; }
+        this.dashWidgets = this.dashWidgets.filter(k => k !== key);
+    } else {
+        this.dashWidgets = [...this.dashWidgets, key];
+    }
+    this.persistDashWidgets();
+},
+persistDashWidgets() {
+    this.api('PUT', '/me/preferences', { key: 'dashboard_widgets', value: this.dashWidgets }).catch(() => {});
+},
+onWidgetDrop(targetKey) {
+    const from = this.dashWidgets.indexOf(this.draggingWidget);
+    const to = this.dashWidgets.indexOf(targetKey);
+    this.draggingWidget = null;
+    if (from === -1 || to === -1 || from === to) return;
+    const next = [...this.dashWidgets];
+    next.splice(to, 0, next.splice(from, 1)[0]);
+    this.dashWidgets = next;
+    this.persistDashWidgets();
 },
 
 };

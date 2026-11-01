@@ -119,6 +119,10 @@ backlogView: 'list',  // 'list' | 'board' — board is the Kanban by phase
 backlogBoardColumns: [],  // [{ phase, items }] built by buildBacklogBoard
 dragItem: null,  // { id, fromPhase } while dragging a board card
 dragOverPhase: null,  // phase the dragged card is hovering over
+dropIndex: null,  // 'before' | 'after' — insert gap while dragging over a card
+quickAddPhase: null,  // phase whose quick-add input is open
+quickAddTitle: '',  // quick-add input text
+quickAddSaving: false,
 // Release-level phases (the release as a whole goes through these)
 releasePhases: ['UAT', 'Pre-Release', 'Release', 'Post-Release', 'Retrospective'],
 
@@ -481,7 +485,7 @@ buildBacklogBoard() {
     const pool = this.backlogItems.filter(i => i.item_type !== 'Epic');
     this.backlogBoardColumns = this.itemPhases.map(phase => ({
         phase,
-        items: pool.filter(i => (i.current_phase || '') === phase),
+        items: pool.filter(i => (i.current_phase || '') === phase).sort((a, b) => this.boardItemCompare(a, b)),
     }));
     // Stragglers in phases outside the template (legacy values) go to the last column's tail
     const known = new Set(this.itemPhases);
@@ -494,15 +498,68 @@ boardCount(phase) {
     const col = (this.backlogBoardColumns || []).find(c => c.phase === phase);
     return col ? col.items.length : 0;
 },
+// Lane sort: manual board_order first (lower = higher), never-ordered cards
+// by created_at ascending (oldest at top, newest at bottom of the tail).
+boardItemCompare(a, b) {
+    const ao = a.board_order, bo = b.board_order;
+    if (ao != null && bo != null) return ao - bo;
+    if (ao != null) return -1;
+    if (bo != null) return 1;
+    return String(a.created_at || '').localeCompare(String(b.created_at || ''));
+},
 dragStart(item, fromPhase) {
     this.dragItem = { id: item.id, fromPhase };
 },
 dragEnd() {
     this.dragItem = null;
     this.dragOverPhase = null;
+    this.dropIndex = null;
 },
 allowDrop(phase) {
     this.dragOverPhase = phase;
+},
+cardDragOver(item, colPhase, ev) {
+    // Compute the insert gap: above or below the hovered card
+    if (!this.dragItem) return;
+    const rect = ev.currentTarget.getBoundingClientRect();
+    this.dropIndex = (ev.clientY - rect.top) < rect.height / 2 ? 'before' : 'after';
+    this.dragOverPhase = colPhase;
+},
+cardDrop(item, colPhase, ev) {
+    // Drop on a card = insert at its gap (same lane) or phase change (cross-lane)
+    if (!this.dragItem) return;
+    const movedId = this.dragItem.id;
+    if (this.dragItem.fromPhase !== colPhase) { this.reorderCard(movedId, colPhase, null, null); return; }
+    if (item.id === movedId) { this.dragEnd(); return; }  // dropped on itself — no-op
+    if (this.dropIndex === 'before') this.reorderCard(movedId, colPhase, item.id, null);
+    else this.reorderCard(movedId, colPhase, null, item.id);
+},
+async reorderCard(movedId, colPhase, beforeId, afterId) {
+    // Cross-lane drops (phase change) delegate to dropToPhase
+    if (this.dragItem && this.dragItem.fromPhase !== colPhase) {
+        const phase = colPhase;
+        this.dropIndex = null;
+        await this.dropToPhase(phase);
+        return;
+    }
+    this.dragEnd();
+    if (!movedId || !this.selectedProject) return;
+    const col = (this.backlogBoardColumns || []).find(c => c.phase === colPhase);
+    if (!col) return;
+    const ids = col.items.map(i => i.id).filter(id => id !== movedId);
+    let idx;
+    if (beforeId != null) idx = ids.indexOf(beforeId);
+    else if (afterId != null) idx = ids.indexOf(afterId) + 1;
+    else idx = ids.length;
+    if (idx < 0) idx = ids.length;
+    ids.splice(idx, 0, movedId);
+    // Persist the full lane order as per-lane counters
+    const payload = ids.map((id, pos) => ({ id, board_order: pos }));
+    try {
+        await this.api('PUT', '/backlog/board-order', { order: payload });
+        await this.loadBacklog();
+        this.buildBacklogBoard();
+    } catch (e) { this.showToast(e.message, 'error'); }
 },
 async dropToPhase(phase) {
     if (!this.dragItem || !this.selectedProject) { this.dragEnd(); return; }
@@ -526,6 +583,67 @@ async dropToPhase(phase) {
 openBoard() {
     this.backlogView = 'board';
     this.buildBacklogBoard();
+},
+// ─── Quick-add on the board ───
+toggleQuickAdd(phase) {
+    if (this.quickAddPhase === phase) {
+        this.quickAddPhase = null;
+        this.quickAddTitle = '';
+    } else {
+        this.quickAddPhase = phase;
+        this.quickAddTitle = '';
+        this.$nextTick(() => {
+            const el = document.getElementById('quick-add-' + CSS.escape(phase));
+            if (el) el.focus();
+        });
+    }
+},
+parseQuickAdd(raw) {
+    // Smart parse: "!1..4" or "!(low|medium|high|critical)" prefix sets priority,
+    // "#N" sets story points, "3x" at start also sets points. The rest is the title.
+    let title = raw.trim();
+    let priority = null;
+    let points = null;
+    const pmap = { '1': 'Low', '2': 'Medium', '3': 'High', '4': 'Critical' };
+    const pm = title.match(/^!(?:([1-4])|(low|medium|high|critical|crit))\s+/i);
+    if (pm) {
+        priority = pm[1] ? pmap[pm[1]] : (pm[2].toLowerCase() === 'crit' ? 'Critical' : pm[2][0].toUpperCase() + pm[2].slice(1).toLowerCase());
+        title = title.slice(pm[0].length);
+    }
+    const sm = title.match(/^(\d{1,2})x\s+/i) || title.match(/\s#(\d{1,2})$/);
+    if (sm) {
+        points = parseInt(sm[1], 10);
+        title = (title.slice(0, sm.index) + title.slice(sm.index + sm[0].length)).trim();
+    }
+    return { title, priority, points };
+},
+async quickAdd(phase) {
+    if (this.quickAddSaving) return;
+    const parsed = this.parseQuickAdd(this.quickAddTitle);
+    if (!parsed.title) { this.showToast('Type a title first', 'info'); return; }
+    if (this.releasePhases.includes(phase)) {
+        this.showToast('Release stages are managed by the release workflow', 'info');
+        return;
+    }
+    this.quickAddSaving = true;
+    try {
+        await this.api('POST', `/projects/${this.selectedProject.id}/backlog`, {
+            project_id: this.selectedProject.id,
+            title: parsed.title,
+            item_type: 'Feature',
+            current_phase: phase,
+            priority: parsed.priority || 'Medium',
+            story_points: parsed.points,
+        });
+        this.quickAddTitle = '';  // keep the input open for rapid entry
+        await this.loadBacklog();
+        this.buildBacklogBoard();
+        this.showToast('Added to ' + phase, 'success');
+    } catch (e) {
+        this.showToast(e.message, 'error');
+    } finally {
+        this.quickAddSaving = false;
+    }
 },
 
 async deleteBacklogItem(id) {

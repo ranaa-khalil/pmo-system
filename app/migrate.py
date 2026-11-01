@@ -42,6 +42,8 @@ COLUMNS = [
     ("tenants", "branding TEXT"),
     ("tenants", "limits TEXT"),
     ("tenants", "plan_id INTEGER"),
+    # Kanban board ordering within a phase lane (lower = higher in the lane)
+    ("backlog_items", "board_order INTEGER"),
 ]
 
 INDEXES = [

@@ -74,6 +74,9 @@ class BacklogItem(Base):
     github_last_sync_at = Column(String, nullable=True)  # ISO timestamp of last import from GitHub
     assigned_to = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     kpi_id = Column(Integer, ForeignKey("kpis.id", ondelete="SET NULL"), nullable=True)
+    # Board ordering within a phase lane (Kanban). Lower = higher in the lane.
+    # NULL = never manually ordered — lane falls back to created_at ordering.
+    board_order = Column(Integer, nullable=True, index=True)
     created_at = Column(String, server_default=func.now(), nullable=False)
     updated_at = Column(String, server_default=func.now(), onupdate=func.now())
 

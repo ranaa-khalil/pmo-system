@@ -24,8 +24,9 @@ class BacklogItemBase(BaseModel):
     target_release: str | None = None
     acceptance_criteria: str | None = None
     dependencies: str | None = None
+    board_order: int | None = None
 
-    @field_validator("kpi_id", "story_points", mode="before")
+    @field_validator("kpi_id", "story_points", "board_order", mode="before")
     @classmethod
     def _empty_ids_to_none(cls, v):
         """Forms send untouched selects/number inputs as "" — treat as unset."""
@@ -36,6 +37,7 @@ class BacklogItemBase(BaseModel):
 
 class BacklogItemCreate(BacklogItemBase):
     project_id: int
+    current_phase: str | None = None
 
 
 class BacklogItemUpdate(BaseModel):
@@ -76,6 +78,7 @@ class BacklogItemResponse(BacklogItemBase):
     github_assignees: str | None = None
     github_last_sync_at: str | None = None
     assigned_to: int | None = None
+    board_order: int | None = None
     depends_on: list[BacklogItemBrief] = []
     blocked_by: list[BacklogItemBrief] = []
     model_config = {"from_attributes": True}
@@ -84,3 +87,14 @@ class BacklogItemResponse(BacklogItemBase):
 class DependencyAdd(BaseModel):
     """Add a dependency: this item depends on the specified item."""
     depends_on_id: int
+
+
+class BoardReorderEntry(BaseModel):
+    """One card's lane position: per-lane counter (0 = top of the lane)."""
+    id: int
+    board_order: int
+
+
+class BoardReorder(BaseModel):
+    """Batch card-order update for the Kanban board."""
+    order: list[BoardReorderEntry]

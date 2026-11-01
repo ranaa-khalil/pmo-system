@@ -99,3 +99,54 @@ class TestBacklogAPI:
         pid = self._create_project(client)
         response = client.post(f"/api/projects/{pid}/backlog", json={"project_id": pid})
         assert response.status_code == 422
+
+    def test_board_reorder_persists_order(self, client):
+        """PUT /api/backlog/board-order persists per-lane card order."""
+        pid = self._create_project(client)
+        r1 = client.post(f"/api/projects/{pid}/backlog", json={"project_id": pid, "title": "Card A"}).json()
+        r2 = client.post(f"/api/projects/{pid}/backlog", json={"project_id": pid, "title": "Card B"}).json()
+        r3 = client.post(f"/api/projects/{pid}/backlog", json={"project_id": pid, "title": "Card C"}).json()
+        # Reorder: C first, A second, B third
+        response = client.put("/api/backlog/board-order", json={"order": [
+            {"id": r3["id"], "board_order": 0},
+            {"id": r1["id"], "board_order": 1},
+            {"id": r2["id"], "board_order": 2},
+        ]})
+        assert response.status_code == 200
+        assert response.json()["updated"] == 3
+        items = client.get(f"/api/projects/{pid}/backlog").json()
+        by_title = {i["title"]: i["board_order"] for i in items}
+        assert by_title["Card C"] == 0
+        assert by_title["Card A"] == 1
+        assert by_title["Card B"] == 2
+
+    def test_board_reorder_unknown_item_404(self, client):
+        """Reordering an item from another tenant (nonexistent id) returns 404."""
+        pid = self._create_project(client)
+        response = client.put("/api/backlog/board-order", json={"order": [{"id": 999999, "board_order": 0}]})
+        assert response.status_code == 404
+
+    def test_board_reorder_empty_is_noop(self, client):
+        """Empty order list is a clean no-op."""
+        response = client.put("/api/backlog/board-order", json={"order": []})
+        assert response.status_code == 200
+        assert response.json()["updated"] == 0
+
+    def test_quick_add_with_board_order_and_phase(self, client):
+        """Quick-add: create item with explicit phase + board_order in one POST."""
+        pid = self._create_project(client)
+        response = client.post(f"/api/projects/{pid}/backlog", json={
+            "project_id": pid,
+            "title": "Board quick add",
+            "item_type": "Feature",
+            "current_phase": "Design",
+            "priority": "High",
+            "story_points": 5,
+            "board_order": 0,
+        })
+        assert response.status_code == 201
+        data = response.json()
+        assert data["current_phase"] == "Design"
+        assert data["priority"] == "High"
+        assert data["story_points"] == 5
+        assert data["board_order"] == 0

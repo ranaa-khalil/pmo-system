@@ -16,6 +16,7 @@ from app.schemas.backlog import (
     BacklogItemCreate,
     BacklogItemResponse,
     BacklogItemUpdate,
+    BoardReorder,
     DependencyAdd,
 )
 from app.services.github import GitHubService
@@ -142,6 +143,39 @@ def list_backlog_items(
     if status:
         query = query.filter(BacklogItem.status == status)
     return query.order_by(BacklogItem.created_at.desc()).all()
+
+
+@router.put("/backlog/board-order", response_model=None)
+def reorder_backlog_board(
+    order: BoardReorder,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Persist manual card order on the Kanban board.
+
+    Body: {"order": [{"id": 34, "board_order": 0}, ...]} — one entry per card
+    whose lane position changed. Positions are per-lane counters (0, 1, 2…).
+    Every id is tenant-checked; the whole batch commits once.
+
+    NOTE: registered ABOVE PUT /backlog/{item_id} so FastAPI matches the
+    literal path first — a /backlog/{item_id:int} route would otherwise
+    swallow "board-order" and 422 on int parsing.
+    """
+    if not order.order:
+        return {"updated": 0}
+    ids = [entry.id for entry in order.order]
+    rows = db.query(BacklogItem).filter(
+        BacklogItem.id.in_(ids), BacklogItem.tenant_id == current_tenant.id
+    ).all()
+    by_id = {row.id: row for row in rows}
+    missing = [i for i in ids if i not in by_id]
+    if missing:
+        raise HTTPException(status_code=404, detail=f"Backlog items not found: {missing}")
+    for entry in order.order:
+        by_id[entry.id].board_order = entry.board_order
+    db.commit()
+    return {"updated": len(order.order)}
 
 
 @router.put("/backlog/{item_id}", response_model=BacklogItemResponse)

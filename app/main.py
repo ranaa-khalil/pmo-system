@@ -31,6 +31,7 @@ from app.routers import (
     infrastructure,
     item_types,
     lifecycle,
+    mcp,
     notifications,
     personas,
     planning,
@@ -143,6 +144,7 @@ app.include_router(reports.router)
 app.include_router(workload.router)
 app.include_router(item_types.router)
 app.include_router(proofs.router)
+app.include_router(mcp.router)
 app.include_router(guest_links.router)
 app.include_router(guest_links.public_router)
 app.include_router(share.router)

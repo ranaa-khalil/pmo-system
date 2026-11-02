@@ -260,6 +260,17 @@ async openProjectById(projectId) {
 selectedProject: null,
 selectedClient: null,
 projectTab: 'overview',
+    // Time tracking (Q1) — manual hours log + timesheet lock
+    timeEntries: [],
+    timeSummary: [],
+    timeDate: new Date().toISOString().slice(0, 10),
+    timeHours: '',
+    timeNote: '',
+    timeItem: '',
+    timeUser: '',
+    timeLoading: false,
+    timeSaving: false,
+
 vision: null,
 kpis: [],
 roadmaps: [],
@@ -784,6 +795,55 @@ milestoneStatusColor(status) {
         'Delayed': 'bg-rose-50 text-rose-700',
         'Completed': 'bg-ink-100 text-ink-600',
     }[status] || 'bg-ink-100 text-ink-600';
+},
+
+async loadTime() {
+    if (!this.selectedProject) return;
+    this.timeLoading = true;
+    try {
+        this.timeEntries = await this.api('GET', `/projects/${this.selectedProject.id}/time-entries`);
+        this.timeSummary = await this.api('GET', `/projects/${this.selectedProject.id}/time-summary`);
+    } catch { /* keep previous */ }
+    finally { this.timeLoading = false; }
+},
+
+async logTime() {
+    const h = parseFloat(this.timeHours);
+    if (!h || h <= 0) { this.toast('Enter hours first', 'error'); return; }
+    if (!this.selectedProject) return;
+    this.timeSaving = true;
+    try {
+        await this.api('POST', `/projects/${this.selectedProject.id}/time-entries`, {
+            entry_date: this.timeDate || new Date().toISOString().slice(0, 10),
+            hours: h,
+            note: this.timeNote || null,
+            item_id: this.timeItem ? Number(this.timeItem) : null,
+            user_id: this.timeUser ? Number(this.timeUser) : null,
+        });
+        this.timeHours = ''; this.timeNote = '';
+        await this.loadTime();
+        this.toast('Hours logged', 'success');
+    } catch(e) { this.toast(e.message || 'Could not log hours', 'error'); }
+    finally { this.timeSaving = false; }
+},
+
+async deleteTimeEntry(id) {
+    try {
+        await this.api('DELETE', `/time-entries/${id}`);
+        await this.loadTime();
+        this.toast('Entry removed', 'success');
+    } catch(e) { this.toast(e.message || 'Could not remove entry', 'error'); }
+},
+
+async lockWeek(userId, userName) {
+    if (!this.selectedProject) return;
+    const monday = new Date();
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+    const ws = monday.toISOString().slice(0, 10);
+    try {
+        await this.api('POST', `/projects/${this.selectedProject.id}/timesheets/lock`, { user_id: userId, week_start: ws });
+        this.toast('Week locked for ' + (userName || 'user'), 'success');
+    } catch(e) { this.toast(e.message || 'Could not lock week', 'error'); }
 },
 
 };

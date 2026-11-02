@@ -1,5 +1,5 @@
 """Project model — a project for a client (e.g., PNU Cloud, CloudGate)."""
-from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -19,6 +19,9 @@ class Project(Base):
     status = Column(String(50), nullable=False, default="Active")
     # Quick-scan health (GitHub Boards status updates parity): On track | At risk | Off track
     health = Column(String(20), nullable=True)
+    # Budget fields (Q1): planned hours + planned cost; spent = rollup from time_entries
+    budget_hours = Column(Numeric(8, 1), nullable=True)
+    budget_amount = Column(Numeric(12, 2), nullable=True)
     project_type = Column(String(50), nullable=False, default="software")  # software | ai | marketing | operations
     start_date = Column(Date, nullable=True)
     github_repo = Column(String(255), nullable=True)

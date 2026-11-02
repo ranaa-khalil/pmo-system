@@ -41,6 +41,7 @@ from app.models.role_assignment import RoleAssignment
 from app.models.role_permission import RolePermission
 from app.models.share_link import ShareLink
 from app.models.stakeholder import Stakeholder
+from app.models.time_entry import TimeEntry, TimesheetLock
 from app.models.tag import Tag
 from app.models.tenant import Invitation, Tenant, TenantMembership
 from app.models.tenant_setting import TenantSetting
@@ -71,6 +72,8 @@ __all__ = [
     "Tenant", "TenantMembership", "Invitation",
     "TenantSetting",
     "Tag",
+    "TimeEntry",
+    "TimesheetLock",
     "ShareLink",
     "ItemType",
     "ItemProof",

@@ -104,3 +104,13 @@ def test_update_health(client):
     resp = client.put(f"/api/projects/{project['id']}", json={"health": "At risk"})
     assert resp.status_code == 200
     assert resp.json().get("health") == "At risk"
+
+
+def test_update_budget(client):
+    """Budget fields (Q1) update via PUT and echo back."""
+    cid = client.post("/api/clients", json={"name": "Budget Co"}).json()["id"]
+    project = client.post("/api/projects", json={"name": "Budget Proj", "client_id": cid}).json()
+    resp = client.put(f"/api/projects/{project['id']}", json={"budget_hours": 120, "budget_amount": 50000})
+    assert resp.status_code == 200
+    assert resp.json().get("budget_hours") == 120.0
+    assert resp.json().get("budget_amount") == 50000.0

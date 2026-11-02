@@ -10,6 +10,8 @@ class ProjectBase(BaseModel):
     description: str | None = None
     status: str | None = "Active"
     health: str | None = None
+    budget_hours: float | None = None
+    budget_amount: float | None = None
     project_type: str | None = "software"  # software | ai | marketing | operations
     start_date: date | None = None
     github_repo: str | None = None
@@ -28,6 +30,8 @@ class ProjectUpdate(BaseModel):
     description: str | None = None
     status: str | None = None
     health: str | None = None
+    budget_hours: float | None = None
+    budget_amount: float | None = None
     project_type: str | None = None
     start_date: date | None = None
     github_repo: str | None = None

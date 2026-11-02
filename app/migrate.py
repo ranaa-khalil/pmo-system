@@ -25,6 +25,7 @@ TENANT_TABLES = [
     "approval_guest_links", "approval_guest_decisions", "share_links",
     "item_types", "item_proofs",
     "project_views",
+    "time_entries", "timesheet_locks",
 ]
 
 COLUMNS = [
@@ -33,6 +34,8 @@ COLUMNS = [
     ("users", "token_version INTEGER NOT NULL DEFAULT 0"),
     ("projects", "project_type VARCHAR(50) NOT NULL DEFAULT 'software'"),
     ("projects", "health VARCHAR(20)"),
+    ("projects", "budget_hours NUMERIC(8,1)"),
+    ("projects", "budget_amount NUMERIC(12,2)"),
     ("risks", "tenant_id INTEGER"),
     ("risks", "release_id INTEGER"),
     ("risks", "mitigation TEXT"),

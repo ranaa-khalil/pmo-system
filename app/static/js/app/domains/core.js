@@ -21,7 +21,7 @@ projectFilter: '',
 clientModalOpen: false,
 projectModalOpen: false,
 editingClient: {},
-editingProject: { name: '', client_id: '', description: '', status: 'Active', health: '', github_repo: '', version_prefix: '' },
+editingProject: { name: '', client_id: '', description: '', status: 'Active', health: '', budget_hours: '', budget_amount: '', github_repo: '', version_prefix: '' },
 toast: { show: false, message: '', type: 'success' },
 currentTime: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
 

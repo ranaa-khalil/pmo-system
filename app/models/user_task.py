@@ -1,5 +1,5 @@
 """UserTask model — a personal to-do item, optionally linked to a project and milestone."""
-from sqlalchemy import Column, Date, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, Date, ForeignKey, Integer, String, Table, Text, UniqueConstraint
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -43,3 +43,15 @@ class UserTask(Base):
 
     def __repr__(self):
         return f"<UserTask(id={self.id}, title={self.title[:30]}, status={self.status})>"
+
+# Secondary assignees (Wrike parity: multiple assignees per task).
+# The primary assignee stays UserTask.assigned_to; this M2M holds extras.
+task_assignees = Table(
+    "task_assignees",
+    Base.metadata,
+    Column("id", Integer, primary_key=True, index=True),
+    Column("task_id", Integer, ForeignKey("user_tasks.id", ondelete="CASCADE"), nullable=False, index=True),
+    Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True),
+    Column("assigned_at", String, server_default=func.now(), nullable=False),
+    UniqueConstraint("task_id", "user_id", name="uq_task_assignee"),
+)

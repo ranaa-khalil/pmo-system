@@ -18,6 +18,7 @@ class UserTaskCreate(UserTaskBase):
     assigned_to: int | None = None  # defaults to current user
     status: str = "Pending"
     parent_task_id: int | None = None  # subtask parent (one level only)
+    assignee_ids: list[int] | None = None  # secondary assignees (Wrike parity)
 
 
 class UserTaskUpdate(BaseModel):
@@ -29,6 +30,7 @@ class UserTaskUpdate(BaseModel):
     reminder_days: int | None = None
     status: str | None = None
     priority: str | None = None
+    assignee_ids: list[int] | None = None  # replaces the secondary assignee set
 
 
 class UserTaskResponse(UserTaskBase):

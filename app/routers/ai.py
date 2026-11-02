@@ -707,6 +707,52 @@ def list_automation_rules(
     }
 
 
+
+
+@router.post("/automation/rules")
+def create_automation_rule(
+    req: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Create an automation rule manually (the 'When this happens → then do that' builder)."""
+    from app.services.plan_enforcement import require_feature
+
+    require_feature(current_tenant.plan, "ai_assistant")
+    from app.models.automation_rule import AutomationRule, RULE_TRIGGERS, RULE_ACTIONS
+
+    trigger = (req.get("trigger") or "").strip()
+    if trigger not in RULE_TRIGGERS:
+        raise HTTPException(400, f"Unknown trigger. Must be one of: {RULE_TRIGGERS}")
+    actions = req.get("actions") or []
+    if not isinstance(actions, list) or not actions:
+        raise HTTPException(422, "At least one action is required")
+    for a in actions:
+        if not isinstance(a, dict) or a.get("type") not in RULE_ACTIONS:
+            raise HTTPException(400, f"Unknown action type. Must be one of: {RULE_ACTIONS}")
+    rule = AutomationRule(
+        tenant_id=current_tenant.id,
+        name=(req.get("name") or "Manual rule")[:200],
+        description=(req.get("description") or "")[:1000],
+        trigger=trigger,
+        conditions=req.get("conditions") or {},
+        actions=actions,
+        source="manual",
+        enabled=True,
+        created_by=current_user.id,
+    )
+    db.add(rule)
+    db.commit()
+    db.refresh(rule)
+    return {
+        "id": rule.id, "name": rule.name, "description": rule.description,
+        "trigger": rule.trigger, "conditions": rule.conditions,
+        "actions": rule.actions, "source": rule.source,
+        "enabled": rule.enabled, "fire_count": rule.fire_count,
+    }
+
+
 @router.post("/automation/scan")
 def automation_scan(
     db: Session = Depends(get_db),

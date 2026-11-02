@@ -26,7 +26,7 @@ TENANT_TABLES = [
     "item_types", "item_proofs",
     "project_views",
     "time_entries", "timesheet_locks",
-    "slack_configs",
+    "slack_configs", "comments", "task_assignees",
 ]
 
 COLUMNS = [

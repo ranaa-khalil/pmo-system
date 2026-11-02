@@ -1,4 +1,3 @@
-// PMO System — app/tenants.js
 // Tenants domain of the Alpine pmoApp() store.
 // Fragments are verbatim from the original monolith; pmo-app.js assembles them.
 
@@ -13,6 +12,8 @@ integrationForm: { github_token: '', ai_api_key: '', ai_base_url: '', ai_model: 
 usageMetrics: [],
 // P4 automation + lifecycle state
 automationRules: [],
+    ruleDraft: { trigger: '', action: '', role: 'gate_owner' },
+    savingRule: false,
 automationScan: null,
 lifecycleTemplates: [],
 lifecycleTypes: [],
@@ -598,9 +599,27 @@ showToast(message, type = 'success') {
 // ===== P4 automation methods =====
 async loadAutomation() {
     try {
-        const data = await this.api('GET', '/ai/automation/rules');
+        const data = await this.api('GET', '/automation/rules');
         this.automationRules = data.rules || data || [];
     } catch { this.automationRules = []; }
+},
+async createAutomationRule() {
+    const d = this.ruleDraft || {};
+    if (!d.trigger) { this.showToast('Select a trigger first', 'error'); return; }
+    if (!d.action) { this.showToast('Select an action first', 'error'); return; }
+    const action = d.action === 'notify' ? { type: 'notify', role: d.role || 'gate_owner' } : { type: d.action };
+    this.savingRule = true;
+    try {
+        await this.api('POST', '/automation/rules', {
+            name: 'When ' + d.trigger + ' → ' + d.action,
+            trigger: d.trigger,
+            actions: [action],
+        });
+        this.ruleDraft = { trigger: '', action: '', role: 'gate_owner' };
+        await this.loadAutomation();
+        this.showToast('Automation rule created');
+    } catch (e) { this.showToast(e.message || 'Could not create rule', 'error'); }
+    finally { this.savingRule = false; }
 },
 
 // ===== Agent Library: NL rule generation =====
@@ -632,7 +651,7 @@ async saveAgentDraft() {
 
 async runAutomationScan() {
     try {
-        this.automationScan = await this.api('POST', '/ai/automation/scan', {});
+        this.automationScan = await this.api('POST', '/automation/scan', {});
         this.automationScan.scanning = false;
         await this.loadAutomation();
         const n = (this.automationScan.proposals || []).length;

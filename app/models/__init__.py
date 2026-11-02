@@ -7,6 +7,7 @@ from app.models.artifact_chain import ArtifactChain
 from app.models.automation_rule import AutomationRule
 from app.models.backlog_item import BacklogItem
 from app.models.client import Client
+from app.models.comment import Comment
 from app.models.form_template import FormInstance, FormTemplate
 from app.models.github_board_config import GitHubBoardConfig
 from app.models.guest_link import ApprovalGuestDecision, ApprovalGuestLink
@@ -55,7 +56,8 @@ from app.models.user_task import UserTask
 __all__ = [
     "AiInteraction",
     "ArtifactChain",
-    "Client", "Project", "User", "Role", "RoleAssignment",
+    "Client",
+    "Comment", "Project", "User", "Role", "RoleAssignment",
     "Permission", "RolePermission",
     "ProjectView",
     "ProjectVision", "KPI", "Roadmap", "Milestone", "BacklogItem",

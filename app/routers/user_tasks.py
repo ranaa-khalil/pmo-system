@@ -51,8 +51,27 @@ def _enrich(task: UserTask, db: Session, tenant_id: int) -> dict:
     assignee = db.query(User).filter(User.id == task.assigned_to).first()
     if assignee:
         data["assignee_name"] = assignee.name
+    # Secondary assignees (M2M, joined for display)
+    from app.models.user_task import task_assignees
+
+    rows = (
+        db.query(User.id, User.name)
+        .join(task_assignees, task_assignees.c.user_id == User.id)
+        .filter(task_assignees.c.task_id == task.id)
+        .all()
+    )
+    data["assignees"] = [{"id": uid, "name": name} for uid, name in rows]
     return data
 
+
+
+
+def _member_of(db: Session, user_id: int, tenant_id: int) -> bool:
+    from app.models.tenant import TenantMembership
+
+    return db.query(TenantMembership).filter(
+        TenantMembership.user_id == user_id, TenantMembership.tenant_id == tenant_id,
+    ).first() is not None
 
 @router.get("/tasks")
 def list_tasks(
@@ -163,6 +182,18 @@ def create_task(
     db.commit()
     db.refresh(db_task)
 
+    # Secondary assignees
+    if task.assignee_ids:
+        from app.models.user_task import task_assignees
+
+        valid_users = [
+            u.id for u in db.query(User).filter(User.id.in_(task.assignee_ids)).all()
+            if _member_of(db, u.id, tid)
+        ]
+        for uid in dict.fromkeys(valid_users):
+            db.execute(task_assignees.insert().values(task_id=db_task.id, user_id=uid))
+        db.commit()
+
     log_activity(db, current_user.id, current_user.name, task.project_id,
                  "task", db_task.id, "created",
                  f"Created task: {db_task.title}")
@@ -192,8 +223,21 @@ def update_task(
     if "priority" in updates and updates["priority"] not in TASK_PRIORITIES:
         raise HTTPException(status_code=400, detail=f"Invalid priority. Must be one of: {TASK_PRIORITIES}")
 
+    assignee_ids = updates.pop("assignee_ids", None)
     for field, val in updates.items():
         setattr(task, field, val)
+
+    # Replace the secondary assignee set when provided
+    if assignee_ids is not None:
+        from app.models.user_task import task_assignees
+
+        db.execute(task_assignees.delete().where(task_assignees.c.task_id == task.id))
+        valid_users = [
+            u.id for u in db.query(User).filter(User.id.in_(assignee_ids)).all()
+            if _member_of(db, u.id, current_tenant.id)
+        ]
+        for uid in dict.fromkeys(valid_users):
+            db.execute(task_assignees.insert().values(task_id=task.id, user_id=uid))
 
     # Set completed_at when status changes to Completed
     if updates.get("status") == "Completed" and not task.completed_at:

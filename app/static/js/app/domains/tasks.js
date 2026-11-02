@@ -25,6 +25,10 @@ taskDateFilter: null,  // ISO date string or null
 showTaskModal: false,
 editingTask: null,
 taskForm: { title: '', description: '', project_id: null, milestone_id: null, due_date: '', priority: 'Medium', status: 'Pending', reminder_days: 3 },
+    taskAssigneeIds: [],  // secondary assignee chips (Wrike parity)
+    taskComments: [],
+    taskCommentForm: '',
+    showAssigneePicker: false,
 
 
 // ===== Tasks (personal to-dos) =====
@@ -85,11 +89,16 @@ openTaskModal(task = null) {
         this.loadSubtasks(task.id);
         const t = this.tasks.find(x => x.id === task.id);
         this.taskTags = t && t.tags ? [...t.tags] : [];
+        this.taskAssigneeIds = t && t.assignees ? t.assignees.map(a => a.id) : [];
+        this.loadTaskComments(task.id);
         this.loadTagPool();
     } else {
         this.subtasks = []; this.subtaskTotal = 0; this.subtaskDone = 0;
         this.taskTags = [];
+        this.taskAssigneeIds = [];
+        this.taskComments = [];
     }
+    this.showAssigneePicker = false;
     this.showTaskModal = true;
 },
 async quickAddTask(title) {
@@ -106,7 +115,7 @@ closeTaskModal() {
 },
 async saveTask() {
     if (!this.taskForm.title.trim()) return;
-    const payload = { ...this.taskForm };
+    const payload = { ...this.taskForm, assignee_ids: this.taskAssigneeIds };
     if (!payload.due_date) delete payload.due_date;
     if (!payload.project_id) delete payload.project_id;
     if (!payload.milestone_id) delete payload.milestone_id;
@@ -136,6 +145,39 @@ async deleteTask(taskId) {
         this.refreshTaskSummary();
     } catch (e) { alert('Error deleting task: ' + (e.message || e)); }
 },
+async loadTaskComments(taskId) {
+    this.taskComments = []; this.taskCommentForm = '';
+    try {
+        this.taskComments = await this.api('GET', `/tasks/${taskId}/comments`);
+    } catch (e) { console.error('loadTaskComments', e); }
+},
+
+async addTaskComment() {
+    const body = (this.taskCommentForm || '').trim();
+    if (!body || !this.editingTask) return;
+    try {
+        await this.api('POST', `/tasks/${this.editingTask.id}/comments`, { body });
+        this.taskCommentForm = '';
+        await this.loadTaskComments(this.editingTask.id);
+        this.showToast('Comment added');
+    } catch (e) { this.showToast('Failed: ' + e.message, 'error'); }
+},
+
+toggleTaskAssignee(userId) {
+    if (this.taskAssigneeIds.includes(userId)) {
+        this.taskAssigneeIds = this.taskAssigneeIds.filter(id => id !== userId);
+    } else {
+        this.taskAssigneeIds = [...this.taskAssigneeIds, userId];
+    }
+},
+
+assigneeById(id) {
+    const fromChips = (this.tasks || []).flatMap(t => t.assignees || []).find(a => a.id === id);
+    if (fromChips) return fromChips;
+    const u = (this.users || []).find(m => m.id === id);
+    return u ? { id: u.id, name: u.name } : { id, name: 'User #' + id };
+},
+
 isOverdue(task) {
     return task.due_date && task.status !== 'Completed' && new Date(task.due_date) < new Date(new Date().toDateString());
 },

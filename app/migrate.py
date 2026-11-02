@@ -23,6 +23,7 @@ TENANT_TABLES = [
     "automation_rules", "lifecycle_templates", "artifact_chain",
     "tags",
     "approval_guest_links", "approval_guest_decisions", "share_links",
+    "item_types", "item_proofs",
 ]
 
 COLUMNS = [

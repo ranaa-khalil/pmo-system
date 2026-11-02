@@ -29,6 +29,7 @@ from app.routers import (
     github_sync,
     guest_links,
     infrastructure,
+    item_types,
     lifecycle,
     notifications,
     personas,
@@ -36,6 +37,7 @@ from app.routers import (
     portal,
     preferences,
     projects,
+    proofs,
     releases,
     reports,
     risks,
@@ -139,6 +141,8 @@ app.include_router(preferences.router)
 app.include_router(agents.router)
 app.include_router(reports.router)
 app.include_router(workload.router)
+app.include_router(item_types.router)
+app.include_router(proofs.router)
 app.include_router(guest_links.router)
 app.include_router(guest_links.public_router)
 app.include_router(share.router)

@@ -418,6 +418,8 @@ navigate(route) {
     if (route === 'tasks') { this.loadTasks(); }
     if (route === 'today') { this.loadToday(); }
     if (route === 'work') { this.loadWork(); }
+    if (route === 'settings') { this.loadItemTypes(); }
+    if (route === 'projects' || route === 'project-detail') { this.loadItemTypes(); }
     if (route === 'settings') { this.loadTenant(); this.loadMembers(); this.loadIntegrations(); this.loadTenantLimits(); this.loadAutomation(); this.loadLifecycle(); }
     if (route === 'admin-dashboard' || route === 'admin-tenants' || route === 'admin-plans') { this.loadAdminInsights(); this.loadAdminPlans(); }
 },

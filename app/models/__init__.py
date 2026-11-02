@@ -10,7 +10,6 @@ from app.models.client import Client
 from app.models.form_template import FormInstance, FormTemplate
 from app.models.github_board_config import GitHubBoardConfig
 from app.models.guest_link import ApprovalGuestDecision, ApprovalGuestLink
-from app.models.share_link import ShareLink
 from app.models.infrastructure import (
     Asset,
     Environment,
@@ -20,6 +19,7 @@ from app.models.infrastructure import (
     SecretAccessLog,
     SecretVersion,
 )
+from app.models.item_type import ItemType
 from app.models.kpi import KPI
 from app.models.kpi_history import KpiHistory
 from app.models.lifecycle_template import TenantLifecycleTemplate
@@ -31,12 +31,14 @@ from app.models.plan import Plan
 from app.models.project import Project
 from app.models.project_test_account import ProjectTestAccount
 from app.models.project_vision import ProjectVision
+from app.models.proof import ItemProof
 from app.models.release import Release, ReleaseItem
 from app.models.risk import Risk
 from app.models.roadmap import Roadmap
 from app.models.role import Role
 from app.models.role_assignment import RoleAssignment
 from app.models.role_permission import RolePermission
+from app.models.share_link import ShareLink
 from app.models.stakeholder import Stakeholder
 from app.models.tag import Tag
 from app.models.tenant import Invitation, Tenant, TenantMembership
@@ -68,6 +70,8 @@ __all__ = [
     "TenantSetting",
     "Tag",
     "ShareLink",
+    "ItemType",
+    "ItemProof",
     "ApprovalGuestLink",
     "ApprovalGuestDecision",
     "UsageRecord",

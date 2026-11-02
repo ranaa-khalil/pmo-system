@@ -769,9 +769,10 @@
                                     <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
                     <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
                         <select x-model="backlogForm.item_type" class="input-premium text-[12px] px-3 py-2 bg-white">
-                            <option value="Feature">Feature</option>
-                            <option value="Bug">Bug</option>
-                            <option value="Enhancement">Enhancement</option>
+                            <option value="">Item Type</option>
+                            <template x-for="t in itemTypes" :key="'it-' + t.id">
+                                <option :value="t.key" x-text="t.label"></option>
+                            </template>
                         </select>
                         <select x-model="backlogForm.primary_actor" class="input-premium text-[12px] px-3 py-2 bg-white">
                             <option value="">Primary Actor</option>
@@ -1026,7 +1027,7 @@
                                                 </template>
                                             </div>
                                             <div class="col-span-1 min-w-0">
-                                                <span class="text-[10px] font-medium px-1.5 py-0.5 rounded inline-block" :class="{'bg-blue-50 text-blue-600': item.item_type === 'Feature', 'bg-rose-50 text-rose-600': item.item_type === 'Bug', 'bg-amber-50 text-amber-600': item.item_type === 'Enhancement'}" x-text="item.item_type || '—'"></span>
+                                                <span class="text-[10px] font-medium px-1.5 py-0.5 rounded inline-block" :class="itemTypeColor(item.item_type)" x-text="item.item_type || '—'"></span>
                                             </div>
                                             <div class="col-span-1 min-w-0"><span class="text-[10px] text-ink-500 truncate block" x-text="item.primary_actor || '—'"></span></div>
                                             <div class="col-span-1 min-w-0"><span class="text-[10px] font-medium px-2 py-0.5 rounded-md inline-block" :class="priorityColor(item.priority)" x-text="item.priority"></span></div>
@@ -1109,7 +1110,7 @@
                                     <!-- Card header: type + priority -->
                                     <div class="flex items-center justify-between gap-2 mb-1.5">
                                         <span class="text-[9px] font-bold px-1.5 py-0.5 rounded"
-                                              :class="{'bg-blue-50 text-blue-600': item.item_type === 'Feature', 'bg-rose-50 text-rose-600': item.item_type === 'Bug', 'bg-amber-50 text-amber-600': item.item_type === 'Enhancement'}"
+                                              :class="itemTypeColor(item.item_type)"
                                               x-text="item.item_type || '—'"></span>
                                         <span class="text-[9px] font-medium px-1.5 py-0.5 rounded-md" :class="priorityColor(item.priority)" x-text="item.priority"></span>
                                     </div>
@@ -1443,7 +1444,7 @@
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 mb-1">
                         <span class="text-[10px] font-mono text-ink-400" x-text="'#' + (viewingBacklogItem?.id || '')"></span>
-                        <span class="text-[10px] font-medium px-2 py-0.5 rounded" :class="{'bg-blue-50 text-blue-600': viewingBacklogItem?.item_type === 'Feature', 'bg-rose-50 text-rose-600': viewingBacklogItem?.item_type === 'Bug', 'bg-amber-50 text-amber-600': viewingBacklogItem?.item_type === 'Enhancement', 'bg-violet-50 text-violet-600': viewingBacklogItem?.item_type === 'Epic'}" x-text="viewingBacklogItem?.item_type || '—'"></span>
+                        <span class="text-[10px] font-medium px-2 py-0.5 rounded" :class="itemTypeColor(viewingBacklogItem?.item_type)" x-text="viewingBacklogItem?.item_type || '—'"></span>
                         <span class="text-[10px] font-medium px-2 py-0.5 rounded" :class="priorityColor(viewingBacklogItem?.priority)" x-text="viewingBacklogItem?.priority"></span>
                         <span class="text-[10px] font-medium" :class="{'text-emerald-600': viewingBacklogItem?.status === 'Done', 'text-brand-600': viewingBacklogItem?.status === 'In Progress', 'text-rose-500': viewingBacklogItem?.status === 'Blocked', 'text-ink-400': viewingBacklogItem?.status === 'Draft'}" x-text="viewingBacklogItem?.status"></span>
                     </div>
@@ -1522,6 +1523,50 @@
                     </div>
                     <div x-show="viewingBacklogItem?.acceptance_criteria" class="text-[12px] text-ink-600 leading-relaxed prose-p:my-1 prose-li:my-0 prose-ul:my-1 prose-ol:my-1" x-html="renderMarkdown(viewingBacklogItem?.acceptance_criteria)"></div>
                     <p x-show="!viewingBacklogItem?.acceptance_criteria" class="text-[12px] text-ink-300 italic">No acceptance criteria yet.</p>
+                </div>
+
+                <!-- Proofing (versioned deliverables) -->
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <div class="text-[10px] text-ink-400">Proofs</div>
+                        <button @click="loadProofs(viewingBacklogItem.id)" :disabled="itemProofsLoading" class="text-[10px] font-medium text-ink-500 hover:text-brand-600" title="Refresh proofs">
+                            <svg class="w-3 h-3" :class="itemProofsLoading ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        </button>
+                    </div>
+                    <div class="space-y-1.5 max-h-48 overflow-y-auto">
+                        <template x-for="p in itemProofs" :key="'proof-' + p.id">
+                            <div class="flex items-center justify-between px-3 py-2 rounded-xl border border-ink-100">
+                                <div class="min-w-0">
+                                    <div class="text-[12px] font-medium text-ink-800 truncate">
+                                        <span class="text-[10px] font-mono text-ink-400" x-text="'v' + p.version"></span>
+                                        <span x-text="p.title"></span>
+                                    </div>
+                                    <div class="text-[10px] text-ink-400 flex items-center gap-1.5">
+                                        <span x-text="p.uploader_name || ''"></span>
+                                        <a x-show="p.file_url" :href="p.file_url" target="_blank" class="text-brand-500 hover:underline">link ↗</a>
+                                        <a x-show="p.file_path" :href="p.file_path" target="_blank" class="text-brand-500 hover:underline">file ↗</a>
+                                        <span x-show="p.decider_name" x-text="'· ' + p.decider_name"></span>
+                                    </div>
+                                    <div x-show="p.decision_comment" class="text-[10px] text-ink-500 italic mt-0.5" x-text="'“' + p.decision_comment + '”'"></div>
+                                </div>
+                                <div class="flex items-center gap-1.5 flex-shrink-0">
+                                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                                          :class="p.status === 'Approved' ? 'bg-emerald-50 text-emerald-600' : p.status === 'Changes Requested' ? 'bg-amber-50 text-amber-600' : 'bg-ink-100 text-ink-500'"
+                                          x-text="p.status"></span>
+                                    <button x-show="p.status === 'Pending'" @click="decideProof(p, 'Approved')" class="text-[10px] font-medium px-2 py-1 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100">Approve</button>
+                                    <button x-show="p.status === 'Pending'" @click="decideProof(p, 'Changes Requested')" class="text-[10px] font-medium px-2 py-1 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100">Changes</button>
+                                </div>
+                            </div>
+                        </template>
+                        <div x-show="itemProofs.length === 0" class="text-[11px] text-ink-300">No proofs yet — upload a deliverable for review.</div>
+                    </div>
+                    <div class="mt-2 flex gap-1.5">
+                        <input x-model="proofForm.title" placeholder="Proof title (e.g. Homepage mockup)"
+                               class="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg border border-ink-200 text-[11px] outline-none focus:ring-2 focus:ring-brand-400 bg-white">
+                        <input x-model="proofForm.file_url" placeholder="https:// link to deliverable"
+                               class="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg border border-ink-200 text-[11px] outline-none focus:ring-2 focus:ring-brand-400 bg-white">
+                        <button @click="uploadProof()" class="text-[11px] font-medium text-white btn-primary px-3 py-1.5 rounded-lg whitespace-nowrap">Upload</button>
+                    </div>
                 </div>
 
                 <!-- Details grid -->

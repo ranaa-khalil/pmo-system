@@ -400,6 +400,40 @@
                         <p x-show="!automationRules.length" class="text-[12px] text-ink-400 py-2">No agents yet — describe one above in plain language, or run a scan and the system proposes automations from real patterns.</p>
                     </div>
 
+                    <!-- Item type vocabulary (tenant-scoped, D6 map) -->
+                    <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                        <h3 class="text-[14px] font-semibold text-ink-800 mb-1">Item Types</h3>
+                        <p class="text-[11px] text-ink-400 mb-4">Your tenant's backlog vocabulary — seeded with the standard types, extend with your own.</p>
+                        <div class="space-y-1.5 mb-4">
+                            <template x-for="t in itemTypes" :key="'set-it-' + t.id">
+                                <div class="flex items-center gap-3 py-1.5 border-b border-ink-100 last:border-0">
+                                    <span class="text-[10px] font-medium px-2 py-0.5 rounded" :class="itemTypeColor(t.key)" x-text="t.label"></span>
+                                    <span class="text-[10px] text-ink-400 font-mono" x-text="t.key"></span>
+                                    <div class="flex-1"></div>
+                                    <button @click="toggleItemType(t)" class="text-[11px] font-medium" :class="t.is_active ? 'text-emerald-600' : 'text-ink-300'" x-text="t.is_active ? 'Active' : 'Hidden'"></button>
+                                    <button @click="deleteItemType(t)" class="text-[11px] text-ink-300 hover:text-red-500 px-1">✕</button>
+                                </div>
+                            </template>
+                            <p x-show="itemTypes.length === 0" class="text-[12px] text-ink-400 py-2">No types yet.</p>
+                        </div>
+                        <div class="flex gap-1.5">
+                            <input x-model="itemTypeForm.key" placeholder="Key (e.g. Research)"
+                                   class="w-32 px-2.5 py-1.5 rounded-lg border border-ink-200 text-[11px] outline-none focus:ring-2 focus:ring-brand-400 bg-white">
+                            <input x-model="itemTypeForm.label" placeholder="Label"
+                                   class="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg border border-ink-200 text-[11px] outline-none focus:ring-2 focus:ring-brand-400 bg-white">
+                            <select x-model="itemTypeForm.color" class="w-24 px-2 py-1.5 rounded-lg border border-ink-200 text-[11px] bg-white outline-none">
+                                <option value="blue">Blue</option>
+                                <option value="rose">Rose</option>
+                                <option value="amber">Amber</option>
+                                <option value="violet">Violet</option>
+                                <option value="emerald">Emerald</option>
+                                <option value="indigo">Indigo</option>
+                                <option value="ink">Ink</option>
+                            </select>
+                            <button @click="saveItemType()" class="text-[11px] font-medium text-white btn-primary px-3 py-1.5 rounded-lg whitespace-nowrap">Add</button>
+                        </div>
+                    </div>
+
                     <!-- Plan card (read-only — assigned by system admin) -->
                     <div class="surface rounded-2xl border border-ink-200/60 p-6">
                         <h3 class="text-[14px] font-semibold text-ink-800 mb-1">Subscription Plan</h3>

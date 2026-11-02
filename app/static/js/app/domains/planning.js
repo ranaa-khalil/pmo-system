@@ -58,6 +58,92 @@ setWorkTagFilter(tagId) {
     this.loadWork();
 },
 
+// ===== ItemType vocabulary (tenant-scoped) =====
+itemTypes: [],
+itemTypesLoading: false,
+itemTypeForm: { key: '', label: '', color: 'blue' },
+async loadItemTypes() {
+    this.itemTypesLoading = true;
+    try {
+        this.itemTypes = await this.api('GET', '/item-types');
+    } catch { this.itemTypes = []; }
+    this.itemTypesLoading = false;
+},
+itemTypeColor(key) {
+    const classes = {
+        blue: 'bg-blue-50 text-blue-600', rose: 'bg-rose-50 text-rose-600',
+        amber: 'bg-amber-50 text-amber-600', violet: 'bg-violet-50 text-violet-600',
+        ink: 'bg-ink-100 text-ink-500', emerald: 'bg-emerald-50 text-emerald-600',
+        indigo: 'bg-indigo-50 text-indigo-600',
+    };
+    const t = (this.itemTypes || []).find(x => x.key === key);
+    return (t && classes[t.color]) || 'bg-ink-100 text-ink-500';
+},
+async saveItemType() {
+    if (!this.itemTypeForm.key.trim() || !this.itemTypeForm.label.trim()) {
+        this.showToast('Key and label are required', 'error'); return;
+    }
+    try {
+        await this.api('POST', '/item-types', {
+            key: this.itemTypeForm.key.trim(),
+            label: this.itemTypeForm.label.trim(),
+            color: this.itemTypeForm.color || 'blue',
+        });
+        this.itemTypeForm = { key: '', label: '', color: 'blue' };
+        await this.loadItemTypes();
+        this.showToast('Item type added', 'success');
+    } catch (e) { this.showToast(e.message || 'Failed to add type', 'error'); }
+},
+async toggleItemType(t) {
+    try {
+        await this.api('PUT', `/item-types/${t.id}`, { is_active: !t.is_active });
+        await this.loadItemTypes();
+    } catch (e) { this.showToast('Failed to update type', 'error'); }
+},
+async deleteItemType(t) {
+    try {
+        await this.api('DELETE', `/item-types/${t.id}`);
+        await this.loadItemTypes();
+    } catch (e) { this.showToast(e.message || 'Failed to delete type', 'error'); }
+},
+
+// ===== Item proofing (versioned deliverables) =====
+itemProofs: [],
+itemProofsLoading: false,
+proofForm: { title: '', file_url: '' },
+async loadProofs(itemId) {
+    this.itemProofsLoading = true;
+    try {
+        this.itemProofs = await this.api('GET', `/backlog/${itemId}/proofs`);
+    } catch { this.itemProofs = []; }
+    this.itemProofsLoading = false;
+},
+async uploadProof() {
+    const item = this.viewingBacklogItem;
+    if (!item) return;
+    if (!this.proofForm.title.trim()) { this.showToast('Give the proof a title', 'error'); return; }
+    if (!this.proofForm.file_url.trim()) { this.showToast('Paste a link to the deliverable', 'error'); return; }
+    try {
+        const body = new URLSearchParams();
+        body.set('title', this.proofForm.title.trim());
+        body.set('file_url', this.proofForm.file_url.trim());
+        await this.api('POST', `/backlog/${item.id}/proofs`, body.toString(), 'application/x-www-form-urlencoded');
+        this.proofForm = { title: '', file_url: '' };
+        await this.loadProofs(item.id);
+        this.showToast('Proof uploaded — pending review', 'success');
+    } catch (e) { this.showToast(e.message || 'Failed to upload proof', 'error'); }
+},
+async decideProof(proof, decision) {
+    try {
+        const comment = decision === 'Changes Requested'
+            ? window.prompt('What needs to change?', '') : null;
+        if (decision === 'Changes Requested' && comment === null) return;
+        await this.api('POST', `/proofs/${proof.id}/decide`, { decision, comment });
+        await this.loadProofs(proof.item_id);
+        this.showToast(decision === 'Approved' ? 'Proof approved' : 'Changes requested', 'success');
+    } catch (e) { this.showToast(e.message || 'Failed to record decision', 'error'); }
+},
+
 // ===== Item Gantt (project-level, day grid) =====
 ganttProjectId: null,
 ganttData: null,
@@ -394,15 +480,17 @@ projectRoadmapWidthPx(rm) {
 },
 projectMilestoneLeftPx(ms) { return this.projectDateToPx(ms.target_date); },
 
-async api(method, url, body) {
+async api(method, url, body, contentType) {
     const opts = {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': contentType || 'application/json' },
     };
     if (this.authToken) {
         opts.headers['Authorization'] = 'Bearer ' + this.authToken;
     }
-    if (body) opts.body = JSON.stringify(body);
+    if (body !== undefined && body !== null) {
+        opts.body = typeof body === 'string' ? body : JSON.stringify(body);
+    }
     const res = await fetch('/api' + url, opts);
     if (res.status === 401) {
         // Session expired — clear token and redirect to login

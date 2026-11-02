@@ -3520,6 +3520,70 @@
                         class="text-[11px] font-medium px-3 py-1.5 rounded-lg transition-all"
                         x-text="k === 'All' ? 'All (' + (projectRisks || []).length + ')' : k + ' (' + (projectRisks || []).filter(r => (r.kind || 'Risk') === k).length + ')'"></button>
             </template>
+            <button @click="raidCreateOpen ? raidCreateOpen = false : openCreateRaid()"
+                    class="ml-auto text-[11px] font-medium text-white btn-primary px-3 py-1.5 rounded-lg transition-all flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                New entry
+            </button>
+        </div>
+
+        <!-- RAID: inline create card -->
+        <div x-show="raidCreateOpen" x-cloak class="surface rounded-2xl border border-ink-200/60 p-5 mb-4">
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                    <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Kind</div>
+                    <select x-model="raidNew.kind" class="w-full input-premium text-[12px] px-3 py-2 bg-white">
+                        <option value="Risk">Risk — what could go wrong</option>
+                        <option value="Assumption">Assumption — taken for granted</option>
+                        <option value="Issue">Issue — already went wrong</option>
+                        <option value="Dependency">Dependency — waiting on someone</option>
+                    </select>
+                </div>
+                <div>
+                    <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Title</div>
+                    <input x-model="raidNew.title" placeholder="Short, factual title" class="w-full input-premium text-[13px] px-3 py-2">
+                </div>
+            </div>
+            <div class="mb-3">
+                <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Description</div>
+                <textarea x-model="raidNew.description" rows="2" class="w-full input-premium text-[13px] px-3 py-2" placeholder="Context, impact, what it means for the project..."></textarea>
+            </div>
+            <div x-show="raidNew.kind === 'Risk'" class="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                    <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Severity</div>
+                    <select x-model="raidNew.severity" class="w-full input-premium text-[12px] px-3 py-2 bg-white">
+                        <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
+                    </select>
+                </div>
+                <div>
+                    <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Probability</div>
+                    <select x-model="raidNew.probability" class="w-full input-premium text-[12px] px-3 py-2 bg-white">
+                        <option>Rare</option><option>Unlikely</option><option>Medium</option><option>Possible</option><option>Likely</option><option>Almost Certain</option>
+                    </select>
+                </div>
+            </div>
+            <div x-show="raidNew.kind === 'Assumption'" class="mb-3">
+                <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Validation plan</div>
+                <input x-model="raidNew.validation_plan" placeholder="How and when will this be validated?" class="w-full input-premium text-[13px] px-3 py-2">
+            </div>
+            <div x-show="raidNew.kind === 'Issue'" class="mb-3">
+                <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Resolution</div>
+                <input x-model="raidNew.resolution" placeholder="How was / will this be resolved?" class="w-full input-premium text-[13px] px-3 py-2">
+            </div>
+            <div x-show="raidNew.kind === 'Dependency'" class="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                    <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1.5">External owner</div>
+                    <input x-model="raidNew.external_owner" placeholder="Team / vendor on the other side" class="w-full input-premium text-[13px] px-3 py-2">
+                </div>
+                <div>
+                    <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Needed by</div>
+                    <input x-model="raidNew.needed_by" placeholder="YYYY-MM-DD" class="w-full input-premium text-[13px] px-3 py-2">
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button @click="createRaid()" class="text-[12px] font-medium text-white btn-primary px-4 py-2 rounded-lg transition-all">Add to register</button>
+                <button @click="raidCreateOpen = false" class="text-[12px] font-medium text-ink-500 border border-ink-200 hover:bg-ink-100 px-4 py-2 rounded-lg transition-all">Cancel</button>
+            </div>
         </div>
 
         <!-- Heatmap: severity (rows) × probability (cols) -->

@@ -13,6 +13,8 @@ formEditMode: false,
 // ===== Risks state (P3 heatmap) =====
 projectRisks: [],
     raidKindFilter: 'All',  // RAID tab: All | Risk | Assumption | Issue | Dependency
+    raidCreateOpen: false,
+    raidNew: { kind: 'Risk', title: '', description: '', severity: 'Medium', probability: 'Possible', validation_plan: '', resolution: '', needed_by: '', external_owner: '' },
 selectedRisk: null,
 riskEditMode: false,
 riskMatrixSeverity: ['Low', 'Medium', 'High', 'Critical'],
@@ -327,6 +329,33 @@ raidStatusColor(status) {
         'Blocked': 'bg-rose-50 text-rose-700',
         'Closed': 'bg-emerald-50 text-emerald-700',
     }[status] || 'bg-ink-100 text-ink-600';
+},
+
+openCreateRaid() {
+    this.raidNew = { kind: 'Risk', title: '', description: '', severity: 'Medium', probability: 'Possible', validation_plan: '', resolution: '', needed_by: '', external_owner: '' };
+    this.raidCreateOpen = true;
+},
+
+async createRaid() {
+    const t = (this.raidNew.title || '').trim();
+    if (!t) { this.toast('Title is required', 'error'); return; }
+    try {
+        const body = { title: t, kind: this.raidNew.kind, description: this.raidNew.description || null };
+        if (this.raidNew.kind === 'Risk') {
+            body.severity = this.raidNew.severity;
+            body.probability = this.raidNew.probability;
+        }
+        if (this.raidNew.kind === 'Assumption') body.validation_plan = this.raidNew.validation_plan || null;
+        if (this.raidNew.kind === 'Issue') body.resolution = this.raidNew.resolution || null;
+        if (this.raidNew.kind === 'Dependency') {
+            body.external_owner = this.raidNew.external_owner || null;
+            body.needed_by = this.raidNew.needed_by || null;
+        }
+        await this.api('POST', `/projects/${this.selectedProject.id}/risks`, body);
+        this.raidCreateOpen = false;
+        await this.loadRisks();
+        this.toast(this.raidNew.kind + ' added to the register', 'success');
+    } catch(e) { this.toast(e.message || 'Could not create entry', 'error'); }
 },
 
 async escalateRaid(entry) {

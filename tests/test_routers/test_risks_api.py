@@ -20,10 +20,12 @@ def api_world(client, db):
     db.add(tenant)
     db.commit()
     db.refresh(tenant)
-    pm = User(email="pm-riskapi@copilot.test", name="PM", hashed_password="x")
+    pm = User(email="pm-riskapi@copilot.test", name="PM", hashed_password="x", system_role="project_manager")
     db.add(pm)
     db.commit()
     db.refresh(pm)
+    pm.active_tenant_id = tenant.id
+    db.commit()
     from app.models.tenant import TenantMembership
     db.add(TenantMembership(user_id=pm.id, tenant_id=tenant.id, role="owner"))
     project = Project(name="PNU Cloud", client_id=1, tenant_id=tenant.id, project_manager_id=pm.id)

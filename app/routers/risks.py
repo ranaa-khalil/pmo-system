@@ -22,6 +22,7 @@ from app.models.project import Project
 from app.models.risk import ESCALATION_TARGET, KIND_STATUSES, RAID_KINDS, Risk
 from app.models.tenant import TenantMembership
 from app.models.user import User
+from app.permissions import can_manage_project
 
 router = APIRouter(prefix="/api", tags=["risks"])
 
@@ -89,8 +90,8 @@ def _load_risk_with_permission(db: Session, risk_id: int, user: User) -> Risk:
     if not risk:
         raise HTTPException(404, "RAID entry not found")
     project = db.query(Project).filter(Project.id == risk.project_id).first()
-    if project and project.project_manager_id != user.id and user.system_role != "super_admin":
-        raise HTTPException(403, "Only the project manager can modify RAID entries")
+    if project and not can_manage_project(user, project, db):
+        raise HTTPException(403, "You don't have permission to manage this project's RAID register")
     return risk
 
 
@@ -111,8 +112,8 @@ def list_risks(project_id: int, kind: str | None = None, db: Session = Depends(g
 @router.post("/projects/{project_id}/risks")
 def create_risk(project_id: int, req: RiskCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     project = _load_project(db, project_id, current_user)
-    if project.project_manager_id != current_user.id and current_user.system_role != "super_admin":
-        raise HTTPException(403, "Only the project manager can create RAID entries")
+    if not can_manage_project(current_user, project, db):
+        raise HTTPException(403, "You don't have permission to manage this project's RAID register")
     if req.kind not in RAID_KINDS:
         raise HTTPException(422, f"Kind must be one of: {', '.join(RAID_KINDS)}")
     needed_by = None

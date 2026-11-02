@@ -34,8 +34,8 @@ _paletteBound: false,
 
 // ===== Per-user UI preferences =====
 // Dashboard widget layout: ordered visible-widget keys (per-user via /me/preferences)
-DASH_WIDGET_KEYS: ['stats', 'briefing', 'charts', 'projects', 'kpis', 'mytasks', 'activity'],
-dashWidgets: ['stats', 'briefing', 'charts', 'projects', 'kpis', 'mytasks', 'activity'],
+DASH_WIDGET_KEYS: ['stats', 'briefing', 'charts', 'projects', 'kpis', 'mytasks', 'activity', 'workload'],
+dashWidgets: ['stats', 'briefing', 'charts', 'projects', 'kpis', 'mytasks', 'activity', 'workload'],
 widgetPickerOpen: false,
 draggingWidget: null,
 
@@ -129,6 +129,17 @@ async loadActivity() {
     } finally {
         this.activityLoading = false;
     }
+},
+
+// ===== Team workload (workload strip widget) =====
+workload: [],
+workloadLoading: false,
+async loadWorkload() {
+    this.workloadLoading = true;
+    try {
+        this.workload = await this.api('GET', '/workload');
+    } catch { this.workload = []; }
+    this.workloadLoading = false;
 },
 
 toggleNotifPanel() {
@@ -403,7 +414,7 @@ navigate(route) {
         }
         if (this.ganttProjectId) this.loadGantt();
     }
-    if (route === 'dashboard') { setTimeout(() => this.renderCharts(), 150); this.refreshTaskSummary(); }
+    if (route === 'dashboard') { setTimeout(() => this.renderCharts(), 150); this.refreshTaskSummary(); this.loadWorkload(); }
     if (route === 'tasks') { this.loadTasks(); }
     if (route === 'today') { this.loadToday(); }
     if (route === 'work') { this.loadWork(); }
@@ -514,6 +525,7 @@ dashWidgetLabel(key) {
     const labels = {
         stats: 'Stat cards', briefing: 'Daily briefing', charts: 'Charts',
         projects: 'Project health', kpis: 'KPI progress', mytasks: 'My Tasks', activity: 'Activity feed',
+        workload: 'Team workload',
     };
     return labels[key] || key;
 },

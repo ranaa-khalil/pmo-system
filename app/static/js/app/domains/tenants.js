@@ -603,6 +603,33 @@ async loadAutomation() {
     } catch { this.automationRules = []; }
 },
 
+// ===== Agent Library: NL rule generation =====
+agentDescription: '',
+agentDraft: null,
+async generateAgentDraft() {
+    const description = (this.agentDescription || '').trim();
+    if (!description) { this.showToast('Describe the automation first', 'error'); return; }
+    try {
+        this.agentDraft = await this.api('POST', '/automation/generate', { description });
+    } catch (e) { this.showToast(e.message || "Couldn't map that to a trigger", 'error'); }
+},
+async saveAgentDraft() {
+    if (!this.agentDraft) return;
+    try {
+        await this.api('POST', '/automation/rules', {
+            name: this.agentDraft.name || this.agentDescription.slice(0, 100),
+            trigger: this.agentDraft.trigger,
+            conditions: this.agentDraft.conditions,
+            actions: this.agentDraft.actions,
+            description: this.agentDraft.nl_description,
+        });
+        this.agentDraft = null;
+        this.agentDescription = '';
+        await this.loadAutomation();
+        this.showToast('Agent saved — enable it to run', 'success');
+    } catch (e) { this.showToast(e.message || 'Failed to save agent', 'error'); }
+},
+
 async runAutomationScan() {
     try {
         this.automationScan = await this.api('POST', '/ai/automation/scan', {});

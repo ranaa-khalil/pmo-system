@@ -82,6 +82,11 @@ def client(db, auth_user):
         finally:
             pass
 
+    # The rate limiter is a module-level singleton on the app; its sliding
+    # window would otherwise accumulate across tests and 429 later tests.
+    from app.middleware.rate_limit import rate_limiter
+    rate_limiter._requests.clear()
+
     app.dependency_overrides[get_db] = override_get_db
     token = create_access_token({"sub": str(auth_user["user"].id)})
     tc = TestClient(app)

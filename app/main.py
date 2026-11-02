@@ -14,6 +14,7 @@ from app.frontend import router as frontend_router
 from app.middleware import QuotaHeaderMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware, SubdomainMiddleware
 from app.migrate import run_migrations
 from app.routers import (
+    agents,
     ai,
     analytics,
     api_keys,
@@ -36,6 +37,7 @@ from app.routers import (
     preferences,
     projects,
     releases,
+    reports,
     risks,
     share,
     stakeholders,
@@ -43,6 +45,7 @@ from app.routers import (
     tenant,
     today,
     user_tasks,
+    workload,
 )
 
 logger = logging.getLogger("app.main")
@@ -133,6 +136,9 @@ app.include_router(releases.router)
 app.include_router(user_tasks.router)
 app.include_router(tags.router)
 app.include_router(preferences.router)
+app.include_router(agents.router)
+app.include_router(reports.router)
+app.include_router(workload.router)
 app.include_router(guest_links.router)
 app.include_router(guest_links.public_router)
 app.include_router(share.router)

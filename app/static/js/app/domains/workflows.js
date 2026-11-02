@@ -159,6 +159,36 @@ guestLinksOpen: false,
 guestLinks: [],
 guestLinkForm: { label: '', password: '', expires_in_days: 7, step_id: null },
 showGuestLinkForm: false,
+
+// ===== Status reports (locked on delivery) =====
+showReportModal: false,
+statusReport: null,
+statusReportEntry: null,
+statusReports: [],
+reportLoading: false,
+async openStatusReport() {
+    this.showReportModal = true;
+    this.statusReport = null;
+    this.statusReportEntry = null;
+    this.reportLoading = true;
+    try { this.statusReports = await this.api('GET', `/projects/${this.selectedProject.id}/reports`); }
+    catch { this.statusReports = []; }
+    this.reportLoading = false;
+},
+async generateStatusReport() {
+    try {
+        const result = await this.api('POST', `/projects/${this.selectedProject.id}/reports/send`, {});
+        this.statusReport = result.report;
+        this.statusReportEntry = result.entry;
+        this.statusReports = await this.api('GET', `/projects/${this.selectedProject.id}/reports`);
+        this.showToast(`Report locked — chain entry #${result.entry.seq}`, 'success');
+    } catch (e) { this.showToast(e.message || 'Failed to generate report', 'error'); }
+},
+viewStoredReport(r) {
+    this.statusReport = r.report;
+    this.statusReportEntry = { seq: r.seq, hash: r.hash, created_at: r.created_at, actor_name: r.actor_name };
+},
+
 async openGuestLinks() {
     this.guestLinksOpen = !this.guestLinksOpen;
     if (this.guestLinksOpen && this.selectedApproval) await this.loadGuestLinks(this.selectedApproval.id);

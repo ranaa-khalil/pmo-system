@@ -340,10 +340,33 @@
                     <!-- P4: Automation Rules card -->
                     <div class="surface rounded-2xl border border-ink-200/60 p-6">
                         <div class="flex items-center justify-between mb-1">
-                            <h3 class="text-[14px] font-semibold text-ink-800">Automation Rules</h3>
+                            <h3 class="text-[14px] font-semibold text-ink-800">Agent Library</h3>
                             <button @click="runAutomationScan()" class="text-[12px] font-medium text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-all">Scan for patterns</button>
                         </div>
                         <p class="text-[11px] text-ink-400 mb-4">The system learns from your approvals, tasks, and activity — proposed rules with evidence. A rule only runs once you enable it.</p>
+                        <!-- NL rule generation (describe it in plain language) -->
+                        <div class="bg-ink-50/60 border border-ink-100 rounded-xl p-3 mb-3">
+                            <div class="text-[11px] font-semibold text-ink-600 mb-2">Describe an automation</div>
+                            <textarea x-model="agentDescription" rows="2" placeholder="e.g. When an approval sits in a gate for 48 hours, notify the Tech Lead"
+                                      class="w-full px-3 py-2 rounded-lg border border-ink-200 text-[12px] outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 resize-none bg-white"></textarea>
+                            <div class="flex items-center gap-2 mt-2">
+                                <button @click="generateAgentDraft()" x-show="!agentDraft" class="text-[11px] font-medium text-white btn-primary px-3 py-1.5 rounded-lg">Generate draft</button>
+                                <template x-if="agentDraft">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-2 mb-1.5">
+                                            <span class="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full" x-text="'trigger: ' + agentDraft.trigger"></span>
+                                            <span class="text-[10px] text-ink-400" x-show="agentDraft.conditions" x-text="JSON.stringify(agentDraft.conditions)"></span>
+                                            <span class="text-[10px] text-ink-400" x-text="agentDraft.actions.map(a => a.type + (a.role ? ':' + a.role : '')).join(', ')"></span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <input x-model="agentDraft.name" class="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg border border-ink-200 text-[12px] outline-none focus:ring-2 focus:ring-brand-400 bg-white" placeholder="Agent name">
+                                            <button @click="saveAgentDraft()" class="text-[11px] font-medium text-white btn-primary px-3 py-1.5 rounded-lg whitespace-nowrap">Save as agent</button>
+                                            <button @click="agentDraft = null" class="text-[11px] text-ink-400 hover:text-ink-600 px-1">✕</button>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
                         <template x-if="automationScan && (automationScan.proposals || []).length">
                             <div class="bg-brand-50/60 border border-brand-100 rounded-xl p-3 mb-3">
                                 <div class="text-[11px] font-semibold text-brand-700 mb-2" x-text="'Proposed from your last scan (' + (automationScan.proposals || []).length + ')'"></div>
@@ -374,7 +397,7 @@
                                 </div>
                             </template>
                         </div>
-                        <p x-show="!automationRules.length" class="text-[12px] text-ink-400 py-2">No rules yet — run a scan and the system proposes automations from real patterns.</p>
+                        <p x-show="!automationRules.length" class="text-[12px] text-ink-400 py-2">No agents yet — describe one above in plain language, or run a scan and the system proposes automations from real patterns.</p>
                     </div>
 
                     <!-- Plan card (read-only — assigned by system admin) -->

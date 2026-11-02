@@ -28,6 +28,10 @@
                             </template>
                         </div>
                     </div>
+                    <button @click="openStatusReport()" class="flex-shrink-0 inline-flex items-center gap-2 text-[12px] font-medium text-ink-600 px-3.5 py-2 rounded-xl border border-ink-200 hover:bg-ink-50 transition-colors">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        Status report
+                    </button>
                 </div>
 
                 <!-- Tabs -->
@@ -3718,4 +3722,105 @@
             </div>
         </div>
     </div>
+            <!-- Status report modal (locked on delivery) -->
+            <div x-show="showReportModal" x-cloak class="fixed inset-0 z-50" aria-modal="true">
+                <div class="fixed inset-0 bg-black/30 backdrop-blur-sm" @click="showReportModal = false"></div>
+                <div class="flex min-h-full items-center justify-center p-4 relative">
+                    <div class="surface rounded-3xl shadow-modal w-full max-w-lg max-h-[85vh] overflow-y-auto modal-enter border border-black/[0.06]">
+                        <div class="sticky top-0 bg-white/95 backdrop-blur border-b border-black/[0.06] px-6 py-4 flex items-center justify-between rounded-t-3xl z-10">
+                            <div>
+                                <h3 class="text-[15px] font-bold text-ink-900">Status report</h3>
+                                <p class="text-[11px] text-ink-400 mt-0.5">Locked on delivery — every send is a chain entry</p>
+                            </div>
+                            <button @click="showReportModal = false" class="p-2 text-ink-400 hover:text-ink-700 hover:bg-ink-100 rounded-lg transition-colors">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                        <div class="px-6 py-5 space-y-4">
+                            <template x-if="statusReport">
+                                <div class="space-y-4">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <div class="text-[13px] font-semibold text-ink-900" x-text="statusReport.project.name"></div>
+                                            <div class="text-[10px] text-ink-400" x-text="'Generated ' + new Date(statusReport.generated_at).toLocaleString() + ' · ' + statusReport.generated_by"></div>
+                                        </div>
+                                        <span x-show="statusReportEntry" class="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg" x-text="'Chain #' + statusReportEntry?.seq + ' · ' + (statusReportEntry?.hash || '').slice(0, 8) + '…'"></span>
+                                    </div>
+                                    <!-- Progress -->
+                                    <div>
+                                        <div class="flex items-center justify-between mb-1.5">
+                                            <span class="text-[11px] font-semibold text-ink-600 uppercase tracking-wide">Backlog progress</span>
+                                            <span class="text-[11px] font-medium text-ink-500" x-text="statusReport.backlog.done + '/' + statusReport.backlog.total + ' done'"></span>
+                                        </div>
+                                        <div class="h-2 bg-ink-100 rounded-full overflow-hidden">
+                                            <div class="h-full bg-brand-500 rounded-full transition-all" :style="'width:' + statusReport.backlog.progress + '%'"></div>
+                                        </div>
+                                        <div class="flex flex-wrap gap-1.5 mt-2">
+                                            <template x-for="(count, phase) in statusReport.backlog.by_phase" :key="phase">
+                                                <span class="text-[10px] text-ink-500 bg-ink-100 px-2 py-0.5 rounded-full" x-text="phase + ': ' + count"></span>
+                                            </template>
+                                        </div>
+                                    </div>
+                                    <!-- Releases -->
+                                    <div x-show="statusReport.releases.length">
+                                        <div class="text-[11px] font-semibold text-ink-600 uppercase tracking-wide mb-1.5">Releases</div>
+                                        <template x-for="r in statusReport.releases" :key="r.version">
+                                            <div class="flex items-center justify-between py-1.5 border-b border-ink-50 last:border-0">
+                                                <span class="text-[12px] text-ink-800 font-medium" x-text="r.version + (r.name ? ' — ' + r.name : '')"></span>
+                                                <span class="text-[10px] text-ink-400" x-text="r.status"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    <!-- Open risks -->
+                                    <div x-show="statusReport.open_risks.length">
+                                        <div class="text-[11px] font-semibold text-ink-600 uppercase tracking-wide mb-1.5">Open risks</div>
+                                        <template x-for="(r, i) in statusReport.open_risks" :key="'risk-' + i">
+                                            <div class="flex items-center justify-between py-1.5 border-b border-ink-50 last:border-0">
+                                                <span class="text-[12px] text-ink-800 truncate" x-text="r.title"></span>
+                                                <span class="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                                                      :class="r.severity === 'Critical' ? 'bg-rose-50 text-rose-600' : r.severity === 'High' ? 'bg-amber-50 text-amber-600' : 'bg-ink-100 text-ink-500'"
+                                                      x-text="r.severity"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    <!-- Milestones -->
+                                    <div x-show="statusReport.milestones.length">
+                                        <div class="text-[11px] font-semibold text-ink-600 uppercase tracking-wide mb-1.5">Milestones</div>
+                                        <template x-for="(m, i) in statusReport.milestones" :key="'ms-' + i">
+                                            <div class="flex items-center justify-between py-1.5 border-b border-ink-50 last:border-0">
+                                                <span class="text-[12px] text-ink-800 truncate" x-text="m.title"></span>
+                                                <span class="text-[10px] text-ink-400" x-text="m.target_date || ''"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                            <template x-if="!statusReport">
+                                <div class="text-center py-6">
+                                    <p class="text-[12px] text-ink-400 mb-4">Generate a snapshot of this project's health. Each send appends a tamper-evident entry to the project's audit chain.</p>
+                                    <button @click="generateStatusReport()" :disabled="reportLoading" class="px-4 py-2.5 rounded-xl bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 transition-colors shadow-sm disabled:opacity-50">
+                                        <span x-text="reportLoading ? 'Generating…' : 'Generate & send'"></span>
+                                    </button>
+                                </div>
+                            </template>
+                            <!-- Past reports -->
+                            <div class="pt-3 border-t border-ink-100">
+                                <h4 class="text-[11px] font-semibold text-ink-500 uppercase tracking-wide mb-2">Delivered reports</h4>
+                                <div class="space-y-1.5 max-h-40 overflow-y-auto">
+                                    <template x-for="r in statusReports" :key="'rep-' + r.id">
+                                        <div class="flex items-center justify-between px-3 py-2 rounded-xl border border-ink-100 hover:bg-ink-50 transition-colors cursor-pointer" @click="viewStoredReport(r)">
+                                            <div class="min-w-0">
+                                                <div class="text-[12px] text-ink-800 font-medium" x-text="'#' + r.seq + ' · ' + (r.actor_name || 'system')"></div>
+                                                <div class="text-[10px] text-ink-400" x-text="new Date(r.created_at).toLocaleString()"></div>
+                                            </div>
+                                            <span class="text-[10px] text-ink-300 font-mono" x-text="(r.hash || '').slice(0, 8)"></span>
+                                        </div>
+                                    </template>
+                                    <div x-show="statusReports.length === 0" class="text-[11px] text-ink-300">No reports sent yet.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             </div><!-- close project-detail view -->

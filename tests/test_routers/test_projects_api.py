@@ -95,3 +95,12 @@ class TestProjectsAPI:
         assert response.status_code == 200
         data = response.json()
         assert all(p["client_id"] == client_id for p in data)
+
+
+def test_update_health(client):
+    """Project health (GitHub Boards status-update parity) updates via PUT."""
+    cid = client.post("/api/clients", json={"name": "Health Co"}).json()["id"]
+    project = client.post("/api/projects", json={"name": "Health Proj", "client_id": cid}).json()
+    resp = client.put(f"/api/projects/{project['id']}", json={"health": "At risk"})
+    assert resp.status_code == 200
+    assert resp.json().get("health") == "At risk"

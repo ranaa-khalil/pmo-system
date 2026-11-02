@@ -17,6 +17,12 @@
                                 <span class="w-1.5 h-1.5 rounded-full" :class="selectedProject?.status === 'Active' ? 'bg-emerald-400' : 'bg-amber-400'"></span>
                                 <span x-text="selectedProject?.status"></span>
                             </span>
+                            <div x-show="selectedProject?.health" class="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-lg"
+                                 :class="selectedProject?.health === 'On track' ? 'bg-emerald-50 text-emerald-600' : selectedProject?.health === 'At risk' ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'">
+                                <span class="w-1.5 h-1.5 rounded-full"
+                                      :class="selectedProject?.health === 'On track' ? 'bg-emerald-400' : selectedProject?.health === 'At risk' ? 'bg-amber-400' : 'bg-rose-400'"></span>
+                                <span x-text="selectedProject?.health"></span>
+                            </div>
                         </div>
                         <div class="flex items-center gap-3 mt-1.5">
                             <span class="text-[12px] text-ink-500 font-medium" x-text="getClientName(selectedProject?.client_id)"></span>
@@ -888,6 +894,37 @@
             <button x-show="phaseFilter" @click="phaseFilter = null" class="text-[10px] text-rose-400 hover:text-rose-600 px-2 py-1">✕ Clear</button>
         </div>
 
+
+        <!-- Saved views + group-by (GitHub Boards parity) -->
+        <div x-show="backlogItems.length > 0" class="flex items-center gap-2 mb-3 flex-wrap">
+            <div class="inline-flex items-center gap-1.5 text-[11px] text-ink-400">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                <span>View</span>
+            </div>
+            <select @change="projectViews.find(v => v.id == $event.target.value) ? applyView(projectViews.find(v => v.id == $event.target.value)) : clearActiveView()"
+                    class="text-[11px] px-2.5 py-1.5 rounded-lg border border-ink-200 bg-white text-ink-700 outline-none focus:ring-2 focus:ring-brand-400 min-w-[140px]">
+                <option value="">Default (no saved view)</option>
+                <template x-for="v in projectViews" :key="v.id">
+                    <option :value="v.id" x-text="v.name + (v.shared ? '' : ' (private)')"></option>
+                </template>
+            </select>
+            <div class="inline-flex items-center gap-1">
+                <input x-model="viewSaveName" @keydown.enter="saveCurrentView()" placeholder="Save current as..."
+                       class="text-[11px] px-2.5 py-1.5 rounded-lg border border-ink-200 w-32 outline-none focus:ring-2 focus:ring-brand-400 bg-white">
+                <button @click="saveCurrentView()" :disabled="savingView" class="text-[11px] font-medium text-ink-600 border border-ink-200 hover:bg-ink-100 px-2.5 py-1.5 rounded-lg transition-all disabled:opacity-50">
+                    <span x-text="savingView ? '...' : 'Save'"></span>
+                </button>
+            </div>
+            <div class="inline-flex items-center gap-1.5 ml-auto">
+                <span class="text-[10px] text-ink-400">Group by</span>
+                <select x-model="boardGroupBy" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-ink-200 bg-white text-ink-700 outline-none focus:ring-2 focus:ring-brand-400">
+                    <option value="">Epic</option>
+                    <option value="type">Type</option>
+                    <option value="priority">Priority</option>
+                    <option value="phase">Phase</option>
+                </select>
+            </div>
+        </div>
         <!-- Backlog search -->
         <div x-show="backlogItems.length > 0" class="relative mb-3">
             <svg class="w-4 h-4 text-ink-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
@@ -916,6 +953,46 @@
                 </div>
                 <p class="text-[13px] text-ink-400 mb-1">No backlog items yet</p>
                 <p class="text-[11px] text-ink-300">Start by adding an epic or a feature above</p>
+            </div>
+        </template>
+
+
+        <!-- Backlog grouped by chosen field (List view, group-by active) -->
+        <template x-if="backlogItems.length > 0 && backlogView === 'list' && boardGroupBy && boardGroupBy !== 'epic'">
+            <div class="space-y-3">
+                <div x-show="backlogGrouped.length === 0" class="surface rounded-2xl border border-ink-200/60 p-8 text-center">
+                    <p class="text-[13px] text-ink-400">No items match the current filters</p>
+                </div>
+                <template x-for="group in backlogGrouped" :key="group.key">
+                    <div class="surface rounded-2xl border border-ink-200/60 overflow-hidden">
+                        <div class="px-4 py-3 border-b border-black/[0.06] flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <h4 class="text-[13px] font-semibold text-ink-800" x-text="group.label"></h4>
+                                <span class="text-[10px] text-ink-400 px-2 py-0.5 rounded-md bg-ink-100" x-text="group.items.length + (group.items.length === 1 ? ' item' : ' items')"></span>
+                            </div>
+                            <div class="flex -space-x-1" title="Assigned members">
+                                <template x-for="m in [...new Set(group.items.map(i => i.assigned_to_name).filter(Boolean))].slice(0, 4)" :key="m">
+                                    <span class="w-6 h-6 rounded-full bg-gradient-to-br from-brand-500 to-violet-600 text-white text-[9px] font-semibold flex items-center justify-center border border-white" x-text="m.split(' ').map(w => w[0]).join('').slice(0, 2)"></span>
+                                </template>
+                            </div>
+                        </div>
+                        <div class="divide-y divide-black/[0.04]">
+                            <template x-for="i in group.items" :key="i.id">
+                                <div @click="viewBacklogItem(i)" class="px-4 py-2.5 hover:bg-ink-50/60 cursor-pointer transition-colors flex items-center justify-between gap-3">
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <span class="text-[10px] font-mono text-ink-300 flex-shrink-0" x-text="'#' + i.id"></span>
+                                        <span class="text-[13px] text-ink-800 truncate" x-text="i.title"></span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                                        <span class="text-[10px] font-medium px-2 py-0.5 rounded-md" :class="itemTypeColor(i.item_type)" x-text="i.item_type || 'Feature'"></span>
+                                        <span class="text-[10px] font-medium px-2 py-0.5 rounded-md" :class="i.status === 'Done' ? 'bg-emerald-50 text-emerald-600' : i.status === 'Blocked' ? 'bg-rose-50 text-rose-600' : 'bg-ink-100 text-ink-500'" x-text="i.status"></span>
+                                        <svg class="w-3.5 h-3.5 text-ink-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
             </div>
         </template>
 
@@ -1727,6 +1804,25 @@
                     </div>
                 </div>
             </div>
+
+                <!-- Referenced by — items mentioning this one (#N) -->
+                <div class="px-6 pb-4">
+                    <div class="border-t border-ink-100 pt-4">
+                        <div class="text-[10px] text-ink-400 mb-1.5">Referenced by</div>
+                        <div class="space-y-1.5">
+                            <template x-for="b in itemBacklinks" :key="'bl-' + b.id">
+                                <div @click="viewBacklogItem(b)" class="flex items-center justify-between px-3 py-2 rounded-xl border border-ink-100 hover:bg-ink-50/60 cursor-pointer transition-colors">
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <span class="text-[10px] font-mono text-ink-300 flex-shrink-0" x-text="'#' + b.id"></span>
+                                        <span class="text-[12px] text-ink-800 truncate" x-text="b.title"></span>
+                                    </div>
+                                    <span class="text-[10px] text-ink-400 flex-shrink-0" x-text="b.current_phase"></span>
+                                </div>
+                            </template>
+                            <div x-show="itemBacklinks.length === 0" class="text-[11px] text-ink-300">No items reference this one yet — type #<span x-text="viewingBacklogItem?.id"></span> in another item's description.</div>
+                        </div>
+                    </div>
+                </div>
             <!-- VIEW MODE FOOTER -->
             <template x-if="!backlogEditMode">
                 <div class="sticky bottom-0 bg-white border-t border-black/[0.06] px-6 py-3 flex items-center justify-between">

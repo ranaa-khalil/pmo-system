@@ -9,6 +9,7 @@ class ProjectBase(BaseModel):
     client_id: int
     description: str | None = None
     status: str | None = "Active"
+    health: str | None = None
     project_type: str | None = "software"  # software | ai | marketing | operations
     start_date: date | None = None
     github_repo: str | None = None
@@ -26,6 +27,7 @@ class ProjectUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     status: str | None = None
+    health: str | None = None
     project_type: str | None = None
     start_date: date | None = None
     github_repo: str | None = None

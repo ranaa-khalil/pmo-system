@@ -13,6 +13,7 @@ from app.models.project import Project
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.backlog import (
+    BacklogItemBrief,
     BacklogItemCreate,
     BacklogItemResponse,
     BacklogItemUpdate,
@@ -476,3 +477,24 @@ def subitem_tree(
         "children": children,
         "rollup": {"total": total, "done": done, "pct": round(done / total * 100) if total else 0},
     }
+
+@router.get("/backlog/{item_id}/backlinks", response_model=list[BacklogItemBrief])
+def list_backlinks(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Items whose description references this one as #<id> (mention-style links)."""
+    parent = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id).first()
+    if not parent:
+        raise HTTPException(status_code=404, detail="Item not found")
+    needle = f"#{item_id}"
+    rows = db.query(BacklogItem).filter(
+        BacklogItem.tenant_id == current_tenant.id,
+        BacklogItem.project_id == parent.project_id,
+        BacklogItem.id != item_id,
+        BacklogItem.description.like(f"%{needle}%"),
+    ).order_by(BacklogItem.created_at.desc()).all()
+    return rows
+

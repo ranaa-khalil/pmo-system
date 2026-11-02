@@ -40,6 +40,16 @@
                         </select>
                     </div>
                     <div>
+                        <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">Health</label>
+                        <select x-model="editingProject.health"
+                                class="input-premium w-full text-[14px] bg-white">
+                            <option value="">Not set</option>
+                            <option value="On track">On track</option>
+                            <option value="At risk">At risk</option>
+                            <option value="Off track">Off track</option>
+                        </select>
+                    </div>
+                    <div>
                         <label class="block text-[11px] font-semibold text-ink-500 uppercase tracking-wider mb-1.5">GitHub Repo</label>
                         <input x-model="editingProject.github_repo" type="text"
                                class="input-premium w-full text-[14px] font-mono text-[13px]"

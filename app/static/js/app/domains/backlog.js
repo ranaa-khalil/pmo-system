@@ -7,6 +7,12 @@ export const backlog = {
 backlogItems: [],
 backlogFormMode: 'feature',  // 'feature' or 'epic'
 backlogSearch: '',  // search query for backlog items
+boardGroupBy: '',  // list grouping: '' = epic, or type | priority | assignee | phase
+    projectViews: [],  // saved views for this project
+    viewsLoading: false,
+    savingView: false,
+    viewSaveName: '',
+    activeViewName: '',
 releaseItemSearch: '',  // search query for adding backlog items to release
 showReleaseItemSearch: false,
 // Infrastructure module
@@ -100,6 +106,7 @@ githubBoardUrlInput: '',  // input for pasting a board URL
 githubResolvingBoard: false,  // resolving board URL in progress
 githubSyncStatus: null,  // sync status for current project
 itemSubitems: [],  // sub-items of the drawer item
+itemBacklinks: [],  // items whose description references this one (#N)
     subitemRollup: { total: 0, done: 0, pct: 0 },
     newSubitemTitle: '',
     githubSyncingTags: false,  // two-way tag ↔ label sync in progress
@@ -188,6 +195,31 @@ get aiGroupedSuggestions() {
     return groups;
 },
 
+get backlogGrouped() {
+    if (!this.boardGroupBy || this.boardGroupBy === 'epic') return this.backlogByEpic;
+    let items = this.phaseFilter ? this.filteredBacklogItems : this.backlogItems;
+    if (this.backlogSearch && this.backlogSearch.trim()) {
+        const q = this.backlogSearch.trim().toLowerCase();
+        items = items.filter(i =>
+            (i.title || '').toLowerCase().includes(q) ||
+            (i.description || '').toLowerCase().includes(q) ||
+            (i.epic || '').toLowerCase().includes(q) ||
+            (i.acceptance_criteria || '').toLowerCase().includes(q) ||
+            (i.primary_actor || '').toLowerCase().includes(q) ||
+            (i.item_type || '').toLowerCase().includes(q)
+        );
+    }
+    const field = this.boardGroupBy;
+    const groups = {};
+    for (const i of items) {
+        let key;
+        if (field === 'assignee') key = i.assigned_to_name || 'Unassigned';
+        else key = i[field] || 'None';
+        (groups[key] = groups[key] || []).push(i);
+    }
+    return Object.keys(groups).sort().map(k => ({ key: k, label: k, items: groups[k] }));
+},
+
 get backlogByEpic() {
     let items = this.phaseFilter ? this.filteredBacklogItems : this.backlogItems;
     // Apply search filter
@@ -242,14 +274,32 @@ avatarColor(name) {
 
 renderMarkdown(text) {
     if (!text) return '';
+    const autolinkRefs = (html) => html.replace(/#(\d+)/g, '<a data-item-id="$1" class="item-ref cursor-pointer font-medium text-brand-600 hover:text-brand-700 hover:underline" title="Open item #$1">#$1</a>');
     try {
         if (typeof marked !== 'undefined') {
             marked.setOptions({ breaks: true, gfm: true });
-            return '<div class="md-content">' + marked.parse(text) + '</div>';
+            return autolinkRefs('<div class="md-content">' + marked.parse(text) + '</div>');
         }
     } catch(e) {}
     // Fallback: convert newlines to <br>
-    return '<div class="md-content">' + text.replace(/\n/g, '<br>') + '</div>';
+    return autolinkRefs('<div class="md-content">' + text.replace(/\n/g, '<br>') + '</div>');
+},
+
+async openItemRef(id) {
+    // Open a #N reference — fetch the item if it is not already loaded
+    const known = (this.backlogItems || []).find(i => i.id === Number(id));
+    if (known) { this.viewBacklogItem(known); return; }
+    try {
+        const item = await this.api('GET', `/backlog/${id}`);
+        if (item) this.viewBacklogItem(item);
+    } catch { /* deleted or foreign item — no-op */ }
+},
+
+async loadBacklinks(itemId) {
+    if (!itemId) return;
+    try {
+        this.itemBacklinks = await this.api('GET', `/backlog/${itemId}/backlinks`);
+    } catch { this.itemBacklinks = []; }
 },
 
 applyBranding() {
@@ -864,6 +914,7 @@ viewBacklogItem(item) {
     if (item && item.id) {
         this.loadProofs(item.id);
         this.loadSubitems(item.id);
+        this.loadBacklinks(item.id);
     }
 },
 
@@ -890,6 +941,50 @@ async addSubitem() {
         await this.loadSubitems(this.viewingBacklogItem.id);
         this.toast('Sub-item added', 'success');
     } catch(e) { this.toast(e.message || 'Could not add sub-item', 'error'); }
+},
+
+
+async loadViews() {
+    if (!this.selectedProject) return;
+    this.viewsLoading = true;
+    try {
+        this.projectViews = await this.api('GET', `/projects/${this.selectedProject.id}/views`);
+    } catch { this.projectViews = []; }
+    finally { this.viewsLoading = false; }
+},
+
+async saveCurrentView() {
+    const name = (this.viewSaveName || '').trim();
+    if (!name || !this.selectedProject) { this.toast('Give the view a name first', 'error'); return; }
+    this.savingView = true;
+    try {
+        await this.api('POST', `/projects/${this.selectedProject.id}/views`, {
+            name: name,
+            filters: { search: this.backlogSearch || '', phase: this.phaseFilter || '', view: this.backlogView || 'list', group_by: this.boardGroupBy || '' },
+            shared: true,
+        });
+        this.viewSaveName = '';
+        await this.loadViews();
+        this.toast('View saved', 'success');
+    } catch(e) { this.toast(e.message || 'Could not save view', 'error'); }
+    finally { this.savingView = false; }
+},
+
+applyView(v) {
+    const f = v.filters || {};
+    this.backlogSearch = f.search || '';
+    this.phaseFilter = f.phase || null;
+    this.boardGroupBy = f.group_by || '';
+    if (f.view) this.backlogView = f.view;
+    this.activeViewName = v.name;
+    this.toast('View applied: ' + v.name, 'success');
+},
+
+clearActiveView() {
+    this.backlogSearch = '';
+    this.phaseFilter = null;
+    this.boardGroupBy = '';
+    this.activeViewName = '';
 },
 
 async syncTagsToGithub() {

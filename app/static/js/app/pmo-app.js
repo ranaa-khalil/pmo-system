@@ -106,6 +106,18 @@ if (window.Alpine) {
     document.addEventListener('alpine:init', registerPmoApp, { once: true });
 }
 
+// Delegated click handler for #N item references rendered by renderMarkdown
+// (autolinked cross-references, GitHub Boards parity): one listener opens the
+// referenced item's drawer from anywhere on the page.
+document.addEventListener('click', (e) => {
+    const ref = e.target.closest('a[data-item-id]');
+    if (!ref) return;
+    e.preventDefault();
+    const root = document.querySelector('[x-data]');
+    const store = root && window.Alpine ? window.Alpine.$data(root) : null;
+    if (store && typeof store.openItemRef === 'function') store.openItemRef(ref.dataset.itemId);
+});
+
 // Load Alpine ONLY AFTER the registration path is in place — the dynamic
 // import guarantees Alpine boots after the listener exists (a static
 // <script defer> tag raced the module and broke the store merge).

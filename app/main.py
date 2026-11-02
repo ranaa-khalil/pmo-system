@@ -48,6 +48,7 @@ from app.routers import (
     tenant,
     today,
     user_tasks,
+    views,
     workload,
 )
 
@@ -137,6 +138,7 @@ app.include_router(today.router)
 app.include_router(stakeholders.router)
 app.include_router(releases.router)
 app.include_router(user_tasks.router)
+app.include_router(views.router)
 app.include_router(tags.router)
 app.include_router(preferences.router)
 app.include_router(agents.router)

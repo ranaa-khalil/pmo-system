@@ -17,6 +17,8 @@ class Project(Base):
     client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
     description = Column(Text, nullable=True)
     status = Column(String(50), nullable=False, default="Active")
+    # Quick-scan health (GitHub Boards status updates parity): On track | At risk | Off track
+    health = Column(String(20), nullable=True)
     project_type = Column(String(50), nullable=False, default="software")  # software | ai | marketing | operations
     start_date = Column(Date, nullable=True)
     github_repo = Column(String(255), nullable=True)

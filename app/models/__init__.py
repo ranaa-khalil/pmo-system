@@ -30,6 +30,7 @@ from app.models.permission import Permission
 from app.models.plan import Plan
 from app.models.project import Project
 from app.models.project_test_account import ProjectTestAccount
+from app.models.project_view import ProjectView
 from app.models.project_vision import ProjectVision
 from app.models.proof import ItemProof
 from app.models.release import Release, ReleaseItem
@@ -54,6 +55,7 @@ __all__ = [
     "ArtifactChain",
     "Client", "Project", "User", "Role", "RoleAssignment",
     "Permission", "RolePermission",
+    "ProjectView",
     "ProjectVision", "KPI", "Roadmap", "Milestone", "BacklogItem",
     "TenantLifecycleTemplate",
     "UserTask",

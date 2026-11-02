@@ -9,6 +9,8 @@ from app.models.backlog_item import BacklogItem
 from app.models.client import Client
 from app.models.form_template import FormInstance, FormTemplate
 from app.models.github_board_config import GitHubBoardConfig
+from app.models.guest_link import ApprovalGuestDecision, ApprovalGuestLink
+from app.models.share_link import ShareLink
 from app.models.infrastructure import (
     Asset,
     Environment,
@@ -65,6 +67,9 @@ __all__ = [
     "Tenant", "TenantMembership", "Invitation",
     "TenantSetting",
     "Tag",
+    "ShareLink",
+    "ApprovalGuestLink",
+    "ApprovalGuestDecision",
     "UsageRecord",
     "UserPreference",
     "ApiKey",

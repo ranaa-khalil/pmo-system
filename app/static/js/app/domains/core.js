@@ -397,6 +397,11 @@ navigate(route) {
                 }
             });
         });
+        // Item Gantt: default to the first project
+        if (!this.ganttProjectId && this.projects.length) {
+            this.ganttProjectId = this.projects[0].id;
+        }
+        if (this.ganttProjectId) this.loadGantt();
     }
     if (route === 'dashboard') { setTimeout(() => this.renderCharts(), 150); this.refreshTaskSummary(); }
     if (route === 'tasks') { this.loadTasks(); }
@@ -533,6 +538,47 @@ onWidgetDrop(targetKey) {
     next.splice(to, 0, next.splice(from, 1)[0]);
     this.dashWidgets = next;
     this.persistDashWidgets();
+},
+
+
+// ===== Share links (public read-only views) =====
+showShareModal: false,
+shareLinks: [],
+shareForm: { scope: 'dashboard', project_id: null, password: '', expires_in_days: 30 },
+async openShareModal(scope = 'dashboard') {
+    this.shareForm = { scope, project_id: null, password: '', expires_in_days: 30 };
+    this.showShareModal = true;
+    await this.loadShareLinks();
+},
+async loadShareLinks() {
+    try { this.shareLinks = await this.api('GET', '/share-links'); } catch { this.shareLinks = []; }
+},
+async createShareLink() {
+    try {
+        const link = await this.api('POST', '/share-links', {
+            scope: this.shareForm.scope,
+            project_id: this.shareForm.scope === 'project' ? this.shareForm.project_id : null,
+            password: this.shareForm.password || null,
+            expires_in_days: this.shareForm.expires_in_days || 30,
+        });
+        this.shareForm.password = '';
+        await this.loadShareLinks();
+        this.copyShareLink(link);
+    } catch (e) { this.showToast(e.message || 'Failed to create link', 'error'); }
+},
+async revokeShareLink(link) {
+    try {
+        await this.api('DELETE', `/share-links/${link.id}`);
+        await this.loadShareLinks();
+        this.showToast('Link revoked', 'success');
+    } catch (e) { this.showToast('Failed to revoke', 'error'); }
+},
+copyShareLink(link) {
+    const url = window.location.origin + link.url;
+    navigator.clipboard.writeText(url).then(
+        () => this.showToast('Share link copied', 'success'),
+        () => window.prompt('Copy this share link:', url),
+    );
 },
 
 };

@@ -58,6 +58,52 @@ setWorkTagFilter(tagId) {
     this.loadWork();
 },
 
+// ===== Item Gantt (project-level, day grid) =====
+ganttProjectId: null,
+ganttData: null,
+ganttLoading: false,
+ganttDragging: null,
+async loadGantt() {
+    if (!this.ganttProjectId) return;
+    this.ganttLoading = true;
+    try { this.ganttData = await this.api('GET', `/projects/${this.ganttProjectId}/gantt`); }
+    catch { this.ganttData = null; }
+    this.ganttLoading = false;
+},
+ganttDayList() {
+    if (!this.ganttData || !this.ganttData.start || !this.ganttData.end) return [];
+    const start = new Date(this.ganttData.start + 'T00:00:00');
+    const end = new Date(this.ganttData.end + 'T00:00:00');
+    const days = [];
+    const now = new Date();
+    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        days.push({ iso, day: d.getDate(), isWeekend: d.getDay() === 0 || d.getDay() === 6, isToday: iso === todayIso });
+    }
+    return days;
+},
+ganttDayIndex(iso) {
+    if (!this.ganttData || !this.ganttData.start) return 0;
+    return Math.round((new Date(iso + 'T00:00:00') - new Date(this.ganttData.start + 'T00:00:00')) / 86400000);
+},
+async onGanttDrop(item, dayIso) {
+    if (!item || !item.start_date) return;
+    const shift = Math.round((new Date(dayIso + 'T00:00:00') - new Date(item.start_date + 'T00:00:00')) / 86400000);
+    this.ganttDragging = null;
+    if (!shift) return;
+    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const start = new Date(item.start_date + 'T00:00:00');
+    const end = new Date(item.end_date + 'T00:00:00');
+    start.setDate(start.getDate() + shift);
+    end.setDate(end.getDate() + shift);
+    try {
+        await this.api('PUT', `/backlog/${item.id}`, { start_date: fmt(start), end_date: fmt(end) });
+        this.showToast(`#${item.id} moved to ${fmt(start)}`, 'success');
+        this.loadGantt();
+    } catch (e) { this.showToast('Failed to move item', 'error'); }
+},
+
 async openWorkItem(item) {
     this.selectedWorkItem = item;
     this.workDetail = null;

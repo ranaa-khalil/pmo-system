@@ -22,6 +22,7 @@ TENANT_TABLES = [
     "notifications", "notification_preferences", "activity_logs",
     "automation_rules", "lifecycle_templates", "artifact_chain",
     "tags",
+    "approval_guest_links", "approval_guest_decisions", "share_links",
 ]
 
 COLUMNS = [
@@ -47,6 +48,9 @@ COLUMNS = [
     ("backlog_items", "board_order INTEGER"),
     # Subtasks (checklists): self-referencing parent, one level only
     ("user_tasks", "parent_task_id INTEGER"),
+    # Gantt scheduling: planned window per backlog item
+    ("backlog_items", "start_date DATE"),
+    ("backlog_items", "end_date DATE"),
 ]
 
 INDEXES = [

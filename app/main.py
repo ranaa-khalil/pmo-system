@@ -24,7 +24,9 @@ from app.routers import (
     clients,
     dashboard,
     forms,
+    gantt,
     github_sync,
+    guest_links,
     infrastructure,
     lifecycle,
     notifications,
@@ -35,6 +37,7 @@ from app.routers import (
     projects,
     releases,
     risks,
+    share,
     stakeholders,
     tags,
     tenant,
@@ -130,6 +133,11 @@ app.include_router(releases.router)
 app.include_router(user_tasks.router)
 app.include_router(tags.router)
 app.include_router(preferences.router)
+app.include_router(guest_links.router)
+app.include_router(guest_links.public_router)
+app.include_router(share.router)
+app.include_router(share.public_router)
+app.include_router(gantt.router)
 app.include_router(personas.router)
 app.include_router(notifications.router)
 app.include_router(ai.router)

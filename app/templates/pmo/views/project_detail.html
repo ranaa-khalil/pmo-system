@@ -3613,9 +3613,14 @@
                         <span class="text-[11px] font-medium px-2 py-0.5 rounded-md" :class="approvalStatusColor(selectedApproval?.status)" x-text="selectedApproval?.status"></span>
                     </div>
                 </div>
-                <button @click="closeApproval()" class="p-2 text-ink-400 hover:text-ink-700 hover:bg-ink-100 rounded-lg transition-colors">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
+                <div class="flex items-center gap-1.5">
+                    <button @click="openGuestLinks()" class="px-3 py-1.5 rounded-lg text-[11px] font-medium text-ink-600 border border-ink-200 hover:bg-ink-50 transition-colors" title="Share with an external approver">
+                        Guest link
+                    </button>
+                    <button @click="closeApproval()" class="p-2 text-ink-400 hover:text-ink-700 hover:bg-ink-100 rounded-lg transition-colors">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
             </div>
             <div class="p-6">
                 <div class="text-[13px] text-ink-500 mb-5 prose-p:my-1" x-html="renderMarkdown(selectedApproval?.description || '')"></div>
@@ -3655,6 +3660,57 @@
                             </div>
                         </div>
                     </template>
+                </div>
+
+                <!-- Guest approval links -->
+                <div x-show="guestLinksOpen" x-cloak class="mt-6 pt-5 border-t border-ink-100">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-[11px] font-semibold text-ink-500 uppercase tracking-wide">Guest links</h4>
+                        <button @click="showGuestLinkForm = !showGuestLinkForm" class="text-[11px] font-medium text-brand-600 hover:text-brand-700">+ New link</button>
+                    </div>
+                    <div x-show="showGuestLinkForm" x-cloak class="rounded-xl border border-ink-200/60 p-3.5 mb-3 space-y-2.5 bg-ink-50/50">
+                        <div class="grid grid-cols-2 gap-2.5">
+                            <div>
+                                <label class="block text-[11px] font-medium text-ink-600 mb-1">Guest label</label>
+                                <input x-model="guestLinkForm.label" type="text" placeholder="e.g. ACME Corp" class="w-full px-3 py-2 rounded-lg border border-ink-200 text-[12px] outline-none focus:ring-2 focus:ring-brand-400">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-medium text-ink-600 mb-1">Password <span class="text-ink-300">(optional)</span></label>
+                                <input x-model="guestLinkForm.password" type="text" placeholder="Link password" class="w-full px-3 py-2 rounded-lg border border-ink-200 text-[12px] outline-none focus:ring-2 focus:ring-brand-400">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2.5">
+                            <div>
+                                <label class="block text-[11px] font-medium text-ink-600 mb-1">Expires in (days)</label>
+                                <input x-model.number="guestLinkForm.expires_in_days" type="number" min="1" max="90" class="w-full px-3 py-2 rounded-lg border border-ink-200 text-[12px] outline-none focus:ring-2 focus:ring-brand-400">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-medium text-ink-600 mb-1">Bind to step</label>
+                                <select x-model.number="guestLinkForm.step_id" class="w-full px-3 py-2 rounded-lg border border-ink-200 text-[12px] bg-white outline-none">
+                                    <option :value="null">— Advisory only —</option>
+                                    <template x-for="s in (selectedApproval?.steps || [])" :key="s.id">
+                                        <option :value="s.id" x-text="'Step ' + s.step_order + ' — ' + s.role_name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </div>
+                        <button @click="createGuestLink()" class="w-full px-3 py-2 rounded-lg bg-brand-600 text-white text-[12px] font-semibold hover:bg-brand-700 transition-colors">Create &amp; copy link</button>
+                    </div>
+                    <div class="space-y-2">
+                        <template x-for="link in guestLinks" :key="link.id">
+                            <div class="flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-ink-100">
+                                <div class="min-w-0">
+                                    <div class="text-[12px] font-medium text-ink-800" x-text="link.label || 'Guest link'"></div>
+                                    <div class="text-[10px] text-ink-400">Expires <span x-text="new Date(link.expires_at).toLocaleDateString()"></span><span x-show="link.has_password"> · password</span><span x-show="link.revoked" class="text-rose-400"> · revoked</span></div>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <button @click="copyGuestLink(link)" class="text-[10px] font-medium px-2 py-1 rounded-lg bg-ink-100 text-ink-600 hover:bg-ink-200">Copy</button>
+                                    <button x-show="!link.revoked" @click="revokeGuestLink(link)" class="text-[10px] font-medium px-2 py-1 rounded-lg text-rose-500 hover:bg-rose-50">Revoke</button>
+                                </div>
+                            </div>
+                        </template>
+                        <div x-show="guestLinks.length === 0" class="text-[11px] text-ink-300">No guest links yet — create one to invite an external approver.</div>
+                    </div>
                 </div>
             </div>
             <div class="sticky bottom-0 bg-white/95 backdrop-blur border-t border-black/[0.06] px-6 py-4 rounded-b-3xl">

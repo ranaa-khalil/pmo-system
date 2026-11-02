@@ -1,5 +1,7 @@
 """Pydantic schemas for backlog items."""
 
+from datetime import date
+
 from pydantic import BaseModel, field_validator
 
 
@@ -55,6 +57,8 @@ class BacklogItemUpdate(BaseModel):
     target_release: str | None = None
     acceptance_criteria: str | None = None
     dependencies: str | None = None
+    start_date: date | None = None  # ISO date — Gantt scheduling
+    end_date: date | None = None
 
     @field_validator("kpi_id", "story_points", "assigned_to", mode="before")
     @classmethod
@@ -79,6 +83,8 @@ class BacklogItemResponse(BacklogItemBase):
     github_last_sync_at: str | None = None
     assigned_to: int | None = None
     board_order: int | None = None
+    start_date: date | None = None
+    end_date: date | None = None
     depends_on: list[BacklogItemBrief] = []
     blocked_by: list[BacklogItemBrief] = []
     model_config = {"from_attributes": True}

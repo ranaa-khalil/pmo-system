@@ -1,5 +1,5 @@
 """BacklogItem model — a business requirement following the 9-phase release process."""
-from sqlalchemy import Column, ForeignKey, Integer, String, Table, Text
+from sqlalchemy import Column, Date, ForeignKey, Integer, String, Table, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -77,6 +77,9 @@ class BacklogItem(Base):
     # Board ordering within a phase lane (Kanban). Lower = higher in the lane.
     # NULL = never manually ordered — lane falls back to created_at ordering.
     board_order = Column(Integer, nullable=True, index=True)
+    # Gantt scheduling: planned window for this item (drag on the item Gantt)
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
     created_at = Column(String, server_default=func.now(), nullable=False)
     updated_at = Column(String, server_default=func.now(), onupdate=func.now())
 

@@ -45,6 +45,34 @@ async def dashboard(request: Request):
     return response
 
 
+@router.get("/guest/approval/{token}", response_class=HTMLResponse)
+async def guest_approval_page(request: Request, token: str):
+    """Public guest approval page — tokenized link, no login."""
+    nonce = secrets.token_urlsafe(16)
+    request.state.csp_nonce = nonce
+    response = templates.TemplateResponse(
+        request=request,
+        name="guest_approval.html",
+        context={"csp_nonce": nonce, "token": token},
+    )
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return response
+
+
+@router.get("/share/{token}", response_class=HTMLResponse)
+async def share_view_page(request: Request, token: str):
+    """Public read-only shared view — tokenized link, optional password."""
+    nonce = secrets.token_urlsafe(16)
+    request.state.csp_nonce = nonce
+    response = templates.TemplateResponse(
+        request=request,
+        name="share_view.html",
+        context={"csp_nonce": nonce, "token": token},
+    )
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return response
+
+
 @router.get("/api/branding")
 async def get_branding(request: Request):
     """Public endpoint returning tenant branding for the current subdomain."""

@@ -145,10 +145,56 @@ async saveApproval() {
 
 async openApproval(approval) {
     this.selectedApproval = await this.api('GET', `/approvals/${approval.id}`);
+    if (this.guestLinksOpen) await this.loadGuestLinks(approval.id);
 },
 
 closeApproval() {
     this.selectedApproval = null;
+    this.guestLinksOpen = false;
+    this.showGuestLinkForm = false;
+},
+
+// ===== Guest approval links =====
+guestLinksOpen: false,
+guestLinks: [],
+guestLinkForm: { label: '', password: '', expires_in_days: 7, step_id: null },
+showGuestLinkForm: false,
+async openGuestLinks() {
+    this.guestLinksOpen = !this.guestLinksOpen;
+    if (this.guestLinksOpen && this.selectedApproval) await this.loadGuestLinks(this.selectedApproval.id);
+},
+async loadGuestLinks(requestId) {
+    try { this.guestLinks = await this.api('GET', `/approvals/${requestId}/guest-links`); }
+    catch { this.guestLinks = []; }
+},
+async createGuestLink() {
+    if (!this.selectedApproval) return;
+    try {
+        const link = await this.api('POST', `/approvals/${this.selectedApproval.id}/guest-links`, {
+            label: this.guestLinkForm.label || null,
+            password: this.guestLinkForm.password || null,
+            expires_in_days: this.guestLinkForm.expires_in_days || 7,
+            step_id: this.guestLinkForm.step_id || null,
+        });
+        this.guestLinkForm = { label: '', password: '', expires_in_days: 7, step_id: null };
+        this.showGuestLinkForm = false;
+        await this.loadGuestLinks(this.selectedApproval.id);
+        this.copyGuestLink(link);
+    } catch (e) { this.showToast(e.message || 'Failed to create link', 'error'); }
+},
+async revokeGuestLink(link) {
+    try {
+        await this.api('DELETE', `/guest-links/${link.id}`);
+        await this.loadGuestLinks(this.selectedApproval.id);
+        this.showToast('Link revoked', 'success');
+    } catch (e) { this.showToast('Failed to revoke', 'error'); }
+},
+copyGuestLink(link) {
+    const url = window.location.origin + link.url;
+    navigator.clipboard.writeText(url).then(
+        () => this.showToast('Guest link copied', 'success'),
+        () => window.prompt('Copy this guest link:', url),
+    );
 },
 
 async approveStep(stepId) {

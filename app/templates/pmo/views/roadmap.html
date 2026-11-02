@@ -170,4 +170,101 @@
                         <span class="text-[11px] text-ink-500 font-medium">Today</span>
                     </div>
                 </div>
+
+                <!-- Item Gantt (day grid, drag to move, critical path highlighted) -->
+                <div x-show="projects.length > 0" class="surface rounded-2xl border border-ink-200/60 overflow-hidden">
+                    <div class="px-5 py-4 border-b border-ink-100 flex items-center justify-between gap-4">
+                        <div class="flex items-center gap-3">
+                            <h2 class="text-[14px] font-semibold text-ink-800">Item Gantt</h2>
+                            <select x-model="ganttProjectId" @change="loadGantt()"
+                                    class="input-premium px-3 py-1.5 rounded-lg text-[12px] bg-white border border-ink-200 outline-none max-w-[220px]">
+                                <option :value="null">Choose a project</option>
+                                <template x-for="p in projects" :key="p.id">
+                                    <option :value="p.id" x-text="p.name"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span x-show="ganttData && ganttData.unscheduled_count > 0" class="text-[11px] text-ink-400">
+                                <span x-text="ganttData.unscheduled_count"></span> unscheduled
+                            </span>
+                            <span x-show="ganttData && ganttData.critical_count > 0" class="text-[11px] font-medium text-rose-600">
+                                <span x-text="ganttData.critical_count"></span> on critical path
+                            </span>
+                        </div>
+                    </div>
+                    <div x-show="ganttLoading" class="h-24 flex items-center justify-center">
+                        <svg class="animate-spin w-5 h-5 text-ink-300" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                    </div>
+                    <div x-show="ganttData && !ganttLoading && ganttDayList().length === 0" class="px-5 py-8 text-center text-[12px] text-ink-400">
+                        No scheduled items yet — set start/end dates on backlog items to build the Gantt.
+                    </div>
+                    <div x-show="ganttData && !ganttLoading && ganttDayList().length > 0" class="overflow-x-auto">
+                        <div :style="'min-width: ' + (240 + ganttDayList().length * 28) + 'px'">
+                            <!-- Day header -->
+                            <div class="flex sticky top-0 bg-white border-b border-ink-100 z-10">
+                                <div class="w-[240px] flex-shrink-0 px-4 py-2 border-r border-ink-100 sticky left-0 bg-white z-20">
+                                    <span class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider">Items</span>
+                                </div>
+                                <div class="flex">
+                                    <template x-for="d in ganttDayList()" :key="d.iso">
+                                        <div class="flex-shrink-0 text-center py-2 border-r border-ink-50"
+                                             :class="d.isToday ? 'bg-rose-50' : d.isWeekend ? 'bg-ink-50/60' : ''" style="width: 28px">
+                                            <div class="text-[9px] font-medium" :class="d.isToday ? 'text-rose-600 font-bold' : 'text-ink-400'" x-text="d.day"></div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                            <!-- Rows -->
+                            <template x-for="it in (ganttData?.items || [])" :key="it.id">
+                                <div class="flex border-b border-ink-50 hover:bg-ink-50/30 transition-colors group">
+                                    <div class="w-[240px] flex-shrink-0 px-4 py-2.5 border-r border-ink-100 sticky left-0 bg-white z-10 group-hover:bg-ink-50">
+                                        <div class="text-[12px] font-medium text-ink-800 truncate" x-text="'#' + it.id + ' ' + it.title"></div>
+                                        <div class="text-[10px] text-ink-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                            <span x-text="it.current_phase"></span>
+                                            <span x-show="it.depends_on.length" class="text-brand-400" x-text="'← ' + it.depends_on.map(id => '#' + id).join(', ')"></span>
+                                            <span x-show="it.is_critical" class="text-rose-500 font-semibold">critical</span>
+                                        </div>
+                                    </div>
+                                    <div class="relative py-1.5" :style="'width: ' + (ganttDayList().length * 28) + 'px; min-height: 44px'">
+                                        <!-- Day cells (drop targets) -->
+                                        <div class="absolute inset-0 flex pointer-events-none">
+                                            <template x-for="d in ganttDayList()" :key="d.iso">
+                                                <div class="flex-shrink-0 border-r border-ink-50 h-full"
+                                                     :class="d.isToday ? 'bg-rose-50/40' : d.isWeekend ? 'bg-ink-50/30' : ''" style="width: 28px"></div>
+                                            </template>
+                                        </div>
+                                        <template x-if="it.start_date">
+                                            <div class="absolute h-6 top-2 rounded-lg cursor-grab hover:shadow-md transition-shadow flex items-center px-2"
+                                                 :class="it.is_critical ? 'bg-rose-500' : 'bg-brand-500'"
+                                                 :style="'left: ' + (ganttDayIndex(it.start_date) * 28 + 1) + 'px; width: ' + Math.max(it.duration * 28 - 2, 24) + 'px'"
+                                                 draggable="true"
+                                                 @dragstart="ganttDragging = it; $event.dataTransfer.effectAllowed = 'move'"
+                                                 @dragover.prevent
+                                                 @drop.prevent="onGanttDrop(ganttDragging, it.start_date)"
+                                                 :title="it.title + ' — ' + it.start_date + ' → ' + it.end_date + (it.is_critical ? ' (critical path)' : ' (float: ' + it.float + 'd)')">
+                                                <span class="text-[9px] font-semibold text-white truncate pointer-events-none" x-text="it.title"></span>
+                                                <span x-show="!it.is_critical && it.float > 0" class="ml-auto text-[9px] text-white/80 font-semibold pointer-events-none" x-text="'+' + it.float + 'd'"></span>
+                                            </div>
+                                        </template>
+                                        <template x-if="!it.start_date">
+                                            <div class="absolute left-2 top-2.5 text-[10px] text-ink-300 italic">no dates — schedule the item to place it</div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                    <div class="px-5 py-3 border-t border-ink-100 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                        <div class="flex items-center gap-1.5">
+                            <div class="w-4 h-2.5 rounded-sm bg-rose-500"></div>
+                            <span class="text-[10px] text-ink-500">Critical path</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <div class="w-4 h-2.5 rounded-sm bg-brand-500"></div>
+                            <span class="text-[10px] text-ink-500">Scheduled</span>
+                        </div>
+                        <span class="text-[10px] text-ink-300">Drag a bar to move it. Float shows slack in days.</span>
+                    </div>
+                </div>
             </div>

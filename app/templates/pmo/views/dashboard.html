@@ -10,6 +10,11 @@
                         <p class="text-[15px] text-ink-500 mt-2" x-text="greetingMessage()"></p>
                     </div>
                     <div class="flex items-center gap-3">
+                        <!-- Share button (public read-only view) -->
+                        <button @click="openShareModal('dashboard')" class="inline-flex items-center gap-2 text-[13px] font-medium text-ink-700 px-4 py-2.5 rounded-[10px] border border-black/[0.08] hover:bg-ink-100 transition-all">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+                            Share
+                        </button>
                         <!-- Widget picker (per-user layout) -->
                         <div class="relative" @click.outside="widgetPickerOpen = false">
                             <button @click="widgetPickerOpen = !widgetPickerOpen" class="inline-flex items-center gap-2 text-[13px] font-medium text-ink-700 px-4 py-2.5 rounded-[10px] border border-black/[0.08] hover:bg-ink-100 transition-all">
@@ -482,6 +487,75 @@
                                 </div>
                             </div>
                         </template>
+                    </div>
+                </div>
+
+                <!-- Share modal (public read-only view links) -->
+                <div x-show="showShareModal" x-cloak class="fixed inset-0 z-50" aria-modal="true">
+                    <div class="fixed inset-0 bg-black/30 backdrop-blur-sm" @click="showShareModal = false"></div>
+                    <div class="flex min-h-full items-center justify-center p-4 relative">
+                        <div class="surface rounded-3xl shadow-modal w-full max-w-md modal-enter overflow-hidden border border-black/[0.06]">
+                            <div class="px-6 py-5 border-b border-black/[0.06] flex items-center justify-between">
+                                <div>
+                                    <h2 class="text-[17px] font-bold text-ink-900 tracking-tight">Share a read-only view</h2>
+                                    <p class="text-[12px] text-ink-400 mt-0.5">Public link with expiry — no login needed</p>
+                                </div>
+                                <button @click="showShareModal = false" class="p-2 text-ink-400 hover:text-ink-600 hover:bg-ink-100 rounded-xl transition-colors">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                            </div>
+                            <div class="px-6 py-5 space-y-4">
+                                <!-- Scope -->
+                                <div>
+                                    <label class="block text-[12px] font-medium text-ink-600 mb-1.5">What to share</label>
+                                    <div class="inline-flex items-center bg-ink-100/60 rounded-lg p-0.5 gap-0.5">
+                                        <button @click="shareForm.scope = 'dashboard'" :class="shareForm.scope === 'dashboard' ? 'bg-white shadow-sm text-brand-600' : 'text-ink-500'" class="px-3 py-1.5 rounded-md text-[12px] font-medium transition-all">Dashboard</button>
+                                        <button @click="shareForm.scope = 'project'" :class="shareForm.scope === 'project' ? 'bg-white shadow-sm text-brand-600' : 'text-ink-500'" class="px-3 py-1.5 rounded-md text-[12px] font-medium transition-all">Project</button>
+                                    </div>
+                                </div>
+                                <div x-show="shareForm.scope === 'project'">
+                                    <label class="block text-[12px] font-medium text-ink-600 mb-1.5">Project</label>
+                                    <select x-model="shareForm.project_id" class="input-premium w-full px-3.5 py-2.5 rounded-[10px] text-[14px] bg-white">
+                                        <option :value="null">— Choose a project —</option>
+                                        <template x-for="p in projects" :key="p.id">
+                                            <option :value="p.id" x-text="p.name"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-[12px] font-medium text-ink-600 mb-1.5">Password <span class="text-ink-400 font-normal">(optional)</span></label>
+                                        <input x-model="shareForm.password" type="text" placeholder="Link password"
+                                               class="w-full px-3.5 py-2.5 rounded-xl border border-ink-200 text-[14px] outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[12px] font-medium text-ink-600 mb-1.5">Expires in (days)</label>
+                                        <input x-model.number="shareForm.expires_in_days" type="number" min="1" max="90"
+                                               class="w-full px-3.5 py-2.5 rounded-xl border border-ink-200 text-[14px] outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400">
+                                    </div>
+                                </div>
+                                <button @click="createShareLink()" class="w-full px-4 py-2.5 rounded-xl bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 transition-colors shadow-sm">Create &amp; copy link</button>
+                                <!-- Existing links -->
+                                <div class="pt-3 border-t border-ink-100">
+                                    <h4 class="text-[11px] font-semibold text-ink-500 uppercase tracking-wide mb-2">Active links</h4>
+                                    <div class="space-y-2 max-h-48 overflow-y-auto">
+                                        <template x-for="link in shareLinks" :key="link.id">
+                                            <div class="flex items-center justify-between px-3 py-2 rounded-xl border border-ink-100">
+                                                <div class="min-w-0">
+                                                    <div class="text-[12px] font-medium text-ink-800"><span x-text="link.scope === 'project' ? (link.target_name || 'Project') : 'Dashboard'"></span> <span class="text-ink-300">·</span> <span class="text-[10px] text-ink-400" x-text="link.scope"></span></div>
+                                                    <div class="text-[10px] text-ink-400">Expires <span x-text="new Date(link.expires_at).toLocaleDateString()"></span> · <span x-text="(link.view_count || 0) + ' views'"></span><span x-show="link.has_password"> · password</span><span x-show="link.revoked" class="text-rose-400"> · revoked</span></div>
+                                                </div>
+                                                <div class="flex items-center gap-1.5">
+                                                    <button @click="copyShareLink(link)" class="text-[10px] font-medium px-2 py-1 rounded-lg bg-ink-100 text-ink-600 hover:bg-ink-200">Copy</button>
+                                                    <button x-show="!link.revoked" @click="revokeShareLink(link)" class="text-[10px] font-medium px-2 py-1 rounded-lg text-rose-500 hover:bg-rose-50">Revoke</button>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <div x-show="shareLinks.length === 0" class="text-[11px] text-ink-300">No links yet.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

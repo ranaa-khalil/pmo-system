@@ -48,6 +48,7 @@ from app.routers import (
     tenant,
     today,
     user_tasks,
+    slack,
     time_entries,
     views,
     workload,
@@ -141,6 +142,7 @@ app.include_router(releases.router)
 app.include_router(user_tasks.router)
 app.include_router(views.router)
 app.include_router(time_entries.router)
+app.include_router(slack.router)
 app.include_router(tags.router)
 app.include_router(preferences.router)
 app.include_router(agents.router)

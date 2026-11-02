@@ -33,6 +33,7 @@ from app.models.project_test_account import ProjectTestAccount
 from app.models.project_view import ProjectView
 from app.models.project_vision import ProjectVision
 from app.models.proof import ItemProof
+from app.models.slack_config import SlackConfig
 from app.models.release import Release, ReleaseItem
 from app.models.risk import Risk
 from app.models.roadmap import Roadmap
@@ -64,7 +65,8 @@ __all__ = [
     "ApprovalRequest", "ApprovalStep",
     "AutomationRule",
     "Stakeholder",
-    "Release", "ReleaseItem", "Risk",
+    "Release",
+    "SlackConfig", "ReleaseItem", "Risk",
     "UserPersona", "ProjectTestAccount",
     "Notification", "NotificationPreference",
     "ActivityLog",

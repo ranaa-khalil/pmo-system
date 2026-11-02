@@ -22,6 +22,11 @@ clientModalOpen: false,
 projectModalOpen: false,
 editingClient: {},
 editingProject: { name: '', client_id: '', description: '', status: 'Active', health: '', budget_hours: '', budget_amount: '', github_repo: '', version_prefix: '' },
+    // Slack digest integration (D4: second)
+    slackConfig: { configured: false, enabled: false, webhook_masked: null, digest_time: '09:00' },
+    slackWebhook: '',
+    slackSaving: false,
+    slackTesting: false,
 toast: { show: false, message: '', type: 'success' },
 currentTime: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
 
@@ -290,7 +295,7 @@ async login() {
             await this.loadTenant();  // Load tenant branding for sidebar/logo
             this.applyBranding();  // Apply CSS variables + title
             this.initPaletteShortcuts();  // Global ⌘K/Ctrl+K
-            await Promise.all([this.loadClients(), this.loadProjects(), this.loadToday(), this.loadRoles(), this.loadNotifications(), this.loadActivity(), this.checkAIStatus(), this.loadPreferences()]);
+            await Promise.all([this.loadClients(), this.loadProjects(), this.loadToday(), this.loadRoles(), this.loadNotifications(), this.loadActivity(), this.checkAIStatus(), this.loadPreferences(), this.loadSlack()]);
             // Fire-and-forget: the daily briefing card generates after the shell loads
             this.generateBriefing();
             setInterval(() => this.loadNotifications(), 30000);
@@ -509,6 +514,46 @@ paletteGo(result) {
 
 
 // ===== Preferences & dashboard widget layout =====
+
+async loadSlack() {
+    try {
+        this.slackConfig = await this.api('GET', '/integrations/slack');
+    } catch { this.slackConfig = { configured: false, enabled: false, webhook_masked: null, digest_time: '09:00' }; }
+},
+
+async saveSlack() {
+    if (!this.slackWebhook || !this.slackWebhook.startsWith('https://hooks.slack.com/')) {
+        this.toast('Paste a Slack Incoming Webhook URL (https://hooks.slack.com/...)', 'error'); return;
+    }
+    this.slackSaving = true;
+    try {
+        this.slackConfig = await this.api('PUT', '/integrations/slack', {
+            webhook_url: this.slackWebhook,
+            enabled: true,
+            digest_time: this.slackConfig?.digest_time || '09:00',
+        });
+        this.slackWebhook = '';
+        this.toast('Slack digest saved', 'success');
+    } catch(e) { this.toast(e.message || 'Could not save Slack config', 'error'); }
+    finally { this.slackSaving = false; }
+},
+
+async testSlack() {
+    this.slackTesting = true;
+    try {
+        await this.api('POST', '/integrations/slack/test');
+        this.toast('Test message sent to Slack', 'success');
+    } catch(e) { this.toast(e.message || 'Slack test failed', 'error'); }
+    finally { this.slackTesting = false; }
+},
+
+async sendSlackDigest() {
+    try {
+        await this.api('POST', '/integrations/slack/digest');
+        this.toast('Digest sent to Slack', 'success');
+    } catch(e) { this.toast(e.message || 'Could not send digest', 'error'); }
+},
+
 async loadPreferences() {
     try {
         const prefs = await this.api('GET', '/me/preferences');

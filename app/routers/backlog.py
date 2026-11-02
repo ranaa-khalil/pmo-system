@@ -18,6 +18,7 @@ from app.schemas.backlog import (
     BacklogItemUpdate,
     BoardReorder,
     DependencyAdd,
+    SubitemTree,
 )
 from app.services.github import GitHubService
 from app.services.notifications import log_activity
@@ -114,6 +115,16 @@ def create_backlog_item(
         raise HTTPException(status_code=404, detail="Project not found")
     if item.project_id != project_id:
         raise HTTPException(status_code=400, detail="project_id mismatch")
+    if item.parent_item_id:
+        parent = db.query(BacklogItem).filter(
+            BacklogItem.id == item.parent_item_id,
+            BacklogItem.tenant_id == current_tenant.id,
+            BacklogItem.project_id == project_id,
+        ).first()
+        if not parent:
+            raise HTTPException(status_code=400, detail="Parent item not found in this project")
+        if parent.parent_item_id:
+            raise HTTPException(status_code=400, detail="Sub-items cannot nest — one level only")
     payload = item.model_dump()
     if not payload.get("current_phase"):
         from app.services.lifecycle import item_phases
@@ -423,3 +434,45 @@ def list_available_dependencies(
         .all()
     )
     return items
+
+
+# ── Sub-issues (GitHub Boards parity) ────────────────────────
+
+@router.get("/backlog/{item_id}/subitems", response_model=list[BacklogItemResponse])
+def list_subitems(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """List an item's sub-items (one level deep)."""
+    parent = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id).first()
+    if not parent:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return db.query(BacklogItem).filter(
+        BacklogItem.parent_item_id == item_id, BacklogItem.tenant_id == current_tenant.id,
+    ).order_by(BacklogItem.created_at.asc()).all()
+
+
+@router.get("/backlog/{item_id}/tree", response_model=SubitemTree)
+def subitem_tree(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """An item with its sub-items and a progress rollup (done / total)."""
+    parent = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id).first()
+    if not parent:
+        raise HTTPException(status_code=404, detail="Item not found")
+    children = db.query(BacklogItem).filter(
+        BacklogItem.parent_item_id == item_id, BacklogItem.tenant_id == current_tenant.id,
+    ).order_by(BacklogItem.created_at.asc()).all()
+    done = sum(1 for c in children if c.status == "Done")
+    total = len(children)
+    return {
+        "id": parent.id, "title": parent.title,
+        "current_phase": parent.current_phase, "status": parent.status,
+        "children": children,
+        "rollup": {"total": total, "done": done, "pct": round(done / total * 100) if total else 0},
+    }

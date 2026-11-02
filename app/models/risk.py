@@ -5,7 +5,7 @@ A risk carries severity/probability (score = severity × probability on the
 (manual | copilot | evidence) so every risk traces to its origin. Score is
 computed in Python (never stored stale); unknown strings score 0.
 """
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -16,7 +16,19 @@ SEVERITY_LEVELS = {"Low": 1, "Medium": 2, "High": 3, "Critical": 5}
 PROBABILITY_LEVELS = {"Rare": 1, "Unlikely": 2, "Medium": 3, "Possible": 3, "Likely": 4, "Almost Certain": 5}
 
 RISK_STATUSES = ["Open", "Mitigating", "Closed"]
-RISK_SOURCES = ["manual", "copilot", "evidence"]
+RISK_SOURCES = ["manual", "copilot", "evidence", "escalation"]
+
+# RAID register: one table, four kinds. Statuses are validated per kind.
+RAID_KINDS = ["Risk", "Assumption", "Issue", "Dependency"]
+KIND_STATUSES = {
+    "Risk": ["Open", "Mitigating", "Closed"],
+    "Assumption": ["Open", "Validated", "Invalidated"],
+    "Issue": ["Open", "In Progress", "Resolved", "Closed"],
+    "Dependency": ["Open", "Satisfied", "Blocked"],
+}
+# The escalation chain: invalidated assumption → risk; materialized risk →
+# issue; blocked dependency → issue. Issues are terminal.
+ESCALATION_TARGET = {"Assumption": "Risk", "Risk": "Issue", "Dependency": "Issue"}
 
 
 class Risk(Base):
@@ -33,10 +45,19 @@ class Risk(Base):
 
     severity = Column(String(20), default="Medium", nullable=False)      # Low|Medium|High|Critical
     probability = Column(String(20), default="Possible", nullable=False)  # Rare..Almost Certain
-    status = Column(String(20), default="Open", nullable=False)           # Open|Mitigating|Closed
+    status = Column(String(20), default="Open", nullable=False)           # per-kind: see KIND_STATUSES
+
+    kind = Column(String(20), default="Risk", nullable=False)             # Risk|Assumption|Issue|Dependency
+    date_raised = Column(DateTime(timezone=True), server_default=func.now(), nullable=True)  # Issues: when raised
+    # Kind-specific fields (nullable — each kind fills its own)
+    validation_plan = Column(Text, nullable=True)      # Assumptions: how/when to validate
+    resolution = Column(Text, nullable=True)           # Issues: how it was resolved
+    needed_by = Column(Date, nullable=True)            # Dependencies: date the work is needed
+    external_owner = Column(String(100), nullable=True)  # Dependencies: team/vendor on the other side
+    escalated_from_id = Column(Integer, ForeignKey("risks.id", ondelete="SET NULL"), nullable=True)
 
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    source = Column(String(20), default="manual", nullable=False)  # manual|copilot|evidence
+    source = Column(String(20), default="manual", nullable=False)  # manual|copilot|evidence|escalation
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

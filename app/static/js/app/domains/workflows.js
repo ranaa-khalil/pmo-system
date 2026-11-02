@@ -12,6 +12,7 @@ formEditMode: false,
 
 // ===== Risks state (P3 heatmap) =====
 projectRisks: [],
+    raidKindFilter: 'All',  // RAID tab: All | Risk | Assumption | Issue | Dependency
 selectedRisk: null,
 riskEditMode: false,
 riskMatrixSeverity: ['Low', 'Medium', 'High', 'Critical'],
@@ -303,6 +304,38 @@ riskStatusColor(status) {
         'Mitigating': 'bg-amber-50 text-amber-700',
         'Closed': 'bg-emerald-50 text-emerald-700',
     }[status] || 'bg-ink-100 text-ink-600';
+},
+
+raidKindColor(kind) {
+    return {
+        'Risk': 'bg-rose-50 text-rose-600',
+        'Assumption': 'bg-amber-50 text-amber-600',
+        'Issue': 'bg-violet-50 text-violet-600',
+        'Dependency': 'bg-blue-50 text-blue-600',
+    }[kind] || 'bg-ink-100 text-ink-500';
+},
+
+raidStatusColor(status) {
+    return {
+        'Open': 'bg-rose-50 text-rose-700',
+        'Mitigating': 'bg-amber-50 text-amber-700',
+        'Validated': 'bg-emerald-50 text-emerald-700',
+        'Invalidated': 'bg-rose-50 text-rose-700',
+        'In Progress': 'bg-amber-50 text-amber-700',
+        'Resolved': 'bg-emerald-50 text-emerald-700',
+        'Satisfied': 'bg-emerald-50 text-emerald-700',
+        'Blocked': 'bg-rose-50 text-rose-700',
+        'Closed': 'bg-emerald-50 text-emerald-700',
+    }[status] || 'bg-ink-100 text-ink-600';
+},
+
+async escalateRaid(entry) {
+    if (!confirm('Escalate this ' + (entry.kind || 'Risk') + ' along the chain? The source is flagged and a linked ' + (entry.kind === 'Assumption' ? 'Risk' : 'Issue') + ' is created.')) return;
+    try {
+        const created = await this.api('POST', `/risks/${entry.id}/escalate`);
+        await this.loadRisks();
+        this.toast('Escalated to ' + created.kind + ' — lineage preserved', 'success');
+    } catch(e) { this.toast('Escalation failed', 'error'); }
 },
 
 async loadRisks() {

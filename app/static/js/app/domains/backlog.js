@@ -99,6 +99,10 @@ githubLoadingProjects: false,
 githubBoardUrlInput: '',  // input for pasting a board URL
 githubResolvingBoard: false,  // resolving board URL in progress
 githubSyncStatus: null,  // sync status for current project
+itemSubitems: [],  // sub-items of the drawer item
+    subitemRollup: { total: 0, done: 0, pct: 0 },
+    newSubitemTitle: '',
+    githubSyncingTags: false,  // two-way tag ↔ label sync in progress
 githubExportResult: null,  // last export result
 githubImportResult: null,  // last import result
 githubImporting: false,  // import in progress
@@ -854,7 +858,49 @@ viewBacklogItem(item) {
     this.viewingBacklogItem = item;
     this.viewingProof = null;
     this.itemProofs = [];
-    if (item && item.id) this.loadProofs(item.id);
+    this.itemSubitems = [];
+    this.subitemRollup = { total: 0, done: 0, pct: 0 };
+    this.newSubitemTitle = '';
+    if (item && item.id) {
+        this.loadProofs(item.id);
+        this.loadSubitems(item.id);
+    }
+},
+
+
+async loadSubitems(itemId) {
+    if (!itemId) return;
+    try {
+        const tree = await this.api('GET', `/backlog/${itemId}/tree`);
+        this.itemSubitems = tree.children || [];
+        this.subitemRollup = tree.rollup || { total: 0, done: 0, pct: 0 };
+    } catch { this.itemSubitems = []; this.subitemRollup = { total: 0, done: 0, pct: 0 }; }
+},
+
+async addSubitem() {
+    const title = (this.newSubitemTitle || '').trim();
+    if (!title || !this.viewingBacklogItem) return;
+    try {
+        await this.api('POST', `/projects/${this.viewingBacklogItem.project_id}/backlog`, {
+            project_id: this.viewingBacklogItem.project_id,
+            title: title,
+            parent_item_id: this.viewingBacklogItem.id,
+        });
+        this.newSubitemTitle = '';
+        await this.loadSubitems(this.viewingBacklogItem.id);
+        this.toast('Sub-item added', 'success');
+    } catch(e) { this.toast(e.message || 'Could not add sub-item', 'error'); }
+},
+
+async syncTagsToGithub() {
+    if (!this.selectedProject) return;
+    this.githubSyncingTags = true;
+    try {
+        const result = await this.api('POST', `/projects/${this.selectedProject.id}/github/sync-tags`);
+        const pushed = (result.pushed || []).length, pulled = (result.pulled || []).length;
+        this.toast(`Tag sync: ${pushed} pushed, ${pulled} pulled`, 'success');
+    } catch(e) { this.toast(e.message || 'Tag sync failed', 'error'); }
+    finally { this.githubSyncingTags = false; }
 },
 
 async loadNextVersion(bump = 'minor') {

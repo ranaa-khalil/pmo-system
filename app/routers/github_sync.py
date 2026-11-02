@@ -19,6 +19,7 @@ from app.dependencies import get_current_user
 from app.models.backlog_item import ITEM_PHASES, BacklogItem
 from app.models.github_board_config import GitHubBoardConfig
 from app.models.project import Project
+from app.models.tag import Tag
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.github_sync import (
@@ -37,6 +38,51 @@ from app.services.settings_service import get_github_token
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["github-sync"])
+
+# Tag chip palette hexes (frontend maps names to Tailwind classes) — used to
+# push tenant tags as GitHub labels with sensible colors.
+_TAG_HEX = {
+    "indigo": "5B6EE1", "violet": "8B5CF6", "blue": "3B82F6",
+    "emerald": "10B981", "amber": "F59E0B", "rose": "F43F5E", "slate": "64748B",
+}
+
+
+def _hex_to_palette(color_hex: str) -> str:
+    """Map a GitHub label hex color to the nearest tag-chip palette name."""
+    try:
+        h = (color_hex or "").strip().lstrip("#")
+        if len(h) != 6:
+            return "indigo"
+        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    except ValueError:
+        return "indigo"
+
+    def _dist(other):
+        oh = _TAG_HEX[other]
+        orr, og, ob = int(oh[0:2], 16), int(oh[2:4], 16), int(oh[4:6], 16)
+        return (r - orr) ** 2 + (g - og) ** 2 + (b - ob) ** 2
+
+    return min(_TAG_HEX, key=_dist)
+
+
+def _link_labels_to_pool(db, tenant_id: int, item, label_names: list) -> int:
+    """Upsert imported GitHub label names into the tenant tag pool and link
+    them to the item (M2M). Returns the number of links created."""
+    linked = 0
+    for name in label_names:
+        name = (name or "").strip()[:100]
+        if not name:
+            continue
+        tag = db.query(Tag).filter(Tag.tenant_id == tenant_id, Tag.name == name).first()
+        if not tag:
+            tag = Tag(tenant_id=tenant_id, name=name, color="indigo")
+            db.add(tag)
+            db.flush()
+        if tag not in (item.tags or []):
+            item.tags.append(tag)
+            linked += 1
+    return linked
+
 
 
 def _get_or_create_config(db: Session, project_id: int, tenant_id: int) -> GitHubBoardConfig:
@@ -323,7 +369,8 @@ def export_to_github(
                 })
                 continue
 
-            # Export the item
+            # Export the item — tag names from the tenant pool travel with it
+            item_labels = list(labels) + [t.name for t in (item.tags or []) if t.name not in labels]
             issue = gh.export_backlog_item(
                 repo=repo,
                 title=item.title,
@@ -336,7 +383,7 @@ def export_to_github(
                 acceptance_criteria=item.acceptance_criteria,
                 dependencies_text=item.dependencies,
                 pmo_item_id=item.id,
-                labels=labels,
+                labels=item_labels,
                 title_prefix=config.issue_title_prefix,
                 project_node_id=config.project_node_id,
                 include_acceptance_criteria=config.include_acceptance_criteria,
@@ -479,6 +526,7 @@ def import_from_github(
 
                     item.github_state = new_state
                     item.github_labels = ", ".join(board_item.get("labels", []))
+                    _link_labels_to_pool(db, tid, item, board_item.get("labels", []))
                     item.github_assignees = ", ".join(board_item.get("assignees", []))
                     item.github_last_sync_at = now_iso
 
@@ -541,6 +589,7 @@ def import_from_github(
                         new_state = (issue["state"] or "").lower()
                         item.github_state = new_state
                         item.github_labels = ", ".join(issue.get("labels", []))
+                        _link_labels_to_pool(db, tid, item, issue.get("labels", []))
                         item.github_assignees = ", ".join(issue.get("assignees", []))
                         item.github_last_sync_at = now_iso
 
@@ -586,6 +635,7 @@ def import_from_github(
                     new_state = (issue["state"] or "").lower()
                     item.github_state = new_state
                     item.github_labels = ", ".join(issue.get("labels", []))
+                    _link_labels_to_pool(db, tid, item, issue.get("labels", []))
                     item.github_assignees = ", ".join(issue.get("assignees", []))
                     item.github_last_sync_at = now_iso
 
@@ -634,3 +684,62 @@ def import_from_github(
         gh.close()
 
     return result
+
+# ── Two-way tag ↔ label sync (R6, GitHub Boards parity) ──────
+
+@router.post("/projects/{project_id}/github/sync-tags", response_model=dict)
+def sync_tags_with_github(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Two-way tag ↔ label sync.
+
+    Pull: repo labels land in the tenant tag pool (missing tags created,
+    hex color mapped to the nearest chip palette color).
+    Push: tenant tags become repo labels (ensure_label, palette hex).
+    """
+    tid = current_tenant.id
+    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == tid).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    config = _get_or_create_config(db, project_id, tid)
+    repo = _resolve_repo(config, project)
+    if not repo:
+        raise HTTPException(status_code=400, detail="No GitHub repo configured.")
+    if not get_github_token(db, tid) and not settings.github_token:
+        raise HTTPException(status_code=400, detail="GitHub token not configured.")
+
+    gh = _get_gh_service(db, tid)
+
+    # Push: tenant tags → repo labels
+    tags = db.query(Tag).filter(Tag.tenant_id == tid).all()
+    pushed = []
+    try:
+        repo_labels = gh.list_labels(repo) or []
+    except Exception:
+        repo_labels = []
+    repo_names = {(l.get("name") or "").lower() for l in repo_labels}
+    for tag in tags:
+        if tag.name.lower() in repo_names:
+            continue
+        try:
+            if gh.ensure_label(repo, tag.name, _TAG_HEX.get(tag.color, "5B6EE1")):
+                pushed.append(tag.name)
+                repo_names.add(tag.name.lower())
+        except Exception:
+            continue
+
+    # Pull: repo labels → tenant tag pool
+    existing = {t.name.lower() for t in tags}
+    pulled = []
+    for label in repo_labels:
+        name = (label.get("name") or "").strip()[:100]
+        if not name or name.lower() in existing:
+            continue
+        db.add(Tag(tenant_id=tid, name=name, color=_hex_to_palette(label.get("color"))))
+        existing.add(name.lower())
+        pulled.append(name)
+    db.commit()
+    return {"pushed": pushed, "pulled": pulled}

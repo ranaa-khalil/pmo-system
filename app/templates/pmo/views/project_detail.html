@@ -43,7 +43,7 @@
                     <button @click="projectTab='backlog'" :class="projectTab==='backlog' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Backlog</button>
                     <button @click="projectTab='docs'" :class="projectTab==='docs' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Docs</button>
                     <button @click="projectTab='approvals'" :class="projectTab==='approvals' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Approvals</button>
-                    <button @click="projectTab='risks'" :class="projectTab==='risks' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Risks</button>
+                    <button @click="projectTab='risks'" :class="projectTab==='risks' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">RAID</button>
                     <button @click="projectTab='releases'" :class="projectTab==='releases' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Releases</button>
                     <button @click="projectTab='stakeholders'" :class="projectTab==='stakeholders' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Stakeholders</button>
                     <button @click="projectTab='infrastructure'" :class="projectTab==='infrastructure' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Infrastructure</button>
@@ -673,6 +673,10 @@
             <button @click="exportToGithub([])" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-600 hover:text-white hover:bg-ink-700 px-3 py-1.5 rounded-lg border border-ink-200 hover:bg-ink-700 transition-colors" title="Export approved features to GitHub">
                 <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
                 Export to GitHub
+            </button>
+            <button @click="syncTagsToGithub()" :disabled="githubSyncingTags" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-600 hover:text-white hover:bg-ink-600 px-3 py-1.5 rounded-lg border border-ink-200 transition-all disabled:opacity-50" title="Two-way sync: tenant tags ↔ GitHub labels">
+                <svg class="w-3.5 h-3.5" :class="githubSyncingTags ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                <span x-text="githubSyncingTags ? 'Syncing...' : 'Sync tags'"></span>
             </button>
             <button @click="importFromGithub()" :disabled="githubImporting" x-show="githubSyncStatus?.synced_items > 0" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-600 hover:text-white hover:bg-brand-600 px-3 py-1.5 rounded-lg border border-brand-200 transition-all disabled:opacity-50" title="Sync issue status from GitHub back to PMO">
                 <svg class="w-3.5 h-3.5" :class="githubImporting ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4v6h6M21 20v-6h-6M3 10c.39-1.1 1.01-2.1 1.82-3A8 8 0 0118 5.5M21 14c-.39 1.1-1.01 2.1-1.82 3A8 8 0 016 18.5"/></svg>
@@ -1687,6 +1691,39 @@
                             </template>
                             <button @click="uploadProof()" class="text-[11px] font-medium text-white btn-primary px-3 py-1.5 rounded-lg whitespace-nowrap flex-shrink-0">Attach</button>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sub-items — visible in view AND edit -->
+            <div class="px-6 pb-4">
+                <div class="border-t border-ink-100 pt-4">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <div class="text-[10px] text-ink-400">Sub-items <span x-show="subitemRollup.total > 0" class="text-ink-300" x-text="'· ' + subitemRollup.done + '/' + subitemRollup.total + ' done'"></span></div>
+                        <button @click="loadSubitems(viewingBacklogItem?.id)" class="text-[10px] font-medium text-ink-500 hover:text-brand-600">Refresh</button>
+                    </div>
+                    <div x-show="subitemRollup.total > 0" class="h-1.5 rounded-full bg-ink-100 mb-2 overflow-hidden">
+                        <div class="h-full bg-gradient-to-r from-brand-500 to-violet-600 rounded-full transition-all" :style="'width:' + (subitemRollup.pct || 0) + '%'"></div>
+                    </div>
+                    <div class="space-y-1.5 max-h-40 overflow-y-auto">
+                        <template x-for="s in itemSubitems" :key="'sub-' + s.id">
+                            <div class="flex items-center justify-between px-3 py-2 rounded-xl border border-ink-100">
+                                <div class="min-w-0">
+                                    <div class="text-[12px] font-medium text-ink-800 truncate" x-text="s.title"></div>
+                                    <div class="text-[10px] text-ink-400" x-text="s.current_phase + ' · ' + s.status"></div>
+                                </div>
+                                <div class="flex items-center gap-1.5 flex-shrink-0">
+                                    <span class="text-[10px] font-medium px-2 py-0.5 rounded-full" :class="s.status === 'Done' ? 'bg-emerald-50 text-emerald-600' : 'bg-ink-100 text-ink-500'" x-text="s.status"></span>
+                                    <button @click="viewBacklogItem(s)" class="text-[10px] font-medium px-2 py-1 rounded-lg bg-ink-100 text-ink-600 hover:bg-ink-200">Open</button>
+                                </div>
+                            </div>
+                        </template>
+                        <div x-show="itemSubitems.length === 0" class="text-[11px] text-ink-300">No sub-items — break this item down into smaller pieces.</div>
+                    </div>
+                    <div class="mt-2 flex items-center gap-1.5">
+                        <input x-model="newSubitemTitle" @keydown.enter="addSubitem()" placeholder="New sub-item title"
+                               class="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg border border-ink-200 text-[11px] outline-none focus:ring-2 focus:ring-brand-400 bg-white">
+                        <button @click="addSubitem()" class="text-[11px] font-medium text-white btn-primary px-3 py-1.5 rounded-lg whitespace-nowrap flex-shrink-0">Add</button>
                     </div>
                 </div>
             </div>
@@ -3475,6 +3512,16 @@
 
     <!-- ==================== RISKS TAB (P3 heatmap) ==================== -->
     <div x-show="projectTab==='risks'" class="max-w-4xl">
+        <!-- RAID: kind filter chips + counts -->
+        <div class="flex items-center gap-2 mb-4 flex-wrap">
+            <template x-for="k in ['All', 'Risk', 'Assumption', 'Issue', 'Dependency']" :key="k">
+                <button @click="raidKindFilter = k"
+                        :class="raidKindFilter === k ? 'bg-brand-600 text-white shadow-sm' : 'bg-white text-ink-600 border border-ink-200 hover:bg-ink-100'"
+                        class="text-[11px] font-medium px-3 py-1.5 rounded-lg transition-all"
+                        x-text="k === 'All' ? 'All (' + (projectRisks || []).length + ')' : k + ' (' + (projectRisks || []).filter(r => (r.kind || 'Risk') === k).length + ')'"></button>
+            </template>
+        </div>
+
         <!-- Heatmap: severity (rows) × probability (cols) -->
         <div class="surface rounded-2xl border border-ink-200/60 p-5 mb-4">
             <div class="flex items-center justify-between mb-4">
@@ -3528,21 +3575,31 @@
         <div class="space-y-2">
             <template x-for="risk in projectRisks" :key="risk.id">
                 <div @click="openRisk(risk)" class="surface rounded-2xl border border-ink-200/60 p-4 card-lift transition-all cursor-pointer"
-                     x-show="risk.status !== 'Closed' || riskEditMode">
+                     x-show="(risk.status !== 'Closed' || riskEditMode) && (raidKindFilter === 'All' || (risk.kind || 'Risk') === raidKindFilter)">
                     <div class="flex items-center justify-between gap-3">
                         <div class="flex-1 min-w-0">
                             <div class="flex items-center gap-2 flex-wrap">
                                 <h4 class="text-[14px] font-semibold text-ink-800" x-text="risk.title"></h4>
+                                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-md"
+                                      :class="raidKindColor(risk.kind || 'Risk')"
+                                      x-text="risk.kind || 'Risk'"></span>
                                 <span class="text-[10px] font-medium px-2 py-0.5 rounded-md"
                                       :class="risk.source === 'copilot' ? 'bg-violet-50 text-violet-600' : 'bg-ink-100 text-ink-500'"
                                       x-text="risk.source || 'manual'"></span>
                             </div>
                             <p class="text-[11px] text-ink-400 mt-1" x-show="risk.mitigation" x-text="risk.mitigation"></p>
+                            <p class="text-[11px] text-amber-600/80 mt-1" x-show="(risk.kind || 'Risk') === 'Assumption' && risk.validation_plan" x-text="'Validate: ' + risk.validation_plan"></p>
+                            <p class="text-[11px] text-ink-400 mt-1" x-show="(risk.kind || 'Risk') === 'Dependency'" x-text="(risk.external_owner || 'External') + (risk.needed_by ? ' · needed by ' + risk.needed_by : '')"></p>
+                            <p class="text-[11px] text-emerald-600/80 mt-1" x-show="(risk.kind || 'Risk') === 'Issue' && risk.resolution" x-text="'Resolved: ' + risk.resolution"></p>
                         </div>
                         <div class="flex items-center gap-2 flex-shrink-0">
                             <span class="text-[11px] font-medium px-2.5 py-1 rounded-lg" :class="riskStatusColor(risk.status)" x-text="risk.status"></span>
                             <span class="text-[11px] font-bold px-2.5 py-1 rounded-lg tabular-nums" :class="riskScoreColor(risk)"
                                   x-text="'Score ' + (risk.score ?? riskLevel(risk.severity, risk.probability))"></span>
+                            <button x-show="(risk.kind || 'Risk') !== 'Issue'" @click.stop="escalateRaid(risk)"
+                                    class="text-[10px] font-medium px-2 py-1 rounded-lg bg-ink-100 text-ink-600 hover:bg-ink-200 transition-colors"
+                                    :title="'Escalate ' + (risk.kind || 'Risk') + ' along the chain'"
+                                    x-text="(risk.kind || 'Risk') === 'Assumption' ? '→ Risk' : '→ Issue'"></button>
                             <svg class="w-4 h-4 text-ink-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                         </div>
                     </div>
@@ -3566,7 +3623,8 @@
                 <div>
                     <h3 class="text-[15px] font-bold text-ink-900" x-text="selectedRisk?.title"></h3>
                     <div class="flex items-center gap-2 mt-0.5">
-                        <span class="text-[11px] font-medium px-2 py-0.5 rounded-lg" :class="riskStatusColor(selectedRisk?.status)" x-text="selectedRisk?.status"></span>
+                        <span class="text-[10px] font-semibold px-2 py-0.5 rounded-md" :class="raidKindColor(selectedRisk?.kind || 'Risk')" x-text="selectedRisk?.kind || 'Risk'"></span>
+                        <span class="text-[11px] font-medium px-2 py-0.5 rounded-lg" :class="raidStatusColor(selectedRisk?.status)" x-text="selectedRisk?.status"></span>
                         <span class="text-[11px] font-bold px-2 py-0.5 rounded-lg tabular-nums" :class="riskScoreColor(selectedRisk || {})"
                               x-text="'Score ' + (selectedRisk?.score ?? riskLevel(selectedRisk?.severity, selectedRisk?.probability))"></span>
                     </div>
@@ -3584,6 +3642,28 @@
                     <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Mitigation</div>
                     <div x-show="!riskEditMode" class="text-[13px] text-ink-600 md-content" x-html="renderMarkdown(selectedRisk?.mitigation || 'No mitigation recorded yet.')"></div>
                     <textarea x-show="riskEditMode" x-model="selectedRisk.mitigation" rows="3" class="w-full input-premium text-[13px] px-3 py-2" placeholder="Mitigation plan..."></textarea>
+                </div>
+                <div x-show="(selectedRisk?.kind || 'Risk') === 'Assumption'">
+                    <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Validation plan</div>
+                    <div x-show="!riskEditMode" class="text-[13px] text-ink-600 md-content" x-html="renderMarkdown(selectedRisk?.validation_plan || 'No validation plan yet.')"></div>
+                    <textarea x-show="riskEditMode" x-model="selectedRisk.validation_plan" rows="2" class="w-full input-premium text-[13px] px-3 py-2" placeholder="How and when will this be validated?..."></textarea>
+                </div>
+                <div x-show="(selectedRisk?.kind || 'Risk') === 'Issue'">
+                    <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Resolution</div>
+                    <div x-show="!riskEditMode" class="text-[13px] text-ink-600 md-content" x-html="renderMarkdown(selectedRisk?.resolution || 'Not resolved yet.')"></div>
+                    <textarea x-show="riskEditMode" x-model="selectedRisk.resolution" rows="2" class="w-full input-premium text-[13px] px-3 py-2" placeholder="How was this resolved?..."></textarea>
+                </div>
+                <div x-show="(selectedRisk?.kind || 'Risk') === 'Dependency'" class="grid grid-cols-2 gap-3">
+                    <div>
+                        <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1.5">External owner</div>
+                        <div x-show="!riskEditMode" class="text-[13px] text-ink-600" x-text="selectedRisk?.external_owner || '—'"></div>
+                        <input x-show="riskEditMode" x-model="selectedRisk.external_owner" class="w-full input-premium text-[13px] px-3 py-2" placeholder="Team / vendor...">
+                    </div>
+                    <div>
+                        <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1.5">Needed by</div>
+                        <div x-show="!riskEditMode" class="text-[13px] text-ink-600" x-text="selectedRisk?.needed_by || '—'"></div>
+                        <input x-show="riskEditMode" x-model="selectedRisk.needed_by" class="w-full input-premium text-[13px] px-3 py-2" placeholder="YYYY-MM-DD">
+                    </div>
                     <p class="text-[9px] text-ink-300 mt-0.5" x-show="riskEditMode">Supports Markdown formatting</p>
                 </div>
                 <div class="grid grid-cols-3 gap-3">

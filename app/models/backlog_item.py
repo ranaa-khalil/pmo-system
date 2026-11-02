@@ -77,6 +77,9 @@ class BacklogItem(Base):
     # Board ordering within a phase lane (Kanban). Lower = higher in the lane.
     # NULL = never manually ordered — lane falls back to created_at ordering.
     board_order = Column(Integer, nullable=True, index=True)
+    # Sub-issues (GitHub Boards parity): self-referencing parent, one level
+    # only — a sub-item may never itself have a parent (guarded in the router).
+    parent_item_id = Column(Integer, ForeignKey("backlog_items.id", ondelete="CASCADE"), nullable=True, index=True)
     # Gantt scheduling: planned window for this item (drag on the item Gantt)
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
@@ -91,6 +94,15 @@ class BacklogItem(Base):
         secondaryjoin=(id == backlog_dependencies.c.depends_on_id),
         backref="blocked_by",
         lazy="selectin",
+    )
+
+
+    # Sub-items: children of this item (one level deep)
+    subitems = relationship(
+        "BacklogItem",
+        primaryjoin=(id == parent_item_id),
+        lazy="selectin",
+        viewonly=True,
     )
 
     def __repr__(self):

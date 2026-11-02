@@ -40,6 +40,14 @@ class BacklogItemBase(BaseModel):
 class BacklogItemCreate(BacklogItemBase):
     project_id: int
     current_phase: str | None = None
+    parent_item_id: int | None = None
+
+    @field_validator("parent_item_id", mode="before")
+    @classmethod
+    def _empty_parent_to_none(cls, v):
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
 
 
 class BacklogItemUpdate(BaseModel):
@@ -87,6 +95,19 @@ class BacklogItemResponse(BacklogItemBase):
     end_date: date | None = None
     depends_on: list[BacklogItemBrief] = []
     blocked_by: list[BacklogItemBrief] = []
+    parent_item_id: int | None = None
+    model_config = {"from_attributes": True}
+
+
+class SubitemTree(BaseModel):
+    """An item with its sub-items and progress rollup."""
+
+    id: int
+    title: str
+    current_phase: str
+    status: str
+    children: list[BacklogItemBrief] = []
+    rollup: dict = {}
     model_config = {"from_attributes": True}
 
 

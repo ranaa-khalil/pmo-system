@@ -91,6 +91,15 @@ def _tools() -> list[dict]:
             }},
         },
         {
+            "name": "list_raid",
+            "description": "RAID register for a project (Risk/Assumption/Issue/Dependency), optionally open only.",
+            "inputSchema": {"type": "object", "required": ["project_id"], "properties": {
+                "project_id": {"type": "integer"},
+                "kind": {"type": "string"},
+                "open_only": {"type": "boolean"},
+            }},
+        },
+        {
             "name": "get_status_report",
             "description": "The project status snapshot (progress, releases, open risks, milestones) — same payload as locked status reports.",
             "inputSchema": {"type": "object", "required": ["project_id"], "properties": {"project_id": {"type": "integer"}}},
@@ -219,6 +228,22 @@ def _call_tool(name: str, args: dict, db: Session, tenant: Tenant, user: User) -
         rows = query.order_by(Risk.severity.desc()).all()
         return {"risks": [
             {"id": r.id, "title": r.title, "severity": r.severity, "status": r.status}
+            for r in rows
+        ]}
+
+    if name == "list_raid":
+        query = db.query(Risk).filter(
+            Risk.project_id == args["project_id"], Risk.tenant_id == tid
+        )
+        if args.get("kind"):
+            query = query.filter(Risk.kind == args["kind"])
+        if args.get("open_only", True):
+            query = query.filter(Risk.status.notin_(["Closed", "Invalidated", "Resolved", "Satisfied"]))
+        rows = query.order_by(Risk.kind, Risk.severity.desc()).all()
+        return {"items": [
+            {"id": r.id, "kind": r.kind, "title": r.title, "severity": r.severity,
+             "status": r.status, "score": r.score,
+             "escalated_from_id": r.escalated_from_id}
             for r in rows
         ]}
 

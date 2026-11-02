@@ -52,6 +52,16 @@ COLUMNS = [
     # Gantt scheduling: planned window per backlog item
     ("backlog_items", "start_date DATE"),
     ("backlog_items", "end_date DATE"),
+    # RAID register (R6): one risks table, four kinds + kind fields + lineage
+    ("risks", "kind VARCHAR(20) DEFAULT 'Risk' NOT NULL"),
+    ("risks", "validation_plan TEXT"),
+    ("risks", "resolution TEXT"),
+    ("risks", "date_raised TIMESTAMPTZ"),
+    ("risks", "needed_by DATE"),
+    ("risks", "external_owner VARCHAR(100)"),
+    ("risks", "escalated_from_id INTEGER"),
+    # Sub-issues on backlog items (R6): self-referencing parent, one level only
+    ("backlog_items", "parent_item_id INTEGER"),
 ]
 
 INDEXES = [
@@ -73,6 +83,12 @@ INDEXES = [
 FK_SET_NULL = [
     ("activity_logs", "activity_logs_project_id_fkey", "project_id"),
     ("notifications", "notifications_project_id_fkey", "project_id"),
+]
+
+# Project-owned records deleted WITH the project — project_id is NOT NULL, so
+# SET NULL would violate it; these get ON DELETE CASCADE.
+FK_CASCADE = [
+    ("risks", "risks_project_id_fkey", "project_id"),
 ]
 
 
@@ -160,12 +176,39 @@ def _fix_project_delete_fks() -> None:
         logger.info("Recreated %s with ON DELETE SET NULL", constraint)
 
 
+def _fix_project_cascade_fks() -> None:
+    """Drop and recreate the RAID register FK with ON DELETE CASCADE (idempotent).
+
+    Deleting a project 500'd with ForeignKeyViolation when the project had
+    risks — risks_project_id_fkey had no ondelete behavior. Only touches
+    Postgres (SQLite doesn't enforce these names).
+    """
+    if engine.dialect.name != "postgresql":
+        return
+    inspector = inspect(engine)
+    for table, constraint, column in FK_CASCADE:
+        if not inspector.has_table(table):
+            continue
+        fks = {fk["name"]: fk for fk in inspector.get_foreign_keys(table)}
+        existing = fks.get(constraint)
+        if existing and (existing.get("ondelete") or "").upper() == "CASCADE":
+            continue
+        with engine.begin() as connection:
+            connection.execute(text(f"ALTER TABLE {table} DROP CONSTRAINT IF EXISTS {constraint}"))
+            connection.execute(text(
+                f"ALTER TABLE {table} ADD CONSTRAINT {constraint} "
+                f"FOREIGN KEY ({column}) REFERENCES projects(id) ON DELETE CASCADE"
+            ))
+        logger.info("Recreated %s with ON DELETE CASCADE", constraint)
+
+
 def run_migrations() -> None:
     """Apply every known migration; safe to run more than once."""
     Base.metadata.create_all(bind=engine)
     _add_missing_columns()
     _add_missing_indexes()
     _fix_project_delete_fks()
+    _fix_project_cascade_fks()
     _ensure_reference_data()
 
 

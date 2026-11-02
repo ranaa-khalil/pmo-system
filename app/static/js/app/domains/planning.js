@@ -110,7 +110,9 @@ async deleteItemType(t) {
 // ===== Item proofing (versioned deliverables) =====
 itemProofs: [],
 itemProofsLoading: false,
-proofForm: { title: '', file_url: '' },
+proofForm: { title: '', file_url: '', file: null },
+proofMode: 'file',
+viewingProof: null,
 async loadProofs(itemId) {
     this.itemProofsLoading = true;
     try {
@@ -122,16 +124,42 @@ async uploadProof() {
     const item = this.viewingBacklogItem;
     if (!item) return;
     if (!this.proofForm.title.trim()) { this.showToast('Give the proof a title', 'error'); return; }
-    if (!this.proofForm.file_url.trim()) { this.showToast('Paste a link to the deliverable', 'error'); return; }
-    try {
-        const body = new URLSearchParams();
-        body.set('title', this.proofForm.title.trim());
-        body.set('file_url', this.proofForm.file_url.trim());
-        await this.api('POST', `/backlog/${item.id}/proofs`, body.toString(), 'application/x-www-form-urlencoded');
-        this.proofForm = { title: '', file_url: '' };
-        await this.loadProofs(item.id);
-        this.showToast('Proof uploaded — pending review', 'success');
-    } catch (e) { this.showToast(e.message || 'Failed to upload proof', 'error'); }
+    if (this.proofMode === 'file') {
+        if (!this.proofForm.file) { this.showToast('Choose a file to upload', 'error'); return; }
+        const fd = new FormData();
+        fd.append('title', this.proofForm.title.trim());
+        fd.append('file', this.proofForm.file);
+        try {
+            await this.api('POST', `/backlog/${item.id}/proofs`, fd);
+            this.proofForm = { title: '', file_url: '', file: null };
+            await this.loadProofs(item.id);
+            this.showToast('Attachment uploaded — pending review', 'success');
+        } catch (e) { this.showToast(e.message || 'Failed to upload attachment', 'error'); }
+    } else {
+        if (!this.proofForm.file_url.trim()) { this.showToast('Paste a link to the deliverable', 'error'); return; }
+        try {
+            const body = new URLSearchParams();
+            body.set('title', this.proofForm.title.trim());
+            body.set('file_url', this.proofForm.file_url.trim());
+            await this.api('POST', `/backlog/${item.id}/proofs`, body.toString(), 'application/x-www-form-urlencoded');
+            this.proofForm = { title: '', file_url: '', file: null };
+            await this.loadProofs(item.id);
+            this.showToast('Link proof uploaded — pending review', 'success');
+        } catch (e) { this.showToast(e.message || 'Failed to upload proof', 'error'); }
+    }
+},
+onProofFileChosen(event) {
+    const file = event.target.files && event.target.files[0];
+    this.proofForm.file = file || null;
+},
+viewProof(proof) {
+    const src = proof.file_path || proof.file_url;
+    if (!src) { this.showToast('This proof has no attachment', 'error'); return; }
+    this.viewingProof = { ...proof, src };
+},
+closeProof() { this.viewingProof = null; },
+isImageSrc(src) {
+    return /\.(png|jpe?g|webp|gif)$/i.test(src || '');
 },
 async decideProof(proof, decision) {
     try {
@@ -481,15 +509,17 @@ projectRoadmapWidthPx(rm) {
 projectMilestoneLeftPx(ms) { return this.projectDateToPx(ms.target_date); },
 
 async api(method, url, body, contentType) {
-    const opts = {
-        method,
-        headers: { 'Content-Type': contentType || 'application/json' },
-    };
+    const opts = { method, headers: {} };
+    if (body instanceof FormData) {
+        opts.body = body;  // browser sets the multipart boundary
+    } else {
+        opts.headers['Content-Type'] = contentType || 'application/json';
+        if (body !== undefined && body !== null) {
+            opts.body = typeof body === 'string' ? body : JSON.stringify(body);
+        }
+    }
     if (this.authToken) {
         opts.headers['Authorization'] = 'Bearer ' + this.authToken;
-    }
-    if (body !== undefined && body !== null) {
-        opts.body = typeof body === 'string' ? body : JSON.stringify(body);
     }
     const res = await fetch('/api' + url, opts);
     if (res.status === 401) {

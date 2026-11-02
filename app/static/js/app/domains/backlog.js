@@ -852,6 +852,9 @@ editBacklogDeps(item) {
 viewBacklogItem(item) {
     this.backlogEditMode = false;
     this.viewingBacklogItem = item;
+    this.viewingProof = null;
+    this.itemProofs = [];
+    if (item && item.id) this.loadProofs(item.id);
 },
 
 async loadNextVersion(bump = 'minor') {

@@ -107,6 +107,8 @@ githubResolvingBoard: false,  // resolving board URL in progress
 githubSyncStatus: null,  // sync status for current project
 itemSubitems: [],  // sub-items of the drawer item
 itemBacklinks: [],  // items whose description references this one (#N)
+    itemComments: [],  // drawer comments (Wrike parity)
+    itemCommentForm: '',
     subitemRollup: { total: 0, done: 0, pct: 0 },
     newSubitemTitle: '',
     githubSyncingTags: false,  // two-way tag ↔ label sync in progress
@@ -301,6 +303,25 @@ async loadBacklinks(itemId) {
         this.itemBacklinks = await this.api('GET', `/backlog/${itemId}/backlinks`);
     } catch { this.itemBacklinks = []; }
 },
+async loadItemComments(itemId) {
+    this.itemComments = []; this.itemCommentForm = '';
+    if (!itemId) return;
+    try {
+        this.itemComments = await this.api('GET', `/backlog/${itemId}/comments`);
+    } catch { this.itemComments = []; }
+},
+
+async addItemComment() {
+    const body = (this.itemCommentForm || '').trim();
+    if (!body || !this.viewingBacklogItem) return;
+    try {
+        await this.api('POST', `/backlog/${this.viewingBacklogItem.id}/comments`, { body });
+        this.itemCommentForm = '';
+        await this.loadItemComments(this.viewingBacklogItem.id);
+        this.toast('Comment added', 'success');
+    } catch (e) { this.toast(e.message || 'Could not add comment', 'error'); }
+},
+
 
 applyBranding() {
     const b = this.tenantBranding;
@@ -915,6 +936,7 @@ viewBacklogItem(item) {
         this.loadProofs(item.id);
         this.loadSubitems(item.id);
         this.loadBacklinks(item.id);
+        this.loadItemComments(item.id);
     }
 },
 

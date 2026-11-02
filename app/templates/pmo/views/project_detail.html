@@ -1917,6 +1917,35 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Comments — visible in view AND edit (Wrike parity) -->
+                <div class="px-6 pb-4">
+                    <div class="border-t border-ink-100 pt-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="text-[10px] text-ink-400">Comments <span x-show="itemComments.length > 0" class="ml-1" x-text="'(' + itemComments.length + ')'"></span></div>
+                        </div>
+                        <div class="space-y-2.5 max-h-48 overflow-y-auto mb-2.5">
+                            <template x-for="c in itemComments" :key="'ic-' + c.id">
+                                <div class="flex items-start gap-2">
+                                    <span class="w-6 h-6 rounded-full bg-gradient-to-br from-brand-500 to-violet-600 text-white text-[9px] font-semibold flex items-center justify-center flex-shrink-0 mt-0.5" x-text="(c.user_name || '?').split(' ').map(w => w[0]).join('').slice(0, 2)"></span>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-[11px] font-semibold text-ink-700" x-text="c.user_name || ('User #' + c.user_id)"></span>
+                                            <span class="text-[10px] text-ink-300" x-text="(c.created_at || '').slice(0, 16).replace('T', ' ')"></span>
+                                        </div>
+                                        <p class="text-[12px] text-ink-600 whitespace-pre-wrap" x-text="c.body"></p>
+                                    </div>
+                                </div>
+                            </template>
+                            <div x-show="itemComments.length === 0" class="text-[11px] text-ink-300">No comments yet — start the discussion.</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input x-model="itemCommentForm" type="text" placeholder="Add a comment..." @keydown.enter="addItemComment()"
+                                   class="flex-1 px-3 py-1.5 rounded-lg border border-ink-200 text-[12px] bg-white outline-none focus:ring-2 focus:ring-brand-400">
+                            <button @click="addItemComment()" class="px-2.5 py-1.5 rounded-lg bg-brand-600 text-white text-[11px] font-semibold hover:bg-brand-700 transition-colors">Post</button>
+                        </div>
+                    </div>
+                </div>
             <!-- VIEW MODE FOOTER -->
             <template x-if="!backlogEditMode">
                 <div class="sticky bottom-0 bg-white border-t border-black/[0.06] px-6 py-3 flex items-center justify-between">

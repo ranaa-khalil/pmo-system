@@ -26,7 +26,7 @@ TENANT_TABLES = [
     "item_types", "item_proofs",
     "project_views",
     "time_entries", "timesheet_locks",
-    "slack_configs", "comments", "task_assignees",
+    "slack_configs", "comments", "task_assignees", "acceptance_checks",
 ]
 
 COLUMNS = [
@@ -35,6 +35,7 @@ COLUMNS = [
     ("users", "token_version INTEGER NOT NULL DEFAULT 0"),
     ("projects", "project_type VARCHAR(50) NOT NULL DEFAULT 'software'"),
     ("projects", "health VARCHAR(20)"),
+    ("backlog_items", "personas VARCHAR(300)"),
     ("projects", "budget_hours NUMERIC(8,1)"),
     ("projects", "budget_amount NUMERIC(12,2)"),
     ("risks", "tenant_id INTEGER"),

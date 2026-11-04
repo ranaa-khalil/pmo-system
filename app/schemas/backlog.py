@@ -22,6 +22,7 @@ class BacklogItemBase(BaseModel):
     epic: str | None = None
     item_type: str | None = None
     primary_actor: str | None = None
+    personas: str | None = None
     story_points: int | None = None
     target_release: str | None = None
     acceptance_criteria: str | None = None
@@ -61,6 +62,7 @@ class BacklogItemUpdate(BaseModel):
     epic: str | None = None
     item_type: str | None = None
     primary_actor: str | None = None
+    personas: str | None = None
     story_points: int | None = None
     target_release: str | None = None
     acceptance_criteria: str | None = None

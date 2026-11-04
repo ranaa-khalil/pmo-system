@@ -47,6 +47,7 @@
                     <button @click="projectTab='kpis'" :class="projectTab==='kpis' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">KPIs</button>
                     <button @click="projectTab='roadmap'" :class="projectTab==='roadmap' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Roadmap</button>
                     <button @click="projectTab='backlog'" :class="projectTab==='backlog' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Backlog</button>
+                    <button @click="projectTab='features'; loadFeatureTracker()" :class="projectTab==='features' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Features</button>
                     <button @click="projectTab='time'; loadTime()" :class="projectTab==='time' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Time</button>
                     <button @click="projectTab='docs'" :class="projectTab==='docs' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Docs</button>
                     <button @click="projectTab='approvals'" :class="projectTab==='approvals' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Approvals</button>
@@ -655,6 +656,67 @@
 
     <!-- Backlog tab -->
 
+
+                <!-- Features tab — feature tracker (Bayan Build Tracker parity) -->
+                <div x-show="projectTab==='features'" class="max-w-6xl space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-[14px] font-semibold text-ink-800">Feature tracker</h3>
+                            <span class="text-[11px] text-ink-400" x-text="featureTracker.length + ' features'"></span>
+                        </div>
+                        <a :href="'/api/projects/' + selectedProject?.id + '/export/tracker.xlsx'"
+                           class="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-600 hover:text-brand-600 px-3 py-2 rounded-lg border border-ink-200 hover:bg-ink-50 transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                            Export tracker
+                        </a>
+                    </div>
+                    <div class="surface rounded-2xl border border-ink-200/60 overflow-x-auto">
+                        <table class="w-full text-left" x-show="featureTracker.length > 0">
+                            <thead>
+                                <tr class="border-b border-ink-200/60 bg-ink-50/50">
+                                    <th class="px-4 py-2.5 text-[10px] font-semibold text-ink-500 uppercase tracking-wider">ID</th>
+                                    <th class="px-4 py-2.5 text-[10px] font-semibold text-ink-500 uppercase tracking-wider">Epic</th>
+                                    <th class="px-4 py-2.5 text-[10px] font-semibold text-ink-500 uppercase tracking-wider">Feature</th>
+                                    <th class="px-4 py-2.5 text-[10px] font-semibold text-ink-500 uppercase tracking-wider">Used by</th>
+                                    <th class="px-4 py-2.5 text-[10px] font-semibold text-ink-500 uppercase tracking-wider">Checks</th>
+                                    <th class="px-4 py-2.5 text-[10px] font-semibold text-ink-500 uppercase tracking-wider">Build tasks</th>
+                                    <th class="px-4 py-2.5 text-[10px] font-semibold text-ink-500 uppercase tracking-wider">Progress</th>
+                                    <th class="px-4 py-2.5 text-[10px] font-semibold text-ink-500 uppercase tracking-wider">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-black/[0.04]">
+                                <template x-for="f in featureTracker" :key="'ft-' + f.id">
+                                    <tr @click="openFeatureInDrawer(f)" class="hover:bg-ink-50/60 cursor-pointer transition-colors">
+                                        <td class="px-4 py-2.5 text-[11px] font-mono text-ink-400" x-text="'F' + f.id"></td>
+                                        <td class="px-4 py-2.5 text-[12px] text-ink-600" x-text="f.epic || '—'"></td>
+                                        <td class="px-4 py-2.5 text-[13px] text-ink-800 font-medium" x-text="f.title"></td>
+                                        <td class="px-4 py-2.5 text-[12px] text-ink-600" x-text="f.used_by || '—'"></td>
+                                        <td class="px-4 py-2.5">
+                                            <span class="text-[11px] font-medium px-2 py-0.5 rounded-md" :class="f.checks_total === 0 ? 'bg-ink-100 text-ink-400' : f.checks_passed === f.checks_total ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'" x-text="f.checks_passed + '/' + f.checks_total"></span>
+                                        </td>
+                                        <td class="px-4 py-2.5">
+                                            <span class="text-[11px] font-medium px-2 py-0.5 rounded-md" :class="f.tasks_total === 0 ? 'bg-ink-100 text-ink-400' : f.tasks_done === f.tasks_total ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'" x-text="f.tasks_done + '/' + f.tasks_total"></span>
+                                        </td>
+                                        <td class="px-4 py-2.5">
+                                            <div class="flex items-center gap-2">
+                                                <div class="w-16 h-1.5 rounded-full bg-ink-100 overflow-hidden">
+                                                    <div class="h-full rounded-full bg-gradient-to-r from-brand-500 to-violet-600" :style="'width:' + (f.progress * 100) + '%'"></div>
+                                                </div>
+                                                <span class="text-[10px] text-ink-500" x-text="Math.round(f.progress * 100) + '%'"></span>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-2.5">
+                                            <span class="text-[10px] font-medium px-2 py-0.5 rounded-md" :class="f.status === 'Done' ? 'bg-emerald-50 text-emerald-600' : f.status === 'Blocked' ? 'bg-rose-50 text-rose-600' : 'bg-ink-100 text-ink-500'" x-text="f.status"></span>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                        <div x-show="featureTracker.length === 0" class="px-4 py-8 text-center text-[13px] text-ink-300">
+                            No Feature items yet — create items with type "Feature" in the backlog.
+                        </div>
+                    </div>
+                </div>
                 <!-- Time tab — manual hours log + timesheet lock (Q1) -->
                 <div x-show="projectTab==='time'" class="max-w-5xl space-y-4">
                     <!-- Budget + summary strip -->
@@ -1943,6 +2005,37 @@
                             <input x-model="itemCommentForm" type="text" placeholder="Add a comment..." @keydown.enter="addItemComment()"
                                    class="flex-1 px-3 py-1.5 rounded-lg border border-ink-200 text-[12px] bg-white outline-none focus:ring-2 focus:ring-brand-400">
                             <button @click="addItemComment()" class="px-2.5 py-1.5 rounded-lg bg-brand-600 text-white text-[11px] font-semibold hover:bg-brand-700 transition-colors">Post</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Acceptance checks — tracker parity, visible in view AND edit -->
+                <div class="px-6 pb-4">
+                    <div class="border-t border-ink-100 pt-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="text-[10px] text-ink-400">Acceptance checks <span x-show="itemChecks.length > 0" class="ml-1" x-text="'(' + itemChecks.filter(c => c.result === 'Pass').length + '/' + itemChecks.length + ' passed)'"></span></div>
+                        </div>
+                        <div class="space-y-1.5 mb-2.5">
+                            <template x-for="c in itemChecks" :key="'chk-' + c.id">
+                                <div class="flex items-center gap-2 group px-2 py-1.5 rounded-lg border" :class="c.result === 'Pass' ? 'border-emerald-100 bg-emerald-50/40' : c.result === 'Fail' ? 'border-rose-100 bg-rose-50/40' : 'border-ink-100'">
+                                    <span class="text-[9px] font-mono text-ink-300 flex-shrink-0" x-text="c.check_order + '.'"></span>
+                                    <span class="text-[12px] text-ink-700 flex-1 min-w-0" x-text="c.text"></span>
+                                    <div class="flex items-center gap-1 flex-shrink-0">
+                                        <button @click="setCheckResult(c, 'Pass')" class="text-[9px] font-semibold px-1.5 py-0.5 rounded transition-all" :class="c.result === 'Pass' ? 'bg-emerald-500 text-white' : 'text-emerald-600 hover:bg-emerald-50'">Pass</button>
+                                        <button @click="setCheckResult(c, 'Fail')" class="text-[9px] font-semibold px-1.5 py-0.5 rounded transition-all" :class="c.result === 'Fail' ? 'bg-rose-500 text-white' : 'text-rose-600 hover:bg-rose-50'">Fail</button>
+                                        <button @click="setCheckResult(c, 'Not tested')" class="text-[9px] font-medium px-1.5 py-0.5 rounded transition-all" :class="c.result === 'Not tested' ? 'bg-ink-200 text-ink-700' : 'text-ink-400 hover:bg-ink-50'">—</button>
+                                        <button @click="deleteCheck(c)" class="opacity-0 group-hover:opacity-100 text-ink-300 hover:text-rose-500 transition-all">
+                                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                            <div x-show="itemChecks.length === 0" class="text-[11px] text-ink-300">No acceptance checks yet — define what proves this feature.</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input x-model="checkForm" type="text" placeholder="Add a check..." @keydown.enter="addCheck()"
+                                   class="flex-1 px-3 py-1.5 rounded-lg border border-ink-200 text-[12px] bg-white outline-none focus:ring-2 focus:ring-brand-400">
+                            <button @click="addCheck()" class="px-2.5 py-1.5 rounded-lg bg-brand-600 text-white text-[11px] font-semibold hover:bg-brand-700 transition-colors">Add</button>
                         </div>
                     </div>
                 </div>

@@ -60,6 +60,7 @@ class BacklogItem(Base):
     epic = Column(String(200), nullable=True)
     item_type = Column(String(50), nullable=True)  # Feature, Bug, Enhancement, etc.
     primary_actor = Column(String(100), nullable=True)  # End Customer, Platform Admin, etc.
+    personas = Column(String(300), nullable=True)  # persona names, comma-separated (tracker parity)
     story_points = Column(Integer, nullable=True)
     target_release = Column(String(50), nullable=True)  # e.g. "2026-08"
     acceptance_criteria = Column(Text, nullable=True)

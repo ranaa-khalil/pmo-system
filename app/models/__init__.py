@@ -1,5 +1,4 @@
 """Import all models so SQLAlchemy registers them with Base.metadata."""
-from app.models.acceptance_check import AcceptanceCheck
 from app.models.activity_log import ActivityLog
 from app.models.ai_interaction import AiInteraction
 from app.models.api_key import ApiKey
@@ -57,7 +56,6 @@ from app.models.user_task import UserTask
 __all__ = [
     "AiInteraction",
     "ArtifactChain",
-    "AcceptanceCheck",
     "Client",
     "Comment", "Project", "User", "Role", "RoleAssignment",
     "Permission", "RolePermission",

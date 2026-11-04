@@ -108,9 +108,6 @@ githubSyncStatus: null,  // sync status for current project
 itemSubitems: [],  // sub-items of the drawer item
 itemBacklinks: [],  // items whose description references this one (#N)
     itemComments: [],  // drawer comments (Wrike parity)
-    itemChecks: [],  // acceptance checks (tracker parity)
-    featureTracker: [],  // feature tracker rollup (tracker parity)
-    checkForm: '',
     itemCommentForm: '',
     subitemRollup: { total: 0, done: 0, pct: 0 },
     newSubitemTitle: '',
@@ -324,57 +321,6 @@ async addItemComment() {
         this.toast('Comment added', 'success');
     } catch (e) { this.toast(e.message || 'Could not add comment', 'error'); }
 },
-async loadChecks(itemId) {
-    this.itemChecks = []; this.checkForm = '';
-    if (!itemId) return;
-    try {
-        this.itemChecks = await this.api('GET', `/backlog/${itemId}/checks`);
-    } catch { this.itemChecks = []; }
-},
-
-async addCheck() {
-    const text = (this.checkForm || '').trim();
-    if (!text || !this.viewingBacklogItem) return;
-    try {
-        await this.api('POST', `/backlog/${this.viewingBacklogItem.id}/checks`, { text });
-        this.checkForm = '';
-        await this.loadChecks(this.viewingBacklogItem.id);
-        this.toast('Check added', 'success');
-    } catch (e) { this.toast(e.message || 'Could not add check', 'error'); }
-},
-
-async setCheckResult(check, result) {
-    try {
-        await this.api('PUT', `/checks/${check.id}`, { result });
-        check.result = result;
-        this.toast('Check ' + result.toLowerCase(), 'success');
-    } catch (e) { this.toast(e.message || 'Could not update check', 'error'); }
-},
-
-async deleteCheck(check) {
-    try {
-        await this.api('DELETE', `/checks/${check.id}`);
-        await this.loadChecks(this.viewingBacklogItem?.id);
-        this.toast('Check removed', 'success');
-    } catch (e) { this.toast(e.message || 'Could not remove check', 'error'); }
-},
-async loadFeatureTracker() {
-    if (!this.selectedProject) return;
-    try {
-        this.featureTracker = await this.api('GET', `/projects/${this.selectedProject.id}/feature-tracker`);
-    } catch { this.featureTracker = []; }
-},
-
-async openFeatureInDrawer(f) {
-    const known = (this.backlogItems || []).find(i => i.id === f.id);
-    if (known) { this.viewBacklogItem(known); return; }
-    try {
-        const item = await this.api('GET', `/backlog/${f.id}`);
-        if (item) this.viewBacklogItem(item);
-    } catch { /* no-op */ }
-},
-
-
 
 
 applyBranding() {
@@ -991,7 +937,6 @@ viewBacklogItem(item) {
         this.loadSubitems(item.id);
         this.loadBacklinks(item.id);
         this.loadItemComments(item.id);
-        this.loadChecks(item.id);
     }
 },
 

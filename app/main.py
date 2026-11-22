@@ -25,6 +25,7 @@ from app.routers import (
     clients,
     dashboard,
     decisions,
+    engagements,
     forms,
     gantt,
     github_sync,
@@ -169,6 +170,7 @@ app.include_router(github_sync.router)
 app.include_router(api_keys.router)
 app.include_router(analytics.router)
 app.include_router(decisions.router)
+app.include_router(engagements.router)
 app.include_router(infrastructure.router)
 app.include_router(portal.router)
 app.include_router(portal.mgmt_router)

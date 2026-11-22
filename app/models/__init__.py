@@ -10,6 +10,7 @@ from app.models.beat_run import BeatRun
 from app.models.client import Client
 from app.models.comment import Comment
 from app.models.decision_record import DecisionRecord
+from app.models.engagement import Engagement
 from app.models.form_template import FormInstance, FormTemplate
 from app.models.github_board_config import GitHubBoardConfig
 from app.models.guest_link import ApprovalGuestDecision, ApprovalGuestLink
@@ -62,6 +63,7 @@ __all__ = [
     "Client",
     "Comment", "Project", "User", "Role", "RoleAssignment",
     "DecisionRecord",
+    "Engagement",
     "Permission", "RolePermission",
     "ProjectView",
     "ProjectVision", "KPI", "Roadmap", "Milestone", "BacklogItem",

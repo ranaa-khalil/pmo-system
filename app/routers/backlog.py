@@ -24,6 +24,7 @@ from app.schemas.backlog import (
 )
 from app.services.github import GitHubService
 from app.services.notifications import log_activity
+from app.services.release_machine import advance_backlog_item_phase
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["backlog"])
@@ -320,76 +321,16 @@ def advance_backlog_phase(
 ):
     """Advance a backlog item to the next phase of its project's lifecycle.
 
-    Dynamic: the phase vocabulary comes from the project's EFFECTIVE
-    lifecycle — the tenant's lifecycle template row when one exists, the
-    built-in template otherwise (Rethink v2 C1) — never a hardcoded list. The
-    release stages stay release-level for every template.
+    The machine lives once in app/services/release_machine.py (Rethink v2 F1)
+    — this router path parses the request (tenant-scoped fetch + 404) and
+    delegates; the response shape, status codes and error strings are
+    byte-identical to the pre-extraction router.
     """
     item = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Backlog item not found")
 
-    from app.models.backlog_item import RELEASE_PHASES
-    from app.services.lifecycle import get_effective_lifecycle
-
-    project = db.query(Project).filter(Project.id == item.project_id).first()
-    project_type = project.project_type if project else None
-
-    # Items in release-level phases (UAT, Pre-Release, ...) are managed by the
-    # release workflow — advancing must not reset them.
-    if item.current_phase in RELEASE_PHASES:
-        return item
-
-    # Rethink v2 C1: the vocabulary check reads the EFFECTIVE lifecycle — the
-    # tenant's template row overrides the built-in, so a custom ADLC template
-    # drives the advance chain. Tenants without a template row keep the
-    # built-in (byte-identical to the old item_phases()/release_stages() reads).
-    eff = get_effective_lifecycle(db, current_tenant.id, project_type)
-    phases = eff["item_phases"]
-    release_level = eff["release_stages"]
-    if item.current_phase in release_level:
-        return item
-    if item.current_phase not in phases:
-        # Legacy phase value from another template — normalise to the project's
-        # template by jumping to its first phase.
-        item.current_phase = phases[0]
-        db.commit()
-        db.refresh(item)
-        return item
-
-    current_idx = phases.index(item.current_phase)
-    if current_idx >= len(phases) - 1:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Item is at the final item phase ({phases[-1]}). Add it to a release to continue through the release stages.",
-        )
-
-    item.current_phase = phases[current_idx + 1]
-    if item.status == "Draft":
-        item.status = "In Progress"
-
-    # GitHub sync on entering the build phase for this template
-    from app.services.lifecycle import GITHUB_SYNC_PHASES
-    sync_phases = GITHUB_SYNC_PHASES.get(project_type or "software", ["Development"])
-    if item.current_phase in sync_phases and not item.github_issue_number:
-        _auto_export_to_github(db, item, current_tenant.id)
-
-    db.commit()
-    db.refresh(item)
-
-    log_activity(db, current_user.id, current_user.name, item.project_id,
-                 "backlog_item", item.id, "advanced",
-                 f"Advanced '{item.title}' to {item.current_phase}")
-
-    # Artifact Chain: the phase move is an immutable, hash-linked entry
-    from app.services.artifact_chain import append_artifact
-    append_artifact(
-        db, current_tenant.id, "backlog_item", item.id, "advanced",
-        actor_id=current_user.id, actor_name=current_user.name,
-        payload={"title": item.title, "to_phase": item.current_phase, "status": item.status},
-    )
-
-    return item
+    return advance_backlog_item_phase(db, current_tenant, current_user, item)
 
 
 @router.post("/backlog/{item_id}/send-back", response_model=BacklogItemResponse)

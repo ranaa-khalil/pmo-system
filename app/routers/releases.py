@@ -17,6 +17,7 @@ from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.release import ReleaseCreate, ReleaseResponse, ReleaseUpdate
 from app.services.notifications import log_activity
+from app.services.release_machine import advance_release_phase
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["releases"])
@@ -533,155 +534,16 @@ def advance_phase(
 ):
     """Request advancement to the next V-cycle phase.
 
-    Instead of immediately advancing, this creates an approval request routed
-    to the RACI role that gate-keeps the CURRENT phase. The release advances
-    only when that role approves (see approve_step in approvals.py).
-
-    If an approval is already pending for this release, returns its status.
-    If the approval was already approved, advances the release immediately and
-    creates the next phase's approval.
+    The machine lives once in app/services/release_machine.py (Rethink v2 F1)
+    — this router path parses the request (tenant-scoped fetch + 404) and
+    delegates; the response shape, status codes and error strings are
+    byte-identical to the pre-extraction router.
     """
     release = db.query(Release).filter(Release.id == release_id, Release.tenant_id == current_tenant.id).first()
     if not release:
         raise HTTPException(status_code=404, detail="Release not found")
-    if release.status == "Released":
-        raise HTTPException(status_code=400, detail="Release is already in Released state")
-    if release.status == "Cancelled":
-        raise HTTPException(status_code=400, detail="Cannot advance a cancelled release")
-    if release.status == "Post-Release":
-        raise HTTPException(status_code=400, detail="Release is already in the final phase (Post-Release)")
 
-    current_idx = -1
-    for i, (phase, _, _) in enumerate(V_CYCLE):
-        if release.status == phase:
-            current_idx = i
-            break
-
-    # Rethink v2 C1 — the vocabulary check reads the EFFECTIVE lifecycle: a
-    # tenant's template row overrides the release-stage ladder, so a release
-    # parked on one of the template's release stages advances along the
-    # TEMPLATE's ladder (no RACI gate maps to template stages — they advance
-    # directly). Tenants without a template row keep the built-in V-cycle
-    # verbatim (byte-identical behavior).
-    if current_idx < 0:
-        from app.services.lifecycle import get_effective_lifecycle
-
-        project = db.query(Project).filter(Project.id == release.project_id).first()
-        eff = get_effective_lifecycle(db, current_tenant.id, getattr(project, "project_type", None))
-        template_stages = eff["release_stages"]
-        if eff["source"] == "template" and release.status in template_stages:
-            stage_idx = template_stages.index(release.status)
-            if stage_idx >= len(template_stages) - 1:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Release is already in the final release stage ({template_stages[-1]})",
-                )
-            next_phase = template_stages[stage_idx + 1]
-        else:
-            raise HTTPException(status_code=400, detail=f"Unknown status: {release.status}")
-    else:
-        next_phase = V_CYCLE[current_idx + 1][0]
-
-    # Check if there's already an approval for this release + target phase
-    existing = db.query(ApprovalRequest).filter(
-        ApprovalRequest.release_id == release_id,
-        ApprovalRequest.tenant_id == current_tenant.id,
-        ApprovalRequest.target_phase == next_phase,
-    ).first()
-
-    if existing:
-        if existing.status == "Pending":
-            # Find the pending step + role
-            step = db.query(ApprovalStep).filter(
-                ApprovalStep.request_id == existing.id,
-                ApprovalStep.status == "Pending",
-            ).first()
-            role = step.role_name if step else "Unknown"
-            return {
-                "id": release.id,
-                "status": release.status,
-                "approval_status": "pending",
-                "approval_id": existing.id,
-                "pending_role": role,
-                "target_phase": next_phase,
-                "message": f"Approval still pending from {role}. Request #{existing.id}.",
-            }
-        elif existing.status == "Approved":
-            # Approval granted — advance the release now
-            release.status = next_phase
-            if next_phase == "Released":
-                release.release_date = date.today().isoformat()
-            _sync_release_items_to_phase(db, release, next_phase)
-            db.commit()
-            db.refresh(release)
-
-            # Auto-create the next phase's approval (if there is one)
-            next_approval = _create_phase_approval(db, release, current_user, current_tenant.id)
-            result = {
-                "id": release.id,
-                "status": release.status,
-                "approval_status": "approved",
-                "target_phase": next_phase,
-                "message": f"Advanced to {next_phase}",
-            }
-            if next_approval:
-                result["next_approval_id"] = next_approval["id"]
-                result["next_pending_role"] = next_approval["role"]
-            return result
-        elif existing.status == "Rejected":
-            return {
-                "id": release.id,
-                "status": release.status,
-                "approval_status": "rejected",
-                "target_phase": next_phase,
-                "message": f"Advancement to {next_phase} was rejected. See request #{existing.id}.",
-            }
-
-    # No existing approval — create one for the current phase's gate-keeper
-    gate_info = PHASE_GATE_ROLES.get(release.status)
-    if not gate_info:
-        # No gate for this phase — advance directly
-        release.status = next_phase
-        if next_phase == "Released":
-            release.release_date = date.today().isoformat()
-        _sync_release_items_to_phase(db, release, next_phase)
-        db.commit()
-        db.refresh(release)
-        return {"id": release.id, "status": release.status, "message": f"Advanced to {next_phase}"}
-
-    gate_role, gate_desc, gate_checklist = gate_info
-    approval = ApprovalRequest(
-        tenant_id=current_tenant.id,
-        project_id=release.project_id,
-        title=f"Release {release.version}: {release.status} → {next_phase}",
-        description=gate_desc + "\n\nChecklist:\n" + "\n".join(f"☐ {item}" for item in gate_checklist),
-        request_type="release",
-        requested_by=current_user.id,
-        release_id=release_id,
-        target_phase=next_phase,
-    )
-    db.add(approval)
-    db.commit()
-    db.refresh(approval)
-
-    step = ApprovalStep(
-        tenant_id=current_tenant.id,
-        request_id=approval.id,
-        step_order=1,
-        role_name=gate_role,
-    )
-    db.add(step)
-    db.commit()
-
-    return {
-        "id": release.id,
-        "status": release.status,
-        "approval_status": "created",
-        "approval_id": approval.id,
-        "pending_role": gate_role,
-        "target_phase": next_phase,
-        "message": f"Approval request #{approval.id} created for {gate_role}.",
-    }
+    return advance_release_phase(db, current_tenant, current_user, release)
 
 
 def _create_phase_approval(db: Session, release: Release, current_user: User, tenant_id: int = None):

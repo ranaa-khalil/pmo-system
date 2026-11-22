@@ -9,6 +9,7 @@ from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.backlog_item import BacklogItem
+from app.models.kpi import KPI
 from app.models.project import Project
 from app.models.tenant import Tenant
 from app.models.user import User
@@ -126,6 +127,13 @@ def create_backlog_item(
             raise HTTPException(status_code=400, detail="Parent item not found in this project")
         if parent.parent_item_id:
             raise HTTPException(status_code=400, detail="Sub-items cannot nest — one level only")
+    # KPI tenancy: the body's kpi_id must be a THIS-tenant KPI — the raw
+    # model_dump would otherwise write a cross-tenant link that the coverage
+    # and traceability reads silently ignore (data row holds a rogue link).
+    if item.kpi_id:
+        kpi = db.query(KPI).filter(KPI.id == item.kpi_id, KPI.tenant_id == current_tenant.id).first()
+        if not kpi:
+            raise HTTPException(status_code=400, detail="KPI not found in this tenant")
     payload = item.model_dump()
     if not payload.get("current_phase"):
         from app.services.lifecycle import item_phases
@@ -223,6 +231,13 @@ def update_backlog_item(
 
     old_phase = item.current_phase
     updates = item_update.model_dump(exclude_unset=True)
+
+    # KPI tenancy on update: None (unlink) is allowed; a non-null kpi_id must
+    # be a THIS-tenant KPI — never another tenant's.
+    if updates.get("kpi_id") is not None:
+        kpi = db.query(KPI).filter(KPI.id == updates["kpi_id"], KPI.tenant_id == current_tenant.id).first()
+        if not kpi:
+            raise HTTPException(status_code=400, detail="KPI not found in this tenant")
 
     for field, val in updates.items():
         setattr(item, field, val)

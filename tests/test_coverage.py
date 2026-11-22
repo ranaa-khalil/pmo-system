@@ -327,3 +327,38 @@ def test_endpoint_404_on_foreign_tenant_project(client, db, auth_user):
     r = foreign_tc.get(f"/api/projects/{p.id}/coverage")
     assert r.status_code == 404
     assert r.json()["detail"] == "Project not found"
+
+
+# --------------------------------------------------------------------------- 8. the write path (regression)
+
+
+def test_backlog_rejects_foreign_tenant_kpi_link(client, db, auth_user):
+    """Regression: backlog create AND update must reject a FOREIGN tenant's
+    kpi_id — the cross-tenant write path that the coverage reads guard but
+    the writes didn't (a data row would hold a rogue link no read shows)."""
+    t, u = auth_user["tenant"], auth_user["user"]
+    p = _project(db, t, u)
+    foreign_kpi = KPI(tenant_id=_second_tenant(db).id, project_id=p.id, name="Foreign KPI")
+    db.add(foreign_kpi)
+    db.commit()
+
+    # Create: a body carrying the other tenant's kpi_id must be rejected…
+    r = client.post(f"/api/projects/{p.id}/backlog",
+                    json={"project_id": p.id, "title": "Rogue link", "kpi_id": foreign_kpi.id})
+    assert r.status_code == 400
+    # …and no row with the rogue link may exist.
+    assert db.query(BacklogItem).filter(BacklogItem.kpi_id == foreign_kpi.id).first() is None
+
+    # Update: pointing an existing item at the foreign KPI must be rejected too
+    mine = client.post(f"/api/projects/{p.id}/backlog",
+                       json={"project_id": p.id, "title": "Update target"}).json()
+    r2 = client.put(f"/api/backlog/{mine['id']}", json={"kpi_id": foreign_kpi.id})
+    assert r2.status_code == 400
+    assert db.query(BacklogItem).filter(BacklogItem.id == mine["id"]).first().kpi_id != foreign_kpi.id
+
+    # Unlink (kpi_id null) stays allowed, and a THIS-tenant kpi_id still works
+    own_kpi = _kpi(db, t, p, "My KPI")
+    r3 = client.put(f"/api/backlog/{mine['id']}", json={"kpi_id": own_kpi.id})
+    assert r3.status_code == 200 and r3.json()["kpi_id"] == own_kpi.id
+    r4 = client.put(f"/api/backlog/{mine['id']}", json={"kpi_id": None})
+    assert r4.status_code == 200 and r4.json()["kpi_id"] is None

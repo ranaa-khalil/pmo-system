@@ -10,6 +10,7 @@ import { tasks } from './domains/tasks.js';
 import { backlog } from './domains/backlog.js';
 import { planning } from './domains/planning.js';
 import { projects } from './domains/projects.js';
+import { decisions } from './domains/decisions.js';
 import { ai } from './domains/ai.js';
 import { copilot } from './domains/copilot.js';
 import { workflows } from './domains/workflows.js';
@@ -18,7 +19,7 @@ import { portal } from './domains/portal.js';
 import { fab } from './fab.js';
 import { captureBox } from './capture_box.js';
 
-const DOMAINS = [core, tasks, backlog, planning, projects, ai, copilot, workflows, tenants, portal];
+const DOMAINS = [core, tasks, backlog, planning, projects, decisions, ai, copilot, workflows, tenants, portal];
 
 // Merge a domain's properties into a descriptor set.
 // - Plain values (state) are copied.

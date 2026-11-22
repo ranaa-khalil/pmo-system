@@ -1,0 +1,302 @@
+<!-- Rethink v2 Phase B1: Decisions — the first-class panel over the shipped -->
+<!-- decision-records API (routers/decisions.py). Filter row (server ?q=     -->
+<!-- search, project select, source/status chips-not-tabs) + list rows + a   -->
+<!-- slide-over drawer (view ↔ edit swap, lineage, supersede, delete).       -->
+<!-- JS: static/js/app/domains/decisions.js. Loader: the first navigation    -->
+<!-- triggers loadDecisions() via the route watcher on the root below        -->
+<!-- (navigate() lives in core.js — outside this slice's file ownership).    -->
+<div x-show="route === 'decisions'" x-cloak class="view-enter max-w-6xl"
+     x-init="$watch('route', (r) => { if (r === 'decisions') loadDecisions(); })">
+
+    <!-- Header (one pattern: title + count here, primary action right) -->
+    <div class="flex items-center justify-between mb-3">
+        <div>
+            <h1 class="text-xl font-bold text-ink-900 tracking-tight">Decisions</h1>
+            <p class="text-[12px] text-ink-400 mt-0.5">
+                <span x-text="decisions.length"></span> recorded · every call, one place, searchable
+            </p>
+        </div>
+        <button @click="startNewDecision()"
+                class="text-[12px] font-semibold text-white bg-gradient-to-r from-indigo-500 to-violet-500 px-3.5 py-2 rounded-xl hover:opacity-90 transition-all shadow-sm">+ New Decision</button>
+    </div>
+
+    <!-- Filter row: search (server ?q=) + project + source chips + status chips -->
+    <div class="flex items-center gap-1.5 mb-4 flex-wrap">
+        <input x-model="decisionSearch" @input="onDecisionSearchInput()"
+               class="input-premium text-[12px] rounded-xl px-3 py-2 w-52"
+               placeholder="Search title, decision, rationale…">
+
+        <select x-model="decisionProjectFilter" @change="setDecisionProjectFilter(decisionProjectFilter)"
+                class="input-premium text-[12px] px-3 py-2 rounded-xl bg-white max-w-44">
+            <option value="">All projects</option>
+            <template x-for="p in projects" :key="'dp-' + p.id">
+                <option :value="p.id" x-text="p.name"></option>
+            </template>
+        </select>
+
+        <!-- Source chips (chips-not-tabs): manual | gate | ai -->
+        <template x-for="s in [
+            { id: 'all', label: 'All sources' },
+            { id: 'manual', label: 'Manual' },
+            { id: 'gate', label: 'Gate' },
+            { id: 'ai', label: 'AI' },
+        ]" :key="'ds-' + s.id">
+            <button @click="setDecisionSourceFilter(s.id)"
+                    class="px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+                    :class="decisionSourceFilter === s.id ? 'bg-brand-500 text-white shadow-sm' : 'bg-ink-100 text-ink-500 hover:bg-ink-200/60'"
+                    x-text="s.label"></button>
+        </template>
+
+        <div class="w-px h-6 bg-ink-200 mx-0.5"></div>
+
+        <!-- Status chips (chips-not-tabs): active | superseded -->
+        <template x-for="st in [
+            { id: 'all', label: 'Any status' },
+            { id: 'active', label: 'Active' },
+            { id: 'superseded', label: 'Superseded' },
+        ]" :key="'dst-' + st.id">
+            <button @click="setDecisionStatusFilter(st.id)"
+                    class="px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+                    :class="decisionStatusFilter === st.id ? 'bg-brand-500 text-white shadow-sm' : 'bg-ink-100 text-ink-500 hover:bg-ink-200/60'"
+                    x-text="st.label"></button>
+        </template>
+
+        <span class="text-[11px] text-ink-400 ml-auto" x-text="filteredDecisions.length + ' shown'"></span>
+    </div>
+
+    <!-- Whole-panel empty state — the next action is a button -->
+    <div x-show="!decisionsLoading && decisions.length === 0" class="surface rounded-xl border border-ink-200/60 px-4 py-8 text-center">
+        <p class="text-[13px] font-semibold text-ink-700">No decisions recorded yet</p>
+        <p class="text-[11.5px] text-ink-400 mt-0.5">Record the first call — gate sign-offs, manual calls and AI decisions all live here.</p>
+        <button @click="startNewDecision()" class="mt-3 text-[12px] font-medium text-brand-700 border border-brand-200 bg-white px-3.5 py-2 rounded-xl hover:bg-brand-50 transition-all">Record the first decision</button>
+    </div>
+
+    <!-- Filtered empty state — names the next action -->
+    <div x-show="!decisionsLoading && decisions.length > 0 && filteredDecisions.length === 0" class="surface rounded-xl border border-ink-200/60 px-4 py-8 text-center">
+        <p class="text-[13px] font-semibold text-ink-700">Nothing matches these filters</p>
+        <p class="text-[11.5px] text-ink-400 mt-0.5">Adjust the search, source or status filters.</p>
+        <button @click="clearDecisionFilters()" class="mt-3 text-[12px] font-medium text-brand-700 border border-brand-200 bg-white px-3.5 py-2 rounded-xl hover:bg-brand-50 transition-all">Clear filters</button>
+    </div>
+
+    <!-- Loading -->
+    <div x-show="decisionsLoading" class="space-y-1.5">
+        <div class="h-12 surface rounded-xl border border-ink-200/60 animate-pulse"></div>
+        <div class="h-12 surface rounded-xl border border-ink-200/60 animate-pulse"></div>
+        <div class="h-12 surface rounded-xl border border-ink-200/60 animate-pulse"></div>
+    </div>
+
+    <!-- List rows: title · source chip · made_at · project · status chip · made_by -->
+    <div x-show="!decisionsLoading && filteredDecisions.length > 0" class="surface rounded-2xl border border-ink-200/60 overflow-hidden">
+        <div class="divide-y divide-ink-100">
+            <template x-for="d in filteredDecisions" :key="d.id">
+                <button @click="openDecision(d)"
+                        class="w-full text-left px-5 py-3.5 flex items-center gap-3 transition-colors hover:bg-ink-100/50 group">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[14px] font-medium text-ink-800 truncate" x-text="d.title"></span>
+                            <span class="text-[9px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide flex-shrink-0"
+                                  :class="decisionSourceChipClass(d.source)"
+                                  x-text="d.source || 'manual'"></span>
+                        </div>
+                        <div class="flex items-center gap-2.5 mt-1 text-[11px] text-ink-400 flex-wrap">
+                            <span x-text="decisionDate(d.made_at)"></span>
+                            <span x-show="decisionProjectName(d.project_id)" class="inline-flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/></svg>
+                                <span x-text="decisionProjectName(d.project_id)"></span>
+                            </span>
+                            <span x-show="d.chained_from_id" class="text-ink-300" x-text="'supersedes #' + d.chained_from_id"></span>
+                        </div>
+                    </div>
+                    <span class="text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0"
+                          :class="decisionStatusChipClass(d.status)"
+                          x-text="d.status || 'active'"></span>
+                    <span class="text-[11px] text-ink-400 flex-shrink-0 max-w-32 truncate" x-text="decisionMadeBy(d.made_by)"></span>
+                </button>
+            </template>
+        </div>
+    </div>
+
+    <!-- THE decision drawer (slide-over — the item-drawer pattern): view ↔
+         edit swap, lineage, supersede, delete. Close = Esc or click-out;
+         full-width on phone (w-full max-w-[520px]). -->
+    <div x-show="selectedDecision || decisionNew" x-cloak class="fixed inset-0 z-50" style="pointer-events: none;" @keydown.escape.window="closeDecision()">
+        <div class="absolute inset-0 bg-ink-900/20" @click="closeDecision()" style="pointer-events: auto;"></div>
+        <div class="absolute right-0 top-0 bottom-0 w-full max-w-[520px] bg-white shadow-2xl overflow-y-auto"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="translate-x-full"
+             x-transition:enter-end="translate-x-0"
+             style="pointer-events: auto;">
+
+            <!-- ── NEW-DECISION MODE ── -->
+            <template x-if="decisionNew">
+                <div class="flex flex-col min-h-full">
+                    <div class="sticky top-0 bg-white border-b border-ink-100 px-5 py-3.5 flex items-start justify-between gap-3 z-10">
+                        <div class="min-w-0">
+                            <div class="text-[11px] font-mono text-ink-400">+ New Decision</div>
+                            <h2 class="text-base font-bold text-ink-900 mt-0.5">Record a decision</h2>
+                        </div>
+                        <button @click="closeDecision()" class="text-ink-400 hover:text-ink-800 p-1 shrink-0">✕</button>
+                    </div>
+                    <div class="p-5 space-y-2.5">
+                        <input x-model="decisionNewForm.title" placeholder="Decision title"
+                               class="input-premium text-[13px] px-3 py-2 w-full">
+                        <textarea x-model="decisionNewForm.decision" rows="4" placeholder="What was decided…"
+                                  class="input-premium text-[13px] px-3 py-2 w-full"></textarea>
+                        <textarea x-model="decisionNewForm.rationale" rows="3" placeholder="Why (rationale)…"
+                                  class="input-premium text-[13px] px-3 py-2 w-full"></textarea>
+                        <textarea x-model="decisionNewForm.alternatives" rows="2" placeholder="What else was considered (alternatives)…"
+                                  class="input-premium text-[13px] px-3 py-2 w-full"></textarea>
+                        <div class="grid grid-cols-2 gap-2.5">
+                            <select x-model="decisionNewForm.project_id" class="input-premium text-[12px] px-3 py-2 rounded-xl bg-white">
+                                <option :value="null">No project</option>
+                                <template x-for="p in projects" :key="'dnf-' + p.id">
+                                    <option :value="p.id" x-text="p.name"></option>
+                                </template>
+                            </select>
+                            <select x-model="decisionNewForm.source" class="input-premium text-[12px] px-3 py-2 rounded-xl bg-white">
+                                <option value="manual">Manual</option>
+                                <option value="gate">Gate</option>
+                                <option value="ai">AI</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="sticky bottom-0 bg-white border-t border-ink-100 px-5 py-3 flex items-center gap-2 mt-auto">
+                        <button @click="closeDecision()" class="text-[12px] text-ink-500 hover:text-ink-700">Cancel</button>
+                        <button @click="createDecision()" :disabled="!decisionNewForm.title.trim() || !decisionNewForm.decision.trim()"
+                                class="ml-auto text-[12px] font-semibold text-white bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-2 rounded-xl hover:opacity-90 transition-all disabled:opacity-40">Record decision</button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- ── EXISTING DECISION — view ↔ edit swap in place ── -->
+            <template x-if="selectedDecision && !decisionNew">
+                <div class="flex flex-col min-h-full">
+                    <!-- Header: #id · source mono + ✕ -->
+                    <div class="sticky top-0 bg-white border-b border-ink-100 px-5 py-3.5 flex items-start justify-between gap-3 z-10">
+                        <div class="min-w-0">
+                            <div class="text-[11px] font-mono text-ink-400" x-text="'#' + (decisionDetail?.id || selectedDecision.id) + ' · ' + (decisionDetail?.source || selectedDecision.source || 'manual')"></div>
+                            <h2 class="text-base font-bold text-ink-900 mt-0.5" x-text="decisionDetail?.title || selectedDecision.title"></h2>
+                        </div>
+                        <button @click="closeDecision()" class="text-ink-400 hover:text-ink-800 p-1 shrink-0">✕</button>
+                    </div>
+
+                    <div class="p-5 space-y-4">
+                        <div x-show="decisionDetailLoading" class="text-[11px] text-ink-400">loading…</div>
+
+                        <!-- Chips: source + status -->
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide"
+                                  :class="decisionSourceChipClass(decisionDetail?.source || selectedDecision.source)"
+                                  x-text="decisionDetail?.source || selectedDecision.source || 'manual'"></span>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                                  :class="decisionStatusChipClass(decisionDetail?.status || selectedDecision.status)"
+                                  x-text="decisionDetail?.status || selectedDecision.status || 'active'"></span>
+                        </div>
+
+                        <!-- Immutable facts (read-only): made_at + made_by — never editable -->
+                        <div class="flex items-center gap-4 text-[11px] text-ink-400 bg-ink-50 rounded-xl px-3 py-2">
+                            <span>Made <span class="font-medium text-ink-600" x-text="decisionDate(decisionDetail?.made_at || selectedDecision.made_at)"></span></span>
+                            <span>by <span class="font-medium text-ink-600" x-text="decisionMadeBy(decisionDetail?.made_by || selectedDecision.made_by)"></span></span>
+                            <span class="ml-auto text-[10px] text-ink-300 italic">immutable</span>
+                        </div>
+
+                        <!-- VIEW: decision + rationale + alternatives -->
+                        <template x-if="!decisionEdit">
+                            <div class="space-y-3">
+                                <div>
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-ink-400">Decision</p>
+                                    <p class="text-[13px] text-ink-700 whitespace-pre-wrap mt-1" x-text="decisionDetail?.decision || selectedDecision.decision"></p>
+                                </div>
+                                <div x-show="decisionDetail?.rationale">
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-ink-400">Rationale</p>
+                                    <p class="text-[13px] text-ink-700 whitespace-pre-wrap mt-1" x-text="decisionDetail?.rationale"></p>
+                                </div>
+                                <div x-show="decisionDetail?.alternatives">
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-ink-400">Alternatives considered</p>
+                                    <p class="text-[13px] text-ink-700 whitespace-pre-wrap mt-1" x-text="decisionDetail?.alternatives"></p>
+                                </div>
+
+                                <!-- Lineage: chained predecessor · approval request · backlog item · successors -->
+                                <div x-show="decisionPredecessor || decisionApproval || decisionDetail?.item_id || decisionSuccessors.length > 0" class="border-t border-ink-100 pt-3">
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-ink-400 mb-2">Lineage</p>
+                                    <div class="space-y-1.5">
+                                        <button x-show="decisionPredecessor" @click="openDecisionById(decisionPredecessor.id)"
+                                                class="inline-flex items-center gap-1.5 text-[11px] font-medium text-brand-700 bg-brand-50 border border-brand-200 px-2.5 py-1 rounded-full hover:bg-brand-100 transition-all">
+                                            <span x-text="'Supersedes #' + decisionPredecessor?.id"></span>
+                                            <span class="text-ink-400 truncate max-w-40" x-text="decisionPredecessor?.title"></span>
+                                        </button>
+                                        <button x-show="decisionApproval" @click="openApprovalProject()"
+                                                class="inline-flex items-center gap-1.5 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full hover:bg-blue-100 transition-all">
+                                            <span x-text="'Approval #' + decisionApproval?.id"></span>
+                                            <span class="text-ink-400 truncate max-w-40" x-text="decisionApproval?.title"></span>
+                                        </button>
+                                        <a href="#" :data-item-id="String(decisionDetail?.item_id || '')" x-show="decisionDetail?.item_id"
+                                           @click="openDecisionItem()"
+                                           class="inline-flex items-center gap-1.5 text-[11px] font-medium text-violet-700 bg-violet-50 border border-violet-200 px-2.5 py-1 rounded-full hover:bg-violet-100 transition-all">
+                                            <span x-text="'Item #' + decisionDetail?.item_id"></span>
+                                            <span class="text-ink-400">open in Work</span>
+                                        </a>
+                                        <template x-for="s in decisionSuccessors" :key="'succ-' + s.id">
+                                            <button @click="openDecisionById(s.id)"
+                                                    class="inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full hover:bg-amber-100 transition-all">
+                                                <span x-text="'Superseded by #' + s.id"></span>
+                                                <span class="text-ink-400 truncate max-w-40" x-text="s.title"></span>
+                                            </button>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- EDIT: content-only form — made_at/made_by stay read-only above -->
+                        <template x-if="decisionEdit">
+                            <div class="space-y-2.5">
+                                <input x-model="decisionEditForm.title" placeholder="Decision title"
+                                       class="input-premium text-[13px] px-3 py-2 w-full">
+                                <textarea x-model="decisionEditForm.decision" rows="4" placeholder="What was decided…"
+                                          class="input-premium text-[13px] px-3 py-2 w-full"></textarea>
+                                <textarea x-model="decisionEditForm.rationale" rows="3" placeholder="Why (rationale)…"
+                                          class="input-premium text-[13px] px-3 py-2 w-full"></textarea>
+                                <textarea x-model="decisionEditForm.alternatives" rows="2" placeholder="What else was considered (alternatives)…"
+                                          class="input-premium text-[13px] px-3 py-2 w-full"></textarea>
+                                <div class="flex items-center gap-2">
+                                    <button @click="decisionEdit = false" class="text-[12px] text-ink-500 hover:text-ink-700">Cancel</button>
+                                    <button @click="saveDecisionEdit()" :disabled="!decisionEditForm.title.trim() || !decisionEditForm.decision.trim()"
+                                            class="ml-auto text-[12px] font-semibold text-white bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-2 rounded-xl hover:opacity-90 transition-all disabled:opacity-40">Save changes</button>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- SUPERSEDE: the successor form (POST /decisions/{id}/supersede → 201) -->
+                        <div x-show="decisionSupersedeOpen && !decisionEdit" x-cloak class="border-t border-ink-100 pt-3 space-y-2.5">
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-amber-600">Supersede this decision</p>
+                            <p class="text-[11px] text-ink-400 leading-snug">The new decision chains to this one (#<span x-text="decisionDetail?.id || selectedDecision.id"></span>); this record is marked superseded.</p>
+                            <input x-model="decisionSupersedeForm.title" placeholder="Successor title"
+                                   class="input-premium text-[13px] px-3 py-2 w-full">
+                            <textarea x-model="decisionSupersedeForm.decision" rows="3" placeholder="The successor decision…"
+                                      class="input-premium text-[13px] px-3 py-2 w-full"></textarea>
+                            <textarea x-model="decisionSupersedeForm.rationale" rows="2" placeholder="Why (rationale)…"
+                                      class="input-premium text-[13px] px-3 py-2 w-full"></textarea>
+                            <div class="flex items-center gap-2">
+                                <button @click="decisionSupersedeOpen = false" class="text-[12px] text-ink-500 hover:text-ink-700">Cancel</button>
+                                <button @click="confirmSupersede()" :disabled="!decisionSupersedeForm.decision.trim()"
+                                        class="ml-auto text-[12px] font-semibold text-white bg-amber-600 px-4 py-2 rounded-xl hover:bg-amber-700 transition-all disabled:opacity-40">Supersede</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer verbs: Edit · Supersede · Delete -->
+                    <div x-show="!decisionEdit && !decisionSupersedeOpen" class="sticky bottom-0 bg-white border-t border-ink-100 px-5 py-3 flex items-center gap-2 mt-auto">
+                        <button @click="deleteDecision()" class="text-[12px] font-medium text-rose-600 hover:text-rose-700">Delete</button>
+                        <div class="ml-auto flex items-center gap-2">
+                            <button @click="startSupersede()" x-show="(decisionDetail?.status || selectedDecision.status) !== 'superseded'"
+                                    class="text-[12px] font-medium text-amber-700 border border-amber-200 bg-amber-50 px-3.5 py-2 rounded-xl hover:bg-amber-100 transition-all">Supersede</button>
+                            <button @click="startDecisionEdit()"
+                                    class="text-[12px] font-semibold text-white bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-2 rounded-xl hover:opacity-90 transition-all">Edit</button>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>

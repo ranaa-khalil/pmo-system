@@ -27,6 +27,21 @@ class TestPreferencesAPI:
         resp = client.get("/api/me/preferences")
         assert resp.json()["task_view_mode"] == "board"
 
+    def test_work_view_keys_roundtrip(self, client):
+        """Slice 3a: the four Work-view keys are allow-listed and round-trip."""
+        wanted = {
+            "work_view_mode": "timeline",
+            "work_group_by": "assignee",
+            "work_filter": "mine",
+            "work_project_filter": 3,
+        }
+        for key, value in wanted.items():
+            resp = client.put("/api/me/preferences", json={"key": key, "value": value})
+            assert resp.status_code == 200, f"{key} rejected by the allow-list"
+        stored = client.get("/api/me/preferences").json()
+        for key, value in wanted.items():
+            assert stored[key] == value, f"{key} did not round-trip"
+
     def test_unknown_key_400(self, client):
         """PUT with a key outside the allow-list 400s."""
         resp = client.put("/api/me/preferences", json={"key": "theme_hax", "value": "dark"})

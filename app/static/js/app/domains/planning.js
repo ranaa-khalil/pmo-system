@@ -606,7 +606,35 @@ async openProjectById(projectId) {
 // ===== Project detail state =====
 selectedProject: null,
 selectedClient: null,
-projectTab: 'overview',
+// The cockpit is the DEFAULT landing (Rethink v2 Phase D2) — the Overview tab
+// stays reachable as the deep-admin's first stop.
+projectTab: 'cockpit',
+    // Rethink v2 Phase D2 — project cockpit state: ?tab= URL state + lazy loaders.
+    // projectTabLoaders: tab → the datasets its FIRST show loads (the tabLoaded
+    // pattern; loadTime/C2's rail/B2's coverage were the reference). openProject
+    // keeps only the cockpit's needs — the other tabs load lazily on first show.
+    projectTabLoaders: {
+        cockpit: ['coverage', 'today', 'activity'],
+        overview: ['traceability', 'releases', 'backlog', 'stakeholders'],
+        vision: ['vision'],
+        kpis: ['kpis'],
+        roadmap: ['roadmaps'],
+        time: ['time'],
+        backlog: ['backlog', 'brdCoverage', 'githubSync'],
+        docs: ['releases'],
+        approvals: ['approvals'],
+        risks: ['risks'],
+        releases: ['releases'],
+        stakeholders: ['stakeholders'],
+        infrastructure: ['infrastructure'],
+        github: ['githubConfig', 'githubSync'],
+        env: ['personas', 'testAccounts'],
+    },
+    projectTabLoaded: {},      // one lazy-once flag per dataset (reversible per loader)
+    projectLoadedFor: null,    // project id whose flags are valid (reset on switch)
+    projectNarrative: null,    // per-project last-activity fallback (the cockpit's line)
+    narrativeLoadedFor: null,  // project id already fetched for the narrative
+    _projectTabWatchersBound: false,
     // Time tracking (Q1) — manual hours log + timesheet lock
     timeEntries: [],
     timeSummary: [],
@@ -907,20 +935,310 @@ async api(method, url, body, contentType) {
 async openProject(project) {
     this.selectedProject = project;
     this.route = 'project-detail';
-    this.projectTab = 'overview';
+    this.bindProjectTabWatchers();
+    // Lazy flags are per project — a different project starts fresh
+    if (this.projectLoadedFor !== String(project.id)) {
+        this.projectTabLoaded = {};
+        this.projectLoadedFor = String(project.id);
+        this.projectNarrative = null;
+        this.narrativeLoadedFor = null;
+    }
+    // ?tab= in the URL wins; else this project's last-visited tab; else the cockpit
+    this.projectTab = this.readProjectTabFromUrl(project.id) || this.lastProjectTab(project.id) || 'cockpit';
+    this.syncProjectTabUrl();
+    this.persistProjectTab(project.id, this.projectTab);
     this.initEnvForm();
-    await Promise.all([this.loadVision(), this.loadKPIs(), this.loadRoadmaps(), this.loadBacklog(), this.loadForms(), this.loadApprovals(), this.loadRisks(), this.loadStakeholders(), this.loadReleases(), this.loadTraceability(), this.loadPersonas(), this.loadTestAccounts(), this.loadProjectHealth(project.id), this.loadGithubBoardConfig(project.id), this.loadGithubSyncStatus(project.id), this.loadInfrastructure(), this.loadBrdCoverage(project.id)]);
+    // The cockpit is the landing — load ONLY its needs (the other 13 tabs load
+    // lazily on first show via ensureProjectTabData). Burst: 17 loaders → 5.
+    // Flags first so the root x-effect never double-fires these datasets.
+    this.projectTabLoaded.health = true;
+    this.projectTabLoaded.releases = true;
+    this.projectTabLoaded.approvals = true;
+    this.projectTabLoaded.risks = true;
+    this.projectTabLoaded.backlog = true;
+    await Promise.all([
+        this.loadProjectHealth(project.id),
+        this.loadReleases(),
+        this.loadApprovals(),
+        this.loadRisks(),
+        this.loadBacklog(),
+    ]);
+},
+
+// ===== Project cockpit (Rethink v2 Phase D2) =====
+
+// Root x-effect on the project-detail section: loads each tab's datasets the
+// FIRST time it shows (whatever set projectTab — tab buttons, the cockpit's
+// cards, copilot jumps, pasted #/p/{id}/{tab} links), and honors a shared
+// deep link after login. Flags make every call after the first a no-op.
+projectRouteEffect() {
+    if (this.route === 'project-detail' && this.selectedProject) {
+        this.ensureProjectTabData(this.projectTab);
+        return;
+    }
+    this.tryProjectDeepLink();
+},
+
+// Boot deep-link: a shared #/p/{id}/{tab} opens that project + tab once the
+// user is logged in and the projects list exists. The hash is consumed FIRST
+// so a failed open can't re-fire the effect on every reactive change.
+tryProjectDeepLink() {
+    if (!this.isLoggedIn || this.route === 'project-detail') return;
+    const m = (window.location.hash || '').match(/^#\/p\/(\d+)\/([a-z-]+)$/);
+    if (!m || !this.isValidProjectTab(m[2])) return;
+    if (!(this.projects || []).length) return;
+    const projectId = m[1];
+    const tab = m[2];
+    this.consumeProjectHash();
+    this.openProjectById(projectId).then(() => {
+        if (this.selectedProject && String(this.selectedProject.id) === projectId) this.setProjectTab(tab);
+    });
+},
+
+// #/p/{id}/{tab} — the project page's state in the URL (survives
+// refresh/share/back-forward). A query param was the alternative; the hash
+// needs no server route changes.
+readProjectTabFromUrl(projectId) {
+    const m = (window.location.hash || '').match(/^#\/p\/(\d+)\/([a-z-]+)$/);
+    if (m && m[1] === String(projectId) && this.isValidProjectTab(m[2])) return m[2];
+    return null;
+},
+
+syncProjectTabUrl() {
+    if (!this.selectedProject) return;
+    const hash = '#/p/' + this.selectedProject.id + '/' + this.projectTab;
+    if (window.location.hash !== hash) {
+        window.history.replaceState({}, document.title, window.location.pathname + window.location.search + hash);
+    }
+},
+
+consumeProjectHash() {
+    if ((window.location.hash || '').startsWith('#/p/')) {
+        window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+    }
+},
+
+// Tab switches by anything but the tabs row (cockpit cards, needs-you rows,
+// the deep link) go through here so the URL/state stay consistent.
+setProjectTab(tab) {
+    if (!this.isValidProjectTab(tab)) return;
+    this.projectTab = tab;
+},
+
+isValidProjectTab(tab) {
+    return !!tab && !!this.projectTabLoaders[tab];
+},
+
+// Last-visited tab persisted per project (localStorage) — the fallback when
+// the URL carries no ?tab=.
+lastProjectTab(projectId) {
+    try {
+        const map = JSON.parse(localStorage.getItem('pmo_project_tabs') || '{}');
+        return this.isValidProjectTab(map[String(projectId)]) ? map[String(projectId)] : null;
+    } catch { return null; }
+},
+
+persistProjectTab(projectId, tab) {
+    if (!this.isValidProjectTab(tab)) return;
+    try {
+        const map = JSON.parse(localStorage.getItem('pmo_project_tabs') || '{}');
+        map[String(projectId)] = tab;
+        localStorage.setItem('pmo_project_tabs', JSON.stringify(map));
+    } catch { /* storage unavailable (private mode) — state stays in the URL */ }
+},
+
+// Bind ONCE per session: any projectTab change (tabs, chips, copilot, deep
+// link) syncs the URL + last-visited; hashchange covers back/forward and
+// pasted links. replaceState keeps one history entry per project open.
+bindProjectTabWatchers() {
+    if (this._projectTabWatchersBound) return;
+    this._projectTabWatchersBound = true;
+    this.$watch('projectTab', (tab) => {
+        if (this.route !== 'project-detail' || !this.selectedProject) return;
+        this.syncProjectTabUrl();
+        this.persistProjectTab(this.selectedProject.id, tab);
+    });
+    window.addEventListener('hashchange', () => {
+        const m = (window.location.hash || '').match(/^#\/p\/(\d+)\/([a-z-]+)$/);
+        if (!m || !this.isValidProjectTab(m[2])) return;
+        if (this.selectedProject && String(this.selectedProject.id) === m[1]) {
+            if (this.projectTab !== m[2]) this.projectTab = m[2];
+        } else {
+            this.openProjectById(m[1]);
+        }
+    });
+},
+
+// The lazy loaders: fire each dataset the first time its tab shows. One flag
+// per dataset — reversible per loader, the same endpoints and payloads as the
+// old openProject burst, only the timing changes.
+ensureProjectTabData(tab) {
+    if (this.route !== 'project-detail' || !this.selectedProject) return;
+    if (this.projectLoadedFor !== String(this.selectedProject.id)) {
+        this.projectTabLoaded = {};
+        this.projectLoadedFor = String(this.selectedProject.id);
+    }
+    for (const ds of (this.projectTabLoaders[tab] || [])) {
+        if (this.projectTabLoaded[ds]) continue;
+        this.projectTabLoaded[ds] = true;
+        this.runProjectTabLoader(ds);
+    }
+},
+
+runProjectTabLoader(ds) {
+    switch (ds) {
+        case 'health': this.loadProjectHealth(this.selectedProject.id); break;
+        case 'releases': this.loadReleases(); break;
+        case 'approvals': this.loadApprovals(); break;
+        case 'risks': this.loadRisks(); break;
+        case 'backlog': this.loadBacklog(); break;
+        case 'coverage': this.loadCoverage(); break;
+        case 'today': if (!this.today && !this.todayLoading) this.loadToday(); break;
+        case 'activity': this.loadProjectNarrative(); break;
+        case 'traceability': this.loadTraceability(); break;
+        case 'stakeholders': this.loadStakeholders(); break;
+        case 'vision': this.loadVision(); break;
+        case 'kpis': this.loadKPIs(); break;
+        case 'roadmaps': this.loadRoadmaps(); break;
+        case 'time': this.loadTime(); break;
+        case 'brdCoverage': this.loadBrdCoverage(this.selectedProject.id); break;
+        case 'githubConfig': this.loadGithubBoardConfig(this.selectedProject.id); break;
+        case 'githubSync': this.loadGithubSyncStatus(this.selectedProject.id); break;
+        case 'personas': this.loadPersonas(); break;
+        case 'testAccounts': this.loadTestAccounts(); break;
+        case 'infrastructure': this.loadInfrastructure(); break;
+    }
+},
+
+// Verdict bar (cockpit): the why chips flattened from the health payload —
+// B2's rendering, one compact row instead of the deep-admin card.
+get projectVerdictChips() {
+    const h = this.projectHealth;
+    if (!h) return [];
+    const chips = [];
+    const add = (list, warn) => {
+        for (const c of (list || [])) { if (c) chips.push({ label: c, warn: !!warn }); }
+    };
+    add(h.why?.schedule, false);
+    add(h.why?.approvals, (h.pending_approvals || 0) > 0);
+    add(h.why?.tasks, (h.overdue_tasks || 0) > 0);
+    add(h.why?.kpis, (h.kpis_below_target || 0) > 0);
+    return chips;
+},
+
+// Verdict bar counts — each one a button into its surface.
+get projectPendingGates() {
+    return (this.projectApprovals || []).filter(a => (a.status || 'Pending') === 'Pending');
+},
+
+get projectNextRelease() {
+    const rels = this.projectReleases || [];
+    const upcoming = rels
+        .filter(r => r.status !== 'Released')
+        .sort((a, b) => String(a.target_date || '9999-12-31').localeCompare(String(b.target_date || '9999-12-31')));
+    return upcoming[0] || rels[0] || null;
+},
+
+get projectOpenRaidCount() {
+    return (this.projectRisks || []).filter(r => (r.status || '') !== 'Closed').length;
+},
+
+// Risk & Decisions card: RAID from the loaded payload; decisions count only
+// when the Decisions panel's payload is already loaded (its route fetches on
+// show — never a duplicate store here).
+get projectRiskDecisionCount() {
+    let n = this.projectOpenRaidCount;
+    if (this.decisionsLoaded) {
+        const pid = String(this.selectedProject?.id ?? '');
+        n += (this.decisions || []).filter(d => String(d.project_id) === pid && (d.status || 'active') !== 'superseded').length;
+    }
+    return n;
+},
+
+// What needs you: the /today needs-you aggregate (server-computed "waiting on
+// you", project-scoped) + aging High/Critical risks from the RAID payload.
+// today is loaded at login; on a token-restore boot the cockpit's 'today'
+// dataset fetches it once.
+get projectNeedsYou() {
+    if (!this.selectedProject) return [];
+    const pid = String(this.selectedProject.id);
+    const rows = (this.today?.needs_you || []).filter(r => String(r.project_id) === pid);
+    const aging = (this.projectRisks || [])
+        .filter(r => (r.status || '') !== 'Closed' && (r.severity === 'High' || r.severity === 'Critical'))
+        .sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')));
+    for (const r of aging) {
+        rows.push({
+            kind: 'risk',
+            ref_id: r.id,
+            title: r.title,
+            why: r.severity + ' severity · aging',
+            project_id: r.project_id,
+            project: '',
+        });
+    }
+    return rows;
+},
+
+// Each needs-you row opens its surface in 1 click: gates → the approvals tab,
+// risks → the RAID tab, items → the item drawer (the ONE Work view's drawer
+// fallback when the backlog row isn't loaded — never a re-hosted board).
+openCockpitRow(row) {
+    if (!row) return;
+    if (row.kind === 'approval') { this.setProjectTab('approvals'); return; }
+    if (row.kind === 'risk') { this.setProjectTab('risks'); return; }
+    const known = (this.backlogItems || []).find(i => String(i.id) === String(row.ref_id));
+    if (known) { this.viewBacklogItem(known); return; }
+    this.navigate('work');
+    this.openWorkItem({ id: row.ref_id, title: row.title, project: row.project, project_id: row.project_id, phase: '', status: row.kind === 'blocked' ? 'Blocked' : 'In Progress', priority: '', blocked: row.kind === 'blocked', overdue: row.kind === 'overdue' });
+},
+
+// Work action card: the ONE Work view pre-filtered to this project (the house
+// setWorkProjectFilter pattern — never a re-hosted backlog).
+openWorkWithProject() {
+    if (!this.selectedProject) return;
+    this.setWorkProjectFilter(String(this.selectedProject.id));
+    this.navigate('work');
+},
+
+// Decisions panel: the route exists; the server filters ?project_id=
+openDecisionsPanel() {
+    if (!this.selectedProject) return;
+    this.decisionProjectFilter = String(this.selectedProject.id);
+    this.navigate('decisions');
+},
+
+// Narrative line: the project's latest activity, read from the login
+// bootstrap's activity feed (zero extra requests); a quiet project fetches
+// its own last entry once.
+get projectLastActivity() {
+    if (!this.selectedProject) return null;
+    const pid = String(this.selectedProject.id);
+    const rows = (this.activityFeed || []).filter(a => String(a.project_id) === pid);
+    if (rows.length) return rows[0];
+    return this.projectNarrative;
+},
+
+async loadProjectNarrative() {
+    if (!this.selectedProject) return;
+    if (this.narrativeLoadedFor === String(this.selectedProject.id)) return;
+    this.narrativeLoadedFor = String(this.selectedProject.id);
+    if ((this.activityFeed || []).some(a => String(a.project_id) === String(this.selectedProject.id))) return;
+    try {
+        const rows = await this.api('GET', `/activity?project_id=${this.selectedProject.id}&limit=1`);
+        this.projectNarrative = (rows && rows[0]) || null;
+    } catch { this.projectNarrative = null; }
+},
+
+backToProjects() {
+    this.selectedProject = null;
+    this.route = 'projects';
+    this.consumeProjectHash();  // a stale #/p/{id}/{tab} must not re-deep-link
 },
 
 async loadBrdCoverage(projectId) {
     try {
         this.brdCoverage = await this.api('GET', `/projects/${projectId}/brd-coverage`);
     } catch { this.brdCoverage = null; }
-},
-
-backToProjects() {
-    this.selectedProject = null;
-    this.route = 'projects';
 },
 
 async loadVision() {

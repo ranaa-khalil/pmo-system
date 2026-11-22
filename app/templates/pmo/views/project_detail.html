@@ -1,5 +1,6 @@
 
-            <div x-show="route === 'project-detail' && selectedProject" x-cloak class="mb-6">
+            <div x-show="route === 'project-detail' && selectedProject" x-cloak class="mb-6"
+                 x-effect="projectRouteEffect()">
                 <!-- Back button -->
                 <button @click="backToProjects()" class="flex items-center gap-2 text-[13px] text-ink-500 hover:text-ink-800 mb-4 transition-colors">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
@@ -42,12 +43,13 @@
 
                 <!-- Tabs -->
                 <div class="flex gap-0.5 border-b border-ink-200/60 mb-6 overflow-x-auto">
+                    <button @click="projectTab='cockpit'" :class="projectTab==='cockpit' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Cockpit</button>
                     <button @click="projectTab='overview'" :class="projectTab==='overview' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Overview</button>
                     <button @click="projectTab='vision'" :class="projectTab==='vision' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Vision</button>
                     <button @click="projectTab='kpis'" :class="projectTab==='kpis' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">KPIs</button>
                     <button @click="projectTab='roadmap'" :class="projectTab==='roadmap' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Roadmap</button>
                     <button @click="projectTab='backlog'" :class="projectTab==='backlog' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Backlog</button>
-                    <button @click="projectTab='time'; loadTime()" :class="projectTab==='time' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Time</button>
+                    <button @click="projectTab='time'" :class="projectTab==='time' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Time</button>
                     <button @click="projectTab='docs'" :class="projectTab==='docs' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Docs</button>
                     <button @click="projectTab='approvals'" :class="projectTab==='approvals' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Approvals</button>
                     <button @click="projectTab='risks'" :class="projectTab==='risks' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">RAID</button>
@@ -56,6 +58,164 @@
                     <button @click="projectTab='infrastructure'" :class="projectTab==='infrastructure' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Infrastructure</button>
                     <button @click="projectTab='github'" :class="projectTab==='github' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">GitHub Board</button>
                     <button @click="projectTab='env'" :class="projectTab==='env' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Env & Personas</button>
+                </div>
+
+                <!-- Cockpit tab (Rethink v2 Phase D2) — the DEFAULT landing: one viewport
+                     of decision inputs. The verdict bar (health-with-why, next release,
+                     open gates, open RAID, coverage — each number a button into its
+                     surface), what-needs-you, the narrative line, and the four action
+                     cards. The 13 deep-admin tabs load lazily on first show
+                     (projectTabLoaders in planning.js). -->
+                <div x-show="projectTab==='cockpit'" class="max-w-5xl space-y-4">
+                    <!-- Verdict bar -->
+                    <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-[14px] font-semibold text-ink-800">Verdict</h3>
+                            <div class="flex items-center gap-2" x-show="projectHealth">
+                                <span class="text-[11px] text-ink-400">Health</span>
+                                <span class="text-[20px] font-bold" :class="healthColor(projectHealth?.health_score).split(' ')[0]"
+                                      x-text="projectHealth?.health_score + '%'"></span>
+                                <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full" :class="healthColor(projectHealth?.health_score)"
+                                      x-text="projectHealth?.status"></span>
+                            </div>
+                        </div>
+                        <!-- why chips (B2's rendering) + gate aging — one compact row -->
+                        <div class="flex flex-wrap items-center gap-1.5 mb-4">
+                            <template x-for="(chip, ci) in projectVerdictChips" :key="'verdict-chip-' + ci">
+                                <span class="text-[11px] font-medium px-2 py-0.5 rounded-full"
+                                      :class="chip.warn ? 'bg-amber-50 text-amber-700 border border-amber-200/60' : 'bg-ink-100 text-ink-500'"
+                                      x-text="chip.label"></span>
+                            </template>
+                            <!-- gate aging (B2): the oldest pending gate's age -->
+                            <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/60"
+                                  x-show="projectHealth?.gate_aging > 0" x-text="'oldest gate ' + projectHealth?.gate_aging + 'd'"></span>
+                            <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600"
+                                  x-show="projectHealth && projectHealth?.pending_approvals === 0 && projectHealth?.overdue_tasks === 0 && projectHealth?.kpis_below_target === 0"
+                                  x-text="'All clear'"></span>
+                        </div>
+                        <!-- Each number is a button into its surface -->
+                        <div class="grid grid-cols-4 gap-3">
+                            <button @click="setProjectTab('releases')" class="text-center p-3 rounded-xl bg-ink-50 hover:bg-ink-100 transition-colors cursor-pointer">
+                                <div class="text-[16px] font-bold text-ink-800 truncate" x-text="projectNextRelease ? 'v' + projectNextRelease.version : '—'"></div>
+                                <div class="text-[9px] text-ink-400 uppercase tracking-wide mt-0.5">Next release</div>
+                                <div class="text-[10px] text-ink-500 mt-0.5 truncate" x-text="projectNextRelease ? (projectNextRelease.target_date || 'TBD') : 'No releases yet'"></div>
+                            </button>
+                            <button @click="setProjectTab('approvals')" class="text-center p-3 rounded-xl bg-ink-50 hover:bg-ink-100 transition-colors cursor-pointer">
+                                <div class="text-[16px] font-bold text-ink-800" x-text="projectPendingGates.length"></div>
+                                <div class="text-[9px] text-ink-400 uppercase tracking-wide mt-0.5">Open gates</div>
+                                <div class="text-[10px] text-ink-500 mt-0.5" x-text="projectHealth?.gate_aging > 0 ? ('oldest ' + projectHealth?.gate_aging + 'd') : 'none waiting'"></div>
+                            </button>
+                            <button @click="setProjectTab('risks')" class="text-center p-3 rounded-xl bg-ink-50 hover:bg-ink-100 transition-colors cursor-pointer">
+                                <div class="text-[16px] font-bold text-ink-800" x-text="projectOpenRaidCount"></div>
+                                <div class="text-[9px] text-ink-400 uppercase tracking-wide mt-0.5">Open RAID</div>
+                                <div class="text-[10px] text-ink-500 mt-0.5" x-text="projectOpenRaidCount === 0 ? 'nothing open' : 'risks · issues · deps'"></div>
+                            </button>
+                            <button @click="setProjectTab('kpis')" class="text-center p-3 rounded-xl bg-ink-50 hover:bg-ink-100 transition-colors cursor-pointer">
+                                <div class="text-[16px] font-bold" :class="projectCoverage?.coverage_pct == null ? 'text-ink-400' : projectCoverage.coverage_pct >= 80 ? 'text-emerald-600' : projectCoverage.coverage_pct >= 50 ? 'text-amber-600' : 'text-rose-600'"
+                                     x-text="projectCoverage?.coverage_pct == null ? '—' : projectCoverage.coverage_pct + '%'"></div>
+                                <div class="text-[9px] text-ink-400 uppercase tracking-wide mt-0.5">Coverage</div>
+                                <div class="text-[10px] text-ink-500 mt-0.5" x-text="projectCoverage?.coverage_pct == null ? 'No KPIs yet' : ((projectCoverage?.kpis_with_work ?? 0) + ' of ' + (projectCoverage?.kpi_total ?? 0) + ' KPIs')"></div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- What needs you — gates waiting on you, blocked/overdue items,
+                         aging risks. Each row opens its surface in 1 click. -->
+                    <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-[14px] font-semibold text-ink-800">What needs you</h3>
+                            <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                                  :class="projectNeedsYou.length > 0 ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'"
+                                  x-text="projectNeedsYou.length"></span>
+                        </div>
+                        <template x-if="projectNeedsYou.length === 0">
+                            <p class="text-[12px] text-ink-400 py-3 text-center">Nothing is waiting on you on this project.</p>
+                        </template>
+                        <div class="space-y-1">
+                            <template x-for="row in projectNeedsYou.slice(0, 6)" :key="'needs-' + row.kind + '-' + row.ref_id">
+                                <button @click="openCockpitRow(row)" class="w-full flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-ink-50/50 transition-colors text-left cursor-pointer">
+                                    <span class="w-2 h-2 rounded-full flex-shrink-0"
+                                          :class="row.kind === 'approval' ? 'bg-amber-500' : row.kind === 'risk' ? 'bg-orange-500' : 'bg-rose-500'"></span>
+                                    <span class="flex-1 min-w-0 text-[12px] text-ink-700 truncate" x-text="row.title"></span>
+                                    <span class="text-[10px] text-ink-400 flex-shrink-0 max-w-[220px] truncate" x-text="row.why"></span>
+                                </button>
+                            </template>
+                            <div class="text-[10px] text-ink-400 px-2 pt-1" x-show="projectNeedsYou.length > 6"
+                                 x-text="'+' + (projectNeedsYou.length - 6) + ' more — see Today'"></div>
+                        </div>
+                    </div>
+
+                    <!-- Narrative line — the project's latest activity, one read (not a feed) -->
+                    <div class="surface rounded-xl border border-ink-200/60 px-4 py-3 flex items-center gap-2" x-show="projectLastActivity">
+                        <span class="text-[11px] font-semibold text-ink-400 uppercase tracking-wider flex-shrink-0">Last activity</span>
+                        <span class="text-[12px] text-ink-600 truncate flex-1 min-w-0"
+                              x-text="(projectLastActivity?.user_name || 'System') + ' · ' + (projectLastActivity?.summary || projectLastActivity?.action || '')"></span>
+                        <span class="text-[11px] text-ink-400 flex-shrink-0" x-text="projectLastActivity ? formatTimeAgo(projectLastActivity.created_at) : ''"></span>
+                    </div>
+
+                    <!-- Four action cards — live counts, each into its surface -->
+                    <div class="grid grid-cols-4 gap-3">
+                        <div @click="openWorkWithProject()" class="surface rounded-2xl border border-ink-200/60 p-4 card-lift cursor-pointer">
+                            <div class="text-[13px] font-semibold text-ink-800">Work</div>
+                            <div class="text-[20px] font-bold text-ink-900 mt-1" x-text="backlogItems.length"></div>
+                            <div class="text-[10px] text-ink-400 mt-0.5">backlog items → the Work route</div>
+                        </div>
+                        <div @click="setProjectTab('releases')" class="surface rounded-2xl border border-ink-200/60 p-4 card-lift cursor-pointer">
+                            <div class="text-[13px] font-semibold text-ink-800">Ship</div>
+                            <div class="text-[20px] font-bold text-ink-900 mt-1" x-text="projectReleases.length"></div>
+                            <div class="text-[10px] text-ink-400 mt-0.5">releases → Ship & roadmap</div>
+                            <button @click.stop="setProjectTab('roadmap')" class="mt-2 text-[10px] font-medium px-2 py-0.5 rounded-full bg-white border border-ink-200 text-ink-600 hover:bg-brand-50 hover:text-brand-700 transition-colors cursor-pointer">Roadmap tab</button>
+                        </div>
+                        <div @click="setProjectTab('risks')" class="surface rounded-2xl border border-ink-200/60 p-4 card-lift cursor-pointer">
+                            <div class="text-[13px] font-semibold text-ink-800">Risk & Decisions</div>
+                            <div class="text-[20px] font-bold text-ink-900 mt-1" x-text="projectRiskDecisionCount"></div>
+                            <div class="text-[10px] text-ink-400 mt-0.5">open RAID items + decisions</div>
+                            <button @click.stop="openDecisionsPanel()" class="mt-2 text-[10px] font-medium px-2 py-0.5 rounded-full bg-white border border-ink-200 text-ink-600 hover:bg-brand-50 hover:text-brand-700 transition-colors cursor-pointer">Decisions panel</button>
+                        </div>
+                        <div @click="setProjectTab('docs')" class="surface rounded-2xl border border-ink-200/60 p-4 card-lift cursor-pointer">
+                            <div class="text-[13px] font-semibold text-ink-800">Plan & docs</div>
+                            <div class="text-[20px] font-bold text-ink-900 mt-1" x-text="projectReleases.length"></div>
+                            <div class="text-[10px] text-ink-400 mt-0.5">sign-off docs · one per release</div>
+                            <div class="flex items-center gap-1.5 mt-2">
+                                <button @click.stop="setProjectTab('vision')" class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white border border-ink-200 text-ink-600 hover:bg-brand-50 hover:text-brand-700 transition-colors cursor-pointer">Vision</button>
+                                <button @click.stop="setProjectTab('kpis')" class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white border border-ink-200 text-ink-600 hover:bg-brand-50 hover:text-brand-700 transition-colors cursor-pointer">KPIs</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- KPI Coverage (Rethink v2 Phase B2) — compute_coverage rendered; lazy-loaded when the cockpit first shows -->
+                    <div class="surface rounded-2xl border border-ink-200/60 p-5" x-show="projectCoverage" x-cloak>
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-[14px] font-semibold text-ink-800">KPI Coverage</h3>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[11px] text-ink-400">Coverage</span>
+                                <span class="text-[20px] font-bold"
+                                      :class="projectCoverage?.coverage_pct == null ? 'text-ink-400' : projectCoverage.coverage_pct >= 80 ? 'text-emerald-600' : projectCoverage.coverage_pct >= 50 ? 'text-amber-600' : 'text-rose-600'"
+                                      x-text="projectCoverage?.coverage_pct == null ? 'No KPIs yet' : projectCoverage.coverage_pct + '%'"></span>
+                            </div>
+                        </div>
+                        <!-- KPIs with work / total -->
+                        <div class="flex items-center gap-2 flex-wrap" x-show="projectCoverage?.kpi_total > 0">
+                            <span class="text-[12px] text-ink-600"><span class="font-bold text-ink-900" x-text="projectCoverage?.kpis_with_work ?? 0"></span> of <span class="font-bold text-ink-900" x-text="projectCoverage?.kpi_total ?? 0"></span> KPIs have work linked</span>
+                            <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/60" x-show="projectCoverage?.kpis_without_work > 0"
+                                  x-text="projectCoverage?.kpis_without_work + ((projectCoverage?.kpis_without_work === 1) ? ' KPI without work' : ' KPIs without work')"></span>
+                        </div>
+                        <!-- Orphan items: work with no KPI beneath it — each chip opens the backlog -->
+                        <div class="mt-3 pt-3 border-t border-ink-100" x-show="(projectCoverage?.unlinked_sample || []).length > 0">
+                            <div class="text-[11px] font-semibold text-amber-600 uppercase tracking-wider mb-2">⚠ Items with no KPI</div>
+                            <div class="flex flex-wrap gap-1.5">
+                                <template x-for="item in (projectCoverage?.unlinked_sample || [])" :key="'orphan-' + item.id">
+                                    <button @click="projectTab='backlog'" title="Open the Backlog tab"
+                                            class="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-white border border-ink-200 text-ink-600 hover:bg-brand-50 hover:text-brand-700 transition-colors max-w-[220px] cursor-pointer">
+                                        <span class="truncate" x-text="item.title"></span>
+                                    </button>
+                                </template>
+                            </div>
+                            <div class="text-[10px] text-ink-400 mt-1.5" x-show="projectCoverage?.unlinked_items > (projectCoverage?.unlinked_sample || []).length"
+                                 x-text="'+' + (projectCoverage.unlinked_items - (projectCoverage?.unlinked_sample || []).length) + ' more unlinked items in the backlog'"></div>
+                        </div>
+                    </div>
+
                 </div>
 
                 <!-- Overview tab — Connected Traceability Dashboard -->
@@ -148,39 +308,6 @@
                                 <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
                                 <span class="text-[11px] text-ink-600">No active risks</span>
                             </div>
-                        </div>
-                    </div>
-
-                    <!-- KPI Coverage (Rethink v2 Phase B2) — compute_coverage rendered; lazy-loaded when the overview first shows -->
-                    <div class="surface rounded-2xl border border-ink-200/60 p-5" x-show="projectCoverage" x-cloak>
-                        <div class="flex items-center justify-between mb-4">
-                            <h3 class="text-[14px] font-semibold text-ink-800">KPI Coverage</h3>
-                            <div class="flex items-center gap-2">
-                                <span class="text-[11px] text-ink-400">Coverage</span>
-                                <span class="text-[20px] font-bold"
-                                      :class="projectCoverage?.coverage_pct == null ? 'text-ink-400' : projectCoverage.coverage_pct >= 80 ? 'text-emerald-600' : projectCoverage.coverage_pct >= 50 ? 'text-amber-600' : 'text-rose-600'"
-                                      x-text="projectCoverage?.coverage_pct == null ? 'No KPIs yet' : projectCoverage.coverage_pct + '%'"></span>
-                            </div>
-                        </div>
-                        <!-- KPIs with work / total -->
-                        <div class="flex items-center gap-2 flex-wrap" x-show="projectCoverage?.kpi_total > 0">
-                            <span class="text-[12px] text-ink-600"><span class="font-bold text-ink-900" x-text="projectCoverage?.kpis_with_work ?? 0"></span> of <span class="font-bold text-ink-900" x-text="projectCoverage?.kpi_total ?? 0"></span> KPIs have work linked</span>
-                            <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/60" x-show="projectCoverage?.kpis_without_work > 0"
-                                  x-text="projectCoverage?.kpis_without_work + ((projectCoverage?.kpis_without_work === 1) ? ' KPI without work' : ' KPIs without work')"></span>
-                        </div>
-                        <!-- Orphan items: work with no KPI beneath it — each chip opens the backlog -->
-                        <div class="mt-3 pt-3 border-t border-ink-100" x-show="(projectCoverage?.unlinked_sample || []).length > 0">
-                            <div class="text-[11px] font-semibold text-amber-600 uppercase tracking-wider mb-2">⚠ Items with no KPI</div>
-                            <div class="flex flex-wrap gap-1.5">
-                                <template x-for="item in (projectCoverage?.unlinked_sample || [])" :key="'orphan-' + item.id">
-                                    <button @click="projectTab='backlog'" title="Open the Backlog tab"
-                                            class="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-white border border-ink-200 text-ink-600 hover:bg-brand-50 hover:text-brand-700 transition-colors max-w-[220px] cursor-pointer">
-                                        <span class="truncate" x-text="item.title"></span>
-                                    </button>
-                                </template>
-                            </div>
-                            <div class="text-[10px] text-ink-400 mt-1.5" x-show="projectCoverage?.unlinked_items > (projectCoverage?.unlinked_sample || []).length"
-                                 x-text="'+' + (projectCoverage.unlinked_items - (projectCoverage?.unlinked_sample || []).length) + ' more unlinked items in the backlog'"></div>
                         </div>
                     </div>
 

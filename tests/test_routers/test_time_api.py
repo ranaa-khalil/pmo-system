@@ -4,12 +4,13 @@ Members log their own hours; PM/tenant-admin can log for others, lock weeks,
 and delete anyone's entries. The approval-locks-timesheet invariant: a locked
 week rejects create/delete for that user's entries.
 """
+from datetime import date
+
 import pytest
 
 import app.models  # noqa: F401
 from app.models.project import Project
 from app.models.tenant import Tenant, TenantMembership
-from app.models.time_entry import TimeEntry, TimesheetLock
 from app.models.user import User
 
 
@@ -138,8 +139,10 @@ def test_member_cannot_lock_timesheets(time_world, client):
 def test_time_summary_totals(time_world, client):
     member, project = time_world["member"], time_world["project"]
     _as(client, member)
+    # In-week entry: computed from today — the summary's week window moves
+    # with date.today(), so a fixed date goes stale the moment the week ends.
     client.post(f"/api/projects/{project.id}/time-entries", json={
-        "entry_date": "2026-11-02", "hours": 3,
+        "entry_date": date.today().isoformat(), "hours": 3,
     })
     client.post(f"/api/projects/{project.id}/time-entries", json={
         "entry_date": "2026-10-20", "hours": 2,

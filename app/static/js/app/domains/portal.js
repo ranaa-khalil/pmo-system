@@ -12,7 +12,8 @@ portalStatusCache: {},      // client_id -> {portal_enabled: bool}
 
 // ===== Client portal session (client side) =====
 portalMode: false,          // true = portal view active (replaces the SPA shell)
-portalSession: null,        // {id, name}
+portalSession: null,
+    showPortalLogin: false,        // {id, name}
 portalLoginForm: { email: '', passcode: '' },
 portalLoginBusy: false,
 portalLoginError: '',

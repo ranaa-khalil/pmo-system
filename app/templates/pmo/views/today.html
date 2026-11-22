@@ -48,7 +48,7 @@
         <div class="flex items-center justify-between mb-2.5">
             <h2 class="text-[11px] font-bold uppercase tracking-wider text-ink-400">Needs you</h2>
             <span class="text-[11px] text-ink-400" x-show="today && today.total_needs_you > today.needs_you.length"
-                  x-text="'showing ' + today.needs_you.length + ' of ' + today.total_needs_you"></span>
+                  x-text="'showing ' + (today?.needs_you?.length || 0) + ' of ' + (today?.total_needs_you || 0)"></span>
         </div>
 
         <div class="space-y-2">

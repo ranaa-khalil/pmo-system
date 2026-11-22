@@ -1,5 +1,5 @@
 <!-- ==================== PERSONA MODAL ==================== -->
-<div x-show="personaModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+<template x-if="personaModalOpen"><div x-show="personaModalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
     <div class="fixed inset-0 bg-black/30 backdrop-blur-sm overlay-enter" @click="personaModalOpen = false"></div>
     <div class="flex min-h-full items-center justify-center p-4 relative">
         <div class="surface rounded-3xl shadow-modal w-full max-w-lg modal-enter border border-black/[0.06]">
@@ -40,4 +40,4 @@
             </form>
         </div>
     </div>
-</div>
+</div></template>

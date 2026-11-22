@@ -271,6 +271,7 @@ def get_dashboard_stats(db: Session, current_user: User, current_tenant: Tenant)
             "target_value": kpi.target_value,
             "current_value": kpi.current_value,
             "unit": kpi.unit,
+            "project_id": kpi.project_id,
             "project_name": p.name if p else "—",
         })
 

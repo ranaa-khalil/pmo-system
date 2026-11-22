@@ -234,7 +234,7 @@ def test_vision_folds_into_the_docs_tab():
     docs = docs.group(0)
     assert "Project Vision & Strategic Objectives" in docs, "the vision section is in Docs"
     assert "visionForm.statement" in docs, "the create/edit form survives"
-    assert "renderMarkdown(vision.statement)" in docs, "the statement renders"
+    assert "renderMarkdown(vision?.statement)" in docs, "the statement renders"
     js = _read(PLANNING_JS)
     table = _loaders_table(js)
     docs_entry = re.search(r"^\s+docs: \[(.*?)\]", table, re.M)

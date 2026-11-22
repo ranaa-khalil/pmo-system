@@ -94,7 +94,7 @@
                      @dragstart="draggingWidget = 'charts'" @dragover.prevent @drop.prevent="onWidgetDrop('charts')"
                      class="grid grid-cols-1 lg:grid-cols-3 gap-5">
                     <!-- Backlog Phase Distribution (CSS bar chart) -->
-                    <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                    <div @click="navigate('work')" class="surface rounded-2xl border border-ink-200/60 p-5 cursor-pointer hover:border-brand-300/60 transition-colors">
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-[14px] font-semibold text-ink-800">Backlog by Phase</h2>
                             <span class="text-[11px] text-ink-400" x-text="(dashStats?.backlog_items || 0) + ' items'"></span>
@@ -132,7 +132,7 @@
                     </div>
 
                     <!-- Release V-Cycle (CSS doughnut via conic-gradient) -->
-                    <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                    <div @click="navigate('projects')" class="surface rounded-2xl border border-ink-200/60 p-5 cursor-pointer hover:border-brand-300/60 transition-colors">
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-[14px] font-semibold text-ink-800">Release Cycle</h2>
                             <span class="text-[11px] text-ink-400" x-text="(dashStats?.releases || 0) + ' releases'"></span>
@@ -190,7 +190,7 @@
                     </div>
 
                     <!-- Backlog Priority (CSS doughnut via conic-gradient) -->
-                    <div class="surface rounded-2xl border border-ink-200/60 p-5">
+                    <div @click="navigate('work')" class="surface rounded-2xl border border-ink-200/60 p-5 cursor-pointer hover:border-brand-300/60 transition-colors">
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-[14px] font-semibold text-ink-800">Priority Mix</h2>
                             <span class="text-[11px] text-ink-400">by priority</span>
@@ -319,7 +319,7 @@
                             </template>
                             <div class="space-y-2">
                                 <template x-for="ms in (dashStats?.upcoming_milestones || [])" :key="ms.id">
-                                    <div class="flex items-start gap-2.5 p-2.5 rounded-xl bg-ink-100/60">
+                                    <div @click="openProjectRef(ms.project_id, ms.project_name)" class="flex items-start gap-2.5 p-2.5 rounded-xl bg-ink-100/60 cursor-pointer hover:bg-ink-100 transition-colors">
                                         <div class="w-2 h-2 rounded-full mt-1.5 flex-shrink-0"
                                              :class="{'bg-emerald-400': ms.status === 'On Track', 'bg-rose-400': ms.status === 'At Risk', 'bg-ink-300': ms.status === 'Completed'}"></div>
                                         <div class="flex-1 min-w-0">
@@ -346,7 +346,7 @@
                             </template>
                             <div class="space-y-2">
                                 <template x-for="apv in (dashStats?.pending_approval_details || [])" :key="apv.id">
-                                    <div class="p-2.5 rounded-xl bg-ink-100/60">
+                                    <div @click="openProjectRef(apv.project_id, apv.project_name)" class="p-2.5 rounded-xl bg-ink-100/60 cursor-pointer hover:bg-ink-100 transition-colors">
                                         <div class="flex items-center justify-between">
                                             <div class="text-[12px] font-medium text-ink-700 truncate" x-text="apv.title"></div>
                                             <span class="text-[10px] font-medium text-amber-600 ml-2" x-text="apv.approved_steps + '/' + apv.total_steps"></span>
@@ -367,7 +367,7 @@
                     <h2 class="text-[14px] font-semibold text-ink-800 mb-4">KPI Progress</h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <template x-for="kpi in (dashStats?.kpi_progress || [])" :key="kpi.id">
-                            <div class="p-3 rounded-xl bg-gradient-to-br from-slate-50 to-brand-50/20 border border-black/[0.06]">
+                            <div @click="openProjectRef(kpi.project_id, kpi.project_name)" class="p-3 rounded-xl bg-gradient-to-br from-slate-50 to-brand-50/20 border border-black/[0.06] cursor-pointer hover:border-brand-300/60 transition-colors">
                                 <div class="flex items-center justify-between mb-2">
                                     <div class="text-[12px] font-medium text-ink-700 truncate" x-text="kpi.name"></div>
                                     <span class="text-[10px] text-ink-400" x-text="kpi.project_name"></span>
@@ -423,7 +423,7 @@
                     </div>
                     <div class="space-y-1.5">
                         <template x-for="w in workload.slice(0, 8)" :key="'wl-' + w.user_id">
-                            <div class="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-ink-50/50 transition-colors">
+                            <div @click="navigate('work')" class="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-ink-50/50 transition-colors cursor-pointer">
                                 <div class="w-7 h-7 rounded-lg bg-brand-600/10 text-brand-600 flex items-center justify-center text-[11px] font-bold flex-shrink-0" x-text="(w.name || '?').charAt(0).toUpperCase()"></div>
                                 <div class="flex-1 min-w-0">
                                     <div class="text-[12px] font-medium text-ink-800 truncate" x-text="w.name"></div>
@@ -455,7 +455,7 @@
                     </template>
                     <div class="space-y-1">
                         <template x-for="a in activityFeed.slice(0, 8)" :key="a.id">
-                            <div class="flex items-start gap-3 py-2 px-2 rounded-lg hover:bg-ink-50/50 transition-colors">
+                            <div @click="a.project_id && openProjectRef(a.project_id, '')" class="flex items-start gap-3 py-2 px-2 rounded-lg hover:bg-ink-50/50 transition-colors" :class="a.project_id ? 'cursor-pointer' : ''">
                                 <div class="w-7 h-7 rounded-lg bg-ink-100 flex items-center justify-center text-[12px] flex-shrink-0" :class="activityColor(a.action)" x-text="activityIcon(a.action)"></div>
                                 <div class="flex-1 min-w-0">
                                     <p class="text-[12px] text-ink-700" x-text="a.summary"></p>

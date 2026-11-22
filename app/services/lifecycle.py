@@ -289,6 +289,41 @@ def template_for(project_type: str | None, tenant_id: int | None = None, db=None
     return LIFECYCLE_TEMPLATES.get(key, LIFECYCLE_TEMPLATES[DEFAULT_TYPE])
 
 
+def get_effective_lifecycle(db, tenant_id: int | None, item_type: str | None) -> dict:
+    """The ONE effective lifecycle for a tenant + project type (Rethink v2 C1).
+
+    The phase vocabulary used to live in three places (lifecycle_templates
+    rows, the backlog_item.py ITEM_PHASES/RELEASE_PHASES constants, hardcoded
+    frontend literals) and the advance guards read the constants — so a
+    tenant's custom template was decorative. This is the single source:
+
+    - built-in fallback: the built-in template vocabulary (for "software"
+      byte-identical to backlog_item.py ITEM_PHASES / RELEASE_PHASES) for
+      tenants WITHOUT a template row — byte-identical behavior for them;
+    - tenant override: the TenantLifecycleTemplate row (phases + gate
+      deliverables + gate roles) when one exists for the type — the template
+      now DRIVES the advance chain and the rail.
+
+    Returns item_phases, release_stages, gate_deliverables, gate_roles,
+    fields, name, description and "source" ("template" | "builtin").
+    Copies are defensive: the built-in dicts are module constants and must
+    never be mutated through a caller.
+    """
+    tpl = template_for(item_type, tenant_id=tenant_id, db=db)
+    return {
+        "name": tpl.get("name"),
+        "description": tpl.get("description"),
+        "item_phases": list(tpl.get("item_phases") or []),
+        "release_stages": list(tpl.get("release_stages") or []),
+        "gate_deliverables": {
+            k: list(v) for k, v in (tpl.get("gate_deliverables") or {}).items()
+        },
+        "gate_roles": dict(tpl.get("gate_roles") or {}),
+        "fields": list(tpl.get("fields") or []),
+        "source": "template" if tpl.get("custom") else "builtin",
+    }
+
+
 def item_phases(project_type: str | None) -> list[str]:
     return template_for(project_type)["item_phases"]
 

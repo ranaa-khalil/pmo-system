@@ -165,6 +165,66 @@ def list_backlog_items(
     return query.order_by(BacklogItem.created_at.desc()).all()
 
 
+@router.get("/projects/{project_id}/backlog/rail")
+def get_backlog_rail(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """The phase rail for the frontend — ONE effective lifecycle per project.
+
+    Rethink v2 C1: the phase vocabulary used to live in three places
+    (lifecycle_templates rows, the backlog_item.py constants, hardcoded JS)
+    and the parts didn't agree. This endpoint serves the single effective
+    source — the tenant's TenantLifecycleTemplate row when one exists, the
+    built-in phases (the backlog_item.py constants) otherwise — with the
+    per-phase gate deliverables/roles from the template when present.
+
+    Response: {project_id, item_types: [...], phases: [{name, order,
+    is_release_stage, gate: {deliverables, roles} | null}],
+    source: 'template' | 'builtin'}.
+    """
+    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    from app.services.lifecycle import get_effective_lifecycle
+
+    eff = get_effective_lifecycle(db, current_tenant.id, getattr(project, "project_type", None))
+
+    type_rows = (
+        db.query(BacklogItem.item_type)
+        .filter(BacklogItem.project_id == project_id, BacklogItem.tenant_id == current_tenant.id)
+        .distinct()
+        .all()
+    )
+    item_types = sorted({row[0] for row in type_rows if row[0]})
+
+    deliverables = eff["gate_deliverables"]
+    roles = eff["gate_roles"]
+    phases = []
+    for order, name in enumerate(eff["item_phases"]):
+        phase_deliverables = deliverables.get(name) or []
+        phase_role = roles.get(name)
+        gate = None
+        if phase_deliverables or phase_role:
+            gate = {
+                "deliverables": list(phase_deliverables),
+                "roles": [phase_role] if phase_role else [],
+            }
+        phases.append({"name": name, "order": order, "is_release_stage": False, "gate": gate})
+    for name in eff["release_stages"]:
+        phases.append({"name": name, "order": len(phases), "is_release_stage": True, "gate": None})
+
+    return {
+        "project_id": project_id,
+        "item_types": item_types,
+        "phases": phases,
+        "source": eff["source"],
+    }
+
+
 @router.get("/backlog/{item_id}", response_model=BacklogItemResponse)
 def get_backlog_item(
     item_id: int,
@@ -260,16 +320,17 @@ def advance_backlog_phase(
 ):
     """Advance a backlog item to the next phase of its project's lifecycle.
 
-    Dynamic: the phase vocabulary comes from the project's lifecycle template
-    (Software/SDLC/ADLC/Hybrid/AI/custom), not a hardcoded list. The release
-    stages stay release-level for every template.
+    Dynamic: the phase vocabulary comes from the project's EFFECTIVE
+    lifecycle — the tenant's lifecycle template row when one exists, the
+    built-in template otherwise (Rethink v2 C1) — never a hardcoded list. The
+    release stages stay release-level for every template.
     """
     item = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Backlog item not found")
 
     from app.models.backlog_item import RELEASE_PHASES
-    from app.services.lifecycle import item_phases, release_stages
+    from app.services.lifecycle import get_effective_lifecycle
 
     project = db.query(Project).filter(Project.id == item.project_id).first()
     project_type = project.project_type if project else None
@@ -279,8 +340,13 @@ def advance_backlog_phase(
     if item.current_phase in RELEASE_PHASES:
         return item
 
-    phases = item_phases(project_type)
-    release_level = release_stages(project_type)
+    # Rethink v2 C1: the vocabulary check reads the EFFECTIVE lifecycle — the
+    # tenant's template row overrides the built-in, so a custom ADLC template
+    # drives the advance chain. Tenants without a template row keep the
+    # built-in (byte-identical to the old item_phases()/release_stages() reads).
+    eff = get_effective_lifecycle(db, current_tenant.id, project_type)
+    phases = eff["item_phases"]
+    release_level = eff["release_stages"]
     if item.current_phase in release_level:
         return item
     if item.current_phase not in phases:

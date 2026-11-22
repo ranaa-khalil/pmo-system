@@ -556,10 +556,31 @@ def advance_phase(
         if release.status == phase:
             current_idx = i
             break
-    if current_idx < 0:
-        raise HTTPException(status_code=400, detail=f"Unknown status: {release.status}")
 
-    next_phase = V_CYCLE[current_idx + 1][0]
+    # Rethink v2 C1 — the vocabulary check reads the EFFECTIVE lifecycle: a
+    # tenant's template row overrides the release-stage ladder, so a release
+    # parked on one of the template's release stages advances along the
+    # TEMPLATE's ladder (no RACI gate maps to template stages — they advance
+    # directly). Tenants without a template row keep the built-in V-cycle
+    # verbatim (byte-identical behavior).
+    if current_idx < 0:
+        from app.services.lifecycle import get_effective_lifecycle
+
+        project = db.query(Project).filter(Project.id == release.project_id).first()
+        eff = get_effective_lifecycle(db, current_tenant.id, getattr(project, "project_type", None))
+        template_stages = eff["release_stages"]
+        if eff["source"] == "template" and release.status in template_stages:
+            stage_idx = template_stages.index(release.status)
+            if stage_idx >= len(template_stages) - 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Release is already in the final release stage ({template_stages[-1]})",
+                )
+            next_phase = template_stages[stage_idx + 1]
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown status: {release.status}")
+    else:
+        next_phase = V_CYCLE[current_idx + 1][0]
 
     # Check if there's already an approval for this release + target phase
     existing = db.query(ApprovalRequest).filter(

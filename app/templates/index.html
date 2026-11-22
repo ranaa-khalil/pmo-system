@@ -7,8 +7,10 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>PMO System — Obelion</title>
-    <!-- Libraries (self-hosted in /static — no CDN dependency) -->
-    <script nonce="{{ csp_nonce }}" src="/static/tailwind.min.js"></script>
+    <!-- Compiled Tailwind (ADR-07 — the Play CDN JIT is gone; artifact built by
+         npm run build:css from tailwind.src.css + tokens.css, ?v= cache-busted,
+         same head position the JIT's injected style occupied) -->
+    <link rel="stylesheet" href="/static/css/tailwind.compiled.css?v=20261122">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;600;700;800;900&display=swap" rel="stylesheet">

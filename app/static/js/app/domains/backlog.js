@@ -40,7 +40,7 @@ infraServiceForm: { name: '', service_type: 'internal', environment_id: '', docu
 showInfraDbForm: false,
 editingInfraDbId: null,
 infraDbForm: { name: '', db_type: 'postgresql', host: '', port: '', environment_id: '', backup_policy: '' },
-phaseFilter: null,  // filter backlog by phase
+phaseFilter: [],  // multi-select phase axis (OR within it) — the rail's phases
 get phaseCounts() {
     const counts = {};
     for (const item of this.backlogItems) {
@@ -49,27 +49,11 @@ get phaseCounts() {
     return counts;
 },
 get filteredBacklogItems() {
-    if (!this.phaseFilter) return this.backlogItems;
-    if (this.phaseFilter === 'In Release') {
-        return this.backlogItems.filter(i =>
-            ['UAT', 'Pre-Release'].includes(i.current_phase)
-        );
-    }
-    if (this.phaseFilter === 'Released') {
-        return this.backlogItems.filter(i =>
-            ['Release', 'Post-Release', 'Retrospective'].includes(i.current_phase) || i.status === 'Done'
-        );
-    }
-    return this.backlogItems.filter(i => i.current_phase === this.phaseFilter);
-},
-get releaseFilterCounts() {
-    const inRelease = this.backlogItems.filter(i =>
-        ['UAT', 'Pre-Release'].includes(i.current_phase)
-    ).length;
-    const released = this.backlogItems.filter(i =>
-        ['Release', 'Post-Release', 'Retrospective'].includes(i.current_phase) || i.status === 'Done'
-    ).length;
-    return { inRelease, released };
+    // Multi-select phase axis: OR within the phase axis (any selected phase
+    // matches); the other axes (search, group-by) AND with it downstream.
+    if (!this.phaseFilter || !this.phaseFilter.length) return this.backlogItems;
+    const selected = this.phaseFilter;
+    return this.backlogItems.filter(i => selected.includes(i.current_phase));
 },
 get requiredRoles() {
     // The 6 gate-keeper roles required by the Release Process V-cycle
@@ -124,10 +108,79 @@ depSearch: '',  // search text for dependency autocomplete
 depSearchFocused: false,
 filteredDeps: [],  // filtered results for dependency autocomplete
 epicForm: { name: '', description: '' },
-// Full 9-phase process (for reference)
-phases: ['Requirements', 'Design', 'Development', 'Testing', 'UAT', 'Pre-Release', 'Release', 'Post-Release', 'Retrospective'],
-// Item-level phases (features/bugs advance through these only)
-itemPhases: ['Requirements', 'Design', 'Development', 'Testing', 'Ready for UAT'],
+// ── The phase rail (Rethink v2 C2) — ONE effective lifecycle per project ──
+// GET /projects/{id}/backlog/rail serves the effective phases (the tenant's
+// template row when one exists, the built-in otherwise). The vocabulary used
+// to be hardcoded in three JS literals here — now every surface reads the
+// rail: both boards, the filter chips, the steppers, the move menu and the
+// advance buttons. No phase name is hardcoded anywhere below.
+railCache: {},   // project_id → rail payload { phases, source, item_types }
+railLoading: {}, // project_id → true while the fetch is in flight
+async loadBacklogRail(projectId, force = false) {
+    // Lazy per-project fetch, cached — the x-effect on the backlog tab fires
+    // it on first render; the boards re-check it on every build.
+    const pid = Number(projectId);
+    if (!pid) return null;
+    if (!force && this.railCache[pid]) return this.railCache[pid];
+    if (this.railLoading[pid]) return null;
+    this.railLoading[pid] = true;
+    try {
+        const rail = await this.api('GET', `/projects/${pid}/backlog/rail`);
+        if (rail && Array.isArray(rail.phases)) {
+            this.railCache[pid] = rail;
+            // A board may have built from observed phases before the rail
+            // landed — re-lane the visible board (the loadWork pattern).
+            if (Number(this.selectedProject?.id) === pid && this.backlogView === 'board') this.buildBacklogBoard();
+            if (this.workViewMode === 'board') this.buildWorkBoard();
+            return rail;
+        }
+    } catch { /* no rail — the observed-phase fallbacks cover it */ }
+    finally { this.railLoading[pid] = false; }
+    return null;
+},
+railForProject(projectId) {
+    const pid = Number(projectId);
+    return pid ? (this.railCache[pid] || null) : null;
+},
+observedPhaseNames(items) {
+    // Fallback when a project has no rail (API failure, offline): distinct
+    // current_phase values from the loaded items, in first-appearance
+    // order — never a hardcoded list.
+    const seen = new Set();
+    const names = [];
+    for (const it of items || []) {
+        const ph = (it.current_phase || it.phase || '').trim();
+        if (ph && !seen.has(ph)) { seen.add(ph); names.push(ph); }
+    }
+    return names;
+},
+get railProjectId() {
+    // Which project's rail the current surface renders: the open drawer wins
+    // (the ONE drawer serves both boards and closes to null), then the
+    // project-detail item modal, then the selected project.
+    const pid = this.selectedWorkItem?.project_id ?? this.viewingBacklogItem?.project_id ?? this.selectedProject?.id;
+    return pid != null ? Number(pid) : null;
+},
+get itemPhases() {
+    // Effective item-level phases for the current context — the rail's
+    // non-release stages; the items' observed phases when no rail.
+    const rail = this.railForProject(this.railProjectId);
+    if (rail) return rail.phases.filter(p => !p.is_release_stage).map(p => p.name);
+    return this.observedPhaseNames([].concat(this.backlogItems || [], this.workItems || []));
+},
+get releasePhases() {
+    // The rail's real release stages (is_release_stage) for the current
+    // context — replaces the hand-mapped In Release/Released buckets.
+    const rail = this.railForProject(this.railProjectId);
+    if (rail) return rail.phases.filter(p => p.is_release_stage).map(p => p.name);
+    return [];
+},
+get phases() {
+    // Every effective rail phase in order (item + release) — phaseIndex reads it.
+    const rail = this.railForProject(this.railProjectId);
+    if (rail) return rail.phases.map(p => p.name);
+    return this.observedPhaseNames([].concat(this.backlogItems || [], this.workItems || []));
+},
 backlogView: 'list',  // 'list' | 'board' — board is the Kanban by phase
 backlogBoardColumns: [],  // [{ phase, items }] built by buildBacklogBoard
 dragItem: null,  // { id, fromPhase } while dragging a board card
@@ -136,8 +189,6 @@ dropIndex: null,  // 'before' | 'after' — insert gap while dragging over a car
 quickAddPhase: null,  // phase whose quick-add input is open
 quickAddTitle: '',  // quick-add input text
 quickAddSaving: false,
-// Release-level phases (the release as a whole goes through these)
-releasePhases: ['UAT', 'Pre-Release', 'Release', 'Post-Release', 'Retrospective'],
 
 
 // ===== Backlog computed: epic list + grouped items =====
@@ -555,17 +606,26 @@ async advanceBacklogItem(id) {
 
 // ─── Board view (Kanban by phase) ───
 buildBacklogBoard() {
-    // One column per item-level phase; items grouped by current_phase.
+    // One column per effective item phase; items grouped by current_phase.
     // Epic-type items are not on the board (they're groupings, not work).
+    // The vocabulary comes from the project's rail (Rethink v2 C2) — the
+    // tenant template's phases on any project type; the items' observed
+    // phases when no rail exists. Never a hardcoded list.
+    const pid = this.selectedProject?.id;
+    if (pid != null) this.loadBacklogRail(pid);  // lazy + cached; re-lanes on arrival
+    const rail = this.railForProject(pid);
     const pool = this.backlogItems.filter(i => i.item_type !== 'Epic');
-    this.backlogBoardColumns = this.itemPhases.map(phase => ({
+    const lanePhases = rail
+        ? rail.phases.filter(p => !p.is_release_stage).map(p => p.name)
+        : this.observedPhaseNames(pool);
+    this.backlogBoardColumns = lanePhases.map(phase => ({
         phase,
         items: pool.filter(i => (i.current_phase || '') === phase).sort((a, b) => this.boardItemCompare(a, b)),
     }));
-    // Stragglers in phases outside the template (legacy values) go to the last column's tail
-    const known = new Set(this.itemPhases);
+    // Stragglers in phases outside the rail (legacy values) go to the last column's tail
+    const known = new Set(lanePhases);
     const stragglers = pool.filter(i => !known.has(i.current_phase || ''));
-    if (stragglers.length) {
+    if (stragglers.length && this.backlogBoardColumns.length) {
         this.backlogBoardColumns[this.backlogBoardColumns.length - 1].items.push(...stragglers);
     }
 },
@@ -669,20 +729,52 @@ openBoard() {
 workBoardColumns: [],  // [{ key, label, kind, items }] built by buildWorkBoard
 workDragItem: null,  // { id, fromLane } while dragging a Work card
 workDragOverLane: null,  // lane the dragged card is hovering over
+workRailPhaseNames() {
+    // Union of the effective item phases across the projects present in the
+    // work dataset (workItems — unfiltered, so lanes stay stable under the
+    // filter chips), each project's rail order preserved (Rethink v2 C2).
+    // Rails load lazily per project; the loader re-lanes when they land.
+    // No rail at all → the items' observed phases.
+    const pids = [];
+    const seen = new Set();
+    for (const it of this.workItems || []) {
+        const pid = Number(it.project_id);
+        if (pid && !seen.has(pid)) { seen.add(pid); pids.push(pid); }
+    }
+    const names = [];
+    const have = new Set();
+    let anyRail = false;
+    for (const pid of pids) {
+        this.loadBacklogRail(pid);  // lazy, cached — the loader re-lanes on arrival
+        const rail = this.railCache[pid];
+        if (!rail) continue;
+        anyRail = true;
+        for (const p of rail.phases) {
+            if (p.is_release_stage || have.has(p.name)) continue;
+            have.add(p.name);
+            names.push(p.name);
+        }
+    }
+    if (anyRail) return names;
+    return this.observedPhaseNames(this.workItems || []);
+},
 buildWorkBoard() {
     // One lane per group; Epic-type items are not work (they're groupings)
     const pool = this.workFiltered.filter(i => i.item_type !== 'Epic');
     const groupBy = this.workGroupBy || 'phase';
     if (groupBy === 'phase') {
-        // Phase lanes in lifecycle order; stragglers (legacy phase values)
-        // tail the last lane — same behavior as the per-project board.
-        this.workBoardColumns = this.itemPhases.map(phase => ({
+        // Phase lanes from the rail: the union of the effective item phases
+        // across the projects in the work pool, in rail order — cross-project
+        // boards mix template vocabularies. Stragglers (legacy values) tail
+        // the last lane, same as the per-project board.
+        const lanePhases = this.workRailPhaseNames();
+        this.workBoardColumns = lanePhases.map(phase => ({
             key: phase, label: phase, kind: 'phase',
             items: pool.filter(i => (i.current_phase || '') === phase).sort((a, b) => this.boardItemCompare(a, b)),
         }));
-        const known = new Set(this.itemPhases);
+        const known = new Set(lanePhases);
         const stragglers = pool.filter(i => !known.has(i.current_phase || ''));
-        if (stragglers.length) {
+        if (stragglers.length && this.workBoardColumns.length) {
             this.workBoardColumns[this.workBoardColumns.length - 1].items.push(...stragglers);
         }
         return;
@@ -1118,7 +1210,7 @@ async saveCurrentView() {
     try {
         await this.api('POST', `/projects/${this.selectedProject.id}/views`, {
             name: name,
-            filters: { search: this.backlogSearch || '', phase: this.phaseFilter || '', view: this.backlogView || 'list', group_by: this.boardGroupBy || '' },
+            filters: { search: this.backlogSearch || '', phase: (this.phaseFilter || []).join(','), view: this.backlogView || 'list', group_by: this.boardGroupBy || '' },
             shared: true,
         });
         this.viewSaveName = '';
@@ -1131,7 +1223,9 @@ async saveCurrentView() {
 applyView(v) {
     const f = v.filters || {};
     this.backlogSearch = f.search || '';
-    this.phaseFilter = f.phase || null;
+    // Saved phase filters store the multi-select as a comma-joined string;
+    // legacy single-phase views apply as a one-element selection.
+    this.phaseFilter = String(f.phase || '').split(',').map(s => s.trim()).filter(Boolean);
     this.boardGroupBy = f.group_by || '';
     if (f.view) this.backlogView = f.view;
     this.activeViewName = v.name;
@@ -1140,7 +1234,7 @@ applyView(v) {
 
 clearActiveView() {
     this.backlogSearch = '';
-    this.phaseFilter = null;
+    this.phaseFilter = [];
     this.boardGroupBy = '';
     this.activeViewName = '';
 },
@@ -1207,7 +1301,14 @@ selectDepFromSearch(avail) {
 },
 
 togglePhaseFilter(phase) {
-    this.phaseFilter = this.phaseFilter === phase ? null : phase;
+    // Multi-select: chips toggle individually — OR within the phase axis,
+    // AND across the other axes (search, group-by combine downstream).
+    const cur = Array.isArray(this.phaseFilter) ? this.phaseFilter : (this.phaseFilter ? [this.phaseFilter] : []);
+    this.phaseFilter = cur.includes(phase) ? cur.filter(p => p !== phase) : cur.concat(phase);
+},
+phaseFilterActive(phase) {
+    const cur = Array.isArray(this.phaseFilter) ? this.phaseFilter : [];
+    return cur.includes(phase);
 },
 
 cancelEditBacklog() {
@@ -1270,6 +1371,20 @@ async saveBacklogItemEdit() {
 
 phaseIndex(phase) {
     return this.phases.indexOf(phase);
+},
+
+canAdvanceItem(phase) {
+    // Advance shows for item-level rail phases that still have a next
+    // phase — the effective vocabulary, not a hardcoded name.
+    const phases = this.itemPhases;
+    const idx = phases.indexOf(phase);
+    return idx >= 0 && idx < phases.length - 1;
+},
+
+phaseDotColor(phase) {
+    // Cosmetic lane dot — Software lanes keep today's colors, every other
+    // phase the neutral dot (colors never gate behavior).
+    return { Development: 'bg-brand-500', Testing: 'bg-amber-400', 'Ready for UAT': 'bg-emerald-400' }[phase] || 'bg-violet-300';
 },
 
 priorityColor(priority) {

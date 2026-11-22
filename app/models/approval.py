@@ -51,11 +51,11 @@ class ApprovalStep(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(Integer, nullable=True, index=True)
-    request_id = Column(Integer, ForeignKey("approval_requests.id", ondelete="CASCADE"), nullable=False)
+    request_id = Column(Integer, ForeignKey("approval_requests.id", ondelete="CASCADE"), nullable=False, index=True)
     step_order = Column(Integer, nullable=False)
     role_name = Column(String(100), nullable=False)
     approver_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    status = Column(String(50), default="Pending", nullable=False)
+    status = Column(String(50), default="Pending", nullable=False, index=True)
     comment = Column(Text, nullable=True)
     decided_at = Column(String, nullable=True)
     created_at = Column(String, server_default=func.now(), nullable=False)

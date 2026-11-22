@@ -10,7 +10,7 @@ artifact_chain entry (entity_type="decision") so the trail is tamper-evident.
 KPI hook (plan v1 R3): decision latency is measured from these rows —
 made_at vs the linked approval request's timeline; no second place to look.
 """
-from sqlalchemy import Column, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.sql import func
 
 from app.database import Base
@@ -48,6 +48,10 @@ class DecisionRecord(Base):
         Integer, ForeignKey("decision_records.id", ondelete="SET NULL"), nullable=True
     )
     status = Column(String(20), nullable=False, default="active")  # active | superseded
+
+    # Rethink v2 Phase A: decisions-by-project + newest-first (the composite the
+    # migration a7c2e9f41d05 creates for existing databases).
+    __table_args__ = (Index("ix_decision_records_project_created", "project_id", "made_at"),)
 
     def __repr__(self):
         return f"<DecisionRecord(id={self.id}, title={self.title[:30]}, status={self.status})>"

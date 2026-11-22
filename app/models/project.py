@@ -16,7 +16,7 @@ class Project(Base):
     name = Column(String(255), nullable=False)
     client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
     description = Column(Text, nullable=True)
-    status = Column(String(50), nullable=False, default="Active")
+    status = Column(String(50), nullable=False, default="Active", index=True)
     # Quick-scan health (GitHub Boards status updates parity): On track | At risk | Off track
     health = Column(String(20), nullable=True)
     # Budget fields (Q1): planned hours + planned cost; spent = rollup from time_entries

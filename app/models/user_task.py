@@ -26,7 +26,7 @@ class UserTask(Base):
     tenant_id = Column(Integer, nullable=True, index=True)
     title = Column(String(500), nullable=False)
     description = Column(Text, nullable=True)
-    assigned_to = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    assigned_to = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=True)
     milestone_id = Column(Integer, ForeignKey("milestones.id", ondelete="SET NULL"), nullable=True)

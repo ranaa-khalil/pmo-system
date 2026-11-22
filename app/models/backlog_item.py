@@ -50,10 +50,10 @@ class BacklogItem(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(Integer, nullable=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
     title = Column(String(500), nullable=False)
     description = Column(Text, nullable=True)
-    current_phase = Column(String(50), default="Requirements", nullable=False)
+    current_phase = Column(String(50), default="Requirements", nullable=False, index=True)
     status = Column(String(50), default="Draft", nullable=False)
     priority = Column(String(50), default="Medium", nullable=False)
     # Extended fields from Master Backlog

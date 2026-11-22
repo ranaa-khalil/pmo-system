@@ -8,11 +8,18 @@ Two eras of tests live in this suite:
 `client` is auto-authenticated (super_admin + tenant owner) so router tests
 read like business flows; `anon_client` exercises the no-auth path.
 """
+import os
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+
+# The officer beat (R1) must NEVER spawn threads in the suite: the scheduler
+# is disabled via env (read at start_scheduler time) AND the app's startup
+# event never fires (TestClient is used without a context manager).
+os.environ["PMO_SCHEDULER_ENABLED"] = "0"
 
 # Import all models BEFORE create_all
 import app.models  # noqa: F401 — register all models with Base

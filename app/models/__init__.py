@@ -6,6 +6,7 @@ from app.models.approval import ApprovalRequest, ApprovalStep
 from app.models.artifact_chain import ArtifactChain
 from app.models.automation_rule import AutomationRule
 from app.models.backlog_item import BacklogItem
+from app.models.beat_run import BeatRun
 from app.models.client import Client
 from app.models.comment import Comment
 from app.models.form_template import FormInstance, FormTemplate

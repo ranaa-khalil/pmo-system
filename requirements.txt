@@ -21,6 +21,10 @@ psycopg2-binary>=2.9.0
 # Alembic — schema migrations (R0 baseline, ADR-04); the k8s migration job
 # runs `alembic upgrade head`, so this must be in the app image
 alembic>=1.13.0
+# APScheduler — the officer beat (R1, ADR-02): in-process scheduler wiring the
+# run_* services to the nightly/hourly beat; same module runs standalone as
+# `python -m app.worker` when the worker split happens
+APScheduler>=3.10,<4
 # Redis (for caching, rate limiting, background queues — Phase 1+)
 # redis>=5.0.0
 slowapi>=0.1.9

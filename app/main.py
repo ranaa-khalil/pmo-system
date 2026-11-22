@@ -33,6 +33,7 @@ from app.routers import (
     lifecycle,
     mcp,
     notifications,
+    officer,
     personas,
     planning,
     portal,
@@ -170,8 +171,26 @@ app.include_router(infrastructure.router)
 app.include_router(portal.router)
 app.include_router(portal.mgmt_router)
 
+# Officer beat (R1: the rules run; ADR-02)
+app.include_router(officer.router)
+
 # Register frontend UI
 app.include_router(frontend_router)
+
+
+@app.on_event("startup")
+def start_officer_beat():
+    """Start the officer beat scheduler (ADR-02). Idempotent; PMO_SCHEDULER_ENABLED=0 disables."""
+    from app.worker import start_scheduler
+
+    start_scheduler()
+
+
+@app.on_event("shutdown")
+def stop_officer_beat():
+    from app.worker import shutdown_scheduler
+
+    shutdown_scheduler()
 
 
 @app.on_event("startup")

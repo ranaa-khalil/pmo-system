@@ -13,7 +13,9 @@ from sqlalchemy.orm import Session
 from app.models.activity_log import ActivityLog
 from app.models.approval import ApprovalRequest
 from app.models.automation_rule import AutomationRule
+from app.models.backlog_item import BacklogItem
 from app.models.notification import Notification
+from app.models.project import Project
 from app.models.tenant import Tenant, TenantMembership
 from app.models.user import User
 from app.models.user_task import UserTask
@@ -182,10 +184,51 @@ def _match_item_sent_back(db: Session, tenant: Tenant, rule: AutomationRule) -> 
     return ctxs
 
 
+def _match_item_blocked(db: Session, tenant: Tenant, rule: AutomationRule) -> list[dict]:
+    """Backlog items sitting Blocked for more than conditions.days_blocked.
+
+    The RAID escalation trigger (decision-7): matched items raise an
+    escalation follow-up for their owner (amber-confirm — the task is the
+    draft; the human escalates). Age is parsed in Python (updated_at is a
+    String column; string comparison would misorder formats).
+    """
+    days = float((rule.conditions or {}).get("days_blocked", 3))
+    items = (
+        db.query(BacklogItem)
+        .filter(BacklogItem.tenant_id == tenant.id, BacklogItem.status == "Blocked")
+        .all()
+    )
+    ctxs = []
+    for item in items:
+        updated = _parse_created(item.updated_at or item.created_at)
+        if not updated:
+            continue
+        age_days = (datetime.utcnow() - updated).total_seconds() / 86400.0
+        if age_days < days:
+            continue
+        target = None
+        if item.assigned_to:
+            target = db.query(User).filter(User.id == item.assigned_to).first()
+        if not target and item.project_id:
+            project = db.query(Project).filter(Project.id == item.project_id).first()
+            if project and project.project_manager_id:
+                target = db.query(User).filter(User.id == project.project_manager_id).first()
+        if not target:
+            continue
+        ctxs.append({
+            "user": target, "project_id": item.project_id,
+            "title": f"Blocked > {int(age_days)}d: {item.title[:200]}", "link": None,
+            "body": f"Item '{item.title[:200]}' has been Blocked for {int(age_days)} days. "
+                    f"Rule: {rule.name} — escalate it (decision-7).",
+        })
+    return ctxs
+
+
 _MATCHERS = {
     "approval_aging": _match_approval_aging,
     "task_overdue": _match_task_overdue,
     "item_sent_back": _match_item_sent_back,
+    "item_blocked": _match_item_blocked,
 }
 
 

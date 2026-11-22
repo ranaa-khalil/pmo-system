@@ -367,3 +367,23 @@ def get_traceability_matrix(
         "releases": release_data,
         "backlog_items": backlog_data,
     }
+
+
+# ===== KPI Coverage =====
+@router.get("/projects/{project_id}/coverage")
+def get_project_coverage(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Both-direction KPI coverage: KPI → its work, item → its KPI (orphans).
+
+    The share of KPIs with at least one linked backlog item (null when the
+    project has no KPIs), each KPI's work block, the orphan items with
+    kpi_id NULL, and the KPIs that have no work beneath them.
+    """
+    if not db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first():
+        raise HTTPException(status_code=404, detail="Project not found")
+    from app.services.coverage import compute_coverage
+    return compute_coverage(db, current_tenant.id, project_id)

@@ -1,0 +1,78 @@
+<!-- Capture box (§7 #3) — defined ONCE here, included from the Work header, -->
+<!-- Today, the drawer's + New item, and the FAB launcher. One line → the ONE -->
+<!-- collapsed POST /api/ai/intake → amber Confirm bar (per-item drafts +    -->
+<!-- dedupe) → Confirm/Dismiss. Behavior: static/js/app/capture_box.js.      -->
+<!-- Context: box_id (unique per include), hide_fallback (set when the form  -->
+<!-- fallback is already visible right beside this box).                     -->
+<div x-data="captureBox('{{ box_id | default('capture') }}')" class="surface rounded-xl border border-ink-200/60 p-3">
+
+    <!-- One-line input + → (the 2-step create: sentence → amber Confirm) -->
+    <form @submit.prevent="submit()" class="flex items-center gap-2">
+        <input x-model="notes" type="text"
+               placeholder="Say it once — &quot;add bulk import for transcripts&quot;"
+               class="flex-1 min-w-0 px-3 py-2 rounded-lg border border-ink-200 text-[12.5px] bg-white outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 transition-all">
+        <!-- Source chips pick the destination (Work item / My Task) -->
+        <div class="flex items-center rounded-lg bg-ink-100 p-0.5 shrink-0">
+            <button type="button" @click="destination = 'work_item'"
+                    class="px-2 py-1 rounded-md text-[10.5px] font-semibold transition-all"
+                    :class="destination === 'work_item' ? 'bg-white text-ink-800 shadow-sm' : 'text-ink-400 hover:text-ink-600'">Work item</button>
+            <button type="button" @click="destination = 'my_task'"
+                    class="px-2 py-1 rounded-md text-[10.5px] font-semibold transition-all"
+                    :class="destination === 'my_task' ? 'bg-white text-ink-800 shadow-sm' : 'text-ink-400 hover:text-ink-600'">My Task</button>
+        </div>
+        <button type="submit" :disabled="submitting || !notes.trim()"
+                class="w-8 h-8 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 text-white flex items-center justify-center shrink-0 hover:opacity-90 transition-all disabled:opacity-40"
+                title="Capture">→</button>
+    </form>
+
+    <!-- Loading line -->
+    <div x-show="submitting" x-cloak class="mt-2 text-[11px] text-ink-400">Capturing…</div>
+
+    <!-- Amber Confirm bar — every AI draft is a draft: per-item checkboxes + -->
+    <!-- dedupe inline + Confirm/Dismiss (nothing executes before the tap) -->
+    <div x-show="result" x-cloak class="mt-2.5 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
+        <div class="flex items-center gap-1.5 mb-2">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-amber-700 shrink-0">Confirm capture</span>
+            <span class="text-[10.5px] text-amber-700/80 truncate" x-text="result?.message"></span>
+        </div>
+        <div class="space-y-1.5 max-h-52 overflow-y-auto">
+            <template x-for="d in (result?.items || [])" :key="d.key">
+                <label class="flex items-start gap-2 rounded-lg bg-white/70 border border-amber-100 px-2 py-1.5 cursor-pointer">
+                    <input type="checkbox" x-model="checked[d.key]" class="mt-0.5 w-3.5 h-3.5 rounded border-amber-300 text-amber-600 focus:ring-amber-400">
+                    <span class="min-w-0 flex-1">
+                        <span class="block text-[12px] font-medium text-ink-800 break-words" x-text="d.title"></span>
+                        <span class="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            <span class="text-[9.5px] px-1.5 py-0.5 rounded-full bg-ink-100 text-ink-500" x-text="d.item_type"></span>
+                            <span class="text-[9.5px] px-1.5 py-0.5 rounded-full bg-brand-50 text-brand-600" x-show="d.epic" x-text="d.epic"></span>
+                            <span class="text-[9.5px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold" x-show="d.needs_structuring">needs structuring</span>
+                            <span class="text-[9.5px] font-medium text-amber-700" x-show="d.dedupe" x-text="'Already captured as #' + (d.dedupe?.item_id ?? '') + ' — merge?'"></span>
+                        </span>
+                    </span>
+                </label>
+            </template>
+        </div>
+        <!-- Parking lot: a no-project line needs a filed project before it lands -->
+        <div x-show="result?.parking_lot" x-cloak class="mt-2">
+            <select x-model="parkProjectId"
+                    class="w-full px-2.5 py-1.5 rounded-lg border border-amber-200 bg-white text-[11.5px] outline-none focus:ring-2 focus:ring-amber-300">
+                <option value="">Parking lot — pick a project to file it…</option>
+                <template x-for="p in (store()?.projects || [])" :key="p.id">
+                    <option :value="p.id" x-text="p.name"></option>
+                </template>
+            </select>
+        </div>
+        <div class="flex items-center gap-2 mt-2">
+            <button @click="confirm()" :disabled="confirmDisabled()"
+                    class="px-3 py-1.5 rounded-lg bg-amber-500 text-white text-[11.5px] font-semibold hover:bg-amber-600 transition-all disabled:opacity-40">Confirm</button>
+            <button @click="dismiss()" :disabled="confirming"
+                    class="px-3 py-1.5 rounded-lg text-[11.5px] font-medium text-ink-500 hover:bg-amber-100 transition-all">Dismiss</button>
+            <span class="text-[10px] text-ink-400 ml-auto" x-text="checkedCount() + ' selected'"></span>
+        </div>
+    </div>
+
+    <!-- Manual path, always visible (interaction rule 7: AI never blocks) -->
+    {% if show_fallback != 'false' %}
+    <button @click="skipToForm()"
+            class="mt-1.5 text-[11px] font-medium text-ink-400 hover:text-brand-600 transition-colors">Skip AI — add with the form</button>
+    {% endif %}
+</div>

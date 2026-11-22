@@ -107,9 +107,9 @@ workPickProject() {
     setTimeout(() => el.classList.remove('ring-2', 'ring-brand-300'), 2000);
 },
 
-// + New item — placeholder until Slice 3b wires the shared capture box
+// + New item — opens the drawer in new-item mode (capture box + form fallback)
 newWorkItem() {
-    this.showToast('The capture box lands with the Work drawer slice — add items from a project board for now', 'info');
+    this.openWorkItemNew();
 },
 
 // ===== ItemType vocabulary (tenant-scoped) =====
@@ -277,13 +277,27 @@ async onGanttDrop(item, dayIso) {
 async openWorkItem(item) {
     this.selectedWorkItem = item;
     this.workDetail = null;
-    this.workDetailLoading = true;
+    this.workItemNew = false;
+    this.workItemEdit = false;
+    this.workItemMoveOpen = false;
+    this.workTagPickerOpen = false;
+    this.workAssigneeOpen = false;
+    this.workItemCommentForm = '';
+    document.body.style.overflow = 'hidden';
     try {
-        const [brief, itemRow] = await Promise.all([
+        const [brief, itemRow, comments, proofs, subitems] = await Promise.all([
             this.api('GET', `/projects/${item.project_id}/brief`).catch(() => null),
             this.api('GET', `/backlog/${item.id}`).catch(() => null),
+            this.api('GET', `/backlog/${item.id}/comments`).catch(() => []),
+            this.api('GET', `/backlog/${item.id}/proofs`).catch(() => []),
+            this.api('GET', `/backlog/${item.id}/subitems`).catch(() => []),
         ]);
         this.workDetail = { brief, item: itemRow };
+        this.workItemComments = comments || [];
+        this.workItemProofs = proofs || [];
+        this.workItemSubitems = subitems || [];
+        // The fresh row's tags are the drawer's tags (the payload's tags[] is a fallback)
+        if (itemRow && itemRow.tags) this.selectedWorkItem.tags = itemRow.tags;
     } catch { this.workDetail = { brief: null, item: null }; }
     this.workDetailLoading = false;
 },
@@ -291,6 +305,283 @@ async openWorkItem(item) {
 closeWorkItem() {
     this.selectedWorkItem = null;
     this.workDetail = null;
+    this.workItemNew = false;
+    this.workItemEdit = false;
+    this.workItemMoveOpen = false;
+    this.workTagPickerOpen = false;
+    this.workAssigneeOpen = false;
+    this.workItemComments = [];
+    this.workItemProofs = [];
+    this.workItemSubitems = [];
+    this.workItemCommentForm = '';
+    document.body.style.overflow = '';
+},
+
+// ===== Item drawer write layer (Slice 3b — the ONE drawer everywhere) =====
+// Drawer-not-modal (rule 6), optimistic (rule 8), inline edit (rule 4).
+workItemNew: false,          // drawer is in + New item mode
+workItemEdit: false,         // view ↔ edit swap
+workItemEditForm: {},
+workItemMoveOpen: false,     // the phase chip's move menu
+workTagPickerOpen: false,
+workTagName: '',
+workTagColor: 'indigo',
+workAssigneeOpen: false,
+workItemComments: [],
+workItemCommentForm: '',
+workItemProofs: [],
+workItemSubitems: [],
+newItemForm: { project_id: null, title: '', description: '', priority: 'Medium', item_type: 'Feature' },
+
+// The drawer's + New item: capture box + the form fallback (visible path)
+openWorkItemNew() {
+    this.workItemNew = true;
+    this.workItemEdit = false;
+    this.workItemMoveOpen = false;
+    this.workTagPickerOpen = false;
+    this.workAssigneeOpen = false;
+    const pre = this.workProjectFilter ? Number(this.workProjectFilter)
+        : (this.projects && this.projects[0] ? this.projects[0].id : null);
+    this.newItemForm = { project_id: pre, title: '', description: '', priority: 'Medium', item_type: 'Feature' };
+    // A truthy placeholder opens the drawer; the new-item template renders
+    this.selectedWorkItem = { id: 'new', title: 'New item', project: '', project_id: pre };
+    document.body.style.overflow = 'hidden';
+},
+
+// Fresh values win (a stale row keeps the drawer honest after a move)
+workItemDescription() {
+    const it = this.workDetail && this.workDetail.item;
+    return (it && it.description) || this.selectedWorkItem?.description || '';
+},
+workItemAcceptance() {
+    const it = this.workDetail && this.workDetail.item;
+    return (it && it.acceptance_criteria) || this.selectedWorkItem?.acceptance_criteria || '';
+},
+workCurrentPhase() {
+    const it = this.workDetail && this.workDetail.item;
+    return (it && it.current_phase) || this.selectedWorkItem?.phase || 'Requirements';
+},
+workStepperFill(idx) {
+    const phases = this.itemPhases || [];
+    const cur = phases.indexOf(this.workCurrentPhase());
+    if (idx < cur) return 'bg-brand-500';
+    if (idx === cur) return 'bg-white border-2 border-accent-600 shadow-sm';
+    return 'bg-ink-200';
+},
+workAdvanceLabel() {
+    const phases = this.itemPhases || [];
+    const idx = phases.indexOf(this.workCurrentPhase());
+    if (idx < 0 || idx >= phases.length - 1) return 'Advance';
+    return `Move to ${phases[idx + 1]} →`;
+},
+workAdvanceAllowed() {
+    const phases = this.itemPhases || [];
+    const idx = phases.indexOf(this.workCurrentPhase());
+    return idx >= 0 && idx < phases.length - 1;
+},
+
+// Phase moves share the modal footer's endpoints (advance/send-back) — one
+// verb vocabulary everywhere. Drag = group-by on the board (3a); this is
+// the explicit move for every other surface.
+async moveWorkItemTo(phase) {
+    if (!this.selectedWorkItem || phase === this.workCurrentPhase()) { this.workItemMoveOpen = false; return; }
+    const id = this.selectedWorkItem.id;
+    if (phase === 'Requirements') {
+        this.workItemMoveOpen = false;
+        await this.sendBackWorkItem(id);
+        return;
+    }
+    this.workItemMoveOpen = false;
+    // Optimistic: the drawer reflects the move before the round-trip lands
+    const from = this.workCurrentPhase();
+    const steps = (this.itemPhases || []).indexOf(phase) - (this.itemPhases || []).indexOf(from);
+    if (this.workDetail && this.workDetail.item) this.workDetail.item.current_phase = phase;
+    if (this.selectedWorkItem) this.selectedWorkItem.phase = phase;
+    try {
+        for (let i = 0; i < Math.abs(steps); i++) {
+            await this.api('POST', `/backlog/${id}/${steps > 0 ? 'advance' : 'send-back'}`);
+        }
+        this.showToast(`#${id} → ${phase}`, 'success');
+        this.loadWork();
+    } catch (e) {
+        // Roll back the optimistic state
+        if (this.workDetail && this.workDetail.item) this.workDetail.item.current_phase = from;
+        if (this.selectedWorkItem) this.selectedWorkItem.phase = from;
+        this.showToast(e.message || 'Move failed', 'error');
+    }
+},
+async advanceWorkItem(id) {
+    const from = this.workCurrentPhase();
+    const phases = this.itemPhases || [];
+    const next = phases[phases.indexOf(from) + 1];
+    if (this.workDetail && this.workDetail.item) this.workDetail.item.current_phase = next;
+    if (this.selectedWorkItem) this.selectedWorkItem.phase = next;
+    try {
+        await this.api('POST', `/backlog/${id}/advance`);
+        this.showToast(this.workAdvanceLabel(), 'success');
+        this.loadWork();
+    } catch (e) {
+        if (this.workDetail && this.workDetail.item) this.workDetail.item.current_phase = from;
+        if (this.selectedWorkItem) this.selectedWorkItem.phase = from;
+        this.showToast(e.message || 'Move failed', 'error');
+    }
+},
+async sendBackWorkItem(id) {
+    const from = this.workCurrentPhase();
+    if (this.workDetail && this.workDetail.item) this.workDetail.item.current_phase = 'Requirements';
+    if (this.selectedWorkItem) this.selectedWorkItem.phase = 'Requirements';
+    try {
+        await this.api('POST', `/backlog/${id}/send-back`);
+        this.showToast('↩ Sent back to Requirements', 'info');
+        this.loadWork();
+    } catch (e) {
+        if (this.workDetail && this.workDetail.item) this.workDetail.item.current_phase = from;
+        if (this.selectedWorkItem) this.selectedWorkItem.phase = from;
+        this.showToast(e.message || 'Send-back failed', 'error');
+    }
+},
+
+// Edit: swaps inline in place (rule 4) — same surface, no navigation
+startWorkItemEdit() {
+    const it = (this.workDetail && this.workDetail.item) || this.selectedWorkItem || {};
+    this.workItemEditForm = {
+        title: it.title || '',
+        description: this.workItemDescription(),
+        acceptance_criteria: this.workItemAcceptance(),
+        priority: it.priority || 'Medium',
+        item_type: it.item_type || '',
+        story_points: it.story_points ?? '',
+        target_release: it.target_release || '',
+        epic: it.epic || '',
+    };
+    this.workItemEdit = true;
+},
+async saveWorkItemEdit() {
+    const id = this.selectedWorkItem && this.selectedWorkItem.id;
+    if (!id || !this.workItemEditForm.title.trim()) return;
+    const body = {
+        title: this.workItemEditForm.title.trim(),
+        description: this.workItemEditForm.description || '',
+        acceptance_criteria: this.workItemEditForm.acceptance_criteria || '',
+        priority: this.workItemEditForm.priority,
+        item_type: this.workItemEditForm.item_type || null,
+        story_points: this.workItemEditForm.story_points === '' ? null : Number(this.workItemEditForm.story_points),
+        target_release: this.workItemEditForm.target_release || null,
+        epic: this.workItemEditForm.epic || null,
+    };
+    try {
+        const fresh = await this.api('PUT', `/backlog/${id}`, body);
+        if (this.workDetail && this.workDetail.item) this.workDetail.item = { ...this.workDetail.item, ...fresh };
+        if (this.selectedWorkItem) {
+            this.selectedWorkItem.title = fresh.title;
+            this.selectedWorkItem.priority = fresh.priority;
+            this.selectedWorkItem.item_type = fresh.item_type;
+        }
+        this.workItemEdit = false;
+        this.showToast('Item updated', 'success');
+        this.loadWork();
+    } catch (e) {
+        this.showToast(e.message || 'Could not save changes', 'error');
+    }
+},
+
+// The drawer's form fallback: POST /projects/{id}/backlog (create, 3 steps:
+// open drawer → form → Add). Confirmed items land in the Requirements lane.
+async saveNewItem() {
+    const f = this.newItemForm;
+    if (!f.title.trim() || !f.project_id) return;
+    try {
+        const created = await this.api('POST', `/projects/${f.project_id}/backlog`, {
+            project_id: Number(f.project_id),
+            title: f.title.trim(),
+            description: f.description || '',
+            priority: f.priority,
+            item_type: f.item_type || null,
+        });
+        this.showToast(`#${created.id} added to Requirements`, 'success');
+        this.closeWorkItem();
+        this.loadWork();
+    } catch (e) {
+        this.showToast(e.message || 'Could not add the item', 'error');
+    }
+},
+
+// Tags — the SAME picker as modals/task.html, re-hosted in the drawer
+async attachWorkItemTag(tag) {
+    const id = this.selectedWorkItem && this.selectedWorkItem.id;
+    if (!id) return;
+    try {
+        await this.api('POST', `/backlog/${id}/tags`, { tag_id: tag.id });
+        this.workTagPickerOpen = false;
+        const fresh = await this.api('GET', `/backlog/${id}`);
+        if (this.workDetail && this.workDetail.item) this.workDetail.item = fresh;
+        if (this.selectedWorkItem) this.selectedWorkItem.tags = fresh.tags || [];
+        this.showToast(`Tagged #${tag.name}`, 'success');
+        this.loadWork();
+    } catch (e) {
+        this.showToast(e.message || 'Could not attach the tag', 'error');
+    }
+},
+async detachWorkItemTag(tag) {
+    const id = this.selectedWorkItem && this.selectedWorkItem.id;
+    if (!id) return;
+    try {
+        await this.api('DELETE', `/backlog/${id}/tags/${tag.id}`);
+        const fresh = await this.api('GET', `/backlog/${id}`);
+        if (this.workDetail && this.workDetail.item) this.workDetail.item = fresh;
+        if (this.selectedWorkItem) this.selectedWorkItem.tags = fresh.tags || [];
+        this.showToast(`Removed #${tag.name}`, 'info');
+        this.loadWork();
+    } catch (e) {
+        this.showToast(e.message || 'Could not remove the tag', 'error');
+    }
+},
+async createWorkTagInline() {
+    if (!this.workTagName.trim()) return;
+    try {
+        const tag = await this.api('POST', '/tags', { name: this.workTagName.trim(), color: this.workTagColor });
+        this.workTagName = '';
+        const pool = this.tagPool || [];
+        if (!pool.find(t => t.id === tag.id)) pool.push(tag);
+        await this.attachWorkItemTag(tag);
+    } catch (e) {
+        this.showToast(e.message || 'Could not create the tag', 'error');
+    }
+},
+
+// Assignee — the same toggle picker (single assignee on backlog items)
+async setWorkItemAssignee(userId) {
+    const id = this.selectedWorkItem && this.selectedWorkItem.id;
+    if (!id) return;
+    const prev = this.selectedWorkItem.assigned_to;
+    const user = (this.users || []).find(u => u.id === userId) || null;
+    // Optimistic (rule 8)
+    this.selectedWorkItem.assigned_to = userId;
+    this.selectedWorkItem.assigned_to_name = user ? user.name : '';
+    this.workAssigneeOpen = false;
+    try {
+        await this.api('PUT', `/backlog/${id}`, { assigned_to: userId });
+        this.showToast(user ? `Assigned to ${user.name}` : 'Unassigned', 'success');
+        this.loadWork();
+    } catch (e) {
+        this.selectedWorkItem.assigned_to = prev;
+        this.showToast(e.message || 'Could not update the assignee', 'error');
+    }
+},
+
+// Comment thread — append-only, input pinned at the bottom, Enter posts
+async postWorkItemComment() {
+    const id = this.selectedWorkItem && this.selectedWorkItem.id;
+    const body = (this.workItemCommentForm || '').trim();
+    if (!id || !body) return;
+    try {
+        const c = await this.api('POST', `/backlog/${id}/comments`, { body });
+        this.workItemComments.push(c);
+        this.workItemCommentForm = '';
+        this.showToast('Comment posted', 'success');
+    } catch (e) {
+        this.showToast(e.message || 'Could not post the comment', 'error');
+    }
 },
 
 // Today row → Work detail drawer (approvals open the legacy project page for now)

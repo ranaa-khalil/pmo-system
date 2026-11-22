@@ -157,6 +157,24 @@ def list_backlog_items(
     return query.order_by(BacklogItem.created_at.desc()).all()
 
 
+@router.get("/backlog/{item_id}", response_model=BacklogItemResponse)
+def get_backlog_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Read one backlog item (tenant-checked).
+
+    The ONE Work drawer's detail fetch and the #N item references both load
+    their item here — before this route existed, GET /backlog/{id} hit the
+    PUT-only path (405) and every consumer silently fell back to null."""
+    item = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Backlog item not found")
+    return item
+
+
 @router.put("/backlog/board-order", response_model=None)
 def reorder_backlog_board(
     order: BoardReorder,

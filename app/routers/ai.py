@@ -1,5 +1,7 @@
 """AI router — LLM-powered suggestions for vision, features, and field filling."""
 
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -490,6 +492,112 @@ def intake_capture_endpoint(
         req.notes.strip(), source=req.source,
     )
     return {"capture_id": interaction.id, "status": "captured"}
+
+
+# ── ONE-CALL intake (Slice 3b — the capture box) ─────────────────────────
+
+class IntakeOneCallRequest(BaseModel):
+    notes: str
+    source: str = "capture box"
+    project_id: int | None = None
+    destination: str = "work_item"  # work_item | my_task
+
+
+class IntakeConfirmOneCallRequest(BaseModel):
+    draft_id: int
+    keys: list[str] | None = None
+    project_id: int | None = None
+    destination: str = "work_item"
+
+
+class IntakeDismissRequest(BaseModel):
+    draft_id: int
+
+
+_INTAKE_ERROR_STATUS = {
+    "draft_not_found": (404, "Draft not found in this tenant — it may belong to another tenant or user."),
+    "draft_invalid": (409, "Draft content is invalid."),
+}
+
+
+@router.post("/intake")
+def intake_one_call_endpoint(
+    req: IntakeOneCallRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """ONE collapsed intake call: capture → structure → verdict → apply-prep.
+
+    Internally runs the 4-call chain (the old /intake/* endpoints stay for the
+    Copilot flow) and returns ONE Confirm payload: draft items + dedupe
+    warnings + source tag. The LLM never blocks the capture — unavailable,
+    slow or erroring falls back to the line saved VERBATIM as a
+    Requirements-phase draft flagged needs structuring. A line with no project
+    lands in the tenant parking lot (project_id null). Nothing executes before
+    the human Confirm tap (POST /api/ai/intake/confirm)."""
+    if not req.notes or not req.notes.strip():
+        raise HTTPException(400, "Capture text is required.")
+    project = _intake_project(db, current_tenant, req.project_id)
+    tenant_config = get_ai_config(db, current_tenant.id)
+
+    from app.services import intake as intake_service
+    try:
+        return intake_service.one_call_intake(
+            db, current_user, current_tenant, req.notes.strip(),
+            source=req.source or "capture box",
+            project=project,
+            destination=req.destination or "work_item",
+            tenant_config=tenant_config,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/intake/confirm")
+def intake_confirm_endpoint(
+    req: IntakeConfirmOneCallRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Confirm the checked capture-box drafts — the human tap that lands them
+    in Requirements (parking-lot drafts need a filed project first)."""
+    project = _intake_project(db, current_tenant, req.project_id)
+    from app.services import intake as intake_service
+    try:
+        return intake_service.confirm_intake(
+            db, current_user, current_tenant, req.draft_id,
+            keys=req.keys, project=project,
+            destination=req.destination or "work_item",
+        )
+    except LookupError as e:
+        code, detail = _INTAKE_ERROR_STATUS.get(str(e), (404, str(e)))
+        raise HTTPException(code, detail)
+    except ValueError as e:
+        if str(e) == "draft_already_applied":
+            raise HTTPException(409, "This capture draft was already applied.")
+        if str(e) == "project_required":
+            raise HTTPException(
+                400,
+                "Pick a project to file it — parking-lot items need a project before they land in Requirements.",
+            )
+        raise HTTPException(400, str(e))
+
+
+@router.post("/intake/dismiss")
+def intake_dismiss_endpoint(
+    req: IntakeDismissRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Dismiss a capture-box draft — marks it rejected, nothing executes."""
+    from app.services import intake as intake_service
+    try:
+        return intake_service.dismiss_intake(db, current_user, current_tenant, req.draft_id)
+    except LookupError:
+        raise HTTPException(404, "Draft not found in this tenant — it may belong to another tenant or user.")
 
 
 # ── Interview engine (guided Q&A for create flows) ───────────────────────

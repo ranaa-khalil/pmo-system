@@ -35,6 +35,20 @@ class TestBacklogAPI:
         assert response.status_code == 200
         assert len(response.json()) == 2
 
+    def test_get_backlog_item(self, client):
+        """GET /api/backlog/{id} reads one item — the Work drawer + #N refs
+        fetch their detail here (before this route, GET hit the PUT-only path
+        and 405'd)."""
+        pid = self._create_project(client)
+        created = client.post(f"/api/projects/{pid}/backlog", json={
+            "project_id": pid, "title": "Drawer detail item", "description": "The detail",
+        }).json()
+        resp = client.get(f"/api/backlog/{created['id']}")
+        assert resp.status_code == 200
+        assert resp.json()["title"] == "Drawer detail item"
+        assert resp.json()["description"] == "The detail"
+        assert client.get("/api/backlog/999999").status_code == 404
+
     def test_filter_backlog_by_phase(self, client):
         """GET /api/projects/{id}/backlog?phase=Development filters by phase."""
         pid = self._create_project(client)

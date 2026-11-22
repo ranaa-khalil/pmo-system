@@ -16,6 +16,7 @@ import { workflows } from './domains/workflows.js';
 import { tenants } from './domains/tenants.js';
 import { portal } from './domains/portal.js';
 import { fab } from './fab.js';
+import { captureBox } from './capture_box.js';
 
 const DOMAINS = [core, tasks, backlog, planning, projects, ai, copilot, workflows, tenants, portal];
 
@@ -96,6 +97,10 @@ function registerPmoApp() {
         // initialized — the direct reference produced a broken store when
         // the callback ran during Alpine's boot.
         window.Alpine.data('pmoRoot', () => window.pmoApp());
+        // The capture box (Slice 3b) is its own per-instance component — the
+        // partial is included several times (Work header, Today, the drawer's
+        // + New item, the FAB launcher) and each include needs its own scope.
+        window.Alpine.data('captureBox', (boxId) => window.captureBox(boxId));
     } catch (e) {
         console.error('[PMO] pmoRoot registration failed:', e);
     }
@@ -163,3 +168,4 @@ loadAlpine().then(() => {
 // Expose for backward compatibility and manual debugging.
 window.pmoApp = pmoApp;
 window.fabComponent = fab;
+window.captureBox = captureBox;

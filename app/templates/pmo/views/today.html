@@ -12,6 +12,9 @@
         </button>
     </div>
 
+    <!-- Capture box — say it once (§7 #3), right on Today -->
+    {% include 'components/capture_box.html' with context %}
+
     <!-- Briefing card (indigo→violet left border, premium) -->
     <div x-show="today" x-cloak class="surface rounded-2xl border border-ink-200/60 p-5 relative overflow-hidden">
         <div class="absolute left-0 top-0 bottom-0 w-1" :class="today?.briefing?.verdict === 'at_risk' ? 'bg-rose-500' : today?.briefing?.verdict === 'needs_attention' ? 'bg-amber-500' : 'bg-gradient-to-b from-indigo-500 to-violet-500'"></div>

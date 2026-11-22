@@ -11,10 +11,23 @@ that an auditor would ask "who changed what, when, and is it intact?" about.
 """
 import hashlib
 import json
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
 from app.models.artifact_chain import ArtifactChain
+
+
+def as_of_moment(dt: datetime) -> datetime:
+    """Normalize an incoming as-of moment to naive UTC (house convention).
+
+    Clients may pass an ISO datetime with an offset; the ledger's created_at
+    is stored naive-UTC (SQLite) / timestamptz compared in UTC (Postgres), so
+    the comparison bound must be naive UTC to line up with both.
+    """
+    if dt.tzinfo is not None:
+        return dt.astimezone(UTC).replace(tzinfo=None)
+    return dt
 
 
 def _compute_hash(prev_hash: str, entity_type: str, entity_id: int, action: str, payload: dict) -> str:
@@ -70,18 +83,21 @@ def append_artifact(
     return row
 
 
-def get_chain(db: Session, tenant_id: int, entity_type: str, entity_id: int) -> list[dict]:
-    """The entity's chain, oldest first, with integrity flag per entry."""
-    rows = (
-        db.query(ArtifactChain)
-        .filter(
-            ArtifactChain.tenant_id == tenant_id,
-            ArtifactChain.entity_type == entity_type,
-            ArtifactChain.entity_id == entity_id,
-        )
-        .order_by(ArtifactChain.seq)
-        .all()
+def get_chain(db: Session, tenant_id: int, entity_type: str, entity_id: int, as_of: datetime | None = None) -> list[dict]:
+    """The entity's chain, oldest first, with integrity flag per entry.
+
+    as_of (time-travel): when given, only entries with created_at <= as_of are
+    returned — the chain as it looked at that moment. Read-only; the ledger's
+    write paths are untouched.
+    """
+    query = db.query(ArtifactChain).filter(
+        ArtifactChain.tenant_id == tenant_id,
+        ArtifactChain.entity_type == entity_type,
+        ArtifactChain.entity_id == entity_id,
     )
+    if as_of is not None:
+        query = query.filter(ArtifactChain.created_at <= as_of)
+    rows = query.order_by(ArtifactChain.seq).all()
     entries = []
     for r in rows:
         entries.append({
@@ -98,22 +114,25 @@ def get_chain(db: Session, tenant_id: int, entity_type: str, entity_id: int) -> 
     return entries
 
 
-def verify_chain(db: Session, tenant_id: int, entity_type: str, entity_id: int) -> dict:
+def verify_chain(db: Session, tenant_id: int, entity_type: str, entity_id: int, as_of: datetime | None = None) -> dict:
     """Re-walk the chain: recompute every hash; verify the prev_hash links.
+
+    as_of (time-travel): when given, only the chain PREFIX up to that moment
+    (created_at <= as_of) is re-walked — a tampered entry after the as-of
+    moment does not fail an as-of verify; a tampered entry within the prefix
+    does.
 
     Returns {valid, length, broken_at}. valid=False means the trail was
     tampered with (or reordered) at/after broken_at.
     """
-    rows = (
-        db.query(ArtifactChain)
-        .filter(
-            ArtifactChain.tenant_id == tenant_id,
-            ArtifactChain.entity_type == entity_type,
-            ArtifactChain.entity_id == entity_id,
-        )
-        .order_by(ArtifactChain.seq)
-        .all()
+    query = db.query(ArtifactChain).filter(
+        ArtifactChain.tenant_id == tenant_id,
+        ArtifactChain.entity_type == entity_type,
+        ArtifactChain.entity_id == entity_id,
     )
+    if as_of is not None:
+        query = query.filter(ArtifactChain.created_at <= as_of)
+    rows = query.order_by(ArtifactChain.seq).all()
     prev_hash = "GENESIS"
     for i, r in enumerate(rows):
         if r.seq != i + 1:

@@ -242,3 +242,46 @@ def test_play_cdn_removed_and_compiled_link_busted():
     ), "index.html must link the compiled stylesheet with a ?v= cache-bust"
     # rollback path: the JIT stays on disk, unreferenced
     assert (REPO / "app" / "static" / "tailwind.min.js").is_file(), "tailwind.min.js must stay on disk for rollback"
+
+
+# Tailwind families whose utilities must never be composed at runtime —
+# color/layout families with unambiguous class shapes. Single-letter families
+# (p, m, w, h, z) are excluded on purpose: strings like 'p-' + year are
+# period keys, not classes.
+GUARD_FAMILIES = [
+    "bg", "text", "border", "ring", "shadow", "from", "via", "to", "divide",
+    "fill", "stroke", "outline", "decoration", "placeholder", "accent", "caret",
+    "rounded", "px", "py", "pt", "pb", "pl", "pr", "mx", "my", "mt", "mb",
+    "ml", "mr", "gap", "top", "bottom", "left", "right", "inset", "opacity",
+    "duration", "delay", "grid-cols", "space-x", "space-y", "translate",
+    "scale", "rotate",
+]
+
+
+def test_js_class_tokens_are_literal_strings():
+    """Carry-forward guard (ADR-07, Slice 3a): JS classes must be literal.
+
+    A class composed at runtime — ``'bg-' + color``, ``bg-${shade}`` — escapes
+    the compiled artifact whenever the composed value has no literal use
+    anywhere in the content globs, and the utility silently vanishes from the
+    UI. The pattern this codebase uses instead is the literal mapping table
+    (itemTypeColor, tagChipClass, avatarColor, workCardBorderColor, …): every
+    full class string is written out so ``npm run build:css`` sees it. This
+    guard fails on any composed Tailwind class string in app/static/js/**.
+    """
+    offenders = []
+    for path in sorted(JS_DIR.rglob("*.js")):
+        src = path.read_text(errors="replace")
+        rel = path.relative_to(REPO)
+        for fam in GUARD_FAMILIES:
+            # 'bg-' + … / "bg-" + … (string concatenation)
+            if re.search(r"['\"]" + fam + r"-['\"]\s*\+", src):
+                offenders.append(f"{rel}: composes '{fam}-' with +")
+            # `bg-${…}` (template literal interpolation)
+            if re.search(r"`[^`]*" + fam + r"-\$\{", src):
+                offenders.append(f"{rel}: composes '{fam}-' with ${{}}")
+    assert not offenders, (
+        "Dynamic Tailwind class composition in app/static/js/** — classes must "
+        "be literal strings (use a mapping table like itemTypeColor): "
+        + "; ".join(offenders[:10])
+    )

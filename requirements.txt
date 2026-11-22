@@ -28,4 +28,3 @@ APScheduler>=3.10,<4
 # Redis (for caching, rate limiting, background queues — Phase 1+)
 # redis>=5.0.0
 slowapi>=0.1.9
-stripe>=8.0.0

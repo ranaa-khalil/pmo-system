@@ -1,25 +1,36 @@
-<!-- R1: Work — unified cross-project list + detail drawer -->
+<!-- R2: Work — the ONE workspace: Board | Timeline | List over one dataset -->
+<!-- Slice 3a: view chips, 2-row chips, drag-means-group-by board, timeline, list. -->
+<!-- The write-capable drawer and capture box land in Slice 3b (drawer stays read-only). -->
 <div x-show="route === 'work'" x-cloak class="view-enter max-w-6xl">
 
-    <!-- Header + filters -->
-    <div class="flex items-center justify-between mb-4">
-        <div>
-            <h1 class="text-xl font-bold text-ink-900 tracking-tight">Work</h1>
-            <p class="text-[12px] text-ink-400 mt-0.5">One list, every project</p>
-        </div>
-        <div class="flex items-center gap-2">
-            <input x-model="workSearch" class="input-premium text-[12px] rounded-xl px-3 py-2 w-48" placeholder="Search work…">
-            <select x-model="workProjectFilter" class="input-premium text-[12px] px-3 py-2 rounded-xl bg-white max-w-44">
-                <option value="">All projects</option>
-                <template x-for="p in projects" :key="p.id">
-                    <option :value="p.id" x-text="p.name"></option>
-                </template>
-            </select>
-        </div>
+    <!-- Header (one pattern: breadcrumb in the topbar; title + count here) -->
+    <div class="mb-3">
+        <h1 class="text-xl font-bold text-ink-900 tracking-tight">Work</h1>
+        <p class="text-[12px] text-ink-400 mt-0.5">
+            <span x-text="workFiltered.length"></span> items · one workspace, every project
+        </p>
     </div>
 
-    <!-- Filter chips -->
-    <div class="flex items-center gap-1.5 mb-4">
+    <!-- Chip row 1: view chips + primary action -->
+    <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-1">
+            <template x-for="v in [
+                { id: 'board', label: 'Board' },
+                { id: 'timeline', label: 'Timeline' },
+                { id: 'list', label: 'List' },
+            ]" :key="v.id">
+                <button @click="setWorkViewMode(v.id)"
+                        class="px-3.5 py-1.5 rounded-lg text-[12px] font-semibold transition-all"
+                        :class="workViewMode === v.id ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-sm' : 'bg-ink-100 text-ink-500 hover:bg-ink-200/60'"
+                        x-text="v.label"></button>
+            </template>
+        </div>
+        <button @click="newWorkItem()"
+                class="text-[12px] font-semibold text-white bg-gradient-to-r from-indigo-500 to-violet-500 px-3.5 py-2 rounded-xl hover:opacity-90 transition-all shadow-sm">+ New item</button>
+    </div>
+
+    <!-- Chip row 2: filters + project + search + Tags ▾ + Group-by ▾ -->
+    <div class="flex items-center gap-1.5 mb-4 flex-wrap">
         <template x-for="f in [
             { id: 'all', label: 'All' },
             { id: 'mine', label: 'Mine' },
@@ -31,62 +42,300 @@
                     :class="workFilter === f.id ? 'bg-brand-500 text-white shadow-sm' : 'bg-ink-100 text-ink-500 hover:bg-ink-200/60'"
                     x-text="f.label"></button>
         </template>
-        <span class="text-[11px] text-ink-400 ml-1" x-text="workFiltered.length + ' items'"></span>
+
+        <select id="work-project-select" x-model="workProjectFilter" @change="setWorkProjectFilter(workProjectFilter)"
+                class="input-premium text-[12px] px-3 py-2 rounded-xl bg-white max-w-44">
+            <option value="">All projects</option>
+            <template x-for="p in projects" :key="p.id">
+                <option :value="p.id" x-text="p.name"></option>
+            </template>
+        </select>
+
+        <input x-model="workSearch" class="input-premium text-[12px] rounded-xl px-3 py-2 w-44" placeholder="Search work…">
+
+        <!-- Tags ▾ — the cross-tagging pool; chips on cards read the payload's tags[] -->
+        <div class="relative" @click.away="workTagsOpen = false">
+            <button @click="workTagsOpen = !workTagsOpen"
+                    class="px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-all flex items-center gap-1"
+                    :class="workTagFilter ? 'bg-brand-50 text-brand-700 border-brand-200' : 'bg-ink-100 text-ink-500 border-transparent hover:bg-ink-200/60'">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                <span>Tags</span>
+                <span x-show="workTagFilter" class="w-1.5 h-1.5 rounded-full bg-brand-500"></span>
+            </button>
+            <div x-show="workTagsOpen" x-cloak class="absolute left-0 top-full mt-1 w-56 bg-white rounded-xl shadow-lift border border-ink-200/60 p-2 z-20">
+                <div x-show="tagPool.length === 0" class="px-2 py-2 text-[11px] text-ink-400">No tags in the pool yet — tags attach from the item drawer</div>
+                <template x-for="tag in tagPool" :key="tag.id">
+                    <button @click="setWorkTagFilter(tag.id)"
+                            class="w-full text-left px-2 py-1.5 rounded-lg text-[11px] hover:bg-ink-50 flex items-center justify-between gap-2">
+                        <span class="px-2 py-0.5 rounded-full border text-[11px] font-medium" :class="tagChipClass(tag.color)" x-text="'#' + tag.name"></span>
+                        <span x-show="workTagFilter === tag.id" class="text-brand-600 font-semibold">✓</span>
+                    </button>
+                </template>
+                <button x-show="workTagFilter" @click="setWorkTagFilter(workTagFilter)"
+                        class="w-full mt-1 px-2 py-1.5 rounded-lg text-[11px] font-medium text-ink-400 hover:text-ink-600 hover:bg-ink-100 transition-all text-left">Clear tag filter</button>
+            </div>
+        </div>
+
+        <!-- Group-by ▾ — changes what a board drag means (move / assign / regroup) -->
+        <div class="relative" @click.away="workGroupByOpen = false">
+            <button @click="workGroupByOpen = !workGroupByOpen"
+                    class="px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-all flex items-center gap-1"
+                    :class="workGroupBy !== 'phase' ? 'text-accent-600 bg-violet-50 border-violet-200' : 'bg-ink-100 text-ink-500 border-transparent hover:bg-ink-200/60'">
+                <span>Group-by:</span>
+                <span class="font-semibold capitalize" x-text="workGroupBy"></span>
+            </button>
+            <div x-show="workGroupByOpen" x-cloak class="absolute left-0 top-full mt-1 w-40 bg-white rounded-xl shadow-lift border border-ink-200/60 p-1.5 z-20">
+                <template x-for="g in [
+                    { id: 'phase', label: 'Phase' },
+                    { id: 'epic', label: 'Epic' },
+                    { id: 'assignee', label: 'Assignee' },
+                    { id: 'type', label: 'Type' },
+                ]" :key="g.id">
+                    <button @click="setWorkGroupBy(g.id); workGroupByOpen = false"
+                            class="w-full text-left px-2.5 py-1.5 rounded-lg text-[11px] font-medium hover:bg-ink-50 flex items-center justify-between gap-2"
+                            :class="workGroupBy === g.id ? 'text-accent-600' : 'text-ink-600'">
+                        <span x-text="g.label"></span>
+                        <span x-show="workGroupBy === g.id" class="text-accent-600">✓</span>
+                    </button>
+                </template>
+                <p class="px-2.5 pt-1.5 pb-1 text-[10px] text-ink-300 leading-snug">Dragging between lanes follows this: Phase moves, Assignee assigns, Epic/Type regroup</p>
+            </div>
+        </div>
+
+        <span class="text-[11px] text-ink-400 ml-auto" x-text="workFiltered.length + ' shown'"></span>
     </div>
 
-    <!-- Tag filter (cross-tagging pool) -->
-    <div x-show="tagPool.length > 0" class="flex items-center gap-1.5 mb-4 flex-wrap">
-        <svg class="w-3.5 h-3.5 text-ink-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
-        <template x-for="tag in tagPool" :key="tag.id">
-            <button @click="setWorkTagFilter(tag.id)"
-                    class="px-2.5 py-1 rounded-full border text-[11px] font-medium transition-all"
-                    :class="workTagFilter === tag.id ? tagChipClass(tag.color) + ' ring-2 ring-brand-300' : tagChipClass(tag.color)"
-                    x-text="'#' + tag.name"></button>
+    <!-- Whole-board empty state (no items at all) — the next action is a button -->
+    <div x-show="!workLoading && workItems.length === 0" class="surface rounded-xl border border-ink-200/60 px-4 py-8 text-center">
+        <p class="text-[13px] font-semibold text-ink-700">No work items yet</p>
+        <p class="text-[11.5px] text-ink-400 mt-0.5">Capture something from Today, or use + New item above.</p>
+        <button @click="navigate('today')" class="mt-3 text-[12px] font-medium text-brand-700 border border-brand-200 bg-white px-3.5 py-2 rounded-xl hover:bg-brand-50 transition-all">Open Today →</button>
+    </div>
+
+    <!-- Filtered empty state — names the next action (Mine gets its own words) -->
+    <div x-show="!workLoading && workItems.length > 0 && workFiltered.length === 0 && workViewMode !== 'timeline'" class="surface rounded-xl border border-ink-200/60 px-4 py-8 text-center">
+        <template x-if="workFilter === 'mine'">
+            <div>
+                <p class="text-[13px] font-semibold text-ink-700">Nothing assigned to you yet — open an item and add yourself</p>
+                <p class="text-[11.5px] text-ink-400 mt-0.5">Items land here the moment someone is assigned.</p>
+                <!-- Slice 3b: this button deep-links into the drawer's assignee picker -->
+                <button @click="openWorkItem(workItems[0])" class="mt-3 text-[12px] font-medium text-brand-700 border border-brand-200 bg-white px-3.5 py-2 rounded-xl hover:bg-brand-50 transition-all">Open an item</button>
+            </div>
         </template>
-        <button x-show="workTagFilter" @click="setWorkTagFilter(workTagFilter)"
-                class="px-2 py-1 rounded-full text-[11px] font-medium text-ink-400 hover:text-ink-600 hover:bg-ink-100 transition-all">Clear</button>
+        <template x-if="workFilter !== 'mine'">
+            <div>
+                <p class="text-[13px] font-semibold text-ink-700">Nothing matches these filters</p>
+                <p class="text-[11.5px] text-ink-400 mt-0.5">Adjust the filters, or capture something new from Today.</p>
+                <button @click="setWorkFilter('all')" class="mt-3 text-[12px] font-medium text-brand-700 border border-brand-200 bg-white px-3.5 py-2 rounded-xl hover:bg-brand-50 transition-all">Clear filters</button>
+            </div>
+        </template>
     </div>
 
-    <!-- List -->
-    <div class="space-y-1.5">
-        <template x-for="it in workFiltered" :key="it.id">
-            <button @click="openWorkItem(it)"
-                    class="w-full text-left surface rounded-xl border px-4 py-3 flex items-center gap-3 transition-all hover:bg-brand-50/40"
-                    :class="it.blocked ? 'border-amber-200' : it.overdue ? 'border-rose-200' : 'border-ink-200/60'"
-                    style="border-left-width: 3px;"
-                    :style="it.blocked ? 'border-left-color: #f59e0b' : it.overdue ? 'border-left-color: #f43f5e' : 'border-left-color: #d4d4d8'">
-                <span class="text-[11px] font-mono text-ink-400 shrink-0" x-text="'#' + it.id"></span>
-                <div class="min-w-0 flex-1">
-                    <div class="text-[13px] font-medium text-ink-900 truncate" x-text="it.title"></div>
-                    <div class="text-[11px] text-ink-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                        <span class="px-1.5 py-0.5 rounded bg-ink-100 text-ink-600" x-text="it.project"></span>
-                        <span x-text="it.phase"></span>
-                        <span x-show="it.target_release" class="text-ink-300">·</span>
-                        <span x-show="it.target_release" x-text="'rel ' + it.target_release"></span>
+    <!-- Main surface — Board (swaps in place, one Alpine subtree, no re-mount) -->
+    <div x-show="workViewMode === 'board' && workFiltered.length > 0" class="flex gap-3 overflow-x-auto pb-2 items-start">
+        <template x-for="lane in workBoardColumns" :key="lane.kind + '-' + lane.key">
+            <div class="w-64 flex-shrink-0"
+                 @dragover.prevent="workAllowDrop(lane.key)"
+                 @drop.prevent="workDropToLane(lane.key)">
+                <div class="flex items-center justify-between px-1.5 py-1.5 gap-2">
+                    <span class="text-[11px] font-semibold text-ink-600 truncate" x-text="lane.label"></span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-ink-100 text-ink-400 shrink-0" x-text="lane.items.length"></span>
+                </div>
+                <div class="space-y-1.5 rounded-xl p-1.5 min-h-[72px] transition-colors"
+                     :class="workDragItem && workDragOverLane === lane.key ? 'bg-brand-50 ring-1 ring-brand-200' : ''">
+                    <template x-for="card in lane.items" :key="card.id">
+                        <button draggable="true"
+                                @dragstart="workDragStart(card, lane.key); $event.dataTransfer.effectAllowed = 'move'"
+                                @dragend="workDragEnd()"
+                                @click="openWorkItem(card)"
+                                class="w-full text-left surface rounded-lg border px-3 py-2.5 cursor-grab active:cursor-grabbing transition-all hover:shadow-sm"
+                                :class="workDragItem && workDragItem.id === card.id ? 'opacity-40' : ''"
+                                style="border-left-width: 3px;"
+                                :style="workCardBorderColor(card)">
+                            <div class="text-[12px] font-medium text-ink-900 leading-snug" x-text="card.title"></div>
+                            <div class="flex items-center gap-1 mt-1.5 flex-wrap">
+                                <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-ink-100 text-ink-500 font-medium" x-show="card.item_type" x-text="card.item_type"></span>
+                                <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-ink-100 text-ink-500 font-medium" x-text="card.priority"></span>
+                                <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 font-semibold" x-show="card.blocked">BLOCKED</span>
+                            </div>
+                            <div class="flex items-center gap-1 mt-1.5 flex-wrap">
+                                <span class="text-[9px] px-1.5 py-0.5 rounded bg-brand-50 text-brand-600 font-medium" x-show="card.epic" x-text="card.epic"></span>
+                                <template x-for="t in (card.tags || []).slice(0, 2)" :key="t.id">
+                                    <span class="text-[9px] px-1.5 py-0.5 rounded-full border" :class="tagChipClass(t.color)" x-text="'#' + t.name"></span>
+                                </template>
+                                <span class="text-[9px] text-ink-300 font-medium" x-show="(card.tags || []).length > 2" x-text="'+' + ((card.tags || []).length - 2)"></span>
+                            </div>
+                            <div class="flex items-center gap-1.5 mt-2">
+                                <span x-show="card.assigned_to_name"
+                                      class="w-5 h-5 rounded-full text-[9px] font-bold text-white flex items-center justify-center shrink-0"
+                                      :class="avatarColor(card.assigned_to_name || '?')"
+                                      :title="card.assigned_to_name"
+                                      x-text="(card.assigned_to_name || '?').slice(0, 1)"></span>
+                                <span class="text-[10px] text-ink-400 flex items-center gap-0.5" x-show="card.comment_count > 0">
+                                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                                    <span x-text="card.comment_count"></span>
+                                </span>
+                                <span class="text-[10px] text-ink-300 ml-auto" x-show="card.target_release" x-text="'rel ' + card.target_release"></span>
+                            </div>
+                        </button>
+                    </template>
+                    <div x-show="lane.items.length === 0" class="text-[10.5px] text-ink-300 italic px-1 py-2">
+                        Nothing in <span x-text="lane.label"></span> yet — drag a card here
                     </div>
                 </div>
-                <span class="text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0"
-                      :class="it.status === 'Done' ? 'bg-emerald-50 text-emerald-600' : it.status === 'Blocked' ? 'bg-amber-50 text-amber-700' : it.status === 'In Progress' ? 'bg-brand-50 text-brand-600' : 'bg-ink-100 text-ink-500'"
-                      x-text="it.status"></span>
-                <span class="text-[10px] text-rose-500 font-medium shrink-0" x-show="it.overdue">overdue</span>
-            </button>
+            </div>
         </template>
+    </div>
 
-        <!-- Empty state -->
-        <div x-show="!workLoading && workFiltered.length === 0" class="surface rounded-xl border border-ink-200/60 px-4 py-8 text-center">
-            <p class="text-[13px] font-semibold text-ink-700">Nothing here yet</p>
-            <p class="text-[11.5px] text-ink-400 mt-0.5">Adjust the filters, or capture something new from Today.</p>
+    <!-- Main surface — Timeline (the Item Gantt, filter-first per project) -->
+    <div x-show="workViewMode === 'timeline'" x-cloak>
+        <div x-show="!workProjectFilter" class="surface rounded-xl border border-ink-200/60 px-4 py-8 text-center">
+            <p class="text-[13px] font-semibold text-ink-700">Pick a project to see its timeline</p>
+            <p class="text-[11.5px] text-ink-400 mt-0.5">Timelines are per project — choose one in the filters above.</p>
+            <button @click="workPickProject()" class="mt-3 text-[12px] font-medium text-brand-700 border border-brand-200 bg-white px-3.5 py-2 rounded-xl hover:bg-brand-50 transition-all">Choose a project</button>
         </div>
 
-        <!-- Loading -->
-        <div x-show="workLoading" class="space-y-1.5">
-            <div class="h-12 surface rounded-xl border border-ink-200/60 animate-pulse"></div>
-            <div class="h-12 surface rounded-xl border border-ink-200/60 animate-pulse"></div>
-            <div class="h-12 surface rounded-xl border border-ink-200/60 animate-pulse"></div>
+        <div x-show="workProjectFilter" class="surface rounded-2xl border border-ink-200/60 overflow-hidden">
+            <div class="px-5 py-4 border-b border-ink-100 flex items-center justify-between gap-4">
+                <h2 class="text-[14px] font-semibold text-ink-800">Item Gantt</h2>
+                <div class="flex items-center gap-3">
+                    <span x-show="ganttData && ganttData.unscheduled_count > 0" class="text-[11px] text-ink-400">
+                        <span x-text="ganttData.unscheduled_count"></span> unscheduled
+                    </span>
+                    <span x-show="ganttData && ganttData.critical_count > 0" class="text-[11px] font-medium text-rose-600">
+                        <span x-text="ganttData.critical_count"></span> on critical path
+                    </span>
+                </div>
+            </div>
+            <div x-show="ganttLoading" class="h-24 flex items-center justify-center">
+                <svg class="animate-spin w-5 h-5 text-ink-300" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            </div>
+            <div x-show="!ganttLoading && ganttDayList().length === 0" class="px-5 py-8 text-center text-[12px] text-ink-400">
+                No scheduled items yet — set start/end dates on backlog items to build the Gantt.
+            </div>
+            <div x-show="!ganttLoading && ganttDayList().length > 0" class="overflow-x-auto">
+                <div :style="'min-width: ' + (240 + ganttDayList().length * 28) + 'px'">
+                    <!-- Day header -->
+                    <div class="flex sticky top-0 bg-white border-b border-ink-100 z-10">
+                        <div class="w-[240px] flex-shrink-0 px-4 py-2 border-r border-ink-100 sticky left-0 bg-white z-20">
+                            <span class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider">Items</span>
+                        </div>
+                        <div class="flex">
+                            <template x-for="d in ganttDayList()" :key="d.iso">
+                                <div class="flex-shrink-0 text-center py-2 border-r border-ink-50"
+                                     :class="d.isToday ? 'bg-rose-50' : d.isWeekend ? 'bg-ink-50/60' : ''" style="width: 28px">
+                                    <div class="text-[9px] font-medium" :class="d.isToday ? 'text-rose-600 font-bold' : 'text-ink-400'" x-text="d.day"></div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                    <!-- Rows -->
+                    <template x-for="it in (ganttData?.items || [])" :key="it.id">
+                        <div class="flex border-b border-ink-50 hover:bg-ink-50/30 transition-colors group">
+                            <div class="w-[240px] flex-shrink-0 px-4 py-2.5 border-r border-ink-100 sticky left-0 bg-white z-10 group-hover:bg-ink-50">
+                                <div class="text-[12px] font-medium text-ink-800 truncate" x-text="'#' + it.id + ' ' + it.title"></div>
+                                <div class="text-[10px] text-ink-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                    <span x-text="it.current_phase"></span>
+                                    <span x-show="it.depends_on.length" class="text-brand-400" x-text="'← ' + it.depends_on.map(id => '#' + id).join(', ')"></span>
+                                    <span x-show="it.is_critical" class="text-rose-500 font-semibold">critical</span>
+                                </div>
+                            </div>
+                            <div class="relative py-1.5" :style="'width: ' + (ganttDayList().length * 28) + 'px; min-height: 44px'">
+                                <!-- Day cells (drop targets) -->
+                                <div class="absolute inset-0 flex pointer-events-none">
+                                    <template x-for="d in ganttDayList()" :key="d.iso">
+                                        <div class="flex-shrink-0 border-r border-ink-50 h-full"
+                                             :class="d.isToday ? 'bg-rose-50/40' : d.isWeekend ? 'bg-ink-50/30' : ''" style="width: 28px"></div>
+                                    </template>
+                                </div>
+                                <template x-if="it.start_date">
+                                    <div class="absolute h-6 top-2 rounded-lg cursor-grab hover:shadow-md transition-shadow flex items-center px-2"
+                                         :class="it.is_critical ? 'bg-rose-500' : 'bg-brand-500'"
+                                         :style="'left: ' + (ganttDayIndex(it.start_date) * 28 + 1) + 'px; width: ' + Math.max(it.duration * 28 - 2, 24) + 'px'"
+                                         draggable="true"
+                                         @dragstart="ganttDragging = it; $event.dataTransfer.effectAllowed = 'move'"
+                                         @dragover.prevent
+                                         @drop.prevent="onGanttDrop(ganttDragging, it.start_date)"
+                                         :title="it.title + ' — ' + it.start_date + ' → ' + it.end_date + (it.is_critical ? ' (critical path)' : ' (float: ' + it.float + 'd)')">
+                                        <span class="text-[9px] font-semibold text-white truncate pointer-events-none" x-text="it.title"></span>
+                                        <span x-show="!it.is_critical && it.float > 0" class="ml-auto text-[9px] text-white/80 font-semibold pointer-events-none" x-text="'+' + it.float + 'd'"></span>
+                                    </div>
+                                </template>
+                                <template x-if="!it.start_date">
+                                    <div class="absolute left-2 top-2.5 text-[10px] text-ink-300 italic">no dates — schedule the item to place it</div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+            <div class="px-5 py-3 border-t border-ink-100 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                <div class="flex items-center gap-1.5">
+                    <div class="w-4 h-2.5 rounded-sm bg-rose-500"></div>
+                    <span class="text-[10px] text-ink-500">Critical path</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <div class="w-4 h-2.5 rounded-sm bg-brand-500"></div>
+                    <span class="text-[10px] text-ink-500">Scheduled</span>
+                </div>
+                <span class="text-[10px] text-ink-300">Drag a bar to move it. Float shows slack in days.</span>
+            </div>
         </div>
     </div>
 
-    <!-- Detail drawer -->
+    <!-- Main surface — List (single-line rows, same filters/group-by) -->
+    <div x-show="workViewMode === 'list' && workFiltered.length > 0" x-cloak>
+        <template x-for="section in workListGrouped" :key="section.key">
+            <div class="mb-4">
+                <div class="flex items-center gap-2 mb-1.5 px-1">
+                    <span class="text-[10px] font-semibold text-ink-500 uppercase tracking-wider" x-text="section.label"></span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-ink-100 text-ink-400" x-text="section.items.length"></span>
+                </div>
+                <div class="space-y-1.5">
+                    <template x-for="it in section.items" :key="it.id">
+                        <button @click="openWorkItem(it)"
+                                class="w-full text-left surface rounded-xl border px-4 py-3 flex items-center gap-3 transition-all hover:bg-brand-50/40"
+                                :class="it.blocked ? 'border-amber-200' : it.overdue ? 'border-rose-200' : 'border-ink-200/60'"
+                                style="border-left-width: 3px;"
+                                :style="it.blocked ? 'border-left-color: #f59e0b' : it.overdue ? 'border-left-color: #f43f5e' : 'border-left-color: #d4d4d8'">
+                            <span class="text-[11px] font-mono text-ink-400 shrink-0" x-text="'#' + it.id"></span>
+                            <div class="min-w-0 flex-1">
+                                <div class="text-[13px] font-medium text-ink-900 truncate" x-text="it.title"></div>
+                                <div class="text-[11px] text-ink-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                    <span class="px-1.5 py-0.5 rounded bg-ink-100 text-ink-600" x-text="it.project"></span>
+                                    <span x-text="it.phase"></span>
+                                    <span x-show="it.epic" x-text="it.epic"></span>
+                                    <template x-for="t in (it.tags || []).slice(0, 2)" :key="t.id">
+                                        <span class="px-1.5 py-0.5 rounded-full border" :class="tagChipClass(t.color)" x-text="'#' + t.name"></span>
+                                    </template>
+                                    <span x-show="it.target_release" class="text-ink-300">·</span>
+                                    <span x-show="it.target_release" x-text="'rel ' + it.target_release"></span>
+                                </div>
+                            </div>
+                            <span x-show="it.assigned_to_name"
+                                  class="w-6 h-6 rounded-full text-[10px] font-bold text-white flex items-center justify-center shrink-0"
+                                  :class="avatarColor(it.assigned_to_name || '?')"
+                                  :title="it.assigned_to_name"
+                                  x-text="(it.assigned_to_name || '?').slice(0, 1)"></span>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0"
+                                  :class="it.status === 'Done' ? 'bg-emerald-50 text-emerald-600' : it.status === 'Blocked' ? 'bg-amber-50 text-amber-700' : it.status === 'In Progress' ? 'bg-brand-50 text-brand-600' : 'bg-ink-100 text-ink-500'"
+                                  x-text="it.status"></span>
+                            <span class="text-[10px] text-rose-500 font-medium shrink-0" x-show="it.overdue">overdue</span>
+                        </button>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- Loading -->
+    <div x-show="workLoading" class="space-y-1.5">
+        <div class="h-12 surface rounded-xl border border-ink-200/60 animate-pulse"></div>
+        <div class="h-12 surface rounded-xl border border-ink-200/60 animate-pulse"></div>
+        <div class="h-12 surface rounded-xl border border-ink-200/60 animate-pulse"></div>
+    </div>
+
+    <!-- Detail drawer (read-only until Slice 3b replaces it — 'Open in Projects' stays) -->
     <div x-show="selectedWorkItem" x-cloak class="fixed inset-0 z-50" style="pointer-events: none;">
         <div class="absolute inset-0 bg-ink-900/20" @click="closeWorkItem()" style="pointer-events: auto;"></div>
         <div class="absolute right-0 top-0 bottom-0 w-full max-w-lg bg-white shadow-2xl overflow-y-auto"

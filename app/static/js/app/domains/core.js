@@ -422,7 +422,7 @@ navigate(route) {
     if (route === 'dashboard') { setTimeout(() => this.renderCharts(), 150); this.refreshTaskSummary(); this.loadWorkload(); }
     if (route === 'tasks') { this.loadTasks(); }
     if (route === 'today') { this.loadToday(); }
-    if (route === 'work') { this.loadWork(); }
+    if (route === 'work') { this.loadWork(); if (this.workViewMode === 'timeline') this.syncWorkGantt(); }
     if (route === 'settings') { this.loadItemTypes(); }
     if (route === 'projects' || route === 'project-detail') { this.loadItemTypes(); }
     if (route === 'settings') { this.loadTenant(); this.loadMembers(); this.loadIntegrations(); this.loadTenantLimits(); this.loadAutomation(); this.loadLifecycle(); }
@@ -559,6 +559,18 @@ async loadPreferences() {
         const prefs = await this.api('GET', '/me/preferences');
         if (prefs.task_view_mode && ['list', 'board', 'calendar'].includes(prefs.task_view_mode)) {
             this.taskViewMode = prefs.task_view_mode;
+        }
+        if (prefs.work_view_mode && ['board', 'timeline', 'list'].includes(prefs.work_view_mode)) {
+            this.workViewMode = prefs.work_view_mode;
+        }
+        if (prefs.work_group_by && ['phase', 'epic', 'assignee', 'type'].includes(prefs.work_group_by)) {
+            this.workGroupBy = prefs.work_group_by;
+        }
+        if (prefs.work_filter && ['all', 'mine', 'blocked', 'overdue'].includes(prefs.work_filter)) {
+            this.workFilter = prefs.work_filter;
+        }
+        if (prefs.work_project_filter) {
+            this.workProjectFilter = String(prefs.work_project_filter);
         }
         if (Array.isArray(prefs.dashboard_widgets) && prefs.dashboard_widgets.length) {
             const valid = prefs.dashboard_widgets.filter(k => this.DASH_WIDGET_KEYS.includes(k));

@@ -15,6 +15,10 @@ workLoading: false,
 selectedWorkItem: null,
 workDetail: null,
 workDetailLoading: false,
+workViewMode: 'board',  // 'board' | 'timeline' | 'list' — the ONE Work view chips
+workGroupBy: 'phase',  // 'phase' | 'epic' | 'assignee' | 'type' — changes what a drag means
+workTagsOpen: false,  // Tags ▾ dropdown (filter row)
+workGroupByOpen: false,  // Group-by ▾ dropdown (filter row)
 
 get workFiltered() {
     let items = this.workItems;
@@ -46,16 +50,66 @@ async loadWork() {
     this.workLoading = false;
     // Tag chips for the cross-tagging filter (load once)
     if (this.tagPool.length === 0) this.loadTagPool();
+    // The board re-lanes from fresh data (optimistic moves call loadWork too)
+    if (this.workViewMode === 'board') this.buildWorkBoard();
 },
 
 setWorkFilter(f) {
     this.workFilter = f;
     this.loadWork();
+    // Persisted state (survives reload) — pattern: setTaskViewMode
+    this.api('PUT', '/me/preferences', { key: 'work_filter', value: f }).catch(() => {});
 },
 
 setWorkTagFilter(tagId) {
     this.workTagFilter = this.workTagFilter === tagId ? null : tagId;
     this.loadWork();
+},
+
+setWorkProjectFilter(value) {
+    this.workProjectFilter = value;
+    this.api('PUT', '/me/preferences', { key: 'work_project_filter', value: value }).catch(() => {});
+    if (this.workViewMode === 'timeline') this.syncWorkGantt();
+},
+
+setWorkViewMode(mode) {
+    this.workViewMode = mode;
+    this.api('PUT', '/me/preferences', { key: 'work_view_mode', value: mode }).catch(() => {});
+    if (mode === 'timeline') this.syncWorkGantt();
+    if (mode === 'board') this.buildWorkBoard();
+},
+
+setWorkGroupBy(groupBy) {
+    this.workGroupBy = groupBy;
+    this.api('PUT', '/me/preferences', { key: 'work_group_by', value: groupBy }).catch(() => {});
+    this.buildWorkBoard();
+},
+
+// Timeline is filter-first per project: the gantt follows the Work project select
+syncWorkGantt() {
+    const want = this.workProjectFilter ? Number(this.workProjectFilter) : null;
+    if (want === null) {
+        if (this.ganttProjectId !== null) { this.ganttProjectId = null; this.ganttData = null; }
+        return;
+    }
+    if (this.ganttProjectId !== want || !this.ganttData || this.ganttData.project_id !== want) {
+        this.ganttProjectId = want;
+        this.loadGantt();
+    }
+},
+
+// Empty-state next action for the projectless timeline: focus + flash the select
+workPickProject() {
+    const el = document.getElementById('work-project-select');
+    if (!el) return;
+    el.focus();
+    el.classList.add('ring-2', 'ring-brand-300');
+    setTimeout(() => el.classList.remove('ring-2', 'ring-brand-300'), 2000);
+},
+
+// + New item — placeholder until Slice 3b wires the shared capture box
+newWorkItem() {
+    this.showToast('The capture box lands with the Work drawer slice — add items from a project board for now', 'info');
 },
 
 // ===== ItemType vocabulary (tenant-scoped) =====
@@ -215,6 +269,8 @@ async onGanttDrop(item, dayIso) {
         await this.api('PUT', `/backlog/${item.id}`, { start_date: fmt(start), end_date: fmt(end) });
         this.showToast(`#${item.id} moved to ${fmt(start)}`, 'success');
         this.loadGantt();
+        // Keep the ONE Work view in sync when the move came from its timeline
+        if (this.workViewMode === 'timeline') this.loadWork();
     } catch (e) { this.showToast('Failed to move item', 'error'); }
 },
 

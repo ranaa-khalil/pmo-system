@@ -17,7 +17,7 @@ from app.models.user_preference import UserPreference
 router = APIRouter(prefix="/api", tags=["preferences"])
 
 # Allow-listed keys — add new surfaces here explicitly
-ALLOWED_KEYS = ["dashboard_widgets", "task_view_mode"]
+ALLOWED_KEYS = ["dashboard_widgets", "task_view_mode", "work_view_mode", "work_group_by", "work_filter", "work_project_filter"]
 
 
 class PreferenceUpdate(BaseModel):

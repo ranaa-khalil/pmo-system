@@ -659,6 +659,142 @@ openBoard() {
     this.backlogView = 'board';
     this.buildBacklogBoard();
 },
+
+// ─── ONE Work view board (buildBacklogBoard generalized over workItems) ───
+// Renders the cross-project work list into lanes whose meaning depends on
+// workGroupBy: Phase → drop moves the item, Assignee → drop assigns,
+// Epic/Type → drop regroups. Every write goes behind the ONE
+// PUT /backlog/{id} (routers/backlog.py update_backlog_item) — no new API,
+// no page reload, one re-query per mutation.
+workBoardColumns: [],  // [{ key, label, kind, items }] built by buildWorkBoard
+workDragItem: null,  // { id, fromLane } while dragging a Work card
+workDragOverLane: null,  // lane the dragged card is hovering over
+buildWorkBoard() {
+    // One lane per group; Epic-type items are not work (they're groupings)
+    const pool = this.workFiltered.filter(i => i.item_type !== 'Epic');
+    const groupBy = this.workGroupBy || 'phase';
+    if (groupBy === 'phase') {
+        // Phase lanes in lifecycle order; stragglers (legacy phase values)
+        // tail the last lane — same behavior as the per-project board.
+        this.workBoardColumns = this.itemPhases.map(phase => ({
+            key: phase, label: phase, kind: 'phase',
+            items: pool.filter(i => (i.current_phase || '') === phase).sort((a, b) => this.boardItemCompare(a, b)),
+        }));
+        const known = new Set(this.itemPhases);
+        const stragglers = pool.filter(i => !known.has(i.current_phase || ''));
+        if (stragglers.length) {
+            this.workBoardColumns[this.workBoardColumns.length - 1].items.push(...stragglers);
+        }
+        return;
+    }
+    this.workBoardColumns = this.workGroupLanes(pool, groupBy);
+},
+workLaneFor(item, groupBy) {
+    // Lane key + label for one item under a group-by.
+    // Assignee lanes key on the user id ('unassigned' sweeps the value to null);
+    // Epic/Type lanes key on the value ('—' lane clears it).
+    if (groupBy === 'assignee') {
+        if (item.assigned_to == null) return { key: 'unassigned', label: 'Unassigned' };
+        return { key: String(item.assigned_to), label: item.assigned_to_name || 'User #' + item.assigned_to };
+    }
+    const field = groupBy === 'epic' ? 'epic' : 'item_type';
+    const value = (item[field] || '').trim();
+    return { key: value || '—', label: value || 'No ' + groupBy };
+},
+workGroupLanes(items, groupBy) {
+    // Group items into { key, label, kind, items } lanes — shared by Board and List
+    const lanes = [];
+    const byKey = {};
+    for (const it of items) {
+        const entry = this.workLaneFor(it, groupBy);
+        if (!byKey[entry.key]) {
+            byKey[entry.key] = { key: entry.key, label: entry.label, kind: groupBy, items: [] };
+            lanes.push(byKey[entry.key]);
+        }
+        byKey[entry.key].items.push(it);
+    }
+    lanes.sort((a, b) => {
+        const tailA = a.key === '—' || a.key === 'unassigned';
+        const tailB = b.key === '—' || b.key === 'unassigned';
+        if (tailA !== tailB) return tailA ? 1 : -1;
+        return a.label.localeCompare(b.label);
+    });
+    return lanes;
+},
+get workListGrouped() {
+    // List view shares the group-by chips: sections per value, payload order inside
+    return this.workGroupLanes(this.workFiltered, this.workGroupBy || 'phase');
+},
+workLaneLabel(laneKey) {
+    const lane = (this.workBoardColumns || []).find(l => l.key === laneKey);
+    return lane ? lane.label : laneKey;
+},
+workDragStart(item, laneKey) {
+    this.workDragItem = { id: item.id, fromLane: laneKey };
+},
+workDragEnd() {
+    this.workDragItem = null;
+    this.workDragOverLane = null;
+},
+workAllowDrop(laneKey) {
+    this.workDragOverLane = laneKey;
+},
+async workDropToLane(laneKey) {
+    if (!this.workDragItem) return;
+    const { id, fromLane } = this.workDragItem;
+    this.workDragEnd();
+    if (laneKey === fromLane) return;
+    const item = (this.workItems || []).find(i => i.id === id);
+    if (!item) return;
+    const groupBy = this.workGroupBy || 'phase';
+    // What a drop MEANS depends on the group-by chips (GitHub-boards parity):
+    // Phase lanes move, Assignee lanes assign, Epic/Type lanes regroup.
+    let payload = null;
+    let message = '';
+    if (groupBy === 'phase') {
+        // Release-level items are managed by the release workflow — don't drag them
+        if (this.releasePhases.includes(laneKey) || this.releasePhases.includes(fromLane)) {
+            this.showToast('Release stages are managed by the release workflow', 'info');
+            return;
+        }
+        payload = { current_phase: laneKey };
+        message = 'Moved to ' + laneKey;
+    } else if (groupBy === 'assignee') {
+        const unassign = laneKey === 'unassigned';
+        payload = { assigned_to: unassign ? null : Number(laneKey) };
+        message = unassign ? 'Assignee cleared' : 'Assigned to ' + this.workLaneLabel(laneKey);
+    } else if (groupBy === 'epic') {
+        payload = { epic: laneKey === '—' ? null : laneKey };
+        message = laneKey === '—' ? 'Removed from its epic' : 'Moved to ' + laneKey;
+    } else if (groupBy === 'type') {
+        payload = { item_type: laneKey === '—' ? null : laneKey };
+        message = laneKey === '—' ? 'Type cleared' : 'Moved to ' + laneKey;
+    }
+    if (!payload) return;
+    // Optimistic: land the change locally, revert on failure; then ONE re-query.
+    const prev = { ...item };
+    Object.assign(item, payload);
+    if (groupBy === 'assignee') {
+        item.assigned_to_name = payload.assigned_to == null ? null : this.workLaneLabel(laneKey);
+    }
+    this.buildWorkBoard();
+    try {
+        await this.api('PUT', `/backlog/${id}`, payload);
+        this.showToast(message, 'success');
+        await this.loadWork();  // ONE re-query — no page reload, no transition storm
+    } catch (e) {
+        Object.assign(item, prev);
+        this.buildWorkBoard();
+        this.showToast(e.message || 'Could not update the item', 'error');
+    }
+},
+workCardBorderColor(item) {
+    // §6 left-border coding by item type: feature indigo · enhancement violet ·
+    // bug fuchsia · chore slate (state colors stay on chips, never this border)
+    const map = { feature: '#6366f1', enhancement: '#8b5cf6', bug: '#d946ef', chore: '#94a3b8' };
+    return 'border-left-color: ' + (map[(item.item_type || '').toLowerCase()] || '#d4d4d8');
+},
+
 // ─── Quick-add on the board ───
 toggleQuickAdd(phase) {
     if (this.quickAddPhase === phase) {

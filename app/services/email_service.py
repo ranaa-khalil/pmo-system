@@ -134,3 +134,14 @@ class EmailService:
 
 # Singleton
 email_service = EmailService()
+
+
+def send_email(db=None, tenant_id=None, to_email="", subject="", body="", html=""):
+    """Queue + dispatch one email (R1: report send + digests).
+
+    THE dispatch door: brief._queue_email and the report-send path call
+    this. SMTP configured → sends live; otherwise logs (dev mode). The
+    caller's audit trail (artifact chain for reports, digest rows) is the
+    outbox log — this function never bypasses it.
+    """
+    return EmailService().send(to=to_email, subject=subject, body=body, html=html)

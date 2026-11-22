@@ -6,8 +6,6 @@ Configure via Settings: AI API Key, Base URL, Model.
 import json
 import re
 
-import httpx
-
 from app.config import settings
 
 
@@ -60,46 +58,18 @@ def _extract_json(raw: str) -> dict | None:
 def _call_llm(system_prompt: str, user_prompt: str, max_tokens: int = 1500, json_mode: bool = False, tenant_config: dict | None = None) -> str:
     """Call the LLM API and return the response text.
 
-    If tenant_config is provided, uses per-tenant AI settings.
-    Otherwise falls back to global config.
+    Delegates to the ONE resilience wrapper (app/services/llm.py): ~20s
+    timeout per attempt, exactly one retry, a deterministic fallback on
+    failure (AI never blocks a user flow), and an LlmUsage row per call.
+    Signature unchanged — tests monkeypatch this name.
     """
-    if tenant_config:
-        api_key = tenant_config.get("api_key", "")
-        base_url = tenant_config.get("base_url", settings.ai_base_url)
-        model = tenant_config.get("model", settings.ai_model)
-    else:
-        api_key = settings.ai_api_key
-        base_url = settings.ai_base_url
-        model = settings.ai_model
+    from app.services.llm import call_llm
 
-    if not api_key:
-        raise ValueError("AI is not configured. Set the API key in Settings.")
-
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        "max_tokens": max_tokens,
-        "temperature": 0.7,
-    }
-    if json_mode:
-        payload["response_format"] = {"type": "json_object"}
-
-    with httpx.Client(timeout=120.0) as client:
-        resp = client.post(
-            f"{base_url}/chat/completions",
-            headers=headers,
-            json=payload,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        return data["choices"][0]["message"]["content"]
+    return call_llm(
+        system_prompt, user_prompt,
+        tenant_config=tenant_config, max_tokens=max_tokens, json_mode=json_mode,
+        feature="ai",
+    )
 
 
 def suggest_vision_improvements(

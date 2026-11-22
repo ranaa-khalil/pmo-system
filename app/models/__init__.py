@@ -25,6 +25,7 @@ from app.models.item_type import ItemType
 from app.models.kpi import KPI
 from app.models.kpi_history import KpiHistory
 from app.models.lifecycle_template import TenantLifecycleTemplate
+from app.models.llm_usage import LlmUsage
 from app.models.milestone import Milestone
 from app.models.notification import Notification, NotificationPreference
 from app.models.password_reset_token import PasswordResetToken

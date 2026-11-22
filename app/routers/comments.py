@@ -16,6 +16,7 @@ from app.models.tenant import Tenant
 from app.models.user import User
 from app.models.user_task import UserTask
 from app.schemas.comment import CommentCreate, CommentResponse
+from app.services.notifications import create_notification
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["comments"])
@@ -47,7 +48,43 @@ def _create(db: Session, tenant_id: int, user: User, req: CommentCreate, **filte
     db.add(comment)
     db.commit()
     db.refresh(comment)
+    _notify_assignee(db, tenant_id, user, filters)
     return _row(comment)
+
+
+def _notify_assignee(db: Session, tenant_id: int, actor: User, filters: dict) -> None:
+    """R1: the assignee is notified on comment write (the in-app service
+    existed, nothing fired). One notification per comment — edits never
+    re-notify because this runs only in the create path. The commenter is
+    never notified about their own comment."""
+    assignee, title, project_id = None, None, None
+    if filters.get("task_id"):
+        task = db.query(UserTask).filter(
+            UserTask.id == filters["task_id"], UserTask.tenant_id == tenant_id,
+        ).first()
+        if task:
+            title = task.title
+            project_id = task.project_id if hasattr(task, "project_id") else None
+            if task.assigned_to:
+                assignee = db.query(User).filter(User.id == task.assigned_to).first()
+    elif filters.get("item_id"):
+        item = db.query(BacklogItem).filter(
+            BacklogItem.id == filters["item_id"], BacklogItem.tenant_id == tenant_id,
+        ).first()
+        if item:
+            title = item.title
+            project_id = item.project_id
+            if item.assigned_to:
+                assignee = db.query(User).filter(User.id == item.assigned_to).first()
+    if not assignee or assignee.id == actor.id:
+        return
+    create_notification(
+        db, assignee.id, "comment",
+        title=f"New comment from {actor.name}",
+        body=f"{actor.name} commented on '{(title or 'an item')[:200]}'.",
+        link="/today",
+        project_id=project_id,
+    )
 
 
 @router.get("/tasks/{task_id}/comments", response_model=list[CommentResponse])

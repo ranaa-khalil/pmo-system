@@ -3,8 +3,10 @@
 Generate a snapshot of project health (progress, releases, risks, milestones)
 and "send" it: each send appends a hash-linked artifact_chain entry
 (artifact_type="report"), so delivered reports are tamper-evident and
-listable forever.
+listable forever. R1: the send path also dispatches to explicit recipients
+(the PM + stakeholders with an email) — the chain entry stays the audit row.
 """
+import json
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -19,9 +21,11 @@ from app.models.project import Project
 from app.models.release import Release
 from app.models.risk import Risk
 from app.models.roadmap import Roadmap
+from app.models.stakeholder import Stakeholder
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.artifact_chain import append_artifact
+from app.services.email_service import send_email
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["reports"])
@@ -102,8 +106,32 @@ def send_status_report(
     )
     db.commit()  # append_artifact flushes but does not commit
     db.refresh(entry)
+
+    # R1: report send gains recipients + dispatch (the artifact chain entry
+    # above stays the tamper-evident audit row — dispatch never bypasses it).
+    recipients: list[dict] = []
+    if project.project_manager_id:
+        pm = db.query(User).filter(User.id == project.project_manager_id).first()
+        if pm and pm.email:
+            recipients.append({"name": pm.name, "email": pm.email, "role": "pm"})
+    for st in db.query(Stakeholder).filter(
+        Stakeholder.project_id == project.id, Stakeholder.tenant_id == current_tenant.id,
+    ).all():
+        if st.email:
+            recipients.append({"name": st.name, "email": st.email, "role": st.role_name})
+    dispatched = []
+    for r in recipients:
+        sent = send_email(
+            db=db, tenant_id=current_tenant.id, to_email=r["email"],
+            subject=f"[PMO] Status report — {project.name}",
+            body=json.dumps(report, indent=2, default=str),
+        )
+        dispatched.append({"email": r["email"], "sent": bool(sent)})
+
     return {
         "report": report,
+        "recipients": recipients,
+        "dispatched": dispatched,
         "entry": {
             "id": entry.id,
             "seq": entry.seq,

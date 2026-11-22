@@ -20,6 +20,7 @@ from app.models.tenant import Tenant
 from app.models.user import User
 from app.models.user import User as UserModel
 from app.models.user_task import UserTask
+from app.services.health import compute_project_health
 from app.services.notifications import ensure_preferences
 from app.services.tenant import get_current_tenant
 
@@ -342,105 +343,5 @@ def get_project_health(
     current_user: User = Depends(get_current_user),
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
-    """Get composite project health score and breakdown."""
-    tid = current_tenant.id
-    from app.models.approval import ApprovalRequest
-    from app.models.release import Release, ReleaseItem
-
-    # Phase distribution
-    items = db.query(BacklogItem).filter(BacklogItem.project_id == project_id, BacklogItem.tenant_id == tid).all()
-    phase_dist = {}
-    for item in items:
-        phase_dist[item.current_phase] = phase_dist.get(item.current_phase, 0) + 1
-
-    total_items = len(items)
-    completed_items = sum(1 for i in items if i.current_phase == "Ready for UAT" or i.target_release)
-
-    # Active releases
-    releases = db.query(Release).filter(Release.project_id == project_id, Release.tenant_id == tid).all()
-    active_releases = [r for r in releases if r.status not in ("Post-Release",)]
-    releases_with_items = []
-    for r in active_releases:
-        release_items = db.query(ReleaseItem).filter(ReleaseItem.release_id == r.id, ReleaseItem.tenant_id == tid).all()
-        releases_with_items.append({
-            "id": r.id,
-            "version": r.version,
-            "name": r.name,
-            "status": r.status,
-            "item_count": len(release_items),
-            "progress": min(100, len(release_items) * 20),
-        })
-
-    # Pending approvals
-    pending_approvals = db.query(ApprovalRequest).filter(
-        ApprovalRequest.project_id == project_id,
-        ApprovalRequest.status == "Pending",
-        ApprovalRequest.tenant_id == tid,
-    ).count()
-
-    # Overdue tasks
-    from datetime import date as _date
-    today = _date.today()
-    overdue_tasks = db.query(UserTask).filter(
-        UserTask.project_id == project_id,
-        UserTask.status != "Completed",
-        UserTask.due_date < today,
-        UserTask.tenant_id == tid,
-    ).count()
-
-    # KPIs below target
-    kpis = db.query(KPI).filter(KPI.project_id == project_id, KPI.tenant_id == tid).all()
-    kpis_below = 0
-    kpi_progress = []
-    for k in kpis:
-        try:
-            target = float(k.target_value) if k.target_value else 0
-            current = float(k.current_value) if k.current_value else 0
-        except (ValueError, TypeError):
-            target, current = 0, 0
-        if target and current < target:
-            kpis_below += 1
-        pct = int((current / target * 100) if target else 0)
-        kpi_progress.append({
-            "id": k.id, "name": k.name, "current": current,
-            "target": target, "unit": k.unit, "progress": min(100, pct),
-        })
-
-    # Composite health score (0-100)
-    schedule_score = min(100, (completed_items / total_items * 100) if total_items else 100)
-    approval_score = max(0, 100 - pending_approvals * 15)
-    task_score = max(0, 100 - overdue_tasks * 20)
-    kpi_score = (len(kpis) - kpis_below) / len(kpis) * 100 if kpis else 100
-    health_score = int((schedule_score + approval_score + task_score + kpi_score) / 4)
-
-    # Determine status
-    if health_score >= 80:
-        status = "Healthy"
-        status_color = "emerald"
-    elif health_score >= 60:
-        status = "At Risk"
-        status_color = "amber"
-    elif health_score >= 40:
-        status = "Warning"
-        status_color = "orange"
-    else:
-        status = "Critical"
-        status_color = "rose"
-
-    return {
-        "health_score": health_score,
-        "status": status,
-        "status_color": status_color,
-        "schedule_score": int(schedule_score),
-        "approval_score": int(approval_score),
-        "task_score": int(task_score),
-        "kpi_score": int(kpi_score),
-        "total_items": total_items,
-        "completed_items": completed_items,
-        "phase_distribution": phase_dist,
-        "active_releases": releases_with_items,
-        "pending_approvals": pending_approvals,
-        "overdue_tasks": overdue_tasks,
-        "kpis_below_target": kpis_below,
-        "kpi_progress": kpi_progress,
-    }
+    """Get composite project health score and breakdown (computed in services/health.py)."""
+    return compute_project_health(db, current_tenant.id, project_id)

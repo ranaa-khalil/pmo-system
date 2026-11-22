@@ -425,7 +425,7 @@ navigate(route) {
     if (route === 'work') { this.loadWork(); if (this.workViewMode === 'timeline') this.syncWorkGantt(); }
     if (route === 'settings') { this.loadItemTypes(); }
     if (route === 'projects' || route === 'project-detail') { this.loadItemTypes(); }
-    if (route === 'settings') { this.loadTenant(); this.loadMembers(); this.loadIntegrations(); this.loadTenantLimits(); this.loadAutomation(); this.loadLifecycle(); }
+    if (route === 'settings') { this.loadTenant(); this.loadMembers(); this.loadIntegrations(); this.loadTenantLimits(); this.loadAutomation(); this.loadLifecycle(); this.loadOfficerStatus(); }
     if (route === 'admin-dashboard' || route === 'admin-tenants' || route === 'admin-plans') { this.loadAdminInsights(); this.loadAdminPlans(); }
 },
 

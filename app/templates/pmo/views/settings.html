@@ -285,6 +285,57 @@
 
                 <!-- ===== TAB: TENANT SETTINGS (admin/owner only) ===== -->
                 <div x-show="settingsTab === 'tenant' && canManageUsers" x-cloak class="space-y-6">
+                    <!-- Officer card (Unified System v2 §2 route 10: rules ON by default, one click off, Scan now, digest schedule) -->
+                    <div class="surface rounded-2xl border border-ink-200/60 p-6">
+                        <div class="flex items-center justify-between mb-1">
+                            <h3 class="text-[14px] font-semibold text-ink-800">Officer</h3>
+                            <span class="text-[10px] font-medium px-2 py-0.5 rounded-md"
+                                  :class="officerRulesOn ? 'bg-emerald-50 text-emerald-600' : 'bg-ink-100 text-ink-500'"
+                                  x-text="officerRulesOn ? 'Rules ON' : 'Rules OFF'"></span>
+                        </div>
+                        <p class="text-[12px] text-ink-500 mb-4">The officer watches your backlog around the clock — rules are ON by default, one click off.</p>
+                        <!-- Rules master switch (one click) -->
+                        <div class="flex items-center justify-between gap-3 flex-wrap py-2 border-b border-ink-100">
+                            <div>
+                                <div class="text-[13px] font-medium text-ink-700">Automation rules</div>
+                                <div class="text-[11px] text-ink-400" x-text="officerRulesOn ? 'Draft-producing only — never executing' : 'Sweep paused — nothing runs until you turn them back on'"></div>
+                            </div>
+                            <button @click="toggleOfficerRules()" :disabled="officerRulesSaving"
+                                    class="text-[12px] font-medium transition-all px-3 py-2 rounded-lg disabled:opacity-50"
+                                    :class="officerRulesOn ? 'text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100' : 'text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100'"
+                                    x-text="officerRulesSaving ? '...' : (officerRulesOn ? 'Turn off' : 'Turn on')"></button>
+                        </div>
+                        <!-- Scan now -->
+                        <div class="flex items-center justify-between gap-3 flex-wrap py-2 border-b border-ink-100">
+                            <div>
+                                <div class="text-[13px] font-medium text-ink-700">Scan now</div>
+                                <div class="text-[11px] text-ink-400" x-text="officerScanResult ? ('Last scan: evaluated ' + (officerScanResult.evaluated || 0) + ' · fired ' + (officerScanResult.fired || 0)) : 'Run the rules sweep for this tenant right now'"></div>
+                            </div>
+                            <button @click="runOfficerScan()" :disabled="officerScanning"
+                                    class="text-[12px] font-medium text-ink-600 border border-ink-200 hover:bg-ink-100 px-3.5 py-2 rounded-lg transition-all disabled:opacity-50">
+                                <span x-text="officerScanning ? '...' : 'Scan now'"></span>
+                            </button>
+                        </div>
+                        <!-- Digest schedule (display-only) -->
+                        <div class="flex items-center justify-between gap-3 flex-wrap py-2 border-b border-ink-100">
+                            <div>
+                                <div class="text-[13px] font-medium text-ink-700">Digest schedule</div>
+                                <div class="text-[11px] text-ink-400">Nightly 23:00 · Weekly Friday 23:05 · Rules sweep hourly</div>
+                            </div>
+                        </div>
+                        <!-- Last runs (from GET /api/officer/status) -->
+                        <div class="mt-3">
+                            <div class="text-[10px] text-ink-400 uppercase tracking-wider mb-1">Last runs</div>
+                            <template x-for="job in officerLastRuns" :key="'officer-' + job.name">
+                                <div class="flex items-center justify-between gap-3 text-[12px] py-0.5">
+                                    <span class="text-ink-600 capitalize" x-text="job.name.replace('_', ' ')"></span>
+                                    <span class="text-ink-400" x-text="job.last"></span>
+                                </div>
+                            </template>
+                            <p x-show="!officerLastRuns.length" class="text-[11px] text-ink-400">No runs yet — the beat's first window lands at the next scheduled tick.</p>
+                        </div>
+                    </div>
+
                     <!-- Tenant General card -->
                     <div class="surface rounded-2xl border border-ink-200/60 p-6">
                         <h3 class="text-[14px] font-semibold text-ink-800 mb-4">Organization</h3>

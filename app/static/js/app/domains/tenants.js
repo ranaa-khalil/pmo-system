@@ -15,6 +15,13 @@ automationRules: [],
     ruleDraft: { trigger: '', action: '', role: 'gate_owner' },
     savingRule: false,
 automationScan: null,
+// Officer (route 10) state — rules ON by default, one click off
+officerStatus: null,
+officerRulesOn: true,
+officerRulesSaving: false,
+officerScanning: false,
+officerScanResult: null,
+officerLastRuns: [],
 lifecycleTemplates: [],
 lifecycleTypes: [],
 lifecycleForm: { project_type: '', name: '', description: '', item_phases: '', release_stages: '', fields_text: '' },
@@ -657,6 +664,49 @@ async runAutomationScan() {
         const n = (this.automationScan.proposals || []).length;
         this.showToast(n ? `Scan found ${n} pattern${n === 1 ? '' : 's'} — review and enable` : 'Scan complete — no repeated patterns yet');
     } catch (e) { this.showToast(e.message, 'error'); }
+},
+
+// ===== Officer (route 10): rules master switch, Scan now, last runs =====
+async loadOfficerStatus() {
+    try {
+        this.officerStatus = await this.api('GET', '/officer/status');
+        this.officerRulesOn = this.officerStatus.rules_enabled !== false;
+        const jobs = (this.officerStatus.scheduler && this.officerStatus.scheduler.jobs) || {};
+        this.officerLastRuns = Object.keys(jobs).map(name => {
+            const info = jobs[name] || {};
+            const last = info.last_run;
+            let label = '—';
+            if (last) label = 'window ' + (last.window || '?') + ' · ' + (last.tenants || 0) + ' tenants';
+            return { name: name, last: label };
+        });
+    } catch { this.officerStatus = null; this.officerLastRuns = []; }
+},
+
+async toggleOfficerRules() {
+    const target = !this.officerRulesOn;
+    this.officerRulesSaving = true;
+    try {
+        await this.api('PUT', '/officer/rules', { enabled: target });
+        this.officerRulesOn = target;
+        this.showToast(target ? 'Rules on — the sweep runs hourly' : 'Rules off — the sweep pauses for this tenant', 'success');
+    } catch (e) { this.showToast(e.message, 'error'); }
+    finally { this.officerRulesSaving = false; }
+},
+
+async runOfficerScan() {
+    this.officerScanning = true;
+    try {
+        const res = await this.api('POST', '/officer/scan', {});
+        if (res.rules === 'off') {
+            this.officerScanResult = null;
+            this.showToast('Rules are off — turn them on to scan', 'error');
+        } else {
+            this.officerScanResult = res;
+            this.showToast('Scan complete — evaluated ' + (res.evaluated || 0) + ', fired ' + (res.fired || 0), 'success');
+        }
+        await this.loadOfficerStatus();
+    } catch (e) { this.showToast(e.message, 'error'); }
+    finally { this.officerScanning = false; }
 },
 
 async enableRule(id) {

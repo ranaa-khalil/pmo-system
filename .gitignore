@@ -9,3 +9,4 @@ venv_old/
 uploads/
 .hermes/
 qa-bug-report.md
+node_modules/

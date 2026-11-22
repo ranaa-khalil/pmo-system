@@ -1,0 +1,94 @@
+/* ============================================================
+   PMO System — §6 design tokens (The Unified System v2, §6)
+   ============================================================
+   The one language every surface speaks: brand scale, state
+   colors, the 4px type-coded left border, the type scale, the
+   4px spacing grid, radii, the elevation ladder and motion.
+   Raw hexes belong HERE, never in component CSS (§9 build note).
+   Dark-mode-ready (§8 rule 9): all color via custom properties.
+
+   Consumed by:
+   - the hand-written CSS (theme/components/views/utilities)
+   - tailwind.config.js (token keys mapped via var() — additive only)
+   - inlined into tailwind.compiled.css by the build (ADR-07)
+   ============================================================ */
+
+:root {
+    /* ── Primary — indigo→violet only (§6) ──────────────────────
+       No blue/green/teal as primary; gradients only as fills,
+       never text or borders. */
+    --brand-50: #eef2ff;                                     /* row tint */
+    --brand-100: #e0e7ff;                                    /* active chip bg */
+    --brand-500: linear-gradient(135deg, #6366f1, #8b5cf6);  /* gradient — primary button, FAB, active view-chip underline */
+    --brand-500-from: #6366f1;                               /* gradient stop (indigo-500) */
+    --brand-500-to: #8b5cf6;                                 /* gradient stop (violet-500) */
+    --brand-600: #4f46e5;                                    /* links, solid primary, focus ring */
+    /* §6 locks 50/100/500/600 explicitly; --brand-700 completes the
+       same indigo scale for the hover/darker solid state. */
+    --brand-700: #4338ca;
+    --accent-600: #7c3aed;                                   /* group-by active, stepper ring */
+
+    /* ── State colors — chips + tints, never the item left border (§6) ──
+       A state renders once per screen region. */
+    --state-success: #10b981;                                /* done / on-track / approved */
+    --state-warning: #f59e0b;                                /* blocked / at-risk / every AI draft */
+    --state-danger: #ef4444;                                 /* overdue / rejected */
+    --state-neutral: #64748b;                                /* draft / queued */
+
+    /* ── Left-border coding — the scan layer, 4px by item type (§6) ──
+       Two deliberate exceptions: project cards carry the computed-health
+       border; Today's needs-you cards carry the semantic border. */
+    --left-border-width: 4px;
+    --left-border-feature: #6366f1;                          /* indigo-500 */
+    --left-border-enhancement: #8b5cf6;                      /* violet-500 */
+    --left-border-bug: #d946ef;                              /* fuchsia-500 */
+    --left-border-chore: #94a3b8;                            /* slate-400 */
+    --left-border-epic: var(--brand-500);                    /* gradient band */
+
+    /* ── Type — Inter var; hierarchy from weight and color, not size
+          jumps (§6). Mono for #N, #GH, hashes, dates. ────────────── */
+    --font-sans: 'Inter', -apple-system, 'BlinkMacSystemFont', 'Segoe UI', sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Menlo', monospace;
+    --text-label: 11px;                                      /* 11px label */
+    --text-meta: 12px;                                       /* 12px meta */
+    --text-body-sm: 13px;                                    /* 13px body */
+    --text-body: 14px;                                       /* 14px body */
+    --text-title: 16px;                                      /* 16px title */
+    --text-section: 18px;                                    /* 18px section */
+    --text-page: 22px;                                       /* 22px page (max) */
+
+    /* ── Spacing — the 4px grid (§6) ──────────────────────────── */
+    --space-card-pad: 12px;                                  /* card pad */
+    --space-gap: 8px;                                        /* gap */
+    --space-row: 40px;                                       /* row (44 on touch) */
+    --space-row-touch: 44px;
+    --space-chip: 24px;                                      /* chip */
+    --space-section: 24px;                                   /* section gap */
+    --space-max-width: 1280px;                               /* max width */
+
+    /* ── Shape — radii 6/8/10/999px only; drawer widths (§6) ──── */
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 10px;
+    --radius-pill: 999px;
+    --drawer-width-item: 520px;                              /* item drawer */
+    --drawer-width-approval: 560px;                          /* approval drawer */
+
+    /* ── Elevation — e0 border only → e1 hover → e2 popover → e3
+          drawer/palette/toast. Tints never carry shadows; shadows
+          never stack (§6). §6 locks the ladder ROLES; the numeric
+          values follow the app's existing shadow family. ───────── */
+    --elevation-0: 0 0 #0000;                                /* border only — no shadow */
+    --elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.05);            /* hover */
+    --elevation-2: 0 4px 12px -2px rgb(0 0 0 / 0.10);        /* popover */
+    --elevation-3: 0 24px 60px -12px rgb(0 0 0 / 0.18);      /* drawer / palette / toast */
+
+    /* ── Motion — 150–200ms; optimistic moves land instantly, no
+          animation on data; prefers-reduced-motion collapses all
+          transitions (§6 boot contract). ────────────────────────── */
+    --motion-fast: 150ms;                                    /* micro feedback */
+    --motion-base: 200ms;                                    /* drawer 200ms translate-x */
+    --motion-toast-in: 180ms;                                /* toasts 180ms in … */
+    --motion-toast-out: 3s;                                  /* … 3s out with undo */
+    --motion-skeleton: 1.2s;                                 /* skeletons shimmer in the exact silhouette */
+}

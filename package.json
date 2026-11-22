@@ -1,0 +1,11 @@
+{
+  "name": "pmo-system",
+  "private": true,
+  "description": "PMO System — Tailwind build wiring (ADR-07: compiled Tailwind replaces the Play CDN). The compiled stylesheet is the only build artifact.",
+  "scripts": {
+    "build:css": "tailwindcss -i ./app/static/css/tailwind.src.css -o ./app/static/css/tailwind.compiled.css --minify"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  }
+}

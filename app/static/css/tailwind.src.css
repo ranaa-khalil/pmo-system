@@ -1,0 +1,18 @@
+/* ============================================================
+   Tailwind build input — ADR-07 (compiled Tailwind, R2 slot one)
+   ============================================================
+   The only build artifact workflow: this file compiles to
+   app/static/css/tailwind.compiled.css (npm run build:css) and
+   replaces the Play CDN (static/tailwind.min.js — kept on disk,
+   unreferenced, for rollback). The ?v= cache-bust stays on the
+   <link> in the templates.
+
+   tokens.css (the §6 design tokens) is inlined first so the CSS
+   vars the config consumes ship in the same stylesheet the
+   browser loads — one request, no FOUC between tokens and rules.
+   ============================================================ */
+@import './tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

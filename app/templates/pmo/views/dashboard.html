@@ -267,7 +267,7 @@
                             </template>
                             <div class="space-y-1">
                                 <template x-for="pp in (dashStats?.project_progress || [])" :key="pp.id">
-                                    <div @click="openProject({id: pp.id, name: pp.name, client_id: null})" class="p-3 rounded-xl hover:bg-ink-100 transition-colors group cursor-pointer">
+                                    <div @click="openProjectRef(pp.id, pp.name)" class="p-3 rounded-xl hover:bg-ink-100 transition-colors group cursor-pointer">
                                         <div class="flex items-center justify-between mb-2">
                                             <div class="flex items-center gap-3 min-w-0">
                                                 <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-ink-100 to-ink-100 flex items-center justify-center ring-1 ring-brand-100/50 flex-shrink-0">

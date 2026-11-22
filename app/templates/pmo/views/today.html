@@ -65,7 +65,7 @@
                                   x-text="row.kind === 'approval' ? 'Approval' : row.kind === 'blocked' ? 'Blocked' : 'Overdue'"></span>
                         </div>
                         <div class="text-[11.5px] text-ink-500 mt-0.5 truncate">
-                            <span x-text="row.project"></span>
+                            <span class="cursor-pointer hover:text-brand-700 transition-colors" @click.stop="openProjectRef(row.project_id, row.project)" x-text="row.project"></span>
                             <span class="text-ink-300"> · </span>
                             <span x-text="row.why"></span>
                         </div>

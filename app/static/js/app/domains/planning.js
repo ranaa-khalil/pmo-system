@@ -934,6 +934,17 @@ async api(method, url, body, contentType) {
 
 
 // ===== Project detail =====
+// Open a project from a row reference (Work items, Today rows, the
+// dashboard's progress list): the FULL project object when it's in the
+// loaded list, else a minimal one — openProject's loaders fill the rest.
+// A name-only fallback matches the loaded projects by title.
+openProjectRef(projectId, name) {
+    const pid = Number(projectId);
+    const full = (pid && this.projects.find(p => Number(p.id) === pid))
+        || this.projects.find(p => name && p.name === name);
+    if (full) return this.openProject(full);
+    if (pid) return this.openProject({id: pid, name: name || 'Project', client_id: null});
+},
 async openProject(project) {
     this.selectedProject = project;
     this.route = 'project-detail';

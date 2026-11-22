@@ -164,6 +164,7 @@
                                 <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 font-semibold" x-show="card.blocked">BLOCKED</span>
                             </div>
                             <div class="flex items-center gap-1 mt-1.5 flex-wrap">
+                                <span class="text-[9px] px-1.5 py-0.5 rounded bg-ink-100 text-ink-500 font-medium cursor-pointer hover:bg-brand-50 hover:text-brand-700 transition-colors" @click.stop="openProjectRef(card.project_id, card.project)" x-show="card.project" x-text="card.project"></span>
                                 <span class="text-[9px] px-1.5 py-0.5 rounded bg-brand-50 text-brand-600 font-medium" x-show="card.epic" x-text="card.epic"></span>
                                 <template x-for="t in (card.tags || []).slice(0, 2)" :key="t.id">
                                     <span class="text-[9px] px-1.5 py-0.5 rounded-full border" :class="tagChipClass(t.color)" x-text="'#' + t.name"></span>
@@ -307,7 +308,7 @@
                             <div class="min-w-0 flex-1">
                                 <div class="text-[13px] font-medium text-ink-900 truncate" x-text="it.title"></div>
                                 <div class="text-[11px] text-ink-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                                    <span class="px-1.5 py-0.5 rounded bg-ink-100 text-ink-600" x-text="it.project"></span>
+                                    <span class="px-1.5 py-0.5 rounded bg-ink-100 text-ink-600 cursor-pointer hover:bg-brand-50 hover:text-brand-700 transition-colors" @click.stop="openProjectRef(it.project_id, it.project)" x-text="it.project"></span>
                                     <span x-text="it.phase"></span>
                                     <span x-show="it.epic" x-text="it.epic"></span>
                                     <template x-for="t in (it.tags || []).slice(0, 2)" :key="t.id">

@@ -104,11 +104,16 @@ export function captureBox(boxId = 'capture') {
         },
 
         // The manual path, always visible: open the drawer's + New item in
-        // edit mode (the form fallback — interaction rule 7)
+        // edit mode (the form fallback — interaction rule 7). The drawer
+        // lives in the Work view — navigate there first (the
+        // openWorkItemFromToday pattern) when the capture ran elsewhere.
         skipToForm() {
             const store = this.store();
             this.reset();
-            if (store && typeof store.openWorkItemNew === 'function') store.openWorkItemNew();
+            if (store && typeof store.openWorkItemNew === 'function') {
+                if (store.route !== 'work' && typeof store.navigate === 'function') store.navigate('work');
+                store.openWorkItemNew();
+            }
         },
 
         reset() {

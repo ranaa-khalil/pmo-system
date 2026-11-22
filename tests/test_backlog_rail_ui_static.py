@@ -113,16 +113,19 @@ def test_rail_loader_caches_per_project():
 
 
 def test_rail_loader_is_lazy_not_in_any_burst():
-    # the openProject burst must NOT prefetch the rail — Rethink v2 Phase E: the
-    # project-page backlog tab is gone, so no x-effect prefetches it; the Work
-    # board fetches it lazily per project (workRailPhaseNames → loadBacklogRail)
+    # the openProject burst must NOT prefetch the rail — the restored Backlog
+    # tab loads it lazily via planning.js's projectTabLoaders map (backlog →
+    # backlogRail, first show); no x-effect prefetch on the project page; the
+    # Work board fetches it lazily per project (workRailPhaseNames)
     projects = _read(PROJECTS_JS)
     assert "loadBacklogRail" not in projects
     detail = _read(PROJECT_DETAIL)
-    assert "loadBacklogRail" not in detail, "the project page must not prefetch the rail"
+    assert "loadBacklogRail" not in detail, "no x-effect prefetch on the project page"
     js = _read(BACKLOG_JS)
     union = _fn_body(js, "workRailPhaseNames")
     assert "loadBacklogRail(pid)" in union  # the lazy per-project fetch remains
+    planning = _read(PLANNING_JS)
+    assert "backlog: ['backlogRail']" in planning  # the map fires it on first show
 
 
 # ── 3. both boards build from the rail ───────────────────────────────────
@@ -158,14 +161,15 @@ def test_work_html_lanes_still_bind_the_board_columns():
     assert "workViewMode === 'list'" in html  # List view untouched
 
 
-def test_project_page_no_longer_hosts_the_board():
-    # Rethink v2 Phase E: the C2 rail-driven board on the project page is removed
-    # in favor of the ONE Work view (whose rail assertions above hold); the
-    # project page keeps no board markup and no rail fetch
+def test_project_page_hosts_the_board_again():
+    # Rana's correction: the C2 rail-driven board is BACK on the project page
+    # (Phase E had folded it into Work); the ONE store is shared — the board's
+    # lanes come from backlogBoardColumns (the rail-backed getters in
+    # backlog.js), the fetch is lazy via the projectTabLoaders map
     detail = _read(PROJECT_DETAIL)
-    assert 'x-for="col in backlogBoardColumns"' not in detail
-    assert "phaseDotColor(col.phase)" not in detail
-    assert "loadBacklogRail" not in detail
+    assert 'x-for="col in backlogBoardColumns"' in detail
+    assert "phaseDotColor(col.phase)" in detail
+    assert "loadBacklogRail" not in detail  # no x-effect prefetch — the map fires it
 
 
 def test_project_board_builder_keeps_the_rail_contract():
@@ -202,15 +206,15 @@ def test_toggle_phase_filter_toggles_array_membership():
     assert "phaseFilterActive(phase)" in _fn_body(js, "phaseFilterActive")
 
 
-def test_phase_chips_are_gone_from_the_project_page():
-    # the FILTER chip row (itemPhases/releasePhases chips with the toggle
-    # bindings) rendered on the removed backlog tab only — the project page must
-    # not carry it; the rail-backed getters it read survive in backlog.js, and
-    # the item drawer's stepper keeps its own (legitimate) itemPhases x-for
+def test_phase_chips_are_back_on_the_project_page():
+    # Rana's correction: the FILTER chip row (the rail-backed phase chips with
+    # the toggle bindings) is BACK on the restored Backlog tab; the rail-backed
+    # getters it reads live in backlog.js, and the item drawer's stepper keeps
+    # its own (legitimate) itemPhases x-for
     detail = _read(PROJECT_DETAIL)
-    assert "togglePhaseFilter(phase)" not in detail
-    assert "phaseFilterActive(phase)" not in detail
-    assert 'x-for="phase in releasePhases"' not in detail
+    assert "togglePhaseFilter(phase)" in detail
+    assert "phaseFilterActive(phase)" in detail
+    assert 'x-for="phase in releasePhases"' in detail
     js = _read(BACKLOG_JS)
     assert "get itemPhases()" in js and "get releasePhases()" in js
 

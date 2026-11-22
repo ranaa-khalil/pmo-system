@@ -623,6 +623,7 @@ projectTab: 'cockpit',
         cockpit: ['coverage', 'today', 'activity'],
         kpis: ['kpis', 'traceability'],
         roadmap: ['roadmaps'],
+        backlog: ['backlogRail'],
         docs: ['releases', 'vision'],
         risks: ['risks'],
         releases: ['releases'],
@@ -1099,6 +1100,7 @@ runProjectTabLoader(ds) {
         case 'approvals': this.loadApprovals(); break;
         case 'risks': this.loadRisks(); break;
         case 'backlog': this.loadBacklog(); break;
+        case 'backlogRail': this.loadBacklogRail(this.selectedProject.id); break;
         case 'coverage': this.loadCoverage(); break;
         case 'today': if (!this.today && !this.todayLoading) this.loadToday(); break;
         case 'activity': this.loadProjectNarrative(); break;

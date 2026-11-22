@@ -136,7 +136,7 @@ def test_capture_box_component_is_registered():
     """captureBox is an Alpine.data component (per-instance scopes per include)."""
     pmo = _read(PMO_APP)
     assert "Alpine.data('captureBox'" in pmo
-    assert "from './capture_box.js'" in pmo
+    assert "from './capture_box.js?v=" in pmo
     fab_js = _read(REPO / "app/static/js/app/fab.js")
     # FAB drag + persisted position logic stays untouched
     assert "localStorage.getItem('fab_pos')" in fab_js

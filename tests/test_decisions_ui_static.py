@@ -178,7 +178,7 @@ def test_decisions_nav_item_is_registered():
 def test_decisions_domain_is_merged_into_the_store():
     """decisions.js is imported and listed in the DOMAINS array."""
     pmo = _read(PMO_APP)
-    assert "from './domains/decisions.js'" in pmo
+    assert "from './domains/decisions.js?v=" in pmo
     assert re.search(r"const DOMAINS = \[.*\bdecisions\b", pmo, re.S)
 
 

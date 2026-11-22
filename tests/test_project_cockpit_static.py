@@ -30,11 +30,12 @@ counts the verdict bar/action cards need + the project identity) — the other
 (projectTabLoaders → ensureProjectTabData, one lazy-once flag per dataset).
 B2's coverage card was absorbed into the cockpit (its data/behavior survive).
 
-Rethink v2 Phase E (this file's adjustments): the Overview, Vision, Backlog,
-Time and Approvals tabs folded away — the bar is cockpit + 9 deep-admin tabs;
+Rethink v2 Phase E (this file's adjustments): the Overview, Vision, Time
+ and Approvals tabs folded away — the bar is cockpit + 9 deep-admin tabs
 the verdict bar's why chips are the health card's cockpit home (the flattened
 read of the same payload); the coverage card's orphan chips deep-link into the
-ONE Work view; the rail-driven board lives only on the Work route.
+ONE Work view; the rail-driven board lives on the Work route AND the project
+page's restored Backlog tab (Rana's correction).
 """
 import re
 from pathlib import Path
@@ -100,7 +101,7 @@ def test_the_cockpit_tab_button_is_first_in_the_tab_row():
     assert "projectTab='cockpit'" in row.group(0), "Cockpit tab button missing"
     buttons = re.findall(r"projectTab='([a-z-]+)'", row.group(0))
     assert buttons[0] == "cockpit", "the Cockpit tab must be first"
-    for gone in ("overview", "vision", "backlog", "time", "approvals"):
+    for gone in ("overview", "vision", "time", "approvals"):
         assert gone not in buttons, f"the {gone} tab button must be removed"
 
 
@@ -280,7 +281,7 @@ def test_removed_tab_hashes_degrade_to_the_cockpit():
     assert "isValidProjectTab(tab)" in watchers, "invalid tabs must be guarded"
     assert "this.projectTab = 'cockpit'" in watchers, "degrade to the cockpit"
     table = _loaders_table(js)
-    for gone in ("overview", "vision", "backlog", "time", "approvals"):
+    for gone in ("overview", "vision", "time", "approvals"):
         assert not re.search(rf"^\s+{gone}: \[", table, re.M), f"{gone} must leave the loaders map"
 
 
@@ -307,10 +308,10 @@ def test_every_tab_maps_to_lazy_datasets():
     the burst (Rethink v2 Phase E)."""
     js = _read(PLANNING_JS)
     body = _loaders_table(js)
-    for tab in ("cockpit", "kpis", "roadmap", "docs", "risks", "releases",
+    for tab in ("cockpit", "kpis", "roadmap", "backlog", "docs", "risks", "releases",
                 "stakeholders", "infrastructure", "github", "env"):
         assert re.search(rf"^\s+{tab}: \[", body, re.M), f"no lazy datasets for {tab}"
-    for gone in ("overview", "vision", "backlog", "time", "approvals"):
+    for gone in ("overview", "vision", "time", "approvals"):
         assert not re.search(rf"^\s+{gone}: \[", body, re.M), f"{gone} must be gone"
 
 
@@ -380,12 +381,13 @@ def test_b2_coverage_card_was_absorbed_into_the_cockpit():
 
 
 def test_c2_backlog_rail_lives_on_the_work_board_only():
-    """Phase E: the project page no longer hosts the rail-driven board — the
-    x-effect and its columns are gone; the rail data flows to the Work board
-    (backlog.js's buildWorkBoard keeps the rail assertions in the rail tests)."""
+    """Rana's correction: the rail-driven board lives on the Work board AND the
+    project page's restored Backlog tab (both read backlog.js's rail-backed
+    getters — the ONE store); the rail never joins the openProject burst (the
+    Backlog tab's loaders map entry fires it on first show)."""
     src = _read(PROJECT_DETAIL)
-    assert "loadBacklogRail" not in src, "the project page must not fetch the rail"
-    assert "backlogBoardColumns" not in src, "the project-page board is gone"
+    assert "loadBacklogRail" not in src, "no x-effect prefetch — the map fires it"
+    assert "backlogBoardColumns" in src, "the restored project-page board"
     js = _read(PLANNING_JS)
     burst = _openproject_body(js)
     assert "loadBacklogRail" not in burst, "the rail must not join the openProject burst"

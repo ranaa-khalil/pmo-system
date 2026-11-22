@@ -1,7 +1,9 @@
 """Static analysis of the Rethink v2 Phase E — deep admin 14 → 9.
 
 The project page's deep admin shrinks from 14 tabs to 9 (plus the cockpit):
-the Overview, Vision, Backlog, Time and Approvals tabs fold away —
+the Overview, Vision, Time and Approvals tabs fold away —
+Backlog STAYS as a project-page tab (Rana's correction: the project page
+keeps its backlog board — the rail-driven one, lazy via the loaders map).
 
 - Backlog and Time become deep-links into the ONE Work view pre-filtered to
   this project (the house setWorkProjectFilter pattern — never a re-hosted
@@ -61,16 +63,18 @@ def test_the_tab_bar_is_cockpit_plus_nine_deep_admin_tabs():
     row = re.search(r"<!-- Tabs -->.*?</div>\s*\n\s*<!-- Cockpit tab", src, re.S)
     assert row, "tabs row missing"
     buttons = re.findall(r"projectTab='([a-z-]+)'", row.group(0))
-    assert buttons == ["cockpit", "kpis", "roadmap", "docs", "risks", "releases",
+    assert buttons == ["cockpit", "kpis", "roadmap", "backlog", "docs", "risks", "releases",
                        "stakeholders", "infrastructure", "github", "env"], \
         f"unexpected tab set: {buttons}"
 
 
 def test_the_folded_tabs_have_no_panels_left():
-    """No x-show panel for overview/vision/backlog/time/approvals remains."""
+    """No x-show panel for overview/vision/time/approvals remains; the Backlog
+    panel is RESTORED (Rana's correction — the project page keeps its board)."""
     src = _read(PROJECT_DETAIL)
-    for gone in ("overview", "vision", "backlog", "time", "approvals"):
+    for gone in ("overview", "vision", "time", "approvals"):
         assert f"x-show=\"projectTab==='{gone}'\"" not in src, f"{gone} panel must be gone"
+    assert "x-show=\"projectTab==='backlog'\"" in src, "the Backlog tab is restored"
 
 
 def test_nothing_is_deleted_as_data():
@@ -85,10 +89,12 @@ def test_nothing_is_deleted_as_data():
 
 
 def test_kept_tabs_keep_their_loaders():
-    """The 9 kept deep-admin tabs still map to lazy datasets."""
+    """The kept deep-admin tabs still map to lazy datasets (Backlog restored
+    — its map entry loads the rail on first show)."""
     js = _read(PLANNING_JS)
     table = _loaders_table(js)
-    for tab, ds in (("kpis", "kpis"), ("roadmap", "roadmaps"), ("docs", "releases"),
+    for tab, ds in (("kpis", "kpis"), ("roadmap", "roadmaps"), ("backlog", "backlogRail"),
+                    ("docs", "releases"),
                     ("risks", "risks"), ("releases", "releases"),
                     ("stakeholders", "stakeholders"), ("infrastructure", "infrastructure"),
                     ("github", "githubConfig"), ("env", "personas")):
@@ -101,16 +107,19 @@ def test_kept_tabs_keep_their_loaders():
 
 
 def test_backlog_folds_into_the_one_work_view():
-    """The cockpit's surfaces that pointed at the Backlog tab deep-link into
-    Work pre-filtered (the house pattern); no backlog board is re-hosted."""
+    """Rana's correction: the Backlog tab is RESTORED on the project page (the
+    rail-driven board, lazy via the projectTabLoaders map); the cockpit's Work
+    card still deep-links into the ONE Work view pre-filtered (the house
+    pattern) — both surfaces read the ONE store, never a re-host."""
     js = _read(PLANNING_JS)
     open_work = _fn_body(js, "openWorkWithProject")
     assert "setWorkProjectFilter(String(this.selectedProject.id))" in open_work
     assert "this.navigate('work')" in open_work
     src = _read(PROJECT_DETAIL)
     assert "openWorkWithProject()" in src, "the cockpit deep-links into Work"
-    assert "loadBacklogRail" not in src, "no rail-driven board on the project page"
-    assert "backlogBoardColumns" not in src, "no backlog board on the project page"
+    assert "backlogBoardColumns" in src, "the Backlog board is restored on the project page"
+    assert "loadBacklogRail" not in src, "no x-effect prefetch — the loaders map fires it"
+    assert "backlog: ['backlogRail']" in js, "the Backlog tab's lazy map entry"
 
 
 def test_backlog_data_still_loads_for_the_cockpit():
@@ -273,12 +282,12 @@ def test_overview_counts_live_in_the_cockpit_cards():
 
 
 def test_no_inline_create_form_left_in_the_folded_flows():
-    """The backlog tab's inline create form is gone with the tab — the create
-    path is the ONE item drawer's new-item mode in Work (the capture box +
-    form fallback)."""
+    """Rana's correction: the Backlog tab's inline create form is BACK with the
+    restored tab (Feature/Epic toggle + save); the drawer's new-item mode in
+    Work remains the other create path — two surfaces, ONE store."""
     src = _read(PROJECT_DETAIL)
-    assert "showBacklogForm" not in src, "the inline create form is gone with the tab"
-    assert "saveBacklogItem(false)" not in src, "no inline save on the project page"
+    assert "showBacklogForm" in src, "the inline create form is restored with the tab"
+    assert "saveBacklogItem(false)" in src, "the inline save is restored with the tab"
 
 
 def test_the_task_flows_use_drawers_not_modals():

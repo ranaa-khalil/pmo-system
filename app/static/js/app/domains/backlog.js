@@ -43,7 +43,7 @@ infraDbForm: { name: '', db_type: 'postgresql', host: '', port: '', environment_
 phaseFilter: [],  // multi-select phase axis (OR within it) — the rail's phases
 get phaseCounts() {
     const counts = {};
-    for (const item of this.backlogItems) {
+    for (const item of (this.backlogItems || [])) {
         counts[item.current_phase] = (counts[item.current_phase] || 0) + 1;
     }
     return counts;
@@ -194,7 +194,7 @@ quickAddSaving: false,
 // ===== Backlog computed: epic list + grouped items =====
 get epicOptions() {
     const epics = new Set();
-    for (const item of this.backlogItems) {
+    for (const item of (this.backlogItems || [])) {
         if (item.epic && item.epic !== '—') epics.add(item.epic);
     }
     return Array.from(epics).sort();

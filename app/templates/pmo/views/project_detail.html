@@ -46,6 +46,7 @@
                     <button @click="projectTab='cockpit'" :class="projectTab==='cockpit' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Cockpit</button>
                     <button @click="projectTab='kpis'" :class="projectTab==='kpis' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">KPIs</button>
                     <button @click="projectTab='roadmap'" :class="projectTab==='roadmap' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Roadmap</button>
+                    <button @click="projectTab='backlog'" :class="projectTab==='backlog' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Backlog</button>
                     <button @click="projectTab='docs'" :class="projectTab==='docs' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Docs</button>
                     <button @click="projectTab='risks'" :class="projectTab==='risks' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">RAID</button>
                     <button @click="projectTab='releases'" :class="projectTab==='releases' ? 'tab-active text-brand-600' : 'text-ink-500 hover:text-ink-800'" class="px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap">Releases</button>
@@ -667,6 +668,587 @@
                         <input x-model="milestoneForm.description" class="input-premium flex-1 text-[11px] px-3 py-2 w-full mt-2" placeholder="Description (optional)...">
                     </div>
                 </div>
+            </div>
+        </template>
+    </div>
+
+    <div x-show="projectTab==='backlog'" class="max-w-6xl">
+        <!-- P4: BRD coverage strip -->
+        <div x-show="brdCoverage" x-cloak class="surface rounded-xl border border-ink-200/60 px-4 py-3 mb-3 flex items-center gap-4 flex-wrap">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-ink-400">BRD Coverage</div>
+            <div class="flex items-center gap-4 text-[12px]">
+                <span class="text-ink-600"><span class="font-bold text-ink-900" x-text="brdCoverage?.summary?.total_items ?? '—'"></span> items</span>
+                <span class="text-ink-600"><span class="font-bold text-ink-900" x-text="brdCoverage?.summary?.total_epics ?? '—'"></span> epics</span>
+                <span class="text-ink-600" title="Items with no intake source marker"><span class="font-bold text-ink-900" x-text="brdCoverage?.summary?.untraced_items ?? '—'"></span> untraced</span>
+                <span class="text-ink-600" title="Epics promised in intake but with no backlog items"><span class="font-bold" :class="(brdCoverage?.summary?.requirement_gap_count || 0) > 0 ? 'text-amber-600' : 'text-ink-900'" x-text="brdCoverage?.summary?.requirement_gap_count ?? '—'"></span> requirement gaps</span>
+            </div>
+            <div class="flex items-center gap-1.5 ml-auto flex-wrap" x-show="(brdCoverage?.requirement_gaps || []).length">
+                <template x-for="g in (brdCoverage?.requirement_gaps || []).slice(0, 3)" :key="'gap-' + g.epic">
+                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/60" x-text="'⚠ ' + g.epic"></span>
+                </template>
+                <span x-show="(brdCoverage?.requirement_gaps || []).length > 3" class="text-[10px] text-ink-400" x-text="'+' + ((brdCoverage?.requirement_gaps || []).length - 3) + ' more'"></span>
+            </div>
+        </div>
+        <!-- Export + AI buttons -->
+        <div class="flex justify-end items-center gap-2 mb-2">
+            <button @click="aiSuggestFeatures()" :disabled="aiLoading" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-600 hover:text-white hover:bg-brand-600 px-3 py-1.5 rounded-lg border border-brand-200 transition-all disabled:opacity-50">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                <span x-text="aiLoading ? 'Thinking...' : 'AI Suggest Features'"></span>
+            </button>
+            <button @click="exportToGithub([])" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-600 hover:text-white hover:bg-ink-700 px-3 py-1.5 rounded-lg border border-ink-200 hover:bg-ink-700 transition-colors" title="Export approved features to GitHub">
+                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                Export to GitHub
+            </button>
+            <button @click="syncTagsToGithub()" :disabled="githubSyncingTags" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-600 hover:text-white hover:bg-ink-600 px-3 py-1.5 rounded-lg border border-ink-200 transition-all disabled:opacity-50" title="Two-way sync: tenant tags ↔ GitHub labels">
+                <svg class="w-3.5 h-3.5" :class="githubSyncingTags ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                <span x-text="githubSyncingTags ? 'Syncing...' : 'Sync tags'"></span>
+            </button>
+            <button @click="importFromGithub()" :disabled="githubImporting" x-show="githubSyncStatus?.synced_items > 0" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-600 hover:text-white hover:bg-brand-600 px-3 py-1.5 rounded-lg border border-brand-200 transition-all disabled:opacity-50" title="Sync issue status from GitHub back to PMO">
+                <svg class="w-3.5 h-3.5" :class="githubImporting ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4v6h6M21 20v-6h-6M3 10c.39-1.1 1.01-2.1 1.82-3A8 8 0 0118 5.5M21 14c-.39 1.1-1.01 2.1-1.82 3A8 8 0 016 18.5"/></svg>
+                <span x-text="githubImporting ? 'Syncing...' : 'Sync from GitHub'"></span>
+            </button>
+            <button @click="exportBacklog(selectedProject.id)" class="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-600 hover:text-brand-600 px-3 py-1.5 rounded-lg border border-ink-200 hover:bg-ink-50 transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                Export CSV
+            </button>
+        </div>
+        <!-- Form toggle button -->
+        <div class="flex justify-end mb-3">
+            <button @click="openWorkWithProject()" class="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-700 border border-ink-200 bg-white px-4 py-2.5 rounded-xl hover:border-brand-300 hover:text-brand-700 transition-all mr-2" title="The ONE integrated intake — the capture box on the Work route">
+                <svg class="w-4 h-4 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                Capture in Work
+            </button>
+            <button @click="showBacklogForm = !showBacklogForm" class="inline-flex items-center gap-1.5 text-[13px] font-medium text-white btn-primary px-4 py-2.5 rounded-xl transition-all"
+                    x-text="showBacklogForm ? 'Close' : '+ Add Backlog Item'"></button>
+        </div>
+        <!-- Form: Epic / Feature toggle -->
+        <div id="backlog-form" x-show="showBacklogForm" x-cloak class="surface rounded-2xl border border-ink-200/60 p-5 mb-4">
+            <!-- Mode toggle -->
+            <div class="flex items-center gap-2 mb-4">
+                <div class="inline-flex rounded-xl bg-ink-100 p-1">
+                    <button @click="backlogFormMode='feature'" :class="backlogFormMode==='feature' ? 'bg-white text-brand-600 shadow-sm' : 'text-ink-500'" class="px-4 py-1.5 rounded-lg text-[12px] font-semibold transition-all">Feature / Story</button>
+                    <button @click="backlogFormMode='epic'" :class="backlogFormMode==='epic' ? 'bg-white text-violet-600 shadow-sm' : 'text-ink-500'" class="px-4 py-1.5 rounded-lg text-[12px] font-semibold transition-all">Epic</button>
+                </div>
+                <span class="text-[11px] text-ink-400" x-text="backlogFormMode === 'epic' ? 'Create a grouping epic, then add features under it' : 'Add a feature or story — optionally link to an epic'"></span>
+            </div>
+
+            <!-- Epic form -->
+            <template x-if="backlogFormMode === 'epic'">
+                <div class="space-y-3">
+                    <input x-model="epicForm.name" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Epic name">
+                    <textarea x-model="epicForm.description" rows="2" class="w-full input-premium text-[13px] px-3 py-2" placeholder="Epic description (optional)…"></textarea>
+                                    <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
+                    <div class="flex items-center gap-2">
+                        <button @click="saveBacklogItem(false)" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Epic</button>
+                        <button @click="saveBacklogItem(true)" class="text-[13px] font-medium text-brand-600 border border-brand-200 hover:bg-brand-50 px-4 py-2 rounded-xl transition-all">Save & New</button>
+                        <button @click="showBacklogForm = false" class="text-[13px] text-ink-500 hover:text-ink-800 px-3 py-2">Cancel</button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Feature / Story form -->
+            <template x-if="backlogFormMode === 'feature'">
+                <div class="space-y-3">
+                    <!-- Copilot verdict chip: exists / fits an epic / new — checked when title is filled -->
+                    <div x-show="backlogVerdict && backlogForm.title.trim().length > 2" x-cloak
+                         class="rounded-xl border px-3.5 py-2.5 flex items-start gap-2.5"
+                         :class="backlogVerdict.verdict === 'exists' ? 'border-amber-300 bg-amber-50/70'
+                               : backlogVerdict.verdict === 'fits_epic' ? 'border-violet-200 bg-violet-50/50'
+                               : 'border-emerald-200 bg-emerald-50/50'">
+                        <svg class="w-4 h-4 mt-0.5 shrink-0" :class="backlogVerdict.verdict === 'exists' ? 'text-amber-500' : backlogVerdict.verdict === 'fits_epic' ? 'text-violet-600' : 'text-emerald-500'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="text-[9px] font-bold uppercase tracking-wider" :class="backlogVerdict.verdict === 'exists' ? 'text-amber-600' : backlogVerdict.verdict === 'fits_epic' ? 'text-violet-700' : 'text-emerald-600'">Copilot</span>
+                                <span class="text-[12px] font-semibold text-ink-800" x-text="backlogVerdict.verdict === 'exists' ? 'Already exists — ' + (backlogVerdict.existing_epic ? 'in epic ' + backlogVerdict.existing_epic : 'in this backlog') + ' (#' + backlogVerdict.existing_item_id + ')' : backlogVerdict.verdict === 'fits_epic' ? 'Fits epic: ' + backlogVerdict.epic : 'New capability — no existing fit'"></span>
+                                <span class="text-[10px] text-ink-400" x-text="'confidence ' + Math.round((backlogVerdict.confidence || 0) * 100) + '%'"></span>
+                            </div>
+                            <div class="text-[11px] text-ink-500 mt-0.5" x-text="backlogVerdict.reasoning"></div>
+                            <div class="flex flex-wrap gap-1.5 mt-1.5" x-show="backlogVerdict.sibling_duplicates && backlogVerdict.sibling_duplicates.length > 0">
+                                <template x-for="(dup, di) in (backlogVerdict.sibling_duplicates || [])" :key="di">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-medium" x-text="'⚠ Similar in ' + dup.project + ': #' + dup.item_id + ' ' + (dup.title || '').slice(0, 30)"></span>
+                                </template>
+                            </div>
+                            <div class="mt-1.5 text-[10.5px] text-ink-400" x-text="backlogVerdict.verdict === 'exists' ? 'Review the existing item before adding a duplicate.' : backlogVerdict.verdict === 'fits_epic' ? 'Pre-filled the epic below — adjust if needed.' : 'Saving as a new item — no duplicate detected.'"></div>
+                            <!-- verdict = new → offer the feature interview (4 questions → pre-filled form) -->
+                            <button x-show="backlogVerdict.verdict === 'new'" @click="interviewStart('feature')"
+                                    class="mt-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-brand-700 border border-brand-200 bg-white px-2.5 py-1.5 rounded-lg hover:bg-brand-50 transition-all">
+                                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                Interview me for details
+                            </button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <input x-model="backlogForm.title" @input="checkBacklogVerdict()" class="input-premium text-[13px] rounded-[10px] px-3 py-2" placeholder="Feature / Story title…">
+                        <div class="flex items-center gap-2">
+                            <select x-model="backlogForm.epic" class="input-premium text-[12px] px-3 py-2 bg-white flex-1">
+                                <option value="">— No epic —</option>
+                                <template x-for="ep in epicOptions" :key="ep">
+                                    <option :value="ep" x-text="ep"></option>
+                                </template>
+                            </select>
+                            <input x-model="backlogForm.epic" list="epic-list" class="input-premium text-[12px] px-3 py-2 flex-1" placeholder="or type new epic…">
+                            <datalist id="epic-list">
+                                <template x-for="ep in epicOptions" :key="ep">
+                                    <option :value="ep"></option>
+                                </template>
+                            </datalist>
+                        </div>
+                    </div>
+                    <textarea x-model="backlogForm.description" rows="2" class="w-full input-premium text-[13px] px-3 py-2" placeholder="Details / Acceptance Criteria…"></textarea>
+                                    <p class="text-[9px] text-ink-300 mt-0.5">Supports Markdown formatting</p>
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+                        <select x-model="backlogForm.item_type" class="input-premium text-[12px] px-3 py-2 bg-white">
+                            <option value="">Item Type</option>
+                            <template x-for="t in itemTypes" :key="'it-' + t.id">
+                                <option :value="t.key" x-text="t.label"></option>
+                            </template>
+                        </select>
+                        <select x-model="backlogForm.primary_actor" class="input-premium text-[12px] px-3 py-2 bg-white">
+                            <option value="">Primary Actor</option>
+                            <template x-for="p in personas" :key="p.id">
+                                <option :value="p.name" x-text="p.name"></option>
+                            </template>
+                        </select>
+                        <select x-model="backlogForm.priority" class="input-premium text-[12px] px-3 py-2 bg-white">
+                            <option value="Critical">Critical</option>
+                            <option value="High">High</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Low">Low</option>
+                        </select>
+                        <input x-model="backlogForm.story_points" type="number" min="1" class="input-premium text-[12px] px-3 py-2 rounded-[10px]" placeholder="Est. (pts)">
+                        <input x-model="backlogForm.target_release" class="input-premium text-[12px] px-3 py-2 rounded-[10px]" placeholder="Target Release">
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <!-- Dependency selector with autocomplete search -->
+                        <div class="flex-1">
+                            <div class="flex items-center gap-1 flex-wrap">
+                                <span class="text-[10px] text-ink-400 mr-1" x-text="editingBacklogId ? 'Dependencies for #' + editingBacklogId + ':' : 'Dependencies:'"></span>
+                                <template x-for="dep in (backlogForm.depends_on || [])" :key="dep.id">
+                                    <span class="inline-flex items-center gap-1 bg-violet-50 text-violet-700 text-[10px] font-medium px-2 py-0.5 rounded-md">
+                                        <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                                        <span x-text="'#' + dep.id + ' ' + (dep.title || '').slice(0, 20)"></span>
+                                        <button @click="removeDependency(dep.id)" class="text-violet-400 hover:text-rose-500 ml-0.5">✕</button>
+                                    </span>
+                                </template>
+                                <!-- Autocomplete search input -->
+                                <div class="relative inline-block">
+                                    <input type="text"
+                                           x-model="depSearch"
+                                           @input="filterDeps()"
+                                           @focus="depSearchFocused = true; filterDeps()"
+                                           @blur="setTimeout(() => depSearchFocused = false, 200)"
+                                           class="text-[11px] border border-ink-200/60 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-brand-500/10 text-ink-600 w-40"
+                                           placeholder="Search to add…">
+                                    <!-- Dropdown results -->
+                                    <div x-show="depSearchFocused && filteredDeps.length > 0" x-cloak
+                                         class="absolute top-full left-0 mt-1 bg-white border border-ink-200 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto min-w-[280px]">
+                                        <template x-for="avail in filteredDeps" :key="avail.id">
+                                            <button @mousedown.prevent="selectDepFromSearch(avail)" type="button"
+                                                    class="w-full text-left px-3 py-2 hover:bg-brand-50 transition-colors border-b border-ink-100 last:border-0">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-[10px] font-mono text-ink-400" x-text="'#' + avail.id"></span>
+                                                    <span class="text-[11px] text-ink-700 truncate flex-1" x-text="avail.title"></span>
+                                                    <span class="text-[9px] px-1.5 py-0.5 rounded" :class="{'bg-emerald-50 text-emerald-500': avail.status === 'Done', 'bg-amber-50 text-amber-500': avail.status === 'In Progress', 'bg-ink-100 text-ink-400': avail.status === 'Draft'}" x-text="avail.status"></span>
+                                                </div>
+                                            </button>
+                                        </template>
+                                    </div>
+                                    <div x-show="depSearchFocused && depSearch && filteredDeps.length === 0" x-cloak
+                                         class="absolute top-full left-0 mt-1 bg-white border border-ink-200 rounded-lg shadow-lg z-50 px-3 py-2 text-[11px] text-ink-400 min-w-[280px]">
+                                        No matching items found
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <select x-model="backlogForm.kpi_id" class="input-premium text-[12px] rounded-[10px] px-3 py-2 bg-white flex-1">
+                            <option value="">Link to KPI (optional)…</option>
+                            <template x-for="kpi in kpis" :key="kpi.id">
+                                <option :value="kpi.id" x-text="kpi.name"></option>
+                            </template>
+                        </select>
+                        <button @click="editingBacklogId ? saveBacklogItemEdit() : saveBacklogItem(false)" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all whitespace-nowrap" x-text="editingBacklogId ? 'Update' : 'Save'"></button>
+                        <template x-if="!editingBacklogId">
+                            <button @click="saveBacklogItem(true)" class="text-[13px] font-medium text-brand-600 border border-brand-200 hover:bg-brand-50 px-4 py-2 rounded-xl transition-all whitespace-nowrap">Save & New</button>
+                        </template>
+                        <button @click="showBacklogForm = false; editingBacklogId = null" class="text-[13px] text-ink-500 hover:text-ink-800 px-3 py-2 whitespace-nowrap">Cancel</button>
+                        <template x-if="editingBacklogId">
+                            <button @click="cancelEditBacklog()" class="text-[13px] font-medium text-ink-500 border border-ink-200 hover:bg-ink-100 px-4 py-2 rounded-xl transition-all whitespace-nowrap">Cancel</button>
+                        </template>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Filters — the rail's phases, multi-select (OR within the phase axis) -->
+        <div class="flex flex-wrap items-center gap-1.5 mb-4">
+            <span class="text-[9px] font-bold uppercase tracking-wider text-ink-400 mr-1">Phase</span>
+            <template x-for="(phase, idx) in itemPhases" :key="'p-' + phase">
+                <button @click="togglePhaseFilter(phase)"
+                        class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all"
+                        :class="phaseFilterActive(phase) ? 'bg-brand-500 text-white shadow-sm' : 'bg-ink-100 text-ink-400 hover:bg-ink-100'">
+                    <span class="w-4 h-4 rounded flex items-center justify-center text-[9px] font-bold"
+                          :class="phaseFilterActive(phase) ? 'bg-white/20' : 'bg-ink-200'"
+                          x-text="idx + 1"></span>
+                    <span x-text="phase"></span>
+                    <span class="text-[9px] opacity-60" x-text="phaseCounts[phase] || 0"></span>
+                </button>
+            </template>
+
+            <span class="text-[9px] font-bold uppercase tracking-wider text-emerald-500 mx-2 ml-3">Release</span>
+            <template x-for="phase in releasePhases" :key="'r-' + phase">
+                <button @click="togglePhaseFilter(phase)"
+                        class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all"
+                        :class="phaseFilterActive(phase) ? 'bg-emerald-500 text-white shadow-sm' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'">
+                    <span class="text-[9px]">🚀</span>
+                    <span x-text="phase"></span>
+                    <span class="text-[9px] opacity-60" x-text="phaseCounts[phase] || 0"></span>
+                </button>
+            </template>
+
+            <button x-show="phaseFilter && phaseFilter.length" @click="phaseFilter = []" class="text-[10px] text-rose-400 hover:text-rose-600 px-2 py-1">✕ Clear</button>
+        </div>
+
+
+        <!-- Saved views + group-by (GitHub Boards parity) -->
+        <div x-show="backlogItems.length > 0" class="flex items-center gap-2 mb-3 flex-wrap">
+            <div class="inline-flex items-center gap-1.5 text-[11px] text-ink-400">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                <span>View</span>
+            </div>
+            <select @change="projectViews.find(v => v.id == $event.target.value) ? applyView(projectViews.find(v => v.id == $event.target.value)) : clearActiveView()"
+                    class="text-[11px] px-2.5 py-1.5 rounded-lg border border-ink-200 bg-white text-ink-700 outline-none focus:ring-2 focus:ring-brand-400 min-w-[140px]">
+                <option value="">Default (no saved view)</option>
+                <template x-for="v in projectViews" :key="v.id">
+                    <option :value="v.id" x-text="v.name + (v.shared ? '' : ' (private)')"></option>
+                </template>
+            </select>
+            <div class="inline-flex items-center gap-1">
+                <input x-model="viewSaveName" @keydown.enter="saveCurrentView()" placeholder="Save current as..."
+                       class="text-[11px] px-2.5 py-1.5 rounded-lg border border-ink-200 w-32 outline-none focus:ring-2 focus:ring-brand-400 bg-white">
+                <button @click="saveCurrentView()" :disabled="savingView" class="text-[11px] font-medium text-ink-600 border border-ink-200 hover:bg-ink-100 px-2.5 py-1.5 rounded-lg transition-all disabled:opacity-50">
+                    <span x-text="savingView ? '...' : 'Save'"></span>
+                </button>
+            </div>
+            <div class="inline-flex items-center gap-1.5 ml-auto">
+                <span class="text-[10px] text-ink-400">Group by</span>
+                <select x-model="boardGroupBy" class="text-[11px] px-2.5 py-1.5 rounded-lg border border-ink-200 bg-white text-ink-700 outline-none focus:ring-2 focus:ring-brand-400">
+                    <option value="">Epic</option>
+                    <option value="type">Type</option>
+                    <option value="priority">Priority</option>
+                    <option value="phase">Phase</option>
+                </select>
+            </div>
+        </div>
+        <!-- Backlog search -->
+        <div x-show="backlogItems.length > 0" class="relative mb-3">
+            <svg class="w-4 h-4 text-ink-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input x-model="backlogSearch" type="text" class="w-full pl-9 pr-28 py-2 text-[13px] bg-white border border-ink-200/60 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/10 focus:border-brand-300 transition-all" placeholder="Search backlog by title, description, epic, actor...">
+            <button x-show="backlogSearch" @click="backlogSearch = ''" class="absolute right-28 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-600">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+            <!-- List / Board view toggle -->
+            <div class="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex rounded-lg bg-ink-100 p-0.5">
+                <button @click="backlogView = 'list'" :class="backlogView === 'list' ? 'bg-white text-brand-600 shadow-sm' : 'text-ink-400 hover:text-ink-600'" class="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all flex items-center gap-1" title="List view">
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                    List
+                </button>
+                <button @click="openBoard()" :class="backlogView === 'board' ? 'bg-white text-brand-600 shadow-sm' : 'text-ink-400 hover:text-ink-600'" class="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all flex items-center gap-1" title="Board view — Kanban by phase">
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7m4 10V11m4 6V13M4 5h16a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1z"/></svg>
+                    Board
+                </button>
+            </div>
+        </div>
+
+        <!-- Backlog items grouped by epic (List view) -->
+        <template x-if="backlogItems.length === 0">
+            <div class="surface rounded-2xl border border-ink-200/60 p-10 text-center">
+                <div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-amber-50 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                </div>
+                <p class="text-[13px] text-ink-400 mb-1">No backlog items yet</p>
+                <p class="text-[11px] text-ink-300">Start by adding an epic or a feature above</p>
+            </div>
+        </template>
+
+
+        <!-- Backlog grouped by chosen field (List view, group-by active) -->
+        <template x-if="backlogItems.length > 0 && backlogView === 'list' && boardGroupBy && boardGroupBy !== 'epic'">
+            <div class="space-y-3">
+                <div x-show="backlogGrouped.length === 0" class="surface rounded-2xl border border-ink-200/60 p-8 text-center">
+                    <p class="text-[13px] text-ink-400">No items match the current filters</p>
+                </div>
+                <template x-for="group in backlogGrouped" :key="group.key">
+                    <div class="surface rounded-2xl border border-ink-200/60 overflow-hidden">
+                        <div class="px-4 py-3 border-b border-black/[0.06] flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <h4 class="text-[13px] font-semibold text-ink-800" x-text="group.label"></h4>
+                                <span class="text-[10px] text-ink-400 px-2 py-0.5 rounded-md bg-ink-100" x-text="group.items.length + (group.items.length === 1 ? ' item' : ' items')"></span>
+                            </div>
+                            <div class="flex -space-x-1" title="Assigned members">
+                                <template x-for="m in [...new Set(group.items.map(i => i.assigned_to_name).filter(Boolean))].slice(0, 4)" :key="m">
+                                    <span class="w-6 h-6 rounded-full bg-gradient-to-br from-brand-500 to-violet-600 text-white text-[9px] font-semibold flex items-center justify-center border border-white" x-text="m.split(' ').map(w => w[0]).join('').slice(0, 2)"></span>
+                                </template>
+                            </div>
+                        </div>
+                        <div class="divide-y divide-black/[0.04]">
+                            <template x-for="i in group.items" :key="i.id">
+                                <div @click="viewBacklogItem(i)" class="px-4 py-2.5 hover:bg-ink-50/60 cursor-pointer transition-colors flex items-center justify-between gap-3">
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <span class="text-[10px] font-mono text-ink-300 flex-shrink-0" x-text="'#' + i.id"></span>
+                                        <span class="text-[13px] text-ink-800 truncate" x-text="i.title"></span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                                        <span class="text-[10px] font-medium px-2 py-0.5 rounded-md" :class="itemTypeColor(i.item_type)" x-text="i.item_type || 'Feature'"></span>
+                                        <span class="text-[10px] font-medium px-2 py-0.5 rounded-md" :class="i.status === 'Done' ? 'bg-emerald-50 text-emerald-600' : i.status === 'Blocked' ? 'bg-rose-50 text-rose-600' : 'bg-ink-100 text-ink-500'" x-text="i.status"></span>
+                                        <svg class="w-3.5 h-3.5 text-ink-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+
+        <template x-if="backlogItems.length > 0 && backlogView === 'list'">
+            <div class="space-y-3">
+                <!-- No search results -->
+                <div x-show="backlogByEpic.length === 0" class="surface rounded-2xl border border-ink-200/60 p-8 text-center">
+                    <p class="text-[13px] text-ink-400">No items match "<span x-text="backlogSearch"></span>"</p>
+                    <button @click="backlogSearch = ''" class="text-[11px] text-brand-600 hover:text-brand-700 mt-1">Clear search</button>
+                </div>
+                <template x-for="group in backlogByEpic" :key="group.epic">
+                    <div class="surface rounded-2xl border border-ink-200/60 overflow-hidden">
+                        <!-- Epic header -->
+                        <div class="px-4 py-3 border-b border-black/[0.06]"
+                             :class="group.epic === 'Uncategorized' ? 'bg-ink-100/50' : 'bg-gradient-to-r from-violet-50/60 to-brand-50/40'">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2 min-w-0 flex-1">
+                                    <button @click="toggleEpic(group.epic)" class="text-ink-400 hover:text-ink-700 flex-shrink-0">
+                                        <svg class="w-4 h-4 transition-transform" :class="collapsedEpics.includes(group.epic) ? '' : 'rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                                    </button>
+                                    <template x-if="group.epicItem">
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-violet-100 text-violet-700 flex-shrink-0">EPIC</span>
+                                    </template>
+                                    <template x-if="group.epic === 'Uncategorized'">
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-ink-200 text-ink-500 flex-shrink-0">UNG</span>
+                                    </template>
+                                    <div class="min-w-0 flex-1 cursor-pointer" @click="toggleEpicDesc(group.epic)">
+                                        <h3 class="text-[14px] font-semibold truncate hover:text-brand-600 transition-colors" :class="group.epic === 'Uncategorized' ? 'text-ink-500' : 'text-violet-700'" x-text="group.epic"></h3>
+                                        <template x-if="group.epicItem && group.epicItem.description && !expandedEpicDesc[group.epic]">
+                                            <p class="text-[11px] text-ink-400 truncate" x-text="group.epicItem.description"></p>
+                                        </template>
+                                        <template x-if="!group.epicItem && !expandedEpicDesc[group.epic]">
+                                            <p class="text-[11px] text-ink-400 truncate" x-text="group.items.length + ' item' + (group.items.length !== 1 ? 's' : '') + ' in this epic'"></p>
+                                        </template>
+                                    </div>
+                                    <span class="text-[10px] text-ink-400 flex-shrink-0" x-text="group.items.length + ' item' + (group.items.length !== 1 ? 's' : '')"></span>
+                                </div>
+                                <div class="flex items-center gap-2 flex-shrink-0 ml-2">
+                                    <button @click="addFeatureToEpic(group.epic === 'Uncategorized' ? '' : group.epic)" class="text-[11px] font-medium text-brand-600 hover:text-brand-700 px-2 py-1 rounded-lg hover:bg-brand-50 transition-colors flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                                        Add Feature
+                                    </button>
+                                    <template x-if="group.epicItem">
+                                        <button @click.stop="viewBacklogItem(group.epicItem)" class="text-[10px] text-ink-400 hover:text-brand-600 px-1.5 py-1 rounded transition-colors" title="View details">👁</button>
+                                        <button @click.stop="deleteBacklogItem(group.epicItem.id)" class="text-[10px] text-ink-300 hover:text-rose-500 px-1 transition-colors">✕</button>
+                                    </template>
+                                </div>
+                            </div>
+                            <!-- Expanded description (inline) -->
+                            <template x-if="expandedEpicDesc[group.epic]">
+                                <div class="mt-3 pt-3 border-t border-ink-200/50">
+                                    <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1">Description</div>
+                                    <template x-if="group.epicItem && group.epicItem.description">
+                                        <div class="text-[12px] text-ink-600 leading-relaxed prose-p:my-1 prose-li:my-0 prose-ul:my-1 prose-ol:my-1" x-html="renderMarkdown(group.epicItem.description)"></div>
+                                    </template>
+                                    <template x-if="!group.epicItem || !group.epicItem.description">
+                                        <p class="text-[12px] text-ink-400 italic" x-text="'No description for this epic yet.'"></p>
+                                    </template>
+                                    <template x-if="group.epicItem && group.epicItem.acceptance_criteria">
+                                        <div class="mt-3">
+                                            <div class="text-[10px] font-semibold text-ink-400 uppercase tracking-wider mb-1">Acceptance Criteria</div>
+                                            <div class="text-[12px] text-ink-600 leading-relaxed prose-p:my-1 prose-li:my-0 prose-ul:my-1 prose-ol:my-1" x-html="renderMarkdown(group.epicItem.acceptance_criteria)"></div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                        <!-- Items under this epic -->
+                        <template x-if="!collapsedEpics.includes(group.epic)">
+                            <div>
+                                <!-- Column headers -->
+                                <div class="grid grid-cols-12 gap-2 px-4 py-2 border-b border-ink-100 text-[10px] font-semibold text-ink-400 uppercase tracking-wider">
+                                    <div class="col-span-4">Feature / Story</div>
+                                    <div class="col-span-1">Type</div>
+                                    <div class="col-span-1">Actor</div>
+                                    <div class="col-span-1">Priority</div>
+                                    <div class="col-span-1">Pts</div>
+                                    <div class="col-span-1">Target Rel.</div>
+                                    <div class="col-span-1">Status</div>
+                                    <div class="col-span-2 text-right">Phase</div>
+                                </div>
+                                <div class="divide-y divide-ink-100">
+                                    <template x-for="item in group.items" :key="item.id">
+                                        <div class="grid grid-cols-12 gap-2 px-4 py-3 hover:bg-brand-50/20 transition-colors group cursor-pointer" @click="viewBacklogItem(item)">
+                                            <div class="col-span-4 min-w-0">
+                                                <div class="flex items-center gap-2">
+                                                    <h4 class="text-[13px] font-semibold text-ink-800 truncate cursor-pointer hover:text-brand-600" @click="viewBacklogItem(item)" x-text="item.title"></h4>
+                                                    <template x-if="item.github_issue_number">
+                                                        <div class="inline-flex items-center gap-1 flex-shrink-0">
+                                                            <a :href="item.github_issue_url || ('https://github.com/' + (selectedProject?.github_repo || '') + '/issues/' + item.github_issue_number)" target="_blank" @click.stop class="inline-flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded-md bg-ink-100 text-ink-600 hover:bg-ink-200 transition-colors">
+                                                                <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                                                                <span x-text="'#' + item.github_issue_number"></span>
+                                                            </a>
+                                                            <template x-if="item.github_state">
+                                                                <span class="text-[9px] font-medium px-1.5 py-0.5 rounded-md" :class="(item.github_state || '').toLowerCase() === 'closed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'" x-text="(item.github_state || '').toLowerCase()"></span>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                                <p class="text-[11px] text-ink-400 truncate mt-0.5" x-text="item.description || item.acceptance_criteria || ''"></p>
+                                                <template x-if="item.depends_on && item.depends_on.length > 0">
+                                                    <div class="flex items-center gap-1 mt-1 flex-wrap">
+                                                        <svg class="w-3 h-3 text-violet-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                                                        <template x-for="dep in item.depends_on" :key="dep.id">
+                                                            <span class="text-[9px] bg-violet-50 text-violet-600 px-1.5 py-0.5 rounded" x-text="'#' + dep.id + ' ' + (dep.title || '').slice(0, 25)" :class="{'opacity-50 line-through': dep.status === 'Done'}"></span>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                                <template x-if="item.blocked_by && item.blocked_by.length > 0">
+                                                    <div class="flex items-center gap-1 mt-0.5">
+                                                        <span class="text-[9px] text-amber-500" x-text="'↳ blocked by ' + item.blocked_by.length + ' item(s)'"></span>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                            <div class="col-span-1 min-w-0">
+                                                <span class="text-[10px] font-medium px-1.5 py-0.5 rounded inline-block" :class="itemTypeColor(item.item_type)" x-text="item.item_type || '—'"></span>
+                                            </div>
+                                            <div class="col-span-1 min-w-0"><span class="text-[10px] text-ink-500 truncate block" x-text="item.primary_actor || '—'"></span></div>
+                                            <div class="col-span-1 min-w-0"><span class="text-[10px] font-medium px-2 py-0.5 rounded-md inline-block" :class="priorityColor(item.priority)" x-text="item.priority"></span></div>
+                                            <div class="col-span-1 min-w-0"><span class="text-[12px] font-bold tabular-nums text-ink-600" x-text="item.story_points != null ? item.story_points : '—'"></span></div>
+                                            <div class="col-span-1 min-w-0"><span class="text-[10px] text-ink-500 font-mono" x-text="item.target_release || '—'"></span></div>
+                                            <div class="col-span-1 min-w-0"><span class="text-[10px] font-medium" :class="{'text-emerald-600': item.status === 'Done', 'text-brand-600': item.status === 'In Progress', 'text-rose-500': item.status === 'Blocked', 'text-ink-400': item.status === 'Draft'}" x-text="item.status"></span></div>
+                                            <div class="col-span-2 flex items-center justify-end gap-1 min-w-0">
+                                                <span class="text-[10px] font-medium truncate" :class="item.current_phase === 'Testing' ? 'text-amber-600' : itemPhases.includes(item.current_phase) ? 'text-brand-600' : 'text-emerald-600'" x-text="item.current_phase"></span>
+                                                <template x-if="item.current_phase === 'Testing'">
+                                                    <span class="text-[8px] font-bold px-1 py-0.5 rounded bg-amber-50 text-amber-600 whitespace-nowrap">TESTING</span>
+                                                </template>
+                                                <template x-if="item.current_phase === 'Ready for UAT'">
+                                                    <span class="text-[8px] font-bold px-1 py-0.5 rounded bg-emerald-50 text-emerald-600 whitespace-nowrap">READY FOR UAT</span>
+                                                </template>
+                                                <template x-if="!itemPhases.includes(item.current_phase)">
+                                                    <span class="text-[8px] font-bold px-1 py-0.5 rounded bg-emerald-50 text-emerald-600 whitespace-nowrap" x-text="'IN ' + item.current_phase.toUpperCase()"></span>
+                                                </template>
+                                                <button @click.stop="advanceBacklogItem(item.id)" class="opacity-0 group-hover:opacity-100 text-[10px] font-medium text-brand-600 hover:text-brand-700 px-1 rounded transition-all whitespace-nowrap" x-show="canAdvanceItem(item.current_phase)">→</button>
+                                                <button @click.stop="sendBackToDev(item.id)" class="opacity-0 group-hover:opacity-100 text-[10px] font-medium text-rose-500 hover:text-rose-700 px-1 rounded transition-all whitespace-nowrap" x-show="item.current_phase === 'Testing'" title="Send back to Development">↩</button>
+                                                <button @click.stop="deleteBacklogItem(item.id)" class="opacity-0 group-hover:opacity-100 text-[10px] text-rose-400 hover:text-rose-600 px-1 transition-all">✕</button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+        </template>
+
+        <!-- Board view (Kanban by phase) -->
+        <template x-if="backlogItems.length > 0 && backlogView === 'board'">
+            <div class="flex gap-3 overflow-x-auto pb-3 -mx-1 px-1">
+                <template x-for="col in backlogBoardColumns" :key="col.phase">
+                    <div class="flex-shrink-0 w-72 flex flex-col rounded-2xl border border-ink-200/60"
+                         :class="dragOverPhase === col.phase && dragItem ? 'bg-brand-50/40 border-brand-300' : 'bg-ink-50/60'"
+                         @dragover.prevent="allowDrop(col.phase)"
+                         @dragenter.prevent="allowDrop(col.phase)"
+                         @drop.prevent="dropToPhase(col.phase)">
+                        <!-- Column header -->
+                        <div class="px-3 py-2.5 flex items-center justify-between border-b border-black/[0.06]">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="w-2 h-2 rounded-full flex-shrink-0"
+                                      :class="phaseDotColor(col.phase)"></span>
+                                <span class="text-[12px] font-semibold text-ink-700 truncate" x-text="col.phase"></span>
+                            </div>
+                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white text-ink-500 border border-ink-200/60 tabular-nums" x-text="col.items.length"></span>
+                        </div>
+                        <!-- Quick-add row -->
+                        <div class="px-2 pt-2">
+                            <button x-show="quickAddPhase !== col.phase" @click="toggleQuickAdd(col.phase)" class="w-full text-[11px] font-medium text-ink-400 hover:text-brand-600 hover:bg-brand-50/60 border border-dashed border-ink-200/70 hover:border-brand-300 rounded-lg py-1.5 transition-all flex items-center justify-center gap-1">
+                                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                                Add
+                            </button>
+                            <div x-show="quickAddPhase === col.phase" x-cloak class="relative">
+                                <input :id="'quick-add-' + col.phase" x-model="quickAddTitle"
+                                       @keydown.enter.prevent="quickAdd(col.phase)"
+                                       @keydown.escape.prevent="toggleQuickAdd(col.phase)"
+                                       @blur="quickAddTitle === '' && (quickAddPhase = null)"
+                                       type="text" autocomplete="off"
+                                       class="w-full py-1.5 px-2.5 pr-7 text-[11px] bg-white border border-brand-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/10 transition-all"
+                                       :placeholder="'Add to ' + col.phase + ' — !3 priority, #5 pts'">
+                                <button x-show="quickAddTitle" @mousedown.prevent="quickAdd(col.phase)" class="absolute right-1.5 top-1/2 -translate-y-1/2 text-brand-600 hover:text-brand-700">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Cards -->
+                        <div class="p-2 space-y-2 min-h-[120px] flex-1">
+                            <template x-for="item in col.items" :key="item.id">
+                                <div class="surface rounded-xl border border-ink-200/60 p-3 cursor-grab active:cursor-grabbing hover:border-brand-300 hover:shadow-md transition-all"
+                                     :class="dragItem && dragItem.id === item.id ? 'opacity-40' : ''"
+                                     draggable="true"
+                                     @dragstart="dragStart(item, col.phase)"
+                                     @dragend="dragEnd()"
+                                     @dragover.prevent="cardDragOver(item, col.phase, $event)"
+                                     @drop.prevent="cardDrop(item, col.phase, $event)"
+                                     @click="viewBacklogItem(item)">
+                                    <!-- Card header: type + priority -->
+                                    <div class="flex items-center justify-between gap-2 mb-1.5">
+                                        <span class="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                                              :class="itemTypeColor(item.item_type)"
+                                              x-text="item.item_type || '—'"></span>
+                                        <span class="text-[9px] font-medium px-1.5 py-0.5 rounded-md" :class="priorityColor(item.priority)" x-text="item.priority"></span>
+                                    </div>
+                                    <!-- Title -->
+                                    <h4 class="text-[12px] font-semibold text-ink-800 leading-snug" x-text="item.title"></h4>
+                                    <!-- Epic + points -->
+                                    <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+                                        <span x-show="item.epic" class="text-[9px] text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded truncate max-w-[130px]" x-text="item.epic"></span>
+                                        <span x-show="item.story_points != null" class="text-[9px] font-bold tabular-nums text-ink-500" x-text="item.story_points + ' pts'"></span>
+                                        <span x-show="item.target_release" class="text-[9px] text-ink-400 font-mono" x-text="item.target_release"></span>
+                                    </div>
+                                    <!-- Footer: GitHub + blocked -->
+                                    <div class="flex items-center justify-between gap-2 mt-2">
+                                        <div class="flex items-center gap-1.5 min-w-0">
+                                            <template x-if="item.github_issue_number">
+                                                <a :href="item.github_issue_url || ('https://github.com/' + (selectedProject?.github_repo || '') + '/issues/' + item.github_issue_number)" target="_blank" @click.stop class="inline-flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded-md bg-ink-100 text-ink-600 hover:bg-ink-200 transition-colors">
+                                                    <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                                                    <span x-text="'#' + item.github_issue_number"></span>
+                                                </a>
+                                            </template>
+                                            <span x-show="item.status === 'Blocked'" class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-50 text-rose-600">BLOCKED</span>
+                                        </div>
+                                        <template x-if="item.depends_on && item.depends_on.length > 0">
+                                            <span class="text-[9px] text-violet-400 flex-shrink-0" x-text="'⛓ ' + item.depends_on.length"></span>
+                                        </template>
+                                    </div>
+                                </div>
+                                <!-- Insert indicator: brand line where the card will land -->
+                                <template x-if="dragItem && dragOverPhase === col.phase && dropIndex === 'before' && dragItem.id !== item.id">
+                                    <div class="h-0.5 bg-brand-500 rounded-full -my-1 mx-1"></div>
+                                </template>
+                            </template>
+                            <!-- Empty column hint -->
+                            <div x-show="col.items.length === 0" class="text-[10px] text-ink-300 text-center py-6 border border-dashed border-ink-200/60 rounded-xl">
+                                Drop items here
+                            </div>
+                            <!-- Empty-lane drop zone: dropping below the last card appends -->
+                            <div x-show="dragItem && dragOverPhase === col.phase" class="min-h-[40px] rounded-lg border border-dashed border-brand-300/60"
+                                 @dragover.prevent="dragOverPhase = col.phase; dropIndex = null"
+                                 @drop.prevent="reorderCard(dragItem ? dragItem.id : null, col.phase, null, col.items.length ? col.items[col.items.length - 1].id : null)"></div>
+                        </div>
+                    </div>
+                </template>
             </div>
         </template>
     </div>

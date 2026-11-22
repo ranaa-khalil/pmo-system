@@ -32,7 +32,7 @@ def _read(path: Path) -> str:
 def test_engagement_domain_is_merged_into_the_store():
     """engagements.js is imported and listed in the DOMAINS array."""
     pmo = _read(PMO_APP)
-    assert "from './domains/engagements.js'" in pmo
+    assert "from './domains/engagements.js?v=" in pmo
     assert re.search(r"const DOMAINS = \[.*\bengagements\b", pmo, re.S)
 
 

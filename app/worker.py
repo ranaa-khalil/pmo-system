@@ -23,6 +23,7 @@ Strangler exit: the same module runs standalone as
 """
 import logging
 import os
+import zlib
 from datetime import datetime, timedelta
 
 from sqlalchemy.exc import IntegrityError
@@ -52,11 +53,22 @@ def _scheduler_enabled() -> bool:
 # ---------------------------------------------------------------------------
 # Advisory lock (PG) with a SQLite no-op so the beat runs on localhost
 # ---------------------------------------------------------------------------
+def _beat_lock_key(job: str) -> int:
+    """Advisory-lock key for a job — identical in EVERY process.
+
+    hash() is salted per process (PYTHONHASHSEED), so two replicas would
+    derive different keys for the same job: neither would collide with the
+    other's pg advisory lock, and both would run the same window. crc32 is
+    deterministic across processes.
+    """
+    return zlib.crc32(f"pmo-beat:{job}".encode()) % (2 ** 31 - 1)
+
+
 def _acquire_beat_lock(conn, job: str) -> bool:
     """pg_try_advisory_lock keyed per job. SQLite (dev/tests) always wins."""
     if engine.dialect.name == "sqlite":
         return True
-    key = abs(hash(f"pmo-beat:{job}")) % (2 ** 31 - 1)
+    key = _beat_lock_key(job)
     got = conn.execute(
         __import__("sqlalchemy").text("SELECT pg_try_advisory_lock(:key)"), {"key": key}
     ).scalar()
@@ -66,7 +78,7 @@ def _acquire_beat_lock(conn, job: str) -> bool:
 def _release_beat_lock(conn, job: str) -> None:
     if engine.dialect.name == "sqlite":
         return
-    key = abs(hash(f"pmo-beat:{job}")) % (2 ** 31 - 1)
+    key = _beat_lock_key(job)
     conn.execute(
         __import__("sqlalchemy").text("SELECT pg_advisory_unlock(:key)"), {"key": key}
     )

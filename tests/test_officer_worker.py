@@ -95,6 +95,28 @@ def test_advisory_lock_noops_on_sqlite():
         conn.close()
 
 
+def test_beat_lock_key_stable_across_processes():
+    """The advisory-lock key must be identical in every process. hash() is
+    salted per process (PYTHONHASHSEED), so replicas would derive different
+    keys for the same job, never collide on the pg advisory lock, and
+    double-run the beat (found in QA, 2026-11-22)."""
+    import subprocess
+    import sys
+
+    code = (
+        "import sys; sys.path.insert(0, '.'); "
+        "from app.worker import _beat_lock_key; "
+        "print(_beat_lock_key('nightly'))"
+    )
+    out1 = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    out2 = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert out1.returncode == 0 and out2.returncode == 0, (out1.stderr, out2.stderr)
+    assert out1.stdout.strip(), "no key printed"
+    assert out1.stdout == out2.stdout, (
+        f"lock key differs across processes: {out1.stdout!r} vs {out2.stdout!r}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # 3. RAID escalation template seed
 # ---------------------------------------------------------------------------

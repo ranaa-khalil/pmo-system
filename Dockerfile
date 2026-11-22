@@ -25,6 +25,11 @@ RUN groupadd --system pmo && useradd --system --gid pmo pmo \
 # Copy application code
 COPY app ./app
 
+# Alembic migrations (R0 baseline, ADR-04) — the k8s migration job runs
+# `alembic stamp`/`upgrade` from this image, so the config travels with it
+COPY alembic ./alembic
+COPY alembic.ini .
+
 USER pmo
 EXPOSE 8000
 

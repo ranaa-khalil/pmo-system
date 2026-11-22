@@ -46,7 +46,30 @@ spec:
         - name: migrate
           image: ${image}
           imagePullPolicy: IfNotPresent
-          command: ["python", "-m", "app.migrate"]
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              # Fresh/dev DB bootstrap stays on app.migrate (ADR-04): creates
+              # tables, adds missing columns/indexes, seeds reference data.
+              python -m app.migrate
+              # Stamp-if-needed (R0 baseline, ADR-04): a DB whose schema was
+              # built by app.migrate has no alembic_version yet — stamp head
+              # so `alembic upgrade` only applies NEW revisions and never
+              # re-runs the baseline DDL on a populated schema.
+              if ! python -c "
+              import os
+              from sqlalchemy import create_engine, inspect, text
+              engine = create_engine(os.environ['PMO_DATABASE_URL'])
+              with engine.connect() as conn:
+                  if inspect(conn).has_table('alembic_version') and conn.execute(text('SELECT COUNT(*) FROM alembic_version')).scalar():
+                      raise SystemExit(0)
+              raise SystemExit(1)
+              "; then
+                echo 'No alembic_version row — stamping head (existing DB, schema already applied)'
+                alembic stamp head
+              fi
+              alembic upgrade head
           env:
             - name: POSTGRES_USER
               valueFrom:

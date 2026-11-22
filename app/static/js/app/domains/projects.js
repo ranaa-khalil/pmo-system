@@ -161,6 +161,27 @@ async loadReleases() {
 },
 
 
+// ===== Project KPI coverage (Rethink v2 Phase B2) =====
+projectCoverage: null,      // GET /api/projects/{id}/coverage — the overview's lazy fetch
+coverageLoadedFor: null,    // project id already fetched (lazy-once guard)
+coverageLoading: false,
+
+// ===== Coverage =====
+async loadCoverage() {
+    // Lazy loader: the overview fetches coverage the first time the tab shows
+    // (x-effect on the overview section) — never part of the openProject burst.
+    // One project loads it once; re-opening the same project reuses the payload.
+    if (!this.selectedProject) return;
+    if (this.coverageLoadedFor === this.selectedProject.id) return;
+    this.coverageLoading = true;
+    try {
+        this.projectCoverage = await this.api('GET', `/projects/${this.selectedProject.id}/coverage`);
+        this.coverageLoadedFor = this.selectedProject.id;
+    } catch { this.projectCoverage = null; }
+    finally { this.coverageLoading = false; }
+},
+
+
 // ===== User Management =====
 async loadUsers() {
     try {

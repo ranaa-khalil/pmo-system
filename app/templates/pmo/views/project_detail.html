@@ -59,7 +59,7 @@
                 </div>
 
                 <!-- Overview tab — Connected Traceability Dashboard -->
-                <div x-show="projectTab==='overview'" class="max-w-5xl space-y-4">
+                <div x-show="projectTab==='overview'" x-effect="projectTab === 'overview' && selectedProject && loadCoverage()" class="max-w-5xl space-y-4">
                     <!-- Project Health Card -->
                     <div class="surface rounded-2xl border border-ink-200/60 p-5" x-show="projectHealth">
                         <div class="flex items-center justify-between mb-4">
@@ -82,18 +82,52 @@
                             <div class="text-center p-2.5 rounded-xl bg-ink-50">
                                 <div class="text-[16px] font-bold text-ink-800" x-text="projectHealth?.schedule_score + '%'"></div>
                                 <div class="text-[9px] text-ink-400 uppercase tracking-wide mt-0.5">Schedule</div>
+                                <!-- why chip (B2): the inputs that moved the sub-score -->
+                                <div class="mt-1.5 flex flex-wrap items-center justify-center gap-1" x-show="(projectHealth?.why?.schedule || []).filter(c => c).length">
+                                    <template x-for="(chip, ci) in (projectHealth?.why?.schedule || []).filter(c => c)" :key="'why-schedule-' + ci">
+                                        <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-ink-100 text-ink-500" x-text="chip"></span>
+                                    </template>
+                                </div>
                             </div>
                             <div class="text-center p-2.5 rounded-xl bg-ink-50">
                                 <div class="text-[16px] font-bold text-ink-800" x-text="projectHealth?.approval_score + '%'"></div>
                                 <div class="text-[9px] text-ink-400 uppercase tracking-wide mt-0.5">Approvals</div>
+                                <!-- gate aging (B2): the oldest pending gate's age, next to the approval sub-score -->
+                                <div class="mt-1.5 flex justify-center" x-show="projectHealth?.gate_aging > 0">
+                                    <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/60" x-text="'oldest gate ' + projectHealth?.gate_aging + 'd'"></span>
+                                </div>
+                                <!-- why chips (B2): the inputs that moved the sub-score -->
+                                <div class="mt-1.5 flex flex-wrap items-center justify-center gap-1" x-show="(projectHealth?.why?.approvals || []).filter(c => c).length">
+                                    <template x-for="(chip, ci) in (projectHealth?.why?.approvals || []).filter(c => c)" :key="'why-approvals-' + ci">
+                                        <span class="text-[11px] font-medium px-2 py-0.5 rounded-full"
+                                              :class="projectHealth?.pending_approvals > 0 ? 'bg-amber-50 text-amber-700 border border-amber-200/60' : 'bg-ink-100 text-ink-500'"
+                                              x-text="chip"></span>
+                                    </template>
+                                </div>
                             </div>
                             <div class="text-center p-2.5 rounded-xl bg-ink-50">
                                 <div class="text-[16px] font-bold text-ink-800" x-text="projectHealth?.task_score + '%'"></div>
                                 <div class="text-[9px] text-ink-400 uppercase tracking-wide mt-0.5">Tasks</div>
+                                <!-- why chips (B2): the inputs that moved the sub-score -->
+                                <div class="mt-1.5 flex flex-wrap items-center justify-center gap-1" x-show="(projectHealth?.why?.tasks || []).filter(c => c).length">
+                                    <template x-for="(chip, ci) in (projectHealth?.why?.tasks || []).filter(c => c)" :key="'why-tasks-' + ci">
+                                        <span class="text-[11px] font-medium px-2 py-0.5 rounded-full"
+                                              :class="projectHealth?.overdue_tasks > 0 ? 'bg-amber-50 text-amber-700 border border-amber-200/60' : 'bg-ink-100 text-ink-500'"
+                                              x-text="chip"></span>
+                                    </template>
+                                </div>
                             </div>
                             <div class="text-center p-2.5 rounded-xl bg-ink-50">
                                 <div class="text-[16px] font-bold text-ink-800" x-text="projectHealth?.kpi_score + '%'"></div>
                                 <div class="text-[9px] text-ink-400 uppercase tracking-wide mt-0.5">KPIs</div>
+                                <!-- why chips (B2): the inputs that moved the sub-score -->
+                                <div class="mt-1.5 flex flex-wrap items-center justify-center gap-1" x-show="(projectHealth?.why?.kpis || []).filter(c => c).length">
+                                    <template x-for="(chip, ci) in (projectHealth?.why?.kpis || []).filter(c => c)" :key="'why-kpis-' + ci">
+                                        <span class="text-[11px] font-medium px-2 py-0.5 rounded-full"
+                                              :class="projectHealth?.kpis_below_target > 0 ? 'bg-amber-50 text-amber-700 border border-amber-200/60' : 'bg-ink-100 text-ink-500'"
+                                              x-text="chip"></span>
+                                    </template>
+                                </div>
                             </div>
                         </div>
                         <!-- Risk indicators -->
@@ -114,6 +148,39 @@
                                 <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
                                 <span class="text-[11px] text-ink-600">No active risks</span>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- KPI Coverage (Rethink v2 Phase B2) — compute_coverage rendered; lazy-loaded when the overview first shows -->
+                    <div class="surface rounded-2xl border border-ink-200/60 p-5" x-show="projectCoverage" x-cloak>
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-[14px] font-semibold text-ink-800">KPI Coverage</h3>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[11px] text-ink-400">Coverage</span>
+                                <span class="text-[20px] font-bold"
+                                      :class="projectCoverage?.coverage_pct == null ? 'text-ink-400' : projectCoverage.coverage_pct >= 80 ? 'text-emerald-600' : projectCoverage.coverage_pct >= 50 ? 'text-amber-600' : 'text-rose-600'"
+                                      x-text="projectCoverage?.coverage_pct == null ? 'No KPIs yet' : projectCoverage.coverage_pct + '%'"></span>
+                            </div>
+                        </div>
+                        <!-- KPIs with work / total -->
+                        <div class="flex items-center gap-2 flex-wrap" x-show="projectCoverage?.kpi_total > 0">
+                            <span class="text-[12px] text-ink-600"><span class="font-bold text-ink-900" x-text="projectCoverage?.kpis_with_work ?? 0"></span> of <span class="font-bold text-ink-900" x-text="projectCoverage?.kpi_total ?? 0"></span> KPIs have work linked</span>
+                            <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/60" x-show="projectCoverage?.kpis_without_work > 0"
+                                  x-text="projectCoverage?.kpis_without_work + ((projectCoverage?.kpis_without_work === 1) ? ' KPI without work' : ' KPIs without work')"></span>
+                        </div>
+                        <!-- Orphan items: work with no KPI beneath it — each chip opens the backlog -->
+                        <div class="mt-3 pt-3 border-t border-ink-100" x-show="(projectCoverage?.unlinked_sample || []).length > 0">
+                            <div class="text-[11px] font-semibold text-amber-600 uppercase tracking-wider mb-2">⚠ Items with no KPI</div>
+                            <div class="flex flex-wrap gap-1.5">
+                                <template x-for="item in (projectCoverage?.unlinked_sample || [])" :key="'orphan-' + item.id">
+                                    <button @click="projectTab='backlog'" title="Open the Backlog tab"
+                                            class="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-white border border-ink-200 text-ink-600 hover:bg-brand-50 hover:text-brand-700 transition-colors max-w-[220px] cursor-pointer">
+                                        <span class="truncate" x-text="item.title"></span>
+                                    </button>
+                                </template>
+                            </div>
+                            <div class="text-[10px] text-ink-400 mt-1.5" x-show="projectCoverage?.unlinked_items > (projectCoverage?.unlinked_sample || []).length"
+                                 x-text="'+' + (projectCoverage.unlinked_items - (projectCoverage?.unlinked_sample || []).length) + ' more unlinked items in the backlog'"></div>
                         </div>
                     </div>
 

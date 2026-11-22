@@ -1,4 +1,4 @@
-"""Static analysis of the Rethink v2 Phase D2 project cockpit.
+"""Static analysis of the Rethink v2 Phase D2 project cockpit (Phase E adjusted).
 
 The project page's DEFAULT landing is now the COCKPIT (projectTab defaults to
 'cockpit' when a project opens) — one viewport of decision inputs, not a
@@ -7,26 +7,34 @@ rebuild of every tab:
 - the VERDICT BAR: the health composite + why chips (B2's rendering, flattened
   by the projectVerdictChips getter) + the additive gate_aging chip, and four
   tiles — next release, open gates, open RAID, coverage % — each a button into
-  its surface (releases / approvals / risks / KPIs tabs);
+  its surface (releases / the ONE approvals inbox / risks / KPIs tabs);
 - WHAT NEEDS YOU: the /today needs-you aggregate (server-computed "waiting on
   you", project-scoped) + aging High/Critical risks from the RAID payload,
-  each row 1-click into its surface (approvals tab / item drawer / risks tab);
+  each row 1-click into its surface (the approval detail / item drawer / risks
+  tab);
 - the NARRATIVE LINE: the project's latest activity from the loaded activity
   payload (a one-line read, not a feed);
 - FOUR ACTION CARDS with live counts, each into its surface — Work goes to the
   ONE Work view pre-filtered to this project (the house setWorkProjectFilter
-  pattern; the backlog is never re-hosted here).
+  pattern; the backlog is never re-hosted here), and Work's chip is the Time
+  tab's deep-link (the project's timeline in the ONE Work view).
 
 The state: #/p/{id}/{tab} in the URL (history.replaceState on change, read on
 openProject, boot deep-link via the root x-effect) + the last-visited tab per
-project in localStorage as the fallback.
+project in localStorage as the fallback. Rethink v2 Phase E: the removed tabs'
+hashes degrade gracefully to the cockpit (the watcher guards invalid tabs).
 
 The lazy loaders: openProject keeps ONLY the cockpit's needs (health + the
 counts the verdict bar/action cards need + the project identity) — the other
-13 tabs load their datasets the FIRST time the tab shows (projectTabLoaders →
-ensureProjectTabData, one lazy-once flag per dataset). B2's coverage card was
-absorbed into the cockpit (its data/behavior survive); C2's rail x-effect is
-untouched.
+9 deep-admin tabs load their datasets the FIRST time the tab shows
+(projectTabLoaders → ensureProjectTabData, one lazy-once flag per dataset).
+B2's coverage card was absorbed into the cockpit (its data/behavior survive).
+
+Rethink v2 Phase E (this file's adjustments): the Overview, Vision, Backlog,
+Time and Approvals tabs folded away — the bar is cockpit + 9 deep-admin tabs;
+the verdict bar's why chips are the health card's cockpit home (the flattened
+read of the same payload); the coverage card's orphan chips deep-link into the
+ONE Work view; the rail-driven board lives only on the Work route.
 """
 import re
 from pathlib import Path
@@ -49,10 +57,16 @@ def _fn_body(src: str, name: str) -> str:
 
 def _cockpit_section(src: str) -> str:
     section = re.search(
-        r"<!-- Cockpit tab \(Rethink v2 Phase D2\).*?<!-- Overview tab", src, re.S,
+        r"<!-- Cockpit tab \(Rethink v2 Phase D2\).*?<!-- KPIs tab -->", src, re.S,
     )
     assert section, "cockpit section missing from project_detail.html"
     return section.group(0)
+
+
+def _loaders_table(js: str) -> str:
+    table = re.search(r"projectTabLoaders: \{(.*?)\n    \},", js, re.S)
+    assert table, "projectTabLoaders missing"
+    return table.group(1)
 
 
 def _openproject_body(js: str) -> str:
@@ -71,7 +85,7 @@ def test_project_tab_defaults_to_the_cockpit():
 
 
 def test_openproject_resolves_the_cockpit_as_the_fallback():
-    """?tab= → last-visited → 'cockpit'; the overview stays reachable."""
+    """?tab= → last-visited → 'cockpit'."""
     body = _openproject_body(_read(PLANNING_JS))
     assert "readProjectTabFromUrl(project.id)" in body, "openProject must read ?tab="
     assert "lastProjectTab(project.id)" in body, "openProject must read the last-visited tab"
@@ -79,17 +93,19 @@ def test_openproject_resolves_the_cockpit_as_the_fallback():
 
 
 def test_the_cockpit_tab_button_is_first_in_the_tab_row():
-    """A Cockpit tab exists and sits before Overview in the tabs row."""
+    """Cockpit is the FIRST tab button; the five folded tabs are gone."""
     src = _read(PROJECT_DETAIL)
     row = re.search(r"<!-- Tabs -->.*?<!-- Cockpit tab", src, re.S)
     assert row, "tabs row missing"
-    assert 'projectTab=\'cockpit\'' in row.group(0), "Cockpit tab button missing"
-    assert row.group(0).index("cockpit") < row.group(0).index("Overview"), \
-        "the Cockpit tab must sit before Overview"
+    assert "projectTab='cockpit'" in row.group(0), "Cockpit tab button missing"
+    buttons = re.findall(r"projectTab='([a-z-]+)'", row.group(0))
+    assert buttons[0] == "cockpit", "the Cockpit tab must be first"
+    for gone in ("overview", "vision", "backlog", "time", "approvals"):
+        assert gone not in buttons, f"the {gone} tab button must be removed"
 
 
 def test_the_cockpit_section_exists():
-    """The cockpit renders before the overview tab in the template."""
+    """The cockpit renders before the KPIs tab in the template."""
     src = _read(PROJECT_DETAIL)
     section = _cockpit_section(src)
     assert 'x-show="projectTab===\'cockpit\'"' in section
@@ -118,10 +134,11 @@ def test_verdict_bar_renders_the_gate_aging_chip():
 
 
 def test_verdict_tiles_navigate_to_their_surfaces():
-    """Next release → releases, gates → approvals, RAID → risks, coverage → KPIs."""
+    """Next release → releases, gates → the ONE approvals inbox, RAID → risks,
+    coverage → KPIs."""
     section = _cockpit_section(_read(PROJECT_DETAIL))
     assert "setProjectTab('releases')" in section
-    assert "setProjectTab('approvals')" in section
+    assert "openApprovalInbox()" in section, "gates open the ONE approvals inbox"
     assert "setProjectTab('risks')" in section
     assert "setProjectTab('kpis')" in section
     js = _read(PLANNING_JS)
@@ -147,10 +164,10 @@ def test_needs_you_rows_render_from_the_today_aggregate_and_raid():
 
 
 def test_needs_you_rows_open_their_surface_in_one_click():
-    """gates → approvals tab, risks → risks tab, items → the item drawer."""
+    """gates → the approval detail, risks → risks tab, items → the item drawer."""
     js = _read(PLANNING_JS)
     open_row = _fn_body(js, "openCockpitRow")
-    assert "setProjectTab('approvals')" in open_row
+    assert "openApproval({ id: row.ref_id })" in open_row, "gates open the approval detail"
     assert "setProjectTab('risks')" in open_row
     assert "viewBacklogItem(known)" in open_row, "items open in the item drawer"
 
@@ -255,6 +272,18 @@ def test_back_to_projects_consumes_the_hash():
     assert "consumeProjectHash()" in back
 
 
+def test_removed_tab_hashes_degrade_to_the_cockpit():
+    """Removed tabs (overview/vision/backlog/time/approvals) are invalid —
+    the watcher resets direct assignments to the cockpit (Rethink v2 Phase E)."""
+    js = _read(PLANNING_JS)
+    watchers = _fn_body(js, "bindProjectTabWatchers")
+    assert "isValidProjectTab(tab)" in watchers, "invalid tabs must be guarded"
+    assert "this.projectTab = 'cockpit'" in watchers, "degrade to the cockpit"
+    table = _loaders_table(js)
+    for gone in ("overview", "vision", "backlog", "time", "approvals"):
+        assert not re.search(rf"^\s+{gone}: \[", table, re.M), f"{gone} must leave the loaders map"
+
+
 # ── 5. the lazy loaders ──────────────────────────────────────────────────
 
 
@@ -274,15 +303,15 @@ def test_openproject_burst_is_at_most_eight_loaders():
 
 
 def test_every_tab_maps_to_lazy_datasets():
-    """projectTabLoaders covers all 15 tabs; coverage stays out of the burst."""
+    """projectTabLoaders covers the v2 9 (+ the cockpit); coverage stays out of
+    the burst (Rethink v2 Phase E)."""
     js = _read(PLANNING_JS)
-    table = re.search(r"projectTabLoaders: \{(.*?)\n    \},", js, re.S)
-    assert table, "projectTabLoaders missing"
-    body = table.group(1)
-    for tab in ("cockpit", "overview", "vision", "kpis", "roadmap", "backlog", "time",
-                "docs", "approvals", "risks", "releases", "stakeholders",
-                "infrastructure", "github", "env"):
+    body = _loaders_table(js)
+    for tab in ("cockpit", "kpis", "roadmap", "docs", "risks", "releases",
+                "stakeholders", "infrastructure", "github", "env"):
         assert re.search(rf"^\s+{tab}: \[", body, re.M), f"no lazy datasets for {tab}"
+    for gone in ("overview", "vision", "backlog", "time", "approvals"):
+        assert not re.search(rf"^\s+{gone}: \[", body, re.M), f"{gone} must be gone"
 
 
 def test_each_tabs_loader_fires_on_first_show():
@@ -292,7 +321,7 @@ def test_each_tabs_loader_fires_on_first_show():
     assert "projectTabLoaded[ds]" in ensure, "one lazy-once flag per dataset"
     assert "projectLoadedFor" in ensure, "flags must reset per project"
     runner = _fn_body(js, "runProjectTabLoader")
-    table = re.search(r"projectTabLoaders: \{(.*?)\n    \},", js, re.S).group(1)
+    table = _loaders_table(js)
     datasets = set(re.findall(r"'([a-zA-Z]+)'", table))
     for ds in datasets:
         assert f"case '{ds}':" in runner, f"dataset {ds} never loads"
@@ -308,46 +337,58 @@ def test_the_root_effect_wires_the_lazy_loaders():
 
 
 def test_lazy_loaders_keep_the_same_loader_implementations():
-    """Only the TIMING changed — every loader keeps its endpoint (spot checks)."""
+    """Only the TIMING changed — every loader keeps its endpoint (spot checks);
+    coverage loads with the cockpit's first show (the loaders map, not an
+    overview x-effect — the Overview tab folded away in Phase E)."""
     js = _read(PLANNING_JS)
     assert "async loadBrdCoverage(projectId) {" in js
     assert "`/projects/${projectId}/brd-coverage`" in js
+    table = _loaders_table(js)
+    cockpit = re.search(r"^\s+cockpit: \[(.*?)\]", table, re.M).group(1)
+    assert "'coverage'" in cockpit, "coverage loads lazily with the cockpit"
+
+
+# ── 6. B2 / C2 survival (Phase E adjusted) ───────────────────────────────
+
+
+def test_b2_health_chips_survive_in_the_verdict_bar():
+    """The deep-admin overview's full health card folded away — its why-chips
+    data survives flattened in the cockpit's verdict bar (same payload, one
+    compact row). The per-sub-score card is gone with the Overview tab."""
     src = _read(PROJECT_DETAIL)
-    assert 'x-effect="projectTab === \'overview\' && selectedProject && loadCoverage()"' in src, \
-        "the overview's lazy coverage x-effect must survive"
-
-
-# ── 6. B2 / C2 survival ──────────────────────────────────────────────────
-
-
-def test_b2_health_card_survives_in_the_overview():
-    """The deep-admin overview keeps its full why-chips health card."""
-    src = _read(PROJECT_DETAIL)
-    card = re.search(r"<!-- Project Health Card -->.*?<!-- Vision banner -->", src, re.S)
-    assert card, "Project Health card missing"
-    for sub in ("schedule", "approvals", "tasks", "kpis"):
-        assert f"why?.{sub}" in card.group(0)
-    assert "gate_aging" in card.group(0)
+    section = _cockpit_section(src)
+    assert "Project Health Card" not in src[src.index("<!-- KPIs tab -->"):src.index("<!-- Roadmap tab -->")], \
+        "the overview's health card must be gone"
+    assert "projectVerdictChips" in section, "the verdict bar carries the why chips"
+    js = _read(PLANNING_JS)
+    chips = _fn_body(js, "get projectVerdictChips")
+    assert "h.why?.schedule" in chips and "h.why?.approvals" in chips
 
 
 def test_b2_coverage_card_was_absorbed_into_the_cockpit():
     """The coverage card (with its orphan chips) lives in the cockpit now —
-    once, not duplicated between the cockpit and the overview."""
+    the orphan chips deep-link into the ONE Work view (the Backlog tab folded
+    away in Phase E)."""
     src = _read(PROJECT_DETAIL)
     section = _cockpit_section(src)
     assert "KPI Coverage" in section
     assert "unlinked_sample" in section
-    assert "projectTab='backlog'" in section, "orphan chips still open the backlog"
-    after_cockpit = src[src.index("<!-- Overview tab"):]
+    assert "openWorkWithProject()" in section, "orphan chips deep-link into Work"
+    assert "projectTab='backlog'" not in section, "the Backlog tab is gone"
+    after_cockpit = src[src.index("<!-- KPIs tab -->"):]
     assert "KPI Coverage" not in after_cockpit, "the coverage card must not duplicate"
 
 
-def test_c2_backlog_rail_survives_untouched():
-    """The rail's byte-identical sections keep their x-effect and columns."""
+def test_c2_backlog_rail_lives_on_the_work_board_only():
+    """Phase E: the project page no longer hosts the rail-driven board — the
+    x-effect and its columns are gone; the rail data flows to the Work board
+    (backlog.js's buildWorkBoard keeps the rail assertions in the rail tests)."""
     src = _read(PROJECT_DETAIL)
-    assert 'x-effect="projectTab===\'backlog\' && selectedProject && loadBacklogRail(selectedProject.id)"' in src
-    assert 'x-for="col in backlogBoardColumns"' in src
-    assert "phaseDotColor(col.phase)" in src
+    assert "loadBacklogRail" not in src, "the project page must not fetch the rail"
+    assert "backlogBoardColumns" not in src, "the project-page board is gone"
+    js = _read(PLANNING_JS)
+    burst = _openproject_body(js)
+    assert "loadBacklogRail" not in burst, "the rail must not join the openProject burst"
 
 
 def test_cockpit_uses_the_house_palette_only():

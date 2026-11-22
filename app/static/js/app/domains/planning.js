@@ -584,10 +584,13 @@ async postWorkItemComment() {
     }
 },
 
-// Today row → Work detail drawer (approvals open the legacy project page for now)
+// Today row → Work detail drawer. Approval rows open the approval detail modal
+// (approve/reject/guest links in one panel) — the ONE approvals inbox is
+// actionable in place (Rethink v2 Phase E: the legacy "open the project page"
+// hack is gone; the Approvals tab folded into this inbox).
 openWorkItemFromToday(row) {
     if (row.kind === 'approval') {
-        this.navigate('projects');
+        this.openApproval({ id: row.ref_id });
         return;
     }
     this.navigate('work');
@@ -606,8 +609,11 @@ async openProjectById(projectId) {
 // ===== Project detail state =====
 selectedProject: null,
 selectedClient: null,
-// The cockpit is the DEFAULT landing (Rethink v2 Phase D2) — the Overview tab
-// stays reachable as the deep-admin's first stop.
+// The cockpit is the DEFAULT landing (Rethink v2 Phase D2) — the deep-admin's
+// first stop. Rethink v2 Phase E: deep admin shrinks 14 → 9 — the Overview,
+// Vision, Backlog, Time and Approvals tabs folded away (Backlog and Time
+// deep-link into the ONE Work view, Approvals into the ONE approvals inbox,
+// Vision into Plan depth). NOTHING is deleted as data.
 projectTab: 'cockpit',
     // Rethink v2 Phase D2 — project cockpit state: ?tab= URL state + lazy loaders.
     // projectTabLoaders: tab → the datasets its FIRST show loads (the tabLoaded
@@ -615,14 +621,9 @@ projectTab: 'cockpit',
     // keeps only the cockpit's needs — the other tabs load lazily on first show.
     projectTabLoaders: {
         cockpit: ['coverage', 'today', 'activity'],
-        overview: ['traceability', 'releases', 'backlog', 'stakeholders'],
-        vision: ['vision'],
-        kpis: ['kpis'],
+        kpis: ['kpis', 'traceability'],
         roadmap: ['roadmaps'],
-        time: ['time'],
-        backlog: ['backlog', 'brdCoverage', 'githubSync'],
-        docs: ['releases'],
-        approvals: ['approvals'],
+        docs: ['releases', 'vision'],
         risks: ['risks'],
         releases: ['releases'],
         stakeholders: ['stakeholders'],
@@ -948,9 +949,11 @@ async openProject(project) {
     this.syncProjectTabUrl();
     this.persistProjectTab(project.id, this.projectTab);
     this.initEnvForm();
-    // The cockpit is the landing — load ONLY its needs (the other 13 tabs load
-    // lazily on first show via ensureProjectTabData). Burst: 17 loaders → 5.
-    // Flags first so the root x-effect never double-fires these datasets.
+    // The cockpit is the landing — load ONLY its needs (the other 9 deep-admin
+    // tabs load lazily on first show via ensureProjectTabData). Burst: 17
+    // loaders → 5. Flags first so the root x-effect never double-fires these
+    // datasets. loadApprovals/loadBacklog stay: the verdict bar's gates count,
+    // the needs-you rows and the Work card count read them.
     this.projectTabLoaded.health = true;
     this.projectTabLoaded.releases = true;
     this.projectTabLoaded.approvals = true;
@@ -1055,6 +1058,10 @@ bindProjectTabWatchers() {
     this._projectTabWatchersBound = true;
     this.$watch('projectTab', (tab) => {
         if (this.route !== 'project-detail' || !this.selectedProject) return;
+        // Removed tabs (Rethink v2 Phase E: overview/vision/backlog/time/approvals)
+        // degrade gracefully to the cockpit — including direct assignments from
+        // the copilot's jump table, which bypasses setProjectTab's guard.
+        if (!this.isValidProjectTab(tab)) { this.projectTab = 'cockpit'; return; }
         this.syncProjectTabUrl();
         this.persistProjectTab(this.selectedProject.id, tab);
     });
@@ -1179,12 +1186,14 @@ get projectNeedsYou() {
     return rows;
 },
 
-// Each needs-you row opens its surface in 1 click: gates → the approvals tab,
-// risks → the RAID tab, items → the item drawer (the ONE Work view's drawer
-// fallback when the backlog row isn't loaded — never a re-hosted board).
+// Each needs-you row opens its surface in 1 click: gates → the approval detail
+// (approve/reject in one panel — the Approvals tab folded into the ONE approvals
+// inbox, Rethink v2 Phase E), risks → the RAID tab, items → the item drawer (the
+// ONE Work view's drawer fallback when the backlog row isn't loaded — never a
+// re-hosted board).
 openCockpitRow(row) {
     if (!row) return;
-    if (row.kind === 'approval') { this.setProjectTab('approvals'); return; }
+    if (row.kind === 'approval') { this.openApproval({ id: row.ref_id }); return; }
     if (row.kind === 'risk') { this.setProjectTab('risks'); return; }
     const known = (this.backlogItems || []).find(i => String(i.id) === String(row.ref_id));
     if (known) { this.viewBacklogItem(known); return; }
@@ -1198,6 +1207,24 @@ openWorkWithProject() {
     if (!this.selectedProject) return;
     this.setWorkProjectFilter(String(this.selectedProject.id));
     this.navigate('work');
+},
+
+// Time deep-link (Rethink v2 Phase E): the project's time view is the ONE Work
+// view's timeline, pre-filtered to this project — the Work action card's
+// "Timeline view" chip, where the legacy Time tab's deep-link lands.
+openWorkTimeline() {
+    if (!this.selectedProject) return;
+    this.setWorkProjectFilter(String(this.selectedProject.id));
+    this.setWorkViewMode('timeline');
+    this.navigate('work');
+},
+
+// Approvals deep-link (Rethink v2 Phase E): the ONE approvals inbox is Today's
+// needs-you queue — the gate approvals waiting on you across projects, each row
+// opening the approval detail (approve/reject/guest links in one panel). The
+// legacy Approvals tab folded into it; no second approvals surface was built.
+openApprovalInbox() {
+    this.navigate('today');
 },
 
 // Decisions panel: the route exists; the server filters ?project_id=

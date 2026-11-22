@@ -113,12 +113,16 @@ def test_rail_loader_caches_per_project():
 
 
 def test_rail_loader_is_lazy_not_in_any_burst():
-    # the openProject burst must NOT prefetch the rail — the x-effect on the
-    # backlog tab fires it on first render (the loadCoverage pattern)
+    # the openProject burst must NOT prefetch the rail — Rethink v2 Phase E: the
+    # project-page backlog tab is gone, so no x-effect prefetches it; the Work
+    # board fetches it lazily per project (workRailPhaseNames → loadBacklogRail)
     projects = _read(PROJECTS_JS)
     assert "loadBacklogRail" not in projects
     detail = _read(PROJECT_DETAIL)
-    assert "x-effect=\"projectTab==='backlog' && selectedProject && loadBacklogRail(selectedProject.id)\"" in detail
+    assert "loadBacklogRail" not in detail, "the project page must not prefetch the rail"
+    js = _read(BACKLOG_JS)
+    union = _fn_body(js, "workRailPhaseNames")
+    assert "loadBacklogRail(pid)" in union  # the lazy per-project fetch remains
 
 
 # ── 3. both boards build from the rail ───────────────────────────────────
@@ -154,18 +158,34 @@ def test_work_html_lanes_still_bind_the_board_columns():
     assert "workViewMode === 'list'" in html  # List view untouched
 
 
-def test_project_detail_board_renders_rail_columns():
+def test_project_page_no_longer_hosts_the_board():
+    # Rethink v2 Phase E: the C2 rail-driven board on the project page is removed
+    # in favor of the ONE Work view (whose rail assertions above hold); the
+    # project page keeps no board markup and no rail fetch
     detail = _read(PROJECT_DETAIL)
-    assert 'x-for="col in backlogBoardColumns"' in detail
-    # the hardcoded per-phase dot ternary is gone
-    assert "col.phase === 'Development'" not in detail
-    assert "phaseDotColor(col.phase)" in detail
+    assert 'x-for="col in backlogBoardColumns"' not in detail
+    assert "phaseDotColor(col.phase)" not in detail
+    assert "loadBacklogRail" not in detail
+
+
+def test_project_board_builder_keeps_the_rail_contract():
+    # buildBacklogBoard (backlog.js) is untouched — its rail contract stays; the
+    # ONE Work view's board (buildWorkBoard) builds from the rail union
+    js = _read(BACKLOG_JS)
+    body = _fn_body(js, "buildBacklogBoard")
+    assert "railForProject" in body
+    assert "is_release_stage" in body
+    assert "observedPhaseNames" in body  # the fallback
+    assert "this.itemPhases.map" not in body  # no derived-literal read
 
 
 # ── 4. multi-select phase filter (OR within the axis) ────────────────────
 
 
-def test_phase_filter_is_multi_select():
+def test_phase_filter_stays_multi_select_after_the_fold():
+    # Rethink v2 Phase E: the phase chips lived on the project page's backlog
+    # tab (removed) — the multi-select axis itself is untouched in backlog.js
+    # (getters, saved views and the work board still read it)
     js = _read(BACKLOG_JS)
     assert "phaseFilter: []" in js
     body = _fn_body(js, "get filteredBacklogItems")
@@ -182,24 +202,17 @@ def test_toggle_phase_filter_toggles_array_membership():
     assert "phaseFilterActive(phase)" in _fn_body(js, "phaseFilterActive")
 
 
-def test_filter_chips_render_rail_phases_multi_select():
+def test_phase_chips_are_gone_from_the_project_page():
+    # the FILTER chip row (itemPhases/releasePhases chips with the toggle
+    # bindings) rendered on the removed backlog tab only — the project page must
+    # not carry it; the rail-backed getters it read survive in backlog.js, and
+    # the item drawer's stepper keeps its own (legitimate) itemPhases x-for
     detail = _read(PROJECT_DETAIL)
-    # chips render the rail's phases (getter-driven) and toggle individually
-    assert 'x-for="(phase, idx) in itemPhases"' in detail
-    assert "togglePhaseFilter(phase)" in detail
-    assert "phaseFilterActive(phase)" in detail
-    # the old single-select toggle binding is gone
-    assert ":class=\"phaseFilter === phase ?" not in detail
-
-
-def test_release_chips_are_the_rails_real_release_stages():
-    detail = _read(PROJECT_DETAIL)
-    # one chip per rail release stage (is_release_stage), not the two
-    # hand-mapped aggregates
-    assert 'x-for="phase in releasePhases"' in detail
-    assert "togglePhaseFilter('In Release')" not in detail
-    assert "togglePhaseFilter('Released')" not in detail
-    assert "releaseFilterCounts" not in detail
+    assert "togglePhaseFilter(phase)" not in detail
+    assert "phaseFilterActive(phase)" not in detail
+    assert 'x-for="phase in releasePhases"' not in detail
+    js = _read(BACKLOG_JS)
+    assert "get itemPhases()" in js and "get releasePhases()" in js
 
 
 def test_filters_and_with_the_other_axes():
@@ -245,8 +258,8 @@ def test_fallback_used_by_context_getters():
 
 def test_advance_button_guards_are_effective_phase_checks():
     detail = _read(PROJECT_DETAIL)
-    # list rows + the item modal footer
-    assert "canAdvanceItem(item.current_phase)" in detail
+    # the backlog list rows are gone with the tab (Phase E) — the item drawer's
+    # footer advance guard remains
     assert "canAdvanceItem(viewingBacklogItem?.current_phase)" in detail
     # the hardcoded Software guard is gone
     assert "item.current_phase !== 'Ready for UAT'" not in detail

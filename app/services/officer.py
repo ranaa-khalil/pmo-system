@@ -21,6 +21,7 @@ from app.models.user import User
 from app.models.user_task import UserTask
 from app.services.notifications import create_notification
 from app.services.rules_engine import _gate_owner, _parse_created
+from app.services.settings_service import rules_enabled
 
 logger = logging.getLogger("app.officer")
 
@@ -44,7 +45,13 @@ ESCALATION_TEMPLATE = {
 
 
 def ensure_rule_templates(db: Session, tenant: Tenant) -> dict:
-    """Seed the escalation rule template once per tenant (idempotent)."""
+    """Seed the escalation rule template once per tenant (idempotent).
+
+    Respects the tenant's rules master switch: while rules are off, nothing
+    is seeded — the sweep and /scan both route through here.
+    """
+    if not rules_enabled(db, tenant.id):
+        return {"seeded": 0, "rules": "off"}
     exists = (
         db.query(AutomationRule)
         .filter(

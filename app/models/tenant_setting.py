@@ -14,6 +14,7 @@ SETTING_GITHUB_TOKEN = "github_token"
 SETTING_AI_API_KEY = "ai_api_key"
 SETTING_AI_BASE_URL = "ai_base_url"
 SETTING_AI_MODEL = "ai_model"
+SETTING_RULES_ENABLED = "rules_enabled"  # officer master switch (default ON)
 
 # Settings that contain secrets (encrypted at rest)
 SECRET_KEYS = {SETTING_GITHUB_TOKEN, SETTING_AI_API_KEY}

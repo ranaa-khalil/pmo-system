@@ -34,6 +34,7 @@ from app.models.tenant import Tenant
 from app.services.digest import run_daily_digests, run_weekly_exec_digests, run_weekly_pm_digests
 from app.services.officer import ensure_rule_templates, publish_day_reports
 from app.services.rules_engine import evaluate_rules
+from app.services.settings_service import rules_enabled
 
 logger = logging.getLogger("app.worker")
 
@@ -88,6 +89,11 @@ def _release_beat_lock(conn, job: str) -> None:
 # Per-tenant job bodies (each = the existing tested services)
 # ---------------------------------------------------------------------------
 def _tenant_rules_sweep(db, tenant, tenant_config=None) -> dict:
+    """The hourly rules sweep — no-ops while the tenant's rules are off
+    (Unified System v2 §2 route 10: the master switch pauses the beat's
+    drafts; nightly/weekly digests still run)."""
+    if not rules_enabled(db, tenant.id):
+        return {"rules": "off"}
     ensure_rule_templates(db, tenant)
     return evaluate_rules(db, tenant)
 

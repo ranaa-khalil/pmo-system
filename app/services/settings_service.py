@@ -19,6 +19,7 @@ from app.models.tenant_setting import (
     SETTING_AI_BASE_URL,
     SETTING_AI_MODEL,
     SETTING_GITHUB_TOKEN,
+    SETTING_RULES_ENABLED,
     TenantSetting,
 )
 
@@ -184,3 +185,16 @@ def is_ai_configured_for_tenant(db: Session, tenant_id: int) -> bool:
     """Check if AI is configured for a tenant (per-tenant or global)."""
     config = get_ai_config(db, tenant_id)
     return bool(config["api_key"])
+
+
+def rules_enabled(db: Session, tenant_id: int) -> bool:
+    """The officer's rules master switch (per tenant) — ON by default.
+
+    The KV row only exists once a human has clicked it off (or back on):
+    absent means ON (Unified System v2 §2 route 10 — "rules ON by default,
+    one click off"). Stored plaintext as '1'/'0'.
+    """
+    value = get_setting(db, tenant_id, SETTING_RULES_ENABLED)
+    if value is None:
+        return True
+    return str(value).strip().lower() not in ("0", "false", "no", "off")

@@ -167,8 +167,13 @@ def get_github_token(db: Session, tenant_id: int) -> str | None:
 
 
 def get_ai_config(db: Session, tenant_id: int) -> dict:
-    """Get AI configuration for a tenant (per-tenant or global fallback)."""
+    """Get AI configuration for a tenant (per-tenant or global fallback).
+
+    tenant_id rides in the dict so the LLM wrapper can attribute every
+    LlmUsage row to its tenant.
+    """
     return {
+        "tenant_id": tenant_id,
         "api_key": get_setting(db, tenant_id, SETTING_AI_API_KEY) or "",
         "base_url": get_setting(db, tenant_id, SETTING_AI_BASE_URL) or settings.ai_base_url,
         "model": get_setting(db, tenant_id, SETTING_AI_MODEL) or settings.ai_model,

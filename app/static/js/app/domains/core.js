@@ -39,8 +39,8 @@ _paletteBound: false,
 
 // ===== Per-user UI preferences =====
 // Dashboard widget layout: ordered visible-widget keys (per-user via /me/preferences)
-DASH_WIDGET_KEYS: ['stats', 'briefing', 'charts', 'projects', 'kpis', 'mytasks', 'activity', 'workload'],
-dashWidgets: ['stats', 'briefing', 'charts', 'projects', 'kpis', 'mytasks', 'activity', 'workload'],
+DASH_WIDGET_KEYS: ['stats', 'charts', 'projects', 'kpis', 'mytasks', 'activity', 'workload'],
+dashWidgets: ['stats', 'charts', 'projects', 'kpis', 'mytasks', 'activity', 'workload'],
 widgetPickerOpen: false,
 draggingWidget: null,
 
@@ -158,6 +158,21 @@ async markNotifRead(notif) {
         notif.read = true;
         this.unreadCount = Math.max(0, this.unreadCount - 1);
     } catch (e) { /* silent fail */ }
+},
+
+// Notification row click — mark read + deep-link via the model's link field
+// (Unified v2: link carries a route id like '/today' or a project path
+// '/projects/<id>/approvals' → project detail drawer, openWorkItemFromToday pattern)
+async openNotification(notif) {
+    if (!notif) return;
+    this.markNotifRead(notif);
+    const link = (notif.link || '').trim();
+    if (!link) return;
+    this.notifPanelOpen = false;
+    const route = link.replace(/^\/+/, '');
+    if (this.navItems.some(i => i.id === route)) { this.navigate(route); return; }
+    const projectId = notif.project_id || (route.match(/^projects\/(\d+)/) || [])[1];
+    if (projectId) { await this.openProjectById(projectId); }
 },
 
 async markAllNotifsRead() {
@@ -296,8 +311,6 @@ async login() {
             this.applyBranding();  // Apply CSS variables + title
             this.initPaletteShortcuts();  // Global ⌘K/Ctrl+K
             await Promise.all([this.loadClients(), this.loadProjects(), this.loadToday(), this.loadRoles(), this.loadNotifications(), this.loadActivity(), this.checkAIStatus(), this.loadPreferences(), this.loadSlack()]);
-            // Fire-and-forget: the daily briefing card generates after the shell loads
-            this.generateBriefing();
             setInterval(() => this.loadNotifications(), 30000);
         }
     } catch (e) {
@@ -582,7 +595,7 @@ dashWidgetVisible(key) { return this.dashWidgets.includes(key); },
 dashWidgetOrder(key) { const i = this.dashWidgets.indexOf(key); return i === -1 ? 99 : i; },
 dashWidgetLabel(key) {
     const labels = {
-        stats: 'Stat cards', briefing: 'Daily briefing', charts: 'Charts',
+        stats: 'Stat cards', charts: 'Charts',
         projects: 'Project health', kpis: 'KPI progress', mytasks: 'My Tasks', activity: 'Activity feed',
         workload: 'Team workload',
     };

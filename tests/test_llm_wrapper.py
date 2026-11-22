@@ -254,8 +254,12 @@ def test_report_send_dispatches_to_recipients_and_keeps_chain(client, db, auth_u
 
 
 def test_email_send_dev_mode_returns_false_without_smtp():
-    """No SMTP configured → logged, not sent — digests and report sends never crash."""
-    from app.services.email_service import send_email
+    """No SMTP/Resend configured → logged, not sent — digests and report sends never crash.
+
+    Import re-pointed after the F3 retire: email_service.py is gone; the
+    dispatch door lives in app/services/email.py (byte-identical contract).
+    """
+    from app.services.email import send_email
 
     result = send_email(to_email="x@y.test", subject="s", body="b")
     assert result is False

@@ -1,5 +1,15 @@
-"""Email service — sends emails via Resend API or SMTP fallback."""
+"""Email service — sends emails via Resend API or SMTP fallback.
+
+Rethink v2 Phase F3: app/services/email_service.py is retired and its
+dispatch door is re-homed here — ONE email module, Resend first, SMTP
+fallback, dev-mode log when neither is configured. The retired module's
+``send_email`` contract (db/tenant_id/to_email/subject/body/html) is kept
+byte-identical so the report-send path (routers/reports.py) and the digest
+queue (services/brief.py) keep working unchanged; the caller's audit trail
+(artifact chain for reports, digest rows) stays the outbox log.
+"""
 import json
+import logging
 import smtplib
 import urllib.request
 from email.mime.multipart import MIMEMultipart
@@ -7,17 +17,22 @@ from email.mime.text import MIMEText
 
 from app.config import settings
 
+logger = logging.getLogger("app.email")
+
 
 def _send_via_resend(to_email: str, subject: str, html_body: str, text_body: str = "") -> bool:
     """Send email via Resend REST API."""
     if not settings.resend_api_key:
         return False
+    if not html_body and not text_body:
+        return False  # nothing to send
     payload = {
         "from": settings.email_from or "PMO System <onboarding@resend.dev>",
         "to": [to_email],
         "subject": subject,
-        "html": html_body,
     }
+    if html_body:
+        payload["html"] = html_body
     if text_body:
         payload["text"] = text_body
     try:
@@ -48,7 +63,10 @@ def _send_via_smtp(to_email: str, subject: str, html_body: str, text_body: str =
     msg["Subject"] = subject
     if text_body:
         msg.attach(MIMEText(text_body, "plain"))
-    msg.attach(MIMEText(html_body, "html"))
+    if html_body:
+        msg.attach(MIMEText(html_body, "html"))
+    if not msg.get_payload():
+        return False  # nothing to send
     try:
         if settings.smtp_port == 465:
             server = smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=15)
@@ -64,12 +82,20 @@ def _send_via_smtp(to_email: str, subject: str, html_body: str, text_body: str =
         return False
 
 
-def send_email(to_email: str, subject: str, html_body: str, text_body: str = "") -> bool:
-    """Send an email. Tries Resend first, falls back to SMTP."""
-    if _send_via_resend(to_email, subject, html_body, text_body):
+def send_email(db=None, tenant_id=None, to_email="", subject="", body="", html=""):
+    """Queue + dispatch one email (R1: report send + digests).
+
+    THE dispatch door: brief._queue_email and the report-send path call
+    this. Resend configured → sends via Resend; else SMTP configured →
+    sends via SMTP; otherwise logs (dev mode). The caller's audit trail
+    (artifact chain for reports, digest rows) is the outbox log — this
+    function never bypasses it.
+    """
+    if _send_via_resend(to_email, subject, html, text_body=body):
         return True
-    if _send_via_smtp(to_email, subject, html_body, text_body):
+    if _send_via_smtp(to_email, subject, html, text_body=body):
         return True
+    logger.info(f"[EMAIL-DEV] To: {to_email} | Subject: {subject} | Body: {body[:200]}")
     return False
 
 
@@ -135,4 +161,5 @@ If you didn't request a password reset, you can safely ignore this email.
 Your password will not be changed.
 """
 
-    return send_email(to_email, "PMO System - Reset Your Password", html, text)
+    return send_email(db=None, tenant_id=None, to_email=to_email,
+                      subject="PMO System - Reset Your Password", body=text, html=html)

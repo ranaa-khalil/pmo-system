@@ -8,6 +8,13 @@ entity's chain re-walks every link: any tampering breaks the hash.
 Wired to: gate approvals (create/approve/reject), backlog advances, AI drafts
 (evidence/report), and tenant lifecycle template changes — every state change
 that an auditor would ask "who changed what, when, and is it intact?" about.
+
+Audit split (Rethink v2 Phase F3, the house rule): the ARTIFACT CHAIN is the
+record of truth — immutable, hash-linked, the tamper-evident audit row an
+auditor trusts. activity_log (services/notifications.log_activity) is the UI
+feed — a convenience log for recent-activity strips, never the record an
+audit reads. State changes append to the chain; the activity feed may be
+pruned or rebuilt without losing history.
 """
 import hashlib
 import json

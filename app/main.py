@@ -27,7 +27,6 @@ from app.routers import (
     decisions,
     engagements,
     forms,
-    gantt,
     github_sync,
     guest_links,
     infrastructure,
@@ -55,7 +54,6 @@ from app.routers import (
     slack,
     time_entries,
     views,
-    workload,
 )
 
 logger = logging.getLogger("app.main")
@@ -152,7 +150,6 @@ app.include_router(tags.router)
 app.include_router(preferences.router)
 app.include_router(agents.router)
 app.include_router(reports.router)
-app.include_router(workload.router)
 app.include_router(item_types.router)
 app.include_router(proofs.router)
 app.include_router(mcp.router)
@@ -160,7 +157,6 @@ app.include_router(guest_links.router)
 app.include_router(guest_links.public_router)
 app.include_router(share.router)
 app.include_router(share.public_router)
-app.include_router(gantt.router)
 app.include_router(personas.router)
 app.include_router(notifications.router)
 app.include_router(ai.router)

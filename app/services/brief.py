@@ -141,7 +141,8 @@ def send_report(
     digest_preference: bool = False,
 ) -> dict:
     """Approval-gated send: nothing is emailed without the recipient's digest
-    preference. The email is queued via email_service (never sent live here)."""
+    preference. The email is queued via email.py's send_email (never sent
+    live here)."""
     if not digest_preference:
         return {
             "sent": False,
@@ -164,10 +165,12 @@ def send_report(
 def _queue_email(db=None, tenant=None, recipient=None, subject="", body="", html=""):
     """Thin wrapper so tests can monkeypatch brief._queue_email.
 
-    Production wires this to app/services/email_service.send_email.
+    Production wires this to app/services/email.send_email (Resend first,
+    SMTP fallback — the retired email_service module's dispatch door is
+    re-homed there, Rethink v2 Phase F3).
     """
-    from app.services import email_service
-    return email_service.send_email(
+    from app.services import email
+    return email.send_email(
         db=db, tenant_id=tenant.id, to_email=recipient.email,
         subject=subject, body=body, html=html,
     )

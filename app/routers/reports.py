@@ -25,7 +25,7 @@ from app.models.stakeholder import Stakeholder
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.artifact_chain import append_artifact
-from app.services.email_service import send_email
+from app.services.email import send_email
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["reports"])

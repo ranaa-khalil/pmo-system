@@ -5,6 +5,14 @@ Provides:
 - get_usage(): get current usage counts
 - check_quota(): verify a tenant can add more of a resource
 - get_quota_headers(): return X-Quota-* headers for API responses
+- derive_llm_usage_rollup(): the LLM-call rollup derived FROM llm_usage
+
+Derivation convention (Rethink v2 Phase F3): usage_records and llm_usage
+are INDEPENDENT tables (daily quota snapshots vs one row per LLM call),
+so llm_usage is the record of truth for LLM calls — the ``api_calls``
+metric in usage_records (METRIC_API_CALLS, defined but never written)
+would be DERIVED via derive_llm_usage_rollup(), never written by a second
+path. One row source (services/llm.py per-call), one derivation (here).
 """
 from datetime import date as _date
 
@@ -17,6 +25,7 @@ from app.models.project import Project
 from app.models.release import Release
 from app.models.tenant import Tenant, TenantMembership
 from app.models.usage_record import (
+    METRIC_API_CALLS,
     METRIC_BACKLOG_ITEMS,
     METRIC_CLIENTS,
     METRIC_PROJECTS,
@@ -141,3 +150,42 @@ def get_usage_history(db: Session, tenant_id: int, days: int = 30) -> dict:
         history[metric].sort(key=lambda x: x["date"])
 
     return history
+
+
+def derive_llm_usage_rollup(db: Session, tenant_id: int, day: str | None = None) -> dict:
+    """Derive the per-day LLM-call rollup FROM llm_usage — the ONE derivation.
+
+    Rethink v2 Phase F3: ``usage_records derived from llm_usage``. llm_usage
+    is the record of truth for LLM calls (one row per call, written by
+    services/llm.py); the ``api_calls`` metric in usage_records
+    (METRIC_API_CALLS — defined but never written anywhere) is DERIVED from
+    those rows here instead of being written by a second path. Read-only:
+    no writes, no migration, no second source of truth.
+
+    Returns: {metric: 'api_calls', date, calls, ok, fallback,
+    avg_latency_ms} for the tenant's llm_usage rows on ``day`` (today when
+    omitted); a day with no rows derives zeros, never guesses.
+    """
+    from app.models.llm_usage import LlmUsage
+
+    day = day or _today()
+    rows = (
+        db.query(LlmUsage)
+        .filter(
+            LlmUsage.tenant_id == tenant_id,
+            LlmUsage.created_at.like(f"{day}%"),
+        )
+        .order_by(LlmUsage.id)
+        .all()
+    )
+    calls = len(rows)
+    ok = sum(1 for r in rows if r.ok)
+    avg_latency = round(sum(r.latency_ms for r in rows) / calls) if calls else 0
+    return {
+        "metric": METRIC_API_CALLS,
+        "date": day,
+        "calls": calls,
+        "ok": ok,
+        "fallback": calls - ok,
+        "avg_latency_ms": avg_latency,
+    }

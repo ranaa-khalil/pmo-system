@@ -3,6 +3,7 @@
 from datetime import UTC
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -28,6 +29,22 @@ from app.services.release_machine import advance_backlog_item_phase
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["backlog"])
+
+_BULK_MAX_ITEMS = 100  # house batch guard — one request, one machine loop
+
+
+class BacklogBulkAdvance(BaseModel):
+    """Body for PATCH /backlog/bulk — item ids + optional shared step count.
+
+    ``item_ids`` is required (one entry per item to advance); ``steps`` is
+    an optional shared advance count (each item walks that many ONE-step
+    machine advances; default 1). There is deliberately no per-item target
+    phase: the machine advances one step at a time, so a target would just
+    be a loop count in disguise.
+    """
+
+    item_ids: list[int]
+    steps: int = 1
 
 
 def _auto_export_to_github(db: Session, item: BacklogItem, tenant_id: int):
@@ -275,6 +292,67 @@ def reorder_backlog_board(
         by_id[entry.id].board_order = entry.board_order
     db.commit()
     return {"updated": len(order.order)}
+
+
+@router.patch("/backlog/bulk")
+def bulk_advance_backlog(
+    bulk: BacklogBulkAdvance,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Advance many backlog items — loops the ONE advance machine (Rethink v2 F3).
+
+    The bulk endpoint ships after the state machines are extracted (Phase
+    F1) so it loops release_machine.advance_backlog_item_phase, not a third
+    router copy: every id gets the exact single-advance path — same
+    effective-lifecycle reads, same GitHub sync on the build phase, same
+    log_activity + artifact-chain entries in the same order the router path
+    produces.
+
+    Per-item failures NEVER abort the batch: each id is tenant-checked and
+    advanced independently, and the response marks every failure inline
+    (a foreign tenant's id and an unknown id both read "Backlog item not
+    found" — the house 404 string — without advancing anything).
+
+    Body: {"item_ids": [1, 2, 3], "steps": 1} — steps is an optional shared
+    advance count (default 1). Response: {"results": [{id, ok,
+    previous_phase, phase} | {id, ok: false, error}], "advanced": N,
+    "failed": M}.
+
+    NOTE: registered ABOVE the /backlog/{item_id} routes so FastAPI matches
+    the literal path first — the same defensive order as board-order.
+    """
+    if not bulk.item_ids:
+        raise HTTPException(status_code=400, detail="item_ids must not be empty")
+    if len(bulk.item_ids) > _BULK_MAX_ITEMS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Too many items: {len(bulk.item_ids)} (max {_BULK_MAX_ITEMS} per batch)",
+        )
+
+    results = []
+    for item_id in bulk.item_ids:
+        item = db.query(BacklogItem).filter(
+            BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id
+        ).first()
+        if not item:
+            results.append({"id": item_id, "ok": False, "error": "Backlog item not found"})
+            continue
+        previous_phase = item.current_phase
+        try:
+            for _ in range(max(1, bulk.steps)):
+                item = advance_backlog_item_phase(db, current_tenant, current_user, item)
+            results.append({
+                "id": item_id,
+                "ok": True,
+                "previous_phase": previous_phase,
+                "phase": item.current_phase,
+            })
+        except HTTPException as exc:
+            results.append({"id": item_id, "ok": False, "error": exc.detail})
+    advanced = sum(1 for r in results if r["ok"])
+    return {"results": results, "advanced": advanced, "failed": len(results) - advanced}
 
 
 @router.put("/backlog/{item_id}", response_model=BacklogItemResponse)

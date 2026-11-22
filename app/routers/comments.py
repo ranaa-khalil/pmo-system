@@ -85,6 +85,7 @@ def _notify_assignee(db: Session, tenant_id: int, actor: User, filters: dict) ->
         link="/today",
         project_id=project_id,
     )
+    db.commit()  # create_notification only flushes — the request session closes after
 
 
 @router.get("/tasks/{task_id}/comments", response_model=list[CommentResponse])

@@ -432,7 +432,12 @@ navigate(route) {
         }
         if (this.ganttProjectId) this.loadGantt();
     }
-    if (route === 'dashboard') { setTimeout(() => this.renderCharts(), 150); this.refreshTaskSummary(); this.loadWorkload(); }
+    if (route === 'dashboard') { setTimeout(() => this.renderCharts(), 150); this.refreshTaskSummary(); this.loadWorkload();
+        // A failed login-time burst leaves dashStats null and the charts
+        // dead ('Unable to load chart') — recover on route entry instead of
+        // waiting for a manual Refresh. A loaded dashStats is NOT re-fetched
+        // here (the 16-query burst is heavy; Refresh covers staleness).
+        if (!this.dashStats) this.loadDashboard(); }
     if (route === 'tasks') { this.loadTasks(); }
     if (route === 'today') { this.loadToday(); }
     if (route === 'work') { this.loadWork(); if (this.workViewMode === 'timeline') this.syncWorkGantt(); }

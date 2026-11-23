@@ -83,3 +83,15 @@ def test_briefing_widget_key_cleaned_from_core():
     js = _read(CORE_JS)
     assert "briefing" not in js, "core.js must not reference the removed briefing widget"
     assert "generateBriefing" not in js, "the login-time briefing call served only the removed card"
+
+
+def test_dashboard_route_recovers_a_failed_stats_burst():
+    """A failed login-time burst leaves dashStats null and the charts dead
+    ('Unable to load chart') — navigate('dashboard') must recover on route
+    entry instead of waiting for a manual Refresh. A loaded dashStats is not
+    re-fetched (the 16-query burst is heavy; Refresh covers staleness)."""
+    js = _read(CORE_JS)
+    block = re.search(r"if \(route === 'dashboard'\) \{.*?\}", js, re.S)
+    assert block, "the dashboard route loader block missing"
+    assert "if (!this.dashStats) this.loadDashboard();" in block.group(0), \
+        "route entry must recover a failed stats burst"

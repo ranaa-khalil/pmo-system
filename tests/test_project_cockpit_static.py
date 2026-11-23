@@ -507,3 +507,25 @@ def test_group_by_maps_select_values_to_real_properties():
     assert "'current_phase'" in grouped, "phase must map to current_phase"
     assert "'item_type'" in grouped, "type must map to item_type"
     assert "emptyLabel" in grouped, "empty groups must use a per-field label"
+
+
+def test_work_intake_returns_to_the_origin_project():
+    """'Capture in Work' / the Timeline deep-link navigated to Work with NO way
+    back — the user was stranded. openWorkWithProject + openWorkTimeline record
+    the origin and the Work header's back chip consumes it."""
+    planning = _read(PLANNING_JS)
+    ow = _fn_body(planning, "openWorkWithProject")
+    assert "workReturnTo" in ow, "the intake redirect must record the origin"
+    tl = _fn_body(planning, "openWorkTimeline")
+    assert "workReturnTo" in tl, "the timeline deep-link must record the origin"
+    back = _fn_body(planning, "backToProject")
+    assert "openProjectById" in back and "setProjectTab" in back, "the back chip must restore the origin"
+    work = _read(REPO / "app/templates/pmo/views/work.html")
+    assert "backToProject()" in work, "the Work header must render the back chip"
+
+
+def test_work_capture_box_is_a_focused_intake():
+    """The Work capture box spanned the full max-w-6xl content width — read as
+    a screen-wide banner with oversized fields. Constrained to max-w-2xl."""
+    work = _read(REPO / "app/templates/pmo/views/work.html")
+    assert "max-w-2xl" in work, "the capture box must be constrained"

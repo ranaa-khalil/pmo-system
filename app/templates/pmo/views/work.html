@@ -4,15 +4,26 @@
 <div x-show="route === 'work'" x-cloak class="view-enter max-w-6xl">
 
     <!-- Header (one pattern: breadcrumb in the topbar; title + count here) -->
-    <div class="mb-3">
-        <h1 class="text-xl font-bold text-ink-900 tracking-tight">Work</h1>
-        <p class="text-[12px] text-ink-400 mt-0.5">
-            <span x-text="workFiltered.length"></span> items · one workspace, every project
-        </p>
+    <div class="mb-3 flex items-start justify-between gap-3">
+        <div>
+            <h1 class="text-xl font-bold text-ink-900 tracking-tight">Work</h1>
+            <p class="text-[12px] text-ink-400 mt-0.5">
+                <span x-text="workFiltered.length"></span> items · one workspace, every project
+            </p>
+        </div>
+        <!-- Return chip: set when a project deep-linked in (Capture in Work /
+             Timeline view) — before this the redirect stranded the user here -->
+        <button x-show="workReturnTo" x-cloak @click="backToProject()"
+                class="shrink-0 inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-700 border border-brand-200 bg-brand-50 px-3 py-1.5 rounded-lg hover:bg-brand-100 transition-all"
+                title="Return to the project you came from">
+            <span x-text="'← ' + (workReturnTo ? workReturnTo.name : '')"></span>
+        </button>
     </div>
 
-    <!-- Capture box — say it once (§7 #3); the ONE intake call + amber Confirm -->
-    <div class="mb-4">
+    <!-- Capture box — say it once (§7 #3); the ONE intake call + amber Confirm.
+         Constrained to a focused intake width (was full max-w-6xl — read as a
+         screen-wide banner with oversized fields). -->
+    <div class="mb-4 max-w-2xl">
         {% include 'components/capture_box.html' with context %}
     </div>
 

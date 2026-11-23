@@ -1230,10 +1230,23 @@ openCockpitRow(row) {
 
 // Work action card: the ONE Work view pre-filtered to this project (the house
 // setWorkProjectFilter pattern — never a re-hosted backlog).
+    workReturnTo: null,  // {projectId, tab, name} — set when a project deep-links into Work; the header's back chip consumes it
+
 openWorkWithProject() {
     if (!this.selectedProject) return;
+    // Record the origin — the Work header's back chip returns here (before this
+    // the intake redirect stranded the user on Work with no way back)
+    this.workReturnTo = { projectId: this.selectedProject.id, tab: this.projectTab || 'backlog', name: this.selectedProject.name };
     this.setWorkProjectFilter(String(this.selectedProject.id));
     this.navigate('work');
+},
+// The Work header's back chip: return to the project tab that deep-linked in.
+backToProject() {
+    const r = this.workReturnTo;
+    this.workReturnTo = null;
+    if (!r) return;
+    this.openProjectById(r.projectId);
+    if (r.tab && this.isValidProjectTab(r.tab)) this.setProjectTab(r.tab);
 },
 
 // Time deep-link (Rethink v2 Phase E): the project's time view is the ONE Work
@@ -1241,6 +1254,7 @@ openWorkWithProject() {
 // "Timeline view" chip, where the legacy Time tab's deep-link lands.
 openWorkTimeline() {
     if (!this.selectedProject) return;
+    this.workReturnTo = { projectId: this.selectedProject.id, tab: this.projectTab || 'cockpit', name: this.selectedProject.name };
     this.setWorkProjectFilter(String(this.selectedProject.id));
     this.setWorkViewMode('timeline');
     this.navigate('work');

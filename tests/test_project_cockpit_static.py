@@ -43,6 +43,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 PROJECT_DETAIL = REPO / "app/templates/pmo/views/project_detail.html"
 PLANNING_JS = REPO / "app/static/js/app/domains/planning.js"
+BACKLOG_JS = REPO / "app/static/js/app/domains/backlog.js"
 
 
 def _read(path: Path) -> str:
@@ -414,3 +415,74 @@ def test_cockpit_uses_the_house_palette_only():
                 "bg-amber-50", "bg-ink-100", "text-ink-500", "rounded-full"):
         assert cls in section, f"house class {cls} missing"
     assert "tab-active" not in section, "the cockpit uses cards, not tabs"
+
+
+def test_board_honors_the_filter_rail_and_search():
+    """P0 (board gap fix): the phase chips and search drive the BOARD too —
+    before this they were dead controls there (buildBacklogBoard read raw
+    backlogItems). GitHub-parity filter behavior."""
+    js = _read(BACKLOG_JS)
+    board = _fn_body(js, "buildBacklogBoard")
+    assert "this.phaseFilter" in board, "the board must apply the phase filter rail"
+    assert "this.backlogSearch" in board, "the board must apply the search box"
+    # the same search axes as the list view (backlogGrouped)
+    for axis in ("title", "description", "epic", "acceptance_criteria"):
+        assert axis in board, f"search axis {axis} missing from the board pool"
+    # and the columns re-lane LIVE when the filters change (x-effect on the board)
+    html = _read(PROJECT_DETAIL)
+    assert 'x-effect="buildBacklogBoard()"' in html, \
+        "the board must re-lane when the filter rail or search changes"
+
+
+def test_board_off_rail_column_is_display_only():
+    """Stragglers in phases outside the rail render in an explicit trailing
+    'Off-rail' column — not under the LAST column's phase label."""
+    js = _read(BACKLOG_JS)
+    board = _fn_body(js, "buildBacklogBoard")
+    assert "'Off-rail'" in board, "the off-rail column is missing"
+    drop = _fn_body(js, "dropToPhase")
+    assert "'Off-rail'" in drop, "drops into the off-rail column must be refused"
+    quick = _fn_body(js, "quickAdd")
+    assert "'Off-rail'" in quick, "quick-add must refuse the off-rail column"
+
+
+def test_board_never_ordered_cards_sit_in_priority_order():
+    """FR-10: cards the PM never ordered sort by priority rank (Critical at
+    top) then oldest; manual board_order still wins."""
+    js = _read(BACKLOG_JS)
+    cmp_ = _fn_body(js, "boardItemCompare")
+    assert "priorityRank" in cmp_, "never-ordered cards must use the priority rank"
+    rank = _fn_body(js, "priorityRank")
+    assert "{ Critical: 0, High: 1, Medium: 2, Low: 3 }" in rank, "rank order wrong"
+
+
+def test_board_cards_carry_assignee_and_columns_carry_gates():
+    """FR-1/FR-5: assignee avatar on cards (GitHub parity), gate chip on the
+    column header from the rail's per-phase gate."""
+    js = _read(BACKLOG_JS)
+    assert _fn_body(js, "backlogAssigneeName"), "assignee name resolver missing"
+    assert _fn_body(js, "backlogAssigneeInitials"), "assignee initials helper missing"
+    board = _fn_body(js, "buildBacklogBoard")
+    assert "phaseGates" in board, "the board must map per-phase gates from the rail"
+    html = _read(PROJECT_DETAIL)
+    assert "backlogAssigneeName(item)" in html, "cards must render the assignee avatar"
+    assert "col.gate" in html, "column headers must render the gate chip"
+
+
+def test_board_uses_the_house_palette_only():
+    """P0-3: the Medium priority chip is violet (was Tailwind blue — palette
+    violation); avatar colors stay in the identity family."""
+    js = _read(BACKLOG_JS)
+    pc = _fn_body(js, "priorityColor")
+    assert "bg-blue-50" not in pc, "the Medium chip must not use Tailwind blue"
+    av = _fn_body(js, "avatarColor")
+    for banned in ("from-blue-", "from-cyan-", "from-teal-", "from-pink-", "from-orange-", "from-emerald-"):
+        assert banned not in av, f"avatar identity color {banned} banned"
+
+
+def test_backlog_labels_state_the_blocker_direction():
+    """FR-9: item.blocked_by holds DEPENDENTS (items this item blocks), so the
+    list label reads 'blocking N item(s)' — 'blocked by' is backwards."""
+    html = _read(PROJECT_DETAIL)
+    assert "↳ blocking " in html, "the list label must read 'blocking'"
+    assert "↳ blocked by " not in html, "the reversed 'blocked by' label remains"

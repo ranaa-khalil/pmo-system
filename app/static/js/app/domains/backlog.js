@@ -313,13 +313,15 @@ get backlogByEpic() {
 
 // Avatar colors based on name
 avatarColor(name) {
+    // Identity family only: indigo→violet shades + rose/amber accents —
+    // no blue/cyan/teal (the house palette bans them as identity colors).
     const colors = [
-        'bg-gradient-to-br from-rose-400 to-pink-500',
-        'bg-gradient-to-br from-blue-400 to-indigo-500',
-        'bg-gradient-to-br from-emerald-400 to-teal-500',
-        'bg-gradient-to-br from-amber-400 to-orange-500',
         'bg-gradient-to-br from-violet-400 to-purple-500',
-        'bg-gradient-to-br from-cyan-400 to-blue-500',
+        'bg-gradient-to-br from-indigo-400 to-violet-500',
+        'bg-gradient-to-br from-rose-400 to-rose-500',
+        'bg-gradient-to-br from-amber-400 to-amber-500',
+        'bg-gradient-to-br from-fuchsia-400 to-violet-500',
+        'bg-gradient-to-br from-violet-300 to-indigo-400',
     ];
     const hash = name.charCodeAt(0) % colors.length;
     return colors[hash];
@@ -614,19 +616,44 @@ buildBacklogBoard() {
     const pid = this.selectedProject?.id;
     if (pid != null) this.loadBacklogRail(pid);  // lazy + cached; re-lanes on arrival
     const rail = this.railForProject(pid);
-    const pool = this.backlogItems.filter(i => i.item_type !== 'Epic');
+    // The pool honors the SAME phase-filter rail and search box the list uses —
+    // before this the chips and search were dead controls on the board (they
+    // never reached buildBacklogBoard). GitHub-parity filter behavior.
+    let pool = (this.backlogItems || []).filter(i => i.item_type !== 'Epic');
+    if (this.phaseFilter && this.phaseFilter.length) {
+        pool = pool.filter(i => this.phaseFilter.includes(i.current_phase));
+    }
+    if (this.backlogSearch && this.backlogSearch.trim()) {
+        const q = this.backlogSearch.trim().toLowerCase();
+        pool = pool.filter(i =>
+            (i.title || '').toLowerCase().includes(q) ||
+            (i.description || '').toLowerCase().includes(q) ||
+            (i.epic || '').toLowerCase().includes(q) ||
+            (i.acceptance_criteria || '').toLowerCase().includes(q) ||
+            (i.primary_actor || '').toLowerCase().includes(q) ||
+            (i.item_type || '').toLowerCase().includes(q)
+        );
+    }
     const lanePhases = rail
         ? rail.phases.filter(p => !p.is_release_stage).map(p => p.name)
         : this.observedPhaseNames(pool);
+    const phaseGates = rail ? new Map(rail.phases.filter(p => !p.is_release_stage && p.gate).map(p => [p.name, p.gate])) : new Map();
     this.backlogBoardColumns = lanePhases.map(phase => ({
         phase,
+        gate: phaseGates.get(phase) || null,
         items: pool.filter(i => (i.current_phase || '') === phase).sort((a, b) => this.boardItemCompare(a, b)),
     }));
-    // Stragglers in phases outside the rail (legacy values) go to the last column's tail
+    // Stragglers in phases outside the rail (legacy values) get an explicit
+    // trailing column — they used to render under the LAST column's phase
+    // label, showing items in phases they are not in.
     const known = new Set(lanePhases);
     const stragglers = pool.filter(i => !known.has(i.current_phase || ''));
-    if (stragglers.length && this.backlogBoardColumns.length) {
-        this.backlogBoardColumns[this.backlogBoardColumns.length - 1].items.push(...stragglers);
+    if (stragglers.length) {
+        this.backlogBoardColumns.push({
+            phase: 'Off-rail',
+            gate: null,
+            items: stragglers.sort((a, b) => this.boardItemCompare(a, b)),
+        });
     }
 },
 boardCount(phase) {
@@ -640,7 +667,26 @@ boardItemCompare(a, b) {
     if (ao != null && bo != null) return ao - bo;
     if (ao != null) return -1;
     if (bo != null) return 1;
+    // Never-ordered cards: priority rank first (Critical at top), then oldest.
+    // Manual board_order always wins — the PM's arrangement is deliberate.
+    const pr = this.priorityRank(a.priority) - this.priorityRank(b.priority);
+    if (pr !== 0) return pr;
     return String(a.created_at || '').localeCompare(String(b.created_at || ''));
+},
+// Lower = more urgent. Cards the PM never ordered sit in priority order.
+priorityRank(priority) {
+    return { Critical: 0, High: 1, Medium: 2, Low: 3 }[priority] ?? 2;
+},
+// Assignee on board cards (GitHub parity): the store loads /users at login.
+backlogAssigneeName(item) {
+    if (!item || item.assigned_to == null) return null;
+    const u = (this.users || []).find(x => String(x.id) === String(item.assigned_to));
+    return u ? (u.name || u.full_name || u.email || null) : null;
+},
+backlogAssigneeInitials(name) {
+    if (!name) return '';
+    const parts = String(name).trim().split(/\s+/);
+    return ((parts[0] || '')[0] || '') + ((parts[1] || '')[0] || '');
 },
 dragStart(item, fromPhase) {
     this.dragItem = { id: item.id, fromPhase };
@@ -701,6 +747,11 @@ async dropToPhase(phase) {
     const { id, fromPhase } = this.dragItem;
     this.dragEnd();
     if (phase === fromPhase) return;
+    // The Off-rail column is display-only — items keep their legacy phase
+    if (phase === 'Off-rail') {
+        this.showToast('Off-rail items keep their legacy phase', 'info');
+        return;
+    }
     // Release-level items are managed by the release workflow — don't drag them
     if (this.releasePhases.includes(phase) || this.releasePhases.includes(fromPhase)) {
         this.showToast('Release stages are managed by the release workflow', 'info');
@@ -922,6 +973,7 @@ parseQuickAdd(raw) {
 },
 async quickAdd(phase) {
     if (this.quickAddSaving) return;
+    if (phase === 'Off-rail') { this.showToast('Add to a phase column instead', 'info'); return; }
     const parsed = this.parseQuickAdd(this.quickAddTitle);
     if (!parsed.title) { this.showToast('Type a title first', 'info'); return; }
     if (this.releasePhases.includes(phase)) {
@@ -1384,14 +1436,14 @@ canAdvanceItem(phase) {
 phaseDotColor(phase) {
     // Cosmetic lane dot — Software lanes keep today's colors, every other
     // phase the neutral dot (colors never gate behavior).
-    return { Development: 'bg-brand-500', Testing: 'bg-amber-400', 'Ready for UAT': 'bg-emerald-400' }[phase] || 'bg-violet-300';
+    return { Development: 'bg-brand-500', Testing: 'bg-amber-400', 'Ready for UAT': 'bg-emerald-400', 'Off-rail': 'bg-ink-300' }[phase] || 'bg-violet-300';
 },
 
 priorityColor(priority) {
     return {
         'Critical': 'bg-rose-50 text-rose-700',
         'High': 'bg-amber-50 text-amber-700',
-        'Medium': 'bg-blue-50 text-blue-700',
+        'Medium': 'bg-violet-50 text-violet-700',
         'Low': 'bg-ink-100 text-ink-600',
     }[priority] || 'bg-ink-100 text-ink-600';
 },

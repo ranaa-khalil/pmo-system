@@ -273,6 +273,20 @@ def test_back_to_projects_consumes_the_hash():
     assert "consumeProjectHash()" in back
 
 
+def test_stale_hash_never_re_deeplinks_after_an_in_app_open():
+    """The 'clicks do nothing' bug: projectRouteEffect re-fires tryProjectDeepLink
+    on every route change, and a #/p/{id}/{tab} hash authored by in-app
+    navigation (openProject -> syncProjectTabUrl) re-opened the last project,
+    bouncing the user straight back out of Projects / Clients / Dashboard.
+    A hash may only deep-link before the first in-app project open."""
+    js = _read(PLANNING_JS)
+    deep = _fn_body(js, "tryProjectDeepLink")
+    assert "_projectVisited" in deep, "the stale-hash guard must exist"
+    assert "consumeProjectHash()" in deep, "the stale hash must be consumed, not acted on"
+    opened = _fn_body(js, "openProject")
+    assert "_projectVisited = true" in opened, "an in-app open must flag its own hash as stale"
+
+
 def test_removed_tab_hashes_degrade_to_the_cockpit():
     """Removed tabs (overview/vision/backlog/time/approvals) are invalid —
     the watcher resets direct assignments to the cockpit (Rethink v2 Phase E)."""

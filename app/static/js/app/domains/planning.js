@@ -609,6 +609,9 @@ async openProjectById(projectId) {
 // ===== Project detail state =====
 selectedProject: null,
 selectedClient: null,
+// Set by the first in-app openProject — flags the #/p/ hash as navigation-
+// authored (stale) rather than a boot deep link.
+_projectVisited: false,
 // The cockpit is the DEFAULT landing (Rethink v2 Phase D2) — the deep-admin's
 // first stop. Rethink v2 Phase E: deep admin shrinks 14 → 9 — the Overview,
 // Vision, Backlog, Time and Approvals tabs folded away (Backlog and Time
@@ -949,6 +952,9 @@ async openProject(project) {
     this.selectedProject = project;
     this.route = 'project-detail';
     this.bindProjectTabWatchers();
+    // An in-app open authors the #/p/{id}/{tab} hash — tryProjectDeepLink
+    // must never treat it as a fresh deep link afterwards.
+    this._projectVisited = true;
     // Lazy flags are per project — a different project starts fresh
     if (this.projectLoadedFor !== String(project.id)) {
         this.projectTabLoaded = {};
@@ -1001,6 +1007,14 @@ tryProjectDeepLink() {
     if (!this.isLoggedIn || this.route === 'project-detail') return;
     const m = (window.location.hash || '').match(/^#\/p\/(\d+)\/([a-z-]+)$/);
     if (!m || !this.isValidProjectTab(m[2])) return;
+    // STALE-HASH GUARD (the "clicks do nothing" bug): a #/p/{id}/{tab} hash
+    // left by in-app navigation must NEVER re-deep-link — projectRouteEffect
+    // re-fires this on every route change, so without this guard every
+    // navigation away from a project (sidebar, client rows, dashboard cards)
+    // bounces straight back into the last project. Only a hash present before
+    // the first in-app project open (pasted/bookmarked link at boot) is a real
+    // deep link; mid-session links stay covered by the hashchange listener.
+    if (this._projectVisited) { this.consumeProjectHash(); return; }
     if (!(this.projects || []).length) return;
     const projectId = m[1];
     const tab = m[2];

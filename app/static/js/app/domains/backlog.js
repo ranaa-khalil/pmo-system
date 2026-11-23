@@ -263,11 +263,16 @@ get backlogGrouped() {
         );
     }
     const field = this.boardGroupBy;
+    // The select's values map to the item's real properties — 'type' and
+    // 'phase' don't exist on the payload (item_type / current_phase do);
+    // before this Type and Phase collapsed every item into one 'None' group.
+    const prop = field === 'phase' ? 'current_phase' : (field === 'type' ? 'item_type' : field);
+    const emptyLabel = field === 'phase' ? 'No phase' : (field === 'type' ? 'No type' : 'None');
     const groups = {};
     for (const i of items) {
         let key;
         if (field === 'assignee') key = i.assigned_to_name || 'Unassigned';
-        else key = i[field] || 'None';
+        else key = i[prop] || emptyLabel;
         (groups[key] = groups[key] || []).push(i);
     }
     return Object.keys(groups).sort().map(k => ({ key: k, label: k, items: groups[k] }));
@@ -371,8 +376,8 @@ async addItemComment() {
         await this.api('POST', `/backlog/${this.viewingBacklogItem.id}/comments`, { body });
         this.itemCommentForm = '';
         await this.loadItemComments(this.viewingBacklogItem.id);
-        this.toast('Comment added', 'success');
-    } catch (e) { this.toast(e.message || 'Could not add comment', 'error'); }
+        this.showToast('Comment added', 'success');
+    } catch (e) { this.showToast(e.message || 'Could not add comment', 'error'); }
 },
 
 
@@ -1241,8 +1246,8 @@ async addSubitem() {
         });
         this.newSubitemTitle = '';
         await this.loadSubitems(this.viewingBacklogItem.id);
-        this.toast('Sub-item added', 'success');
-    } catch(e) { this.toast(e.message || 'Could not add sub-item', 'error'); }
+        this.showToast('Sub-item added', 'success');
+    } catch(e) { this.showToast(e.message || 'Could not add sub-item', 'error'); }
 },
 
 
@@ -1257,7 +1262,7 @@ async loadViews() {
 
 async saveCurrentView() {
     const name = (this.viewSaveName || '').trim();
-    if (!name || !this.selectedProject) { this.toast('Give the view a name first', 'error'); return; }
+    if (!name || !this.selectedProject) { this.showToast('Give the view a name first', 'error'); return; }
     this.savingView = true;
     try {
         await this.api('POST', `/projects/${this.selectedProject.id}/views`, {
@@ -1267,8 +1272,8 @@ async saveCurrentView() {
         });
         this.viewSaveName = '';
         await this.loadViews();
-        this.toast('View saved', 'success');
-    } catch(e) { this.toast(e.message || 'Could not save view', 'error'); }
+        this.showToast('View saved', 'success');
+    } catch(e) { this.showToast(e.message || 'Could not save view', 'error'); }
     finally { this.savingView = false; }
 },
 
@@ -1281,7 +1286,7 @@ applyView(v) {
     this.boardGroupBy = f.group_by || '';
     if (f.view) this.backlogView = f.view;
     this.activeViewName = v.name;
-    this.toast('View applied: ' + v.name, 'success');
+    this.showToast('View applied: ' + v.name, 'success');
 },
 
 clearActiveView() {
@@ -1297,8 +1302,8 @@ async syncTagsToGithub() {
     try {
         const result = await this.api('POST', `/projects/${this.selectedProject.id}/github/sync-tags`);
         const pushed = (result.pushed || []).length, pulled = (result.pulled || []).length;
-        this.toast(`Tag sync: ${pushed} pushed, ${pulled} pulled`, 'success');
-    } catch(e) { this.toast(e.message || 'Tag sync failed', 'error'); }
+        this.showToast(`Tag sync: ${pushed} pushed, ${pulled} pulled`, 'success');
+    } catch(e) { this.showToast(e.message || 'Tag sync failed', 'error'); }
     finally { this.githubSyncingTags = false; }
 },
 

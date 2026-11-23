@@ -541,7 +541,7 @@ async loadSlack() {
 
 async saveSlack() {
     if (!this.slackWebhook || !this.slackWebhook.startsWith('https://hooks.slack.com/')) {
-        this.toast('Paste a Slack Incoming Webhook URL (https://hooks.slack.com/...)', 'error'); return;
+        this.showToast('Paste a Slack Incoming Webhook URL (https://hooks.slack.com/...)', 'error'); return;
     }
     this.slackSaving = true;
     try {
@@ -551,8 +551,8 @@ async saveSlack() {
             digest_time: this.slackConfig?.digest_time || '09:00',
         });
         this.slackWebhook = '';
-        this.toast('Slack digest saved', 'success');
-    } catch(e) { this.toast(e.message || 'Could not save Slack config', 'error'); }
+        this.showToast('Slack digest saved', 'success');
+    } catch(e) { this.showToast(e.message || 'Could not save Slack config', 'error'); }
     finally { this.slackSaving = false; }
 },
 
@@ -560,16 +560,16 @@ async testSlack() {
     this.slackTesting = true;
     try {
         await this.api('POST', '/integrations/slack/test');
-        this.toast('Test message sent to Slack', 'success');
-    } catch(e) { this.toast(e.message || 'Slack test failed', 'error'); }
+        this.showToast('Test message sent to Slack', 'success');
+    } catch(e) { this.showToast(e.message || 'Slack test failed', 'error'); }
     finally { this.slackTesting = false; }
 },
 
 async sendSlackDigest() {
     try {
         await this.api('POST', '/integrations/slack/digest');
-        this.toast('Digest sent to Slack', 'success');
-    } catch(e) { this.toast(e.message || 'Could not send digest', 'error'); }
+        this.showToast('Digest sent to Slack', 'success');
+    } catch(e) { this.showToast(e.message || 'Could not send digest', 'error'); }
 },
 
 async loadPreferences() {

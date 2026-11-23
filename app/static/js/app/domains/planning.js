@@ -1529,7 +1529,7 @@ async loadTime() {
 
 async logTime() {
     const h = parseFloat(this.timeHours);
-    if (!h || h <= 0) { this.toast('Enter hours first', 'error'); return; }
+    if (!h || h <= 0) { this.showToast('Enter hours first', 'error'); return; }
     if (!this.selectedProject) return;
     this.timeSaving = true;
     try {
@@ -1542,8 +1542,8 @@ async logTime() {
         });
         this.timeHours = ''; this.timeNote = '';
         await this.loadTime();
-        this.toast('Hours logged', 'success');
-    } catch(e) { this.toast(e.message || 'Could not log hours', 'error'); }
+        this.showToast('Hours logged', 'success');
+    } catch(e) { this.showToast(e.message || 'Could not log hours', 'error'); }
     finally { this.timeSaving = false; }
 },
 
@@ -1551,8 +1551,8 @@ async deleteTimeEntry(id) {
     try {
         await this.api('DELETE', `/time-entries/${id}`);
         await this.loadTime();
-        this.toast('Entry removed', 'success');
-    } catch(e) { this.toast(e.message || 'Could not remove entry', 'error'); }
+        this.showToast('Entry removed', 'success');
+    } catch(e) { this.showToast(e.message || 'Could not remove entry', 'error'); }
 },
 
 async lockWeek(userId, userName) {
@@ -1562,8 +1562,8 @@ async lockWeek(userId, userName) {
     const ws = monday.toISOString().slice(0, 10);
     try {
         await this.api('POST', `/projects/${this.selectedProject.id}/timesheets/lock`, { user_id: userId, week_start: ws });
-        this.toast('Week locked for ' + (userName || 'user'), 'success');
-    } catch(e) { this.toast(e.message || 'Could not lock week', 'error'); }
+        this.showToast('Week locked for ' + (userName || 'user'), 'success');
+    } catch(e) { this.showToast(e.message || 'Could not lock week', 'error'); }
 },
 
 };

@@ -486,3 +486,24 @@ def test_backlog_labels_state_the_blocker_direction():
     html = _read(PROJECT_DETAIL)
     assert "↳ blocking " in html, "the list label must read 'blocking'"
     assert "↳ blocked by " not in html, "the reversed 'blocked by' label remains"
+
+
+def test_no_domain_calls_the_toast_state_object():
+    """RAID add (and 28 other sites) called this.toast(...) — toast is a STATE
+    object ({show, message, type}), not a method; the method is showToast.
+    The throw killed the add flow: empty-title submits gave no feedback and the
+    success toast aborted the create's error path."""
+    for name in ("backlog.js", "core.js", "planning.js", "workflows.js"):
+        src = (REPO / f"app/static/js/app/domains/{name}").read_text(encoding="utf-8")
+        assert "this.toast(" not in src, f"{name} still calls the toast state object"
+
+
+def test_group_by_maps_select_values_to_real_properties():
+    """Backlog group-by: the select's 'type'/'phase' don't exist on the payload
+    (item_type / current_phase do) — Type and Phase collapsed every item into
+    one 'None' group."""
+    js = _read(BACKLOG_JS)
+    grouped = _fn_body(js, "backlogGrouped")
+    assert "'current_phase'" in grouped, "phase must map to current_phase"
+    assert "'item_type'" in grouped, "type must map to item_type"
+    assert "emptyLabel" in grouped, "empty groups must use a per-field label"

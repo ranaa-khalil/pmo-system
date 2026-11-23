@@ -338,7 +338,7 @@ openCreateRaid() {
 
 async createRaid() {
     const t = (this.raidNew.title || '').trim();
-    if (!t) { this.toast('Title is required', 'error'); return; }
+    if (!t) { this.showToast('Title is required', 'error'); return; }
     try {
         const body = { title: t, kind: this.raidNew.kind, description: this.raidNew.description || null };
         if (this.raidNew.kind === 'Risk') {
@@ -354,8 +354,8 @@ async createRaid() {
         await this.api('POST', `/projects/${this.selectedProject.id}/risks`, body);
         this.raidCreateOpen = false;
         await this.loadRisks();
-        this.toast(this.raidNew.kind + ' added to the register', 'success');
-    } catch(e) { this.toast(e.message || 'Could not create entry', 'error'); }
+        this.showToast(this.raidNew.kind + ' added to the register', 'success');
+    } catch(e) { this.showToast(e.message || 'Could not create entry', 'error'); }
 },
 
 async escalateRaid(entry) {
@@ -363,8 +363,8 @@ async escalateRaid(entry) {
     try {
         const created = await this.api('POST', `/risks/${entry.id}/escalate`);
         await this.loadRisks();
-        this.toast('Escalated to ' + created.kind + ' — lineage preserved', 'success');
-    } catch(e) { this.toast('Escalation failed', 'error'); }
+        this.showToast('Escalated to ' + created.kind + ' — lineage preserved', 'success');
+    } catch(e) { this.showToast('Escalation failed', 'error'); }
 },
 
 async loadRisks() {

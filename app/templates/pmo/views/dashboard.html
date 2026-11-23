@@ -119,9 +119,9 @@
                                              :class="{
                                                 'bg-gradient-to-r from-indigo-500 to-violet-500': ['Requirements','Design'].includes(phase),
                                                 'bg-gradient-to-r from-violet-500 to-purple-500': ['Development','Testing'].includes(phase),
-                                                'bg-gradient-to-r from-blue-500 to-indigo-500': ['UAT','Pre-Release'].includes(phase),
-                                                'bg-gradient-to-r from-emerald-500 to-teal-500': ['Release','Released','Post-Release'].includes(phase),
-                                                'bg-gradient-to-r from-amber-500 to-orange-500': phase === 'Retrospective',
+                                                'bg-gradient-to-r from-violet-500 to-indigo-500': ['UAT','Pre-Release'].includes(phase),
+                                                'bg-gradient-to-r from-emerald-500 to-indigo-500': ['Release','Released','Post-Release'].includes(phase),
+                                                'bg-gradient-to-r from-amber-500 to-rose-500': phase === 'Retrospective',
                                                 'bg-ink-400': !['Requirements','Design','Development','Testing','UAT','Pre-Release','Release','Released','Post-Release','Retrospective'].includes(phase)
                                              }"></div>
                                     </div>
@@ -173,7 +173,7 @@
                                                         'bg-indigo-500': status === 'Planning',
                                                         'bg-violet-500': status === 'In Progress',
                                                         'bg-purple-500': status === 'Testing',
-                                                        'bg-blue-500': status === 'UAT',
+                                                        'bg-violet-500': status === 'UAT',
                                                         'bg-violet-700': status === 'Pre-Release',
                                                         'bg-emerald-500': status === 'Released',
                                                         'bg-amber-500': status === 'Post-Release',
@@ -295,7 +295,7 @@
                                         <div class="flex items-center gap-2">
                                             <div class="flex-1 h-2 bg-ink-100 rounded-full overflow-hidden">
                                                 <div class="h-full rounded-full transition-all duration-500"
-                                                     :class="pp.progress_pct >= 75 ? 'bg-gradient-to-r from-emerald-400 to-teal-400' : pp.progress_pct >= 40 ? 'bg-gradient-to-r from-brand-400 to-violet-400' : 'bg-gradient-to-r from-amber-400 to-orange-400'"
+                                                     :class="pp.progress_pct >= 75 ? 'bg-gradient-to-r from-emerald-400 to-indigo-400' : pp.progress_pct >= 40 ? 'bg-gradient-to-r from-brand-400 to-violet-400' : 'bg-gradient-to-r from-amber-400 to-rose-400'"
                                                      :style="'width: ' + pp.progress_pct + '%'"></div>
                                             </div>
                                             <span class="text-[11px] font-bold tabular-nums" :class="pp.progress_pct >= 75 ? 'text-emerald-600' : pp.progress_pct >= 40 ? 'text-brand-600' : 'text-amber-600'" x-text="pp.progress_pct + '%'"></span>
@@ -346,7 +346,7 @@
                             </template>
                             <div class="space-y-2">
                                 <template x-for="apv in (dashStats?.pending_approval_details || [])" :key="apv.id">
-                                    <div @click="openProjectRef(apv.project_id, apv.project_name)" class="p-2.5 rounded-xl bg-ink-100/60 cursor-pointer hover:bg-ink-100 transition-colors">
+                                    <div @click="openApproval({ id: apv.id })" class="p-2.5 rounded-xl bg-ink-100/60 cursor-pointer hover:bg-ink-100 transition-colors" title="Open the approval detail">
                                         <div class="flex items-center justify-between">
                                             <div class="text-[12px] font-medium text-ink-700 truncate" x-text="apv.title"></div>
                                             <span class="text-[10px] font-medium text-amber-600 ml-2" x-text="apv.approved_steps + '/' + apv.total_steps"></span>
@@ -469,7 +469,7 @@
                 </div>
 
                 <!-- Share modal (public read-only view links) -->
-                <div x-show="showShareModal" x-cloak class="fixed inset-0 z-50" aria-modal="true">
+                <div x-show="showShareModal" x-cloak class="fixed inset-0 z-50" aria-modal="true" @keydown.escape.window="showShareModal = false">
                     <div class="fixed inset-0 bg-black/30 backdrop-blur-sm" @click="showShareModal = false"></div>
                     <div class="flex min-h-full items-center justify-center p-4 relative">
                         <div class="surface rounded-3xl shadow-modal w-full max-w-md modal-enter overflow-hidden border border-black/[0.06]">

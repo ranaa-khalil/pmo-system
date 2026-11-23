@@ -352,7 +352,7 @@ async openItemRef(id) {
     try {
         const item = await this.api('GET', `/backlog/${id}`);
         if (item) this.viewBacklogItem(item);
-    } catch { /* deleted or foreign item — no-op */ }
+    } catch { this.showToast('Item #' + id + ' was deleted or is not visible', 'error'); }
 },
 
 async loadBacklinks(itemId) {
@@ -371,11 +371,12 @@ async loadItemComments(itemId) {
 
 async addItemComment() {
     const body = (this.itemCommentForm || '').trim();
-    if (!body || !this.viewingBacklogItem) return;
+    const target = this.selectedWorkItem ?? this.viewingBacklogItem;
+    if (!body || !target) return;
     try {
-        await this.api('POST', `/backlog/${this.viewingBacklogItem.id}/comments`, { body });
+        await this.api('POST', `/backlog/${target.id}/comments`, { body });
         this.itemCommentForm = '';
-        await this.loadItemComments(this.viewingBacklogItem.id);
+        await this.loadItemComments(target.id);
         this.showToast('Comment added', 'success');
     } catch (e) { this.showToast(e.message || 'Could not add comment', 'error'); }
 },
@@ -592,8 +593,10 @@ async sendBackToDev(id) {
     try {
         await this.api('POST', `/backlog/${id}/send-back`);
         await this.loadBacklog();
-        if (this.viewingBacklogItem) {
-            this.viewingBacklogItem = this.backlogItems.find(i => i.id === id);
+        const open = this.selectedWorkItem ?? this.viewingBacklogItem;
+        if (open && String(open.id) === String(id)) {
+            const fresh = this.backlogItems.find(i => i.id === id);
+            if (fresh) { this.viewingBacklogItem = fresh; if (this.selectedWorkItem) this.selectedWorkItem = {...this.selectedWorkItem, ...fresh}; }
         }
         this.showToast('Sent back to Development', 'info');
     } catch (e) {
@@ -1210,19 +1213,10 @@ editBacklogDeps(item) {
 },
 
 viewBacklogItem(item) {
-    this.backlogEditMode = false;
-    this.viewingBacklogItem = item;
-    this.viewingProof = null;
-    this.itemProofs = [];
-    this.itemSubitems = [];
-    this.subitemRollup = { total: 0, done: 0, pct: 0 };
-    this.newSubitemTitle = '';
-    if (item && item.id) {
-        this.loadProofs(item.id);
-        this.loadSubitems(item.id);
-        this.loadBacklinks(item.id);
-        this.loadItemComments(item.id);
-    }
+    // The ONE item drawer (planning.js openWorkItem) — one detail surface for
+    // backlog rows too. It loads the same /backlog/{id} detail: comments,
+    // proofs, sub-items. Before this a second 672px drawer duplicated it.
+    this.openWorkItem(item);
 },
 
 
@@ -1237,15 +1231,16 @@ async loadSubitems(itemId) {
 
 async addSubitem() {
     const title = (this.newSubitemTitle || '').trim();
-    if (!title || !this.viewingBacklogItem) return;
+    const target = this.selectedWorkItem ?? this.viewingBacklogItem;
+    if (!title || !target) return;
     try {
-        await this.api('POST', `/projects/${this.viewingBacklogItem.project_id}/backlog`, {
-            project_id: this.viewingBacklogItem.project_id,
+        await this.api('POST', `/projects/${target.project_id}/backlog`, {
+            project_id: target.project_id,
             title: title,
-            parent_item_id: this.viewingBacklogItem.id,
+            parent_item_id: target.id,
         });
         this.newSubitemTitle = '';
-        await this.loadSubitems(this.viewingBacklogItem.id);
+        await this.loadSubitems(target.id);
         this.showToast('Sub-item added', 'success');
     } catch(e) { this.showToast(e.message || 'Could not add sub-item', 'error'); }
 },
@@ -1394,6 +1389,7 @@ async saveBacklogEdit() {
     try {
         const updated = await this.api('PUT', `/backlog/${this.backlogEditForm.id}`, this.backlogEditForm);
         this.viewingBacklogItem = updated;
+        if (this.selectedWorkItem) this.selectedWorkItem = {...this.selectedWorkItem, ...updated};
         this.backlogEditMode = false;
         await this.loadBacklog();
         this.showToast('Backlog item updated', 'success');

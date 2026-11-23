@@ -94,6 +94,11 @@
 
 {% include 'pmo/shell/copilot_drawer.html' %}
 
+<!-- THE item drawer (§7 #2): the ONLY item detail surface — included at index
+     level (outside the route-scoped views) so it opens from every route:
+     Work, Today rows, project backlog rows, dashboard, capture-box Skip AI. -->
+{% include 'components/item_drawer.html' %}
+
 {% include 'pmo/modals/fab.html' %}
 
 {% include 'pmo/modals/task.html' %}

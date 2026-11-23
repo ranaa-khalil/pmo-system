@@ -133,13 +133,14 @@ def test_backlog_data_still_loads_for_the_cockpit():
 
 
 def test_backlog_item_drawer_survives_on_the_project_page():
-    """The task flows stay drawer-not-modal: the backlog item drawer (view ↔
-    edit swap) is the project page's task-flow surface."""
+    """The task flows stay drawer-not-modal: viewBacklogItem is a thin wrapper
+    on the ONE item drawer (openWorkItem) — one 520px slide-over for backlog
+    rows too; the second 672px drawer was retired."""
     src = _read(PROJECT_DETAIL)
-    drawer = re.search(r'x-show="viewingBacklogItem".*?@keydown\.escape\.window="viewingBacklogItem = null"', src, re.S)
-    assert drawer, "the backlog item drawer must survive"
-    assert "backlogEditMode" in src, "the drawer keeps its edit swap"
-    assert "canAdvanceItem(viewingBacklogItem?.current_phase)" in src, "the footer verbs stay"
+    assert "viewingBacklogItem" not in src, "the retired second drawer template must be gone"
+    backlog = _read(BACKLOG_JS)
+    body = _fn_body(backlog, "viewBacklogItem")
+    assert "this.openWorkItem(item)" in body, "backlog rows open the ONE drawer"
 
 
 # ── 3. Time → the ONE Work view's timeline (deep-link) ───────────────────
@@ -292,15 +293,14 @@ def test_no_inline_create_form_left_in_the_folded_flows():
 
 def test_the_task_flows_use_drawers_not_modals():
     """The project page's task flows (view/edit backlog item) are the drawer
-    pattern — a right-side slide-over with view ↔ edit swap, not a centered
-    modal; the ONE item drawer in Work covers the rest."""
+    pattern: viewBacklogItem opens the ONE 520px slide-over (included at index
+    level); no centered modal wraps the item detail on the project page."""
     src = _read(PROJECT_DETAIL)
-    drawer = re.search(r'x-show="viewingBacklogItem"[^>]*>\s*<div class="absolute inset-0[^"]*"\s*@click="viewingBacklogItem = null"', src, re.S)
-    assert drawer, "the drawer shell (scrim + Esc) must follow the slide-over pattern"
-    assert 'x-show="viewingBacklogItem"' in src
-    # the centered-modal flex pattern must not wrap the item drawer
-    item_region = src[src.index('x-show="viewingBacklogItem"'):src.index("viewingBacklogItem = null\">") + 40]
-    assert "items-center justify-center" not in item_region, "the item drawer is not a centered modal"
+    assert 'viewingBacklogItem' not in src, "the retired second drawer must be gone"
+    index = _read(REPO / "app/templates/index.html")
+    assert "components/item_drawer.html" in index, "the ONE drawer is included at index level"
+    drawer = re.search(r'max-w-\[520px\]', (REPO / "app/templates/components/item_drawer.html").read_text(encoding="utf-8"))
+    assert drawer, "the ONE drawer stays a 520px slide-over"
 
 
 # ── 8. infra 6 sub-tabs → filter chips ───────────────────────────────────

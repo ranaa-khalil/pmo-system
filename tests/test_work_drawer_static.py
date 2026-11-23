@@ -124,10 +124,13 @@ def test_capture_box_has_the_visible_form_fallback():
 
 
 def test_work_view_hosts_the_drawer():
-    """The read-only drawer is gone — the write-capable one replaces it."""
+    """The ONE item drawer is included at INDEX level (outside the route-scoped
+    views) so it opens from every route: Work, Today rows, project backlog rows,
+    dashboard, capture-box Skip AI. Work renders the + New item button."""
+    index = _read(REPO / "app/templates/index.html")
+    assert "components/item_drawer.html" in index, "the drawer include lives at index level"
     work = _read(WORK)
-    assert "components/item_drawer.html" in work
-    assert "read-only until Slice 3b" not in work
+    assert "components/item_drawer.html" not in work, "the drawer must not be route-scoped inside work.html"
     # The + New item button opens the drawer's new-item mode
     assert "@click=\"newWorkItem()\"" in work
 

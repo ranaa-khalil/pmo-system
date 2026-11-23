@@ -529,3 +529,55 @@ def test_work_capture_box_is_a_focused_intake():
     a screen-wide banner with oversized fields. Constrained to max-w-2xl."""
     work = _read(REPO / "app/templates/pmo/views/work.html")
     assert "max-w-2xl" in work, "the capture box must be constrained"
+
+
+def test_ux_sweep_dead_controls_are_gone():
+    """UX sweep P0: the tenant-detail 'Change Plan' select called
+    updateTenantPlan — defined nowhere (Alpine threw, nothing happened) and it
+    contradicted the same card's read-only note. Deleted."""
+    adm = (REPO / "app/templates/pmo/views/admin_tenant_detail.html").read_text(encoding="utf-8")
+    assert "updateTenantPlan" not in adm, "the dead select must be gone"
+
+
+def test_ux_sweep_dashboard_rows_and_stat_cards():
+    """UX sweep P1: dashboard approval rows opened the PROJECT (Today's
+    identical rows open the approval detail — one entity, two behaviors);
+    stat cards routed to the wrong surfaces."""
+    dash = (REPO / "app/templates/pmo/views/dashboard.html").read_text(encoding="utf-8")
+    assert 'openApproval({ id: apv.id })' in dash, "dashboard approval rows open the approval detail"
+    planning = _read(PLANNING_JS)
+    assert "route: 'work'" in planning, "Backlog Items stat card routes to Work"
+    # the Today-row jump records its origin (the stranded-flow class)
+    body = _fn_body(planning, "openWorkItemFromToday")
+    assert "workReturnTo" in body, "Today → Work jumps record the origin"
+
+
+def test_ux_sweep_no_kpi_chips_open_the_item():
+    """UX sweep P1: 'Items with no KPI' chips opened the whole Work view,
+    losing the specific orphan item the user tapped."""
+    html = _read(PROJECT_DETAIL)
+    assert 'openWorkItem(item)' in html, "orphan chips open the specific item"
+
+
+def test_ux_sweep_palette_is_identity_family_only():
+    """UX sweep: blue/orange/teal accents swapped to indigo→violet + semantic."""
+    for name in ("decisions.html", "tasks.html", "dashboard.html", "admin_tenant_detail.html", "portal.html"):
+        src = (REPO / f"app/templates/pmo/views/{name}").read_text(encoding="utf-8")
+        for banned in ("bg-blue-", "text-blue-", "from-blue-", "to-teal-", "orange-"):
+            assert banned not in src, f"{name} still uses {banned}"
+
+
+def test_ux_sweep_legacy_modals_use_the_house_scale():
+    """UX sweep: legacy modals used oversized text-[14px] fields — normalized
+    to the house scale (text-[13px] px-3 py-2)."""
+    for name in ("task", "project", "client"):
+        src = (REPO / f"app/templates/pmo/modals/{name}.html").read_text(encoding="utf-8")
+        assert "text-[14px]" not in src, f"{name} modal still uses oversized fields"
+
+
+def test_ux_sweep_row_controls_are_touch_visible():
+    """UX sweep: hover-only row controls are touch-dead — always visible on
+    touch viewports (opacity-100 md:opacity-0 md:group-hover:opacity-100)."""
+    for name in ("project_detail.html", "clients.html", "tasks.html", "projects.html"):
+        src = (REPO / f"app/templates/pmo/views/{name}").read_text(encoding="utf-8")
+        assert "opacity-0 group-hover:opacity-100" not in src, f"{name} still has hover-only controls"

@@ -58,7 +58,7 @@
                     <div class="bg-ink-100/80 rounded-2xl rounded-bl-md px-3.5 py-2.5 text-[12.5px] text-ink-700 leading-relaxed">
                         Paste your kickoff notes — a paragraph, meeting notes, or a doc. I'll structure them into epics, features, personas, and KPIs. You review, edit, and Apply — nothing is created until you confirm. No project open? Applying creates the project first, then fills it.
                     </div>
-                    <textarea x-model="intakeKickoff" rows="7"
+                    <textarea x-model="intakeKickoff" rows="4"
                               placeholder="We are building a cloud platform for PNU to manage student services. Students log in with SSO and browse available courses. Faculty members approve registrations and publish grades…"
                               class="w-full px-3.5 py-2.5 rounded-xl border border-ink-200 text-[12.5px] focus:ring-2 focus:ring-brand-400 focus:border-brand-400 outline-none transition-all bg-white resize-none"></textarea>
                     <button @click="intakeStructure()" :disabled="intakeBusy || !intakeKickoff.trim()"

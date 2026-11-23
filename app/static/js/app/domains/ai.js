@@ -115,8 +115,9 @@ approveAISuggestion() {
     } else if (this.aiModalType === 'fill' && this.aiModalContent) {
         const fieldName = this._aiFillFieldName;
         const value = this.aiModalContent[fieldName];
-        if (value && this.viewingBacklogItem) {
-            this.viewingBacklogItem[fieldName] = value;
+        const openItem = this.selectedWorkItem ?? this.viewingBacklogItem;
+        if (value && openItem) {
+            openItem[fieldName] = value;
             // Also update edit form if open
             if (this.editingBacklogId) {
                 this.backlogEditForm[fieldName] = value;

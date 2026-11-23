@@ -175,7 +175,7 @@ async loadProofs(itemId) {
     this.itemProofsLoading = false;
 },
 async uploadProof() {
-    const item = this.viewingBacklogItem;
+    const item = this.selectedWorkItem ?? this.viewingBacklogItem;
     if (!item) return;
     if (!this.proofForm.title.trim()) { this.showToast('Give the proof a title', 'error'); return; }
     if (this.proofMode === 'file') {
@@ -283,7 +283,6 @@ async openWorkItem(item) {
     this.workTagPickerOpen = false;
     this.workAssigneeOpen = false;
     this.workItemCommentForm = '';
-    document.body.style.overflow = 'hidden';
     try {
         const [brief, itemRow, comments, proofs, subitems] = await Promise.all([
             this.api('GET', `/projects/${item.project_id}/brief`).catch(() => null),
@@ -314,7 +313,6 @@ closeWorkItem() {
     this.workItemProofs = [];
     this.workItemSubitems = [];
     this.workItemCommentForm = '';
-    document.body.style.overflow = '';
 },
 
 // ===== Item drawer write layer (Slice 3b — the ONE drawer everywhere) =====
@@ -345,7 +343,6 @@ openWorkItemNew() {
     this.newItemForm = { project_id: pre, title: '', description: '', priority: 'Medium', item_type: 'Feature' };
     // A truthy placeholder opens the drawer; the new-item template renders
     this.selectedWorkItem = { id: 'new', title: 'New item', project: '', project_id: pre };
-    document.body.style.overflow = 'hidden';
 },
 
 // Fresh values win (a stale row keeps the drawer honest after a move)
@@ -593,6 +590,7 @@ openWorkItemFromToday(row) {
         this.openApproval({ id: row.ref_id });
         return;
     }
+    this.workReturnTo = { kind: 'route', route: 'today', name: 'Today' };
     this.navigate('work');
     this.openWorkItem({ id: row.ref_id, title: row.title, project: row.project, project_id: row.project_id, phase: '', status: row.kind === 'blocked' ? 'Blocked' : 'In Progress', priority: '', blocked: row.kind === 'blocked', overdue: row.kind === 'overdue' });
 },
@@ -744,8 +742,8 @@ get stats() {
     return [
         { label: 'Total Clients', value: ds.clients ?? this.clients.length, route: 'clients', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>', bg: 'bg-brand-50', color: 'text-brand-600', glow: 'bg-brand-300', trend: 'New', trendColor: 'text-emerald-600' },
         { label: 'Active Projects', value: ds.projects ?? this.projects.length, route: 'projects', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/></svg>', bg: 'bg-emerald-50', color: 'text-emerald-600', glow: 'bg-emerald-300' },
-        { label: 'Backlog Items', value: ds.backlog_items ?? 0, route: 'projects', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>', bg: 'bg-amber-50', color: 'text-amber-600', glow: 'bg-amber-300' },
-        { label: 'Pending Approvals', value: ds.pending_approvals ?? 0, route: 'projects', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>', bg: 'bg-rose-50', color: 'text-rose-600', glow: 'bg-rose-300' },
+        { label: 'Backlog Items', value: ds.backlog_items ?? 0, route: 'work', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>', bg: 'bg-amber-50', color: 'text-amber-600', glow: 'bg-amber-300' },
+        { label: 'Pending Approvals', value: ds.pending_approvals ?? 0, route: 'today', icon: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>', bg: 'bg-rose-50', color: 'text-rose-600', glow: 'bg-rose-300' },
     ];
 },
 
@@ -1236,15 +1234,17 @@ openWorkWithProject() {
     if (!this.selectedProject) return;
     // Record the origin — the Work header's back chip returns here (before this
     // the intake redirect stranded the user on Work with no way back)
-    this.workReturnTo = { projectId: this.selectedProject.id, tab: this.projectTab || 'backlog', name: this.selectedProject.name };
+    this.workReturnTo = { kind: 'project', projectId: this.selectedProject.id, tab: this.projectTab || 'backlog', name: this.selectedProject.name };
     this.setWorkProjectFilter(String(this.selectedProject.id));
     this.navigate('work');
 },
-// The Work header's back chip: return to the project tab that deep-linked in.
+// The Work header's back chip: return to the origin that deep-linked in —
+// a project tab, or the Today route (Today-row → Work detail drawer).
 backToProject() {
     const r = this.workReturnTo;
     this.workReturnTo = null;
     if (!r) return;
+    if (r.kind === 'route') { this.navigate(r.route || 'today'); return; }
     this.openProjectById(r.projectId);
     if (r.tab && this.isValidProjectTab(r.tab)) this.setProjectTab(r.tab);
 },
@@ -1254,7 +1254,7 @@ backToProject() {
 // "Timeline view" chip, where the legacy Time tab's deep-link lands.
 openWorkTimeline() {
     if (!this.selectedProject) return;
-    this.workReturnTo = { projectId: this.selectedProject.id, tab: this.projectTab || 'cockpit', name: this.selectedProject.name };
+    this.workReturnTo = { kind: 'project', projectId: this.selectedProject.id, tab: this.projectTab || 'cockpit', name: this.selectedProject.name };
     this.setWorkProjectFilter(String(this.selectedProject.id));
     this.setWorkViewMode('timeline');
     this.navigate('work');

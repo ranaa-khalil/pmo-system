@@ -262,9 +262,10 @@ def test_fallback_used_by_context_getters():
 
 def test_advance_button_guards_are_effective_phase_checks():
     detail = _read(PROJECT_DETAIL)
-    # the backlog list rows are gone with the tab (Phase E) — the item drawer's
-    # footer advance guard remains
-    assert "canAdvanceItem(viewingBacklogItem?.current_phase)" in detail
+    # the backlog rows open the ONE drawer (included at index level) — the
+    # footer advance guard lives in item_drawer.html
+    drawer_html = _read(REPO / "app/templates/components/item_drawer.html")
+    assert "workAdvanceAllowed()" in drawer_html, "the drawer's footer advance guard remains"
     # the hardcoded Software guard is gone
     assert "item.current_phase !== 'Ready for UAT'" not in detail
     js = _read(BACKLOG_JS)

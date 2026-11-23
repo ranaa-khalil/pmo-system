@@ -142,16 +142,18 @@ def test_coverage_card_shows_with_work_ratio_and_without_work_chip():
     assert "KPIs without work" in card or "KPI without work" in card
 
 
-def test_orphan_chips_link_to_the_one_work_view():
-    """Phase E: up to 10 unlinked_sample titles as chips, each deep-linking
-    into the ONE Work view pre-filtered (the Backlog tab folded away)."""
+def test_orphan_chips_open_the_specific_item():
+    """Phase E, re-pointed by the UX sweep: chips no longer open the generic
+    Work view (that lost the specific orphan item the user tapped) — each
+    chip opens the ONE drawer on that exact item."""
     src = _read(PROJECT_DETAIL)
     card = _coverage_card(src)
     assert "unlinked_sample" in card
     orphans = re.search(r"Orphan items.*?</div>\s*</div>", card, re.S)
     assert orphans, "orphan chip block missing"
     block = orphans.group(0)
-    assert "openWorkWithProject()" in block, "orphan chips must deep-link into Work"
+    assert "openWorkItem(item)" in block, "orphan chips open the specific item in the drawer"
+    assert "openWorkWithProject()" not in block, "the generic Work jump is retired"
     assert "projectTab='backlog'" not in block, "the Backlog tab is gone"
     assert "item.title" in block
 

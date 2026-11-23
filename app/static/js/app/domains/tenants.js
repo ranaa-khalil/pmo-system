@@ -515,8 +515,10 @@ async assignPM() {
 },
 
 async loadClients() {
+    this.clientsLoading = true;
     try { this.clients = await this.api('GET', '/clients'); }
     catch (e) { this.showToast('Failed to load clients: ' + e.message, 'error'); }
+    this.clientsLoading = false;
 },
 
 getClientName(id) { return this.clients.find(c => c.id === id)?.name || 'Unknown'; },
@@ -564,10 +566,12 @@ async deleteClient(client) {
 },
 
 async loadProjects() {
+    this.projectsLoading = true;
     try {
         const url = this.projectFilter ? '/projects?client_id=' + this.projectFilter : '/projects';
         this.projects = await this.api('GET', url);
     } catch (e) { this.showToast('Failed to load projects: ' + e.message, 'error'); }
+    this.projectsLoading = false;
 },
 
 openProjectModal(project = null) {

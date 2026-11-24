@@ -1,4 +1,8 @@
 
+// Tailwind design tokens (brand colors, shadows, radii, easing). The CDN
+// is gone since ADR-07 — guard the global so a missing `tailwind` object
+// never throws an uncaught ReferenceError on every boot (QA F6).
+if (typeof tailwind !== 'undefined') {
         tailwind.config = {
             theme: {
                 extend: {
@@ -46,3 +50,4 @@
                 }
             }
         }
+}

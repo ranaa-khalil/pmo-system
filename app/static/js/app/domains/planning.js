@@ -45,7 +45,7 @@ async loadWork() {
         if (this.workFilter && this.workFilter !== 'all') params.push(`filter=${this.workFilter}`);
         if (this.workTagFilter) params.push(`tag_id=${this.workTagFilter}`);
         const qs = params.length ? `?${params.join('&')}` : '';
-        this.workItems = (await this.api('GET', `/work${qs}`)).items || [];
+        this.workItems = ((await this.api('GET', `/work${qs}`)).items || []).map(i => ({ ...i, current_phase: i.current_phase ?? i.phase }));
     } catch { this.workItems = []; }
     this.workLoading = false;
     // Tag chips for the cross-tagging filter (load once)
@@ -415,7 +415,7 @@ async advanceWorkItem(id) {
     if (this.selectedWorkItem) this.selectedWorkItem.phase = next;
     try {
         await this.api('POST', `/backlog/${id}/advance`);
-        this.showToast(this.workAdvanceLabel(), 'success');
+        this.showToast('Phase advanced: ' + from + ' → ' + next, 'success');
         this.loadWork();
     } catch (e) {
         if (this.workDetail && this.workDetail.item) this.workDetail.item.current_phase = from;
@@ -726,12 +726,6 @@ toggleConsultantView() {
     if (!this.consultantView && ['dashboard', 'clients', 'projects', 'tasks', 'project-detail', 'client-detail', 'roadmap'].includes(this.route)) {
         this.route = 'today';
     }
-},
-
-get visibleNavItems() {
-    if (this.isSuperAdmin) return this.navItems.filter(i => i.group === 'admin');
-    const groups = this.consultantView ? ['workspace', 'consultant', 'planning'] : ['workspace', 'planning'];
-    return this.navItems.filter(i => groups.includes(i.group));
 },
 
 get pageTitle() {

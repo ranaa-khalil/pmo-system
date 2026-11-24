@@ -829,10 +829,10 @@ buildWorkBoard() {
         const lanePhases = this.workRailPhaseNames();
         this.workBoardColumns = lanePhases.map(phase => ({
             key: phase, label: phase, kind: 'phase',
-            items: pool.filter(i => (i.current_phase || '') === phase).sort((a, b) => this.boardItemCompare(a, b)),
+            items: pool.filter(i => (i.current_phase ?? i.phase ?? '') === phase).sort((a, b) => this.boardItemCompare(a, b)),
         }));
         const known = new Set(lanePhases);
-        const stragglers = pool.filter(i => !known.has(i.current_phase || ''));
+        const stragglers = pool.filter(i => !known.has(i.current_phase ?? i.phase ?? ''));
         if (stragglers.length && this.workBoardColumns.length) {
             this.workBoardColumns[this.workBoardColumns.length - 1].items.push(...stragglers);
         }

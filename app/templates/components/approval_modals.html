@@ -1,0 +1,531 @@
+<!-- ==================== RELEASE + APPROVAL DETAIL MODALS (QA F3) ==================== -->
+<!-- Included at index level (outside the route-scoped views) so both modals
+     render from every route — the ONE-drawer house pattern (components/item_drawer.html).
+     State + handlers (selectedRelease/selectedApproval, close*/approve*) live on the pmoRoot store. -->
+
+    <!-- Release detail modal -->
+    <template x-if="selectedRelease"><div x-show="selectedRelease" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" @keydown.escape.window="closeRelease()">
+        <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" @click="closeRelease()"></div>
+        <div class="relative surface rounded-3xl shadow-modal w-full max-w-3xl max-h-[90vh] overflow-y-auto modal-enter border border-black/[0.06]">
+            <!-- Header -->
+            <div class="sticky top-0 bg-white/95 backdrop-blur border-b border-black/[0.06] px-6 py-4 flex items-center justify-between rounded-t-3xl z-10">
+                <div>
+                    <h3 class="text-[15px] font-bold text-ink-900 flex items-center gap-2">
+                        <span x-text="selectedRelease?.version"></span>
+                        <span class="text-ink-300">·</span>
+                        <span x-text="selectedRelease?.name"></span>
+                    </h3>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="text-[11px] font-medium px-2 py-0.5 rounded-md" :class="releaseStatusColor(selectedRelease?.status)" x-text="selectedRelease?.status"></span>
+                        <template x-if="selectedRelease?.milestone">
+                            <span class="text-[11px] text-ink-400 flex items-center gap-1">
+                                🎯 <span x-text="selectedRelease.milestone.title"></span>
+                                <template x-if="selectedRelease.milestone.target_date">
+                                    <span>(<span x-text="selectedRelease.milestone.target_date"></span>)</span>
+                                </template>
+                            </span>
+                        </template>
+                        <span class="text-[11px] text-ink-400" x-text="'Target: ' + (selectedRelease?.target_date || 'TBD')"></span>
+                    </div>
+                </div>
+                <button @click="closeRelease()" class="p-2 text-ink-400 hover:text-ink-700 hover:bg-ink-100 rounded-lg transition-colors">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-5">
+                <!-- V-Cycle Progress Tracker -->
+                <div class="bg-gradient-to-br from-slate-50 to-brand-50/30 rounded-2xl p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-[12px] font-semibold text-ink-600 uppercase tracking-wider">V-Cycle Progress</h4>
+                        <span class="text-[11px] font-bold text-brand-600" x-text="(selectedRelease?.v_cycle_progress || 0) + '%'"></span>
+                    </div>
+                    <div class="flex items-center gap-1 mb-3">
+                        <template x-for="(phase, idx) in (selectedRelease?.v_cycle || [])" :key="phase.phase">
+                            <div class="flex items-center gap-1 flex-1">
+                                <div class="flex flex-col items-center gap-1 flex-1">
+                                    <div class="w-9 h-9 rounded-xl flex items-center justify-center text-[10px] font-bold transition-all"
+                                         :class="idx === selectedRelease?.v_cycle_index ? 'bg-brand-600 text-white shadow-md scale-110' :
+                                                   idx < selectedRelease?.v_cycle_index ? 'bg-brand-100 text-brand-600' :
+                                                   'bg-ink-100 text-ink-300'"
+                                         x-text="idx + 1"></div>
+                                    <div class="text-[8px] font-medium text-center leading-tight"
+                                         :class="idx === selectedRelease?.v_cycle_index ? 'text-brand-600' : idx < selectedRelease?.v_cycle_index ? 'text-ink-400' : 'text-ink-300'"
+                                         x-text="phase.phase"></div>
+                                </div>
+                                <template x-if="idx < (selectedRelease?.v_cycle || []).length - 1">
+                                    <div class="h-0.5 flex-1 rounded-full mb-4"
+                                         :class="idx < selectedRelease?.v_cycle_index ? 'bg-brand-300' : 'bg-ink-100'"></div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                    <!-- Advance / Approval routing section -->
+                    <template x-if="selectedRelease?.next_phase">
+                        <div class="mt-2">
+                            <!-- Pending approval: show gate-keeper role + approve button -->
+                            <template x-if="selectedRelease?.pending_approval && selectedRelease.pending_approval.status === 'Pending'">
+                                <div class="flex items-center justify-between bg-amber-50 border border-amber-200/60 rounded-xl p-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+                                            <svg class="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        </div>
+                                        <div>
+                                            <div class="text-[12px] font-semibold text-amber-800">Approval Required from <span x-text="selectedRelease.pending_approval.current_step?.role_name"></span></div>
+                                            <div class="text-[11px] text-amber-600" x-text="selectedRelease.pending_approval.title"></div>
+                                        </div>
+                                    </div>
+                                    <button @click="approveReleaseStep(selectedRelease.pending_approval.id, selectedRelease.pending_approval.current_step.id)"
+                                            class="text-[12px] font-medium text-white bg-emerald-500 hover:bg-emerald-600 px-4 py-2 rounded-xl transition-all whitespace-nowrap shadow-sm">
+                                        ✓ Approve & Advance
+                                    </button>
+                                </div>
+                            </template>
+                            <!-- No pending approval: request advancement -->
+                            <template x-if="!selectedRelease?.pending_approval || selectedRelease.pending_approval.status !== 'Pending'">
+                                <div class="flex items-center justify-between bg-white/80 rounded-xl p-3">
+                                    <div>
+                                        <div class="text-[12px] font-medium text-ink-700">Ready to advance?</div>
+                                        <div class="text-[11px] text-ink-400" x-text="'Move from ' + selectedRelease?.status + ' → ' + selectedRelease?.next_phase"></div>
+                                    </div>
+                                    <button @click="advanceRelease(selectedRelease.id)" class="text-[12px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all whitespace-nowrap">
+                                        Request Advance → <span x-text="selectedRelease?.next_phase"></span>
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <template x-if="!selectedRelease?.next_phase && selectedRelease?.status === 'Released'">
+                        <div class="flex items-center gap-2 bg-emerald-50 rounded-xl p-3 mt-2">
+                            <span class="text-[14px]">🚀</span>
+                            <div class="text-[12px] text-emerald-700 font-medium">This release has been deployed to production on <span x-text="selectedRelease?.release_date || 'N/A'"></span></div>
+                        </div>
+                    </template>
+                    <template x-if="!selectedRelease?.next_phase && selectedRelease?.status === 'Post-Release'">
+                        <div class="flex items-center gap-2 bg-teal-50 rounded-xl p-3 mt-2">
+                            <span class="text-[14px]">📊</span>
+                            <div class="text-[12px] text-teal-700 font-medium">Release is in post-release monitoring phase. All V-cycle phases complete.</div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Progress Summary -->
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="surface rounded-xl border border-ink-200/60 p-3 text-center">
+                        <div class="text-[10px] text-ink-400 uppercase tracking-wider">Items</div>
+                        <div class="text-xl font-bold text-ink-800 mt-0.5" x-text="selectedRelease?.total_items || 0"></div>
+                    </div>
+                    <div class="surface rounded-xl border border-ink-200/60 p-3 text-center">
+                        <div class="text-[10px] text-ink-400 uppercase tracking-wider">Completed</div>
+                        <div class="text-xl font-bold text-emerald-600 mt-0.5" x-text="selectedRelease?.completed_items || 0"></div>
+                    </div>
+                    <div class="surface rounded-xl border border-ink-200/60 p-3 text-center">
+                        <div class="text-[10px] text-ink-400 uppercase tracking-wider">Progress</div>
+                        <div class="text-xl font-bold text-brand-600 mt-0.5" x-text="(selectedRelease?.progress_pct || 0) + '%'"></div>
+                    </div>
+                </div>
+
+                <!-- Phase-specific actions -->
+                <div x-show="selectedRelease?.status === 'Pre-Release' || selectedRelease?.status === 'UAT' || selectedRelease?.status === 'Testing'">
+                    <h4 class="text-[12px] font-semibold text-ink-500 uppercase tracking-wider mb-2">Phase Actions</h4>
+                    <div class="flex flex-wrap gap-2">
+                        <button @click="generateNotes(selectedRelease.id)" class="text-[12px] font-medium px-3 py-2 rounded-xl bg-brand-50 text-brand-600 hover:bg-brand-100 transition-colors">
+                            📝 Generate Release Notes
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Linked backlog items -->
+                <div>
+                    <h4 class="text-[12px] font-semibold text-ink-500 uppercase tracking-wider mb-2">Backlog Items in Release</h4>
+                    <template x-if="!selectedRelease?.items || selectedRelease.items.length === 0">
+                        <div class="text-[13px] text-ink-400 bg-ink-100 rounded-xl p-4 text-center">No items linked yet. Add from Backlog tab.</div>
+                    </template>
+                    <div class="space-y-2">
+                        <template x-for="item in (selectedRelease?.items || [])" :key="item.id">
+                            <div class="flex items-center justify-between bg-ink-100 rounded-xl p-3">
+                                <div class="flex-1">
+                                    <div class="text-[13px] font-medium text-ink-800 flex items-center gap-2">
+                                        <span x-text="item.title"></span>
+                                        <template x-if="item.is_done">
+                                            <span class="text-[10px] text-emerald-600">✓ Done</span>
+                                        </template>
+                                    </div>
+                                    <div class="flex items-center gap-2 mt-0.5">
+                                        <span class="text-[10px] font-medium px-2 py-0.5 rounded-md bg-brand-50 text-brand-600" x-text="item.current_phase"></span>
+                                        <span class="text-[10px] text-ink-400" x-text="item.status"></span>
+                                        <template x-if="item.priority === 'Critical'">
+                                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-600">Critical</span>
+                                        </template>
+                                        <template x-if="item.priority === 'High'">
+                                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-orange-100 text-orange-600">High</span>
+                                        </template>
+                                    </div>
+                                </div>
+                                <button @click="removeItemFromRelease(selectedRelease.id, item.id)" class="text-[11px] text-rose-400 hover:text-rose-600 ml-2">Remove</button>
+                            </div>
+                        </template>
+                    </div>
+                    <!-- Add from backlog (searchable) -->
+                    <div class="mt-3 relative">
+                        <div class="relative">
+                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            <input x-model="releaseItemSearch"
+                                   @focus="showReleaseItemSearch = true"
+                                   @click.outside="showReleaseItemSearch = false"
+                                   type="text"
+                                   class="input-premium w-full text-[13px] rounded-[10px] px-3 py-2 pl-9"
+                                   placeholder="Search backlog items to add...">
+                        </div>
+                        <div x-show="showReleaseItemSearch && releaseItemSearch"
+                             class="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto bg-white rounded-xl border border-ink-200/60 shadow-lg">
+                            <template x-for="item in backlogItems.filter(i =>
+                                !((selectedRelease?.items || []).some(ri => ri.id === i.id))
+                                && i.title.toLowerCase().includes(releaseItemSearch.toLowerCase())
+                            ).slice(0, 20)" :key="item.id">
+                                <button @click="addBacklogToRelease(selectedRelease.id, item.id); releaseItemSearch = ''; showReleaseItemSearch = false"
+                                        class="w-full text-left px-3 py-2 text-[12px] hover:bg-brand-50 transition-colors border-b border-ink-100/60 last:border-0">
+                                    <div class="font-medium text-ink-800" x-text="item.title"></div>
+                                    <div class="text-[10px] text-ink-400 flex items-center gap-2 mt-0.5">
+                                        <span x-show="item.epic" x-text="item.epic"></span>
+                                        <span x-show="item.priority" x-text="'· ' + item.priority"></span>
+                                        <span x-show="item.story_points" x-text="'· ' + item.story_points + 'pts'"></span>
+                                    </div>
+                                </button>
+                            </template>
+                            <div x-show="backlogItems.filter(i =>
+                                !((selectedRelease?.items || []).some(ri => ri.id === i.id))
+                                && i.title.toLowerCase().includes(releaseItemSearch.toLowerCase())
+                            ).length === 0"
+                                 class="px-3 py-4 text-[12px] text-ink-400 text-center">
+                                No matching items
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Phase Sign-Offs (auto-generated per RACI matrix) -->
+                <div>
+                    <h4 class="text-[12px] font-semibold text-ink-500 uppercase tracking-wider mb-2">Phase Sign-Offs <span class="text-[9px] text-ink-400 normal-case font-normal">(per RACI matrix)</span></h4>
+                    <p class="text-[10px] text-ink-400 mb-2">Each phase requires sign-off from the accountable role before the release can advance. The checklist items are auto-generated based on the release phase.</p>
+                    <div class="space-y-2">
+                        <template x-for="gate in (selectedRelease?.phase_gates || [])" :key="gate.phase">
+                            <div class="rounded-xl border p-3"
+                                 :class="getReleasePhaseIndex(selectedRelease?.status) > getReleasePhaseIndex(gate.phase) ? 'bg-emerald-50/50 border-emerald-200' : getReleasePhaseIndex(selectedRelease?.status) === getReleasePhaseIndex(gate.phase) ? 'bg-amber-50/50 border-amber-200' : 'bg-ink-100 border-black/[0.06]'">
+                                <div class="flex items-center justify-between mb-2">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[14px]" x-text="getReleasePhaseIndex(selectedRelease?.status) > getReleasePhaseIndex(gate.phase) ? '✅' : getReleasePhaseIndex(selectedRelease?.status) === getReleasePhaseIndex(gate.phase) ? '⏳' : '🔒'"></span>
+                                        <div>
+                                            <div class="text-[12px] font-semibold text-ink-700" x-text="gate.phase + ' Gate'"></div>
+                                            <div class="text-[10px] text-ink-400" x-text="gate.role + ' — ' + gate.description"></div>
+                                        </div>
+                                    </div>
+                                    <span class="text-[10px] font-medium px-2 py-0.5 rounded-md"
+                                          :class="getReleasePhaseIndex(selectedRelease?.status) > getReleasePhaseIndex(gate.phase) ? 'bg-emerald-100 text-emerald-700' : getReleasePhaseIndex(selectedRelease?.status) === getReleasePhaseIndex(gate.phase) ? 'bg-amber-100 text-amber-700' : 'bg-ink-100 text-ink-400'"
+                                          x-text="getReleasePhaseIndex(selectedRelease?.status) > getReleasePhaseIndex(gate.phase) ? 'Signed off' : getReleasePhaseIndex(selectedRelease?.status) === getReleasePhaseIndex(gate.phase) ? 'Pending' : 'Upcoming'"></span>
+                                </div>
+                                <!-- Checklist items -->
+                                <div class="ml-6 space-y-0.5" x-show="gate.checklist && gate.checklist.length > 0">
+                                    <template x-for="(item, i) in (gate.checklist || [])" :key="i">
+                                        <div class="flex items-center gap-1.5 text-[11px]" :class="item.checked ? 'text-emerald-700' : 'text-ink-400'">
+                                            <span x-text="item.checked ? '☑' : '☐'"></span>
+                                            <span x-text="item.text"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                                <!-- Show approver name if signed off (release moved past this gate) -->
+                                <template x-if="getReleasePhaseIndex(selectedRelease?.status) > getReleasePhaseIndex(gate.phase)">
+                                    <div class="ml-6 mt-1.5 text-[10px] text-emerald-600 font-medium">
+                                        <template x-for="apv in (selectedRelease?.approvals || [])" :key="apv.id">
+                                            <span x-show="apv.target_phase === gate.phase && apv.status === 'Approved'">
+                                                Signed off by <span x-text="apv.approver_name || 'assigned role'"></span>
+                                                <template x-if="apv.decided_at"> on <span x-text="apv.decided_at"></span></template>
+                                            </span>
+                                        </template>
+                                    </div>
+                                </template>
+                                <!-- Show who needs to sign off (release is currently at this gate) -->
+                                <template x-if="getReleasePhaseIndex(selectedRelease?.status) === getReleasePhaseIndex(gate.phase)">
+                                    <div class="ml-6 mt-1.5 text-[10px] text-amber-600 font-medium">
+                                        <template x-for="apv in (selectedRelease?.approvals || [])" :key="apv.id">
+                                            <span x-show="apv.status === 'Pending'">
+                                                Awaiting sign-off from <span x-text="apv.approver_name || gate.role"></span>
+                                            </span>
+                                        </template>
+                                        <template x-if="!selectedRelease?.approvals || !selectedRelease.approvals.some(a => a.status === 'Pending')">
+                                            <span>Awaiting sign-off from <span x-text="gate.role"></span></span>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Release notes -->
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <h4 class="text-[12px] font-semibold text-ink-500 uppercase tracking-wider">Release Notes</h4>
+                        <div class="flex items-center gap-2">
+                            <button @click="generateNotes(selectedRelease.id)" class="text-[12px] font-medium text-brand-600 hover:text-brand-700 px-2 py-1 rounded-lg hover:bg-brand-50 transition-colors">📝 Generate</button>
+                            <template x-if="selectedRelease?.release_notes">
+                                <button @click="downloadNotes(selectedRelease.id)" class="text-[12px] font-medium text-violet-600 hover:text-violet-700 px-2 py-1 rounded-lg hover:bg-violet-50 transition-colors">⬇ Notes</button>
+                            </template>
+                            <button @click="downloadSignoffPdf(selectedRelease.id)" class="text-[12px] font-medium text-rose-600 hover:text-rose-700 px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors">📄 Sign-off PDF</button>
+                            <template x-if="selectedRelease?.release_notes">
+                                <button @click="shareNotes(selectedRelease.id)" class="text-[12px] font-medium text-emerald-600 hover:text-emerald-700 px-2 py-1 rounded-lg hover:bg-emerald-50 transition-colors">📤 Share</button>
+                            </template>
+                        </div>
+                    </div>
+                    <template x-if="selectedRelease?.release_notes">
+                        <div class="bg-gradient-to-br from-slate-50 to-brand-50/20 rounded-xl p-4 border border-black/[0.06] max-h-[400px] overflow-y-auto">
+                            <div class="text-[12px] text-ink-600 leading-relaxed" x-html="renderMarkdown(selectedRelease.release_notes)"></div>
+                        </div>
+                    </template>
+                    <template x-if="!selectedRelease?.release_notes">
+                        <div class="text-[12px] text-ink-400 bg-ink-100 rounded-xl p-4 text-center">No release notes yet. Click "Generate" to auto-create from the release template.</div>
+                    </template>
+                    <!-- Share result -->
+                    <template x-if="sharedWith">
+                        <div class="mt-3 bg-emerald-50 border border-emerald-100 rounded-xl p-3">
+                            <div class="text-[12px] font-medium text-emerald-700 mb-2" x-text="sharedWith.message"></div>
+                            <div class="flex flex-wrap gap-2">
+                                <template x-for="person in sharedWith.shared_with" :key="person.name + person.role">
+                                    <div class="flex items-center gap-1.5 bg-white rounded-lg px-2 py-1 border border-emerald-100">
+                                        <div class="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-[10px] font-bold text-emerald-600" x-text="(person.name || '?').charAt(0)"></div>
+                                        <div>
+                                            <span class="text-[11px] font-medium text-ink-700" x-text="person.name"></span>
+                                            <span class="text-[9px] text-ink-400 ml-1" x-text="person.role"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+            <div class="sticky bottom-0 bg-white/95 backdrop-blur border-t border-black/[0.06] px-6 py-4 flex justify-between rounded-b-3xl">
+                <button @click="deleteRelease(selectedRelease?.id)" class="text-[12px] text-rose-500 hover:text-rose-700">Delete Release</button>
+                <button @click="closeRelease()" class="text-[13px] font-medium text-ink-600 hover:text-ink-800 px-4 py-2">Close</button>
+            </div>
+        </div>
+    </div></template>
+
+    <!-- Approval detail modal -->
+    <template x-if="selectedApproval"><div x-show="selectedApproval" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" @keydown.escape.window="closeApproval()">
+        <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" @click="closeApproval()"></div>
+        <div class="relative surface rounded-3xl shadow-modal w-full max-w-xl max-h-[85vh] overflow-y-auto modal-enter border border-black/[0.06]">
+            <div class="sticky top-0 bg-white/95 backdrop-blur border-b border-black/[0.06] px-6 py-4 flex items-center justify-between rounded-t-3xl z-10">
+                <div>
+                    <h3 class="text-[15px] font-bold text-ink-900" x-text="selectedApproval?.title"></h3>
+                    <div class="flex items-center gap-2 mt-0.5">
+                        <span class="text-[11px] text-ink-400" x-text="selectedApproval?.request_type"></span>
+                        <span class="text-[11px] font-medium px-2 py-0.5 rounded-md" :class="approvalStatusColor(selectedApproval?.status)" x-text="selectedApproval?.status"></span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <button @click="openGuestLinks()" class="px-3 py-1.5 rounded-lg text-[11px] font-medium text-ink-600 border border-ink-200 hover:bg-ink-50 transition-colors" title="Share with an external approver">
+                        Guest link
+                    </button>
+                    <button @click="closeApproval()" class="p-2 text-ink-400 hover:text-ink-700 hover:bg-ink-100 rounded-lg transition-colors">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <div class="text-[13px] text-ink-500 mb-5 prose-p:my-1" x-html="renderMarkdown(selectedApproval?.description || '')"></div>
+                <!-- Approval chain -->
+                <div class="space-y-3">
+                    <template x-for="(step, idx) in (selectedApproval?.steps || [])" :key="step.id">
+                        <div class="flex items-start gap-3">
+                            <div class="flex flex-col items-center">
+                                <div class="w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold"
+                                     :class="step.status === 'Approved' ? 'bg-emerald-100 text-emerald-700' : step.status === 'Rejected' ? 'bg-rose-100 text-rose-700' : step.step_order === selectedApproval?.current_step ? 'bg-amber-100 text-amber-700 ring-2 ring-amber-200' : 'bg-ink-100 text-ink-400'"
+                                     x-text="idx + 1"></div>
+                                <div x-show="idx < (selectedApproval?.steps || []).length - 1" class="w-0.5 h-8 bg-ink-200 mt-1"></div>
+                            </div>
+                            <div class="flex-1 pb-2">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <div class="text-[13px] font-semibold text-ink-800" x-text="step.role_name"></div>
+                                        <div class="text-[11px] text-ink-400">
+                                            <span x-text="step.status"></span>
+                                            <template x-if="step.approver_name">
+                                                <span class="ml-1">· <span x-text="step.approver_name"></span></span>
+                                            </template>
+                                            <template x-if="!step.approver_name && step.status === 'Pending' && step.step_order === selectedApproval?.current_step">
+                                                <span class="ml-1 text-amber-500">· unassigned</span>
+                                            </template>
+                                        </div>
+                                    </div>
+                                    <div x-show="step.step_order === selectedApproval?.current_step && selectedApproval?.status === 'Pending' && (!step.approver_id || step.approver_id === currentUser?.id)" class="flex gap-1.5">
+                                        <button @click="approveStep(step.id)" class="text-[11px] font-medium text-white bg-emerald-500 hover:bg-emerald-600 px-2.5 py-1 rounded-lg transition-colors">Approve</button>
+                                        <button @click="rejectStep(step.id)" class="text-[11px] font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-lg transition-colors">Reject</button>
+                                    </div>
+                                    <div x-show="step.step_order === selectedApproval?.current_step && selectedApproval?.status === 'Pending' && step.approver_id && step.approver_id !== currentUser?.id" class="text-[10px] text-ink-400 italic">
+                                        Awaiting approval from <span class="font-medium text-ink-500" x-text="step.approver_name"></span> (<span x-text="step.role_name"></span>)
+                                    </div>
+                                </div>
+                                <div x-show="step.comment" class="text-[11px] text-ink-400 mt-1 italic bg-ink-100 rounded-lg px-2.5 py-1.5 leading-relaxed" x-html="renderMarkdown(step.comment || '')"></div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Guest approval links -->
+                <div x-show="guestLinksOpen" x-cloak class="mt-6 pt-5 border-t border-ink-100">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-[11px] font-semibold text-ink-500 uppercase tracking-wide">Guest links</h4>
+                        <button @click="showGuestLinkForm = !showGuestLinkForm" class="text-[11px] font-medium text-brand-600 hover:text-brand-700">+ New link</button>
+                    </div>
+                    <div x-show="showGuestLinkForm" x-cloak class="rounded-xl border border-ink-200/60 p-3.5 mb-3 space-y-2.5 bg-ink-50/50">
+                        <div class="grid grid-cols-2 gap-2.5">
+                            <div>
+                                <label class="block text-[11px] font-medium text-ink-600 mb-1">Guest label</label>
+                                <input x-model="guestLinkForm.label" type="text" placeholder="e.g. ACME Corp" class="w-full px-3 py-2 rounded-lg border border-ink-200 text-[12px] outline-none focus:ring-2 focus:ring-brand-400">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-medium text-ink-600 mb-1">Password <span class="text-ink-300">(optional)</span></label>
+                                <input x-model="guestLinkForm.password" type="text" placeholder="Link password" class="w-full px-3 py-2 rounded-lg border border-ink-200 text-[12px] outline-none focus:ring-2 focus:ring-brand-400">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2.5">
+                            <div>
+                                <label class="block text-[11px] font-medium text-ink-600 mb-1">Expires in (days)</label>
+                                <input x-model.number="guestLinkForm.expires_in_days" type="number" min="1" max="90" class="w-full px-3 py-2 rounded-lg border border-ink-200 text-[12px] outline-none focus:ring-2 focus:ring-brand-400">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-medium text-ink-600 mb-1">Bind to step</label>
+                                <select x-model.number="guestLinkForm.step_id" class="w-full px-3 py-2 rounded-lg border border-ink-200 text-[12px] bg-white outline-none">
+                                    <option :value="null">— Advisory only —</option>
+                                    <template x-for="s in (selectedApproval?.steps || [])" :key="s.id">
+                                        <option :value="s.id" x-text="'Step ' + s.step_order + ' — ' + s.role_name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </div>
+                        <button @click="createGuestLink()" class="w-full px-3 py-2 rounded-lg bg-brand-600 text-white text-[12px] font-semibold hover:bg-brand-700 transition-colors">Create &amp; copy link</button>
+                    </div>
+                    <div class="space-y-2">
+                        <template x-for="link in guestLinks" :key="link.id">
+                            <div class="flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-ink-100">
+                                <div class="min-w-0">
+                                    <div class="text-[12px] font-medium text-ink-800" x-text="link.label || 'Guest link'"></div>
+                                    <div class="text-[10px] text-ink-400">Expires <span x-text="new Date(link.expires_at).toLocaleDateString()"></span><span x-show="link.has_password"> · password</span><span x-show="link.revoked" class="text-rose-400"> · revoked</span></div>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <button @click="copyGuestLink(link)" class="text-[10px] font-medium px-2 py-1 rounded-lg bg-ink-100 text-ink-600 hover:bg-ink-200">Copy</button>
+                                    <button x-show="!link.revoked" @click="revokeGuestLink(link)" class="text-[10px] font-medium px-2 py-1 rounded-lg text-rose-500 hover:bg-rose-50">Revoke</button>
+                                </div>
+                            </div>
+                        </template>
+                        <div x-show="guestLinks.length === 0" class="text-[11px] text-ink-300">No guest links yet — create one to invite an external approver.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="sticky bottom-0 bg-white/95 backdrop-blur border-t border-black/[0.06] px-6 py-4 rounded-b-3xl">
+                <button @click="deleteApproval(selectedApproval?.id)" class="text-[12px] text-rose-500 hover:text-rose-700">Delete</button>
+            </div>
+        </div>
+    </div></template>
+            <!-- Status report modal (locked on delivery) -->
+            <template x-if="showReportModal"><div x-show="showReportModal" x-cloak class="fixed inset-0 z-50" aria-modal="true">
+                <div class="fixed inset-0 bg-black/30 backdrop-blur-sm" @click="showReportModal = false"></div>
+                <div class="flex min-h-full items-center justify-center p-4 relative">
+                    <div class="surface rounded-3xl shadow-modal w-full max-w-lg max-h-[85vh] overflow-y-auto modal-enter border border-black/[0.06]">
+                        <div class="sticky top-0 bg-white/95 backdrop-blur border-b border-black/[0.06] px-6 py-4 flex items-center justify-between rounded-t-3xl z-10">
+                            <div>
+                                <h3 class="text-[15px] font-bold text-ink-900">Status report</h3>
+                                <p class="text-[11px] text-ink-400 mt-0.5">Locked on delivery — every send is a chain entry</p>
+                            </div>
+                            <button @click="showReportModal = false" class="p-2 text-ink-400 hover:text-ink-700 hover:bg-ink-100 rounded-lg transition-colors">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                        <div class="px-6 py-5 space-y-4">
+                            <template x-if="statusReport">
+                                <div class="space-y-4">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <div class="text-[13px] font-semibold text-ink-900" x-text="statusReport.project.name"></div>
+                                            <div class="text-[10px] text-ink-400" x-text="'Generated ' + new Date(statusReport.generated_at).toLocaleString() + ' · ' + statusReport.generated_by"></div>
+                                        </div>
+                                        <span x-show="statusReportEntry" class="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg" x-text="'Chain #' + statusReportEntry?.seq + ' · ' + (statusReportEntry?.hash || '').slice(0, 8) + '…'"></span>
+                                    </div>
+                                    <!-- Progress -->
+                                    <div>
+                                        <div class="flex items-center justify-between mb-1.5">
+                                            <span class="text-[11px] font-semibold text-ink-600 uppercase tracking-wide">Backlog progress</span>
+                                            <span class="text-[11px] font-medium text-ink-500" x-text="statusReport.backlog.done + '/' + statusReport.backlog.total + ' done'"></span>
+                                        </div>
+                                        <div class="h-2 bg-ink-100 rounded-full overflow-hidden">
+                                            <div class="h-full bg-brand-500 rounded-full transition-all" :style="'width:' + statusReport.backlog.progress + '%'"></div>
+                                        </div>
+                                        <div class="flex flex-wrap gap-1.5 mt-2">
+                                            <template x-for="(count, phase) in statusReport.backlog.by_phase" :key="phase">
+                                                <span class="text-[10px] text-ink-500 bg-ink-100 px-2 py-0.5 rounded-full" x-text="phase + ': ' + count"></span>
+                                            </template>
+                                        </div>
+                                    </div>
+                                    <!-- Releases -->
+                                    <div x-show="statusReport.releases.length">
+                                        <div class="text-[11px] font-semibold text-ink-600 uppercase tracking-wide mb-1.5">Releases</div>
+                                        <template x-for="r in statusReport.releases" :key="r.version">
+                                            <div class="flex items-center justify-between py-1.5 border-b border-ink-50 last:border-0">
+                                                <span class="text-[12px] text-ink-800 font-medium" x-text="r.version + (r.name ? ' — ' + r.name : '')"></span>
+                                                <span class="text-[10px] text-ink-400" x-text="r.status"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    <!-- Open risks -->
+                                    <div x-show="statusReport.open_risks.length">
+                                        <div class="text-[11px] font-semibold text-ink-600 uppercase tracking-wide mb-1.5">Open risks</div>
+                                        <template x-for="(r, i) in statusReport.open_risks" :key="'risk-' + i">
+                                            <div class="flex items-center justify-between py-1.5 border-b border-ink-50 last:border-0">
+                                                <span class="text-[12px] text-ink-800 truncate" x-text="r.title"></span>
+                                                <span class="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                                                      :class="r.severity === 'Critical' ? 'bg-rose-50 text-rose-600' : r.severity === 'High' ? 'bg-amber-50 text-amber-600' : 'bg-ink-100 text-ink-500'"
+                                                      x-text="r.severity"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    <!-- Milestones -->
+                                    <div x-show="statusReport.milestones.length">
+                                        <div class="text-[11px] font-semibold text-ink-600 uppercase tracking-wide mb-1.5">Milestones</div>
+                                        <template x-for="(m, i) in statusReport.milestones" :key="'ms-' + i">
+                                            <div class="flex items-center justify-between py-1.5 border-b border-ink-50 last:border-0">
+                                                <span class="text-[12px] text-ink-800 truncate" x-text="m.title"></span>
+                                                <span class="text-[10px] text-ink-400" x-text="m.target_date || ''"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                            <template x-if="!statusReport">
+                                <div class="text-center py-6">
+                                    <p class="text-[12px] text-ink-400 mb-4">Generate a snapshot of this project's health. Each send appends a tamper-evident entry to the project's audit chain.</p>
+                                    <button @click="generateStatusReport()" :disabled="reportLoading" class="px-4 py-2.5 rounded-xl bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 transition-colors shadow-sm disabled:opacity-50">
+                                        <span x-text="reportLoading ? 'Generating…' : 'Generate & send'"></span>
+                                    </button>
+                                </div>
+                            </template>
+                            <!-- Past reports -->
+                            <div class="pt-3 border-t border-ink-100">
+                                <h4 class="text-[11px] font-semibold text-ink-500 uppercase tracking-wide mb-2">Delivered reports</h4>
+                                <div class="space-y-1.5 max-h-40 overflow-y-auto">
+                                    <template x-for="r in statusReports" :key="'rep-' + r.id">
+                                        <div class="flex items-center justify-between px-3 py-2 rounded-xl border border-ink-100 hover:bg-ink-50 transition-colors cursor-pointer" @click="viewStoredReport(r)">
+                                            <div class="min-w-0">
+                                                <div class="text-[12px] text-ink-800 font-medium" x-text="'#' + r.seq + ' · ' + (r.actor_name || 'system')"></div>
+                                                <div class="text-[10px] text-ink-400" x-text="new Date(r.created_at).toLocaleString()"></div>
+                                            </div>
+                                            <span class="text-[10px] text-ink-300 font-mono" x-text="(r.hash || '').slice(0, 8)"></span>
+                                        </div>
+                                    </template>
+                                    <div x-show="statusReports.length === 0" class="text-[11px] text-ink-300">No reports sent yet.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div></template>

@@ -61,8 +61,8 @@
                 <!-- Header: #N · project mono + ✕ -->
                 <div class="sticky top-0 bg-white border-b border-ink-100 px-5 py-3.5 flex items-start justify-between gap-3 z-10">
                     <div class="min-w-0">
-                        <div class="text-[11px] font-mono text-ink-400" x-text="'#' + selectedWorkItem.id + ' · ' + (selectedWorkItem.project || '')"></div>
-                        <h2 class="text-base font-bold text-ink-900 mt-0.5" x-text="workItemEdit ? workItemEditForm.title : selectedWorkItem.title"></h2>
+                        <div class="text-[11px] font-mono text-ink-400" x-text="'#' + selectedWorkItem?.id + ' · ' + (selectedWorkItem?.project || '')"></div>
+                        <h2 class="text-base font-bold text-ink-900 mt-0.5" x-text="workItemEdit ? workItemEditForm.title : selectedWorkItem?.title"></h2>
                     </div>
                     <button @click="closeWorkItem()" class="text-ink-400 hover:text-ink-800 p-1 shrink-0">✕</button>
                 </div>
@@ -92,11 +92,11 @@
                             </div>
                         </div>
                         <span class="text-[10px] px-2 py-0.5 rounded-full font-medium"
-                              :class="(workDetail?.item?.status || selectedWorkItem.status) === 'Done' ? 'bg-emerald-50 text-emerald-600' : (workDetail?.item?.status || selectedWorkItem.status) === 'Blocked' ? 'bg-amber-50 text-amber-700' : 'bg-ink-100 text-ink-500'"
-                              x-text="workDetail?.item?.status || selectedWorkItem.status"></span>
-                        <span class="text-[10px] px-2 py-0.5 rounded-full bg-ink-100 text-ink-500" x-text="selectedWorkItem.priority || '—'"></span>
-                        <span class="text-[10px] px-2 py-0.5 rounded-full bg-ink-100 text-ink-500" x-show="selectedWorkItem.item_type" x-text="selectedWorkItem.item_type"></span>
-                        <span class="text-[10px] text-rose-500 font-medium" x-show="selectedWorkItem.overdue">overdue</span>
+                              :class="(workDetail?.item?.status || selectedWorkItem?.status) === 'Done' ? 'bg-emerald-50 text-emerald-600' : (workDetail?.item?.status || selectedWorkItem?.status) === 'Blocked' ? 'bg-amber-50 text-amber-700' : 'bg-ink-100 text-ink-500'"
+                              x-text="workDetail?.item?.status || selectedWorkItem?.status"></span>
+                        <span class="text-[10px] px-2 py-0.5 rounded-full bg-ink-100 text-ink-500" x-text="selectedWorkItem?.priority || '—'"></span>
+                        <span class="text-[10px] px-2 py-0.5 rounded-full bg-ink-100 text-ink-500" x-show="selectedWorkItem?.item_type" x-text="selectedWorkItem?.item_type"></span>
+                        <span class="text-[10px] text-rose-500 font-medium" x-show="selectedWorkItem?.overdue">overdue</span>
                     </div>
 
                     <!-- Phase stepper: done fill, current ring, future slate; label under current only -->
@@ -174,7 +174,7 @@
                     <div>
                         <div class="text-[10px] font-bold uppercase tracking-wider text-ink-400 mb-1.5">Tags</div>
                         <div class="flex items-center gap-1.5 flex-wrap">
-                            <template x-for="tag in (selectedWorkItem.tags || [])" :key="'wt-' + tag.id">
+                            <template x-for="tag in (selectedWorkItem?.tags || [])" :key="'wt-' + tag.id">
                                 <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium" :class="tagChipClass(tag.color)">
                                     <span x-text="'#' + tag.name"></span>
                                     <button type="button" @click="detachWorkItemTag(tag)" class="hover:opacity-60" title="Remove tag">
@@ -215,12 +215,12 @@
                     <div>
                         <div class="text-[10px] font-bold uppercase tracking-wider text-ink-400 mb-1.5">Assignee</div>
                         <div class="flex items-center gap-1.5 flex-wrap">
-                            <template x-if="selectedWorkItem.assigned_to_name">
+                            <template x-if="selectedWorkItem?.assigned_to_name">
                                 <span class="inline-flex items-center gap-1.5 pl-1 pr-2 py-0.5 rounded-full bg-ink-100 text-[11px] font-medium text-ink-700">
                                     <span class="w-5 h-5 rounded-full text-[9px] font-bold text-white flex items-center justify-center"
-                                          :class="avatarColor(selectedWorkItem.assigned_to_name || '?')"
-                                          x-text="(selectedWorkItem.assigned_to_name || '?').split(' ').map(w => w[0]).join('').slice(0, 2)"></span>
-                                    <span x-text="selectedWorkItem.assigned_to_name"></span>
+                                          :class="avatarColor(selectedWorkItem?.assigned_to_name || '?')"
+                                          x-text="(selectedWorkItem?.assigned_to_name || '?').split(' ').map(w => w[0]).join('').slice(0, 2)"></span>
+                                    <span x-text="selectedWorkItem?.assigned_to_name"></span>
                                     <button type="button" @click="setWorkItemAssignee(null)" class="text-ink-400 hover:text-rose-500 transition-colors" title="Unassign">
                                         <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                                     </button>
@@ -229,7 +229,7 @@
                             <div class="relative" @click.away="workAssigneeOpen = false">
                                 <button type="button" @click="workAssigneeOpen = !workAssigneeOpen"
                                         class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-dashed border-ink-300 text-[11px] font-medium text-ink-500 hover:border-brand-400 hover:text-brand-600 transition-colors">
-                                    <span x-text="selectedWorkItem.assigned_to_name ? 'Change' : 'Assign'"></span>
+                                    <span x-text="selectedWorkItem?.assigned_to_name ? 'Change' : 'Assign'"></span>
                                 </button>
                                 <div x-show="workAssigneeOpen" x-cloak class="absolute z-20 mt-1 w-56 rounded-xl border border-ink-200 bg-white shadow-lg p-2 left-0 max-h-48 overflow-y-auto">
                                     <template x-for="u in users" :key="'wau-' + u.id">
@@ -237,7 +237,7 @@
                                             <span class="w-5 h-5 rounded-full text-[8px] font-bold text-white flex items-center justify-center flex-shrink-0" :class="avatarColor(u.name || '?')"
                                                   x-text="(u.name || '?').split(' ').map(w => w[0]).join('').slice(0, 2)"></span>
                                             <span class="text-[12px] font-medium text-ink-700 flex-1" x-text="u.name"></span>
-                                            <svg x-show="selectedWorkItem.assigned_to === u.id" class="w-3.5 h-3.5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                            <svg x-show="selectedWorkItem?.assigned_to === u.id" class="w-3.5 h-3.5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                                         </button>
                                     </template>
                                     <div x-show="users.length === 0" class="text-[11px] text-ink-300 px-2 py-1.5">No members loaded yet.</div>
@@ -305,14 +305,14 @@
                 <template x-if="!workItemEdit">
                     <div class="sticky bottom-0 bg-white border-t border-ink-100 px-5 py-3 flex items-center gap-2 mt-auto">
                         <button @click="closeWorkItem()" class="text-[12px] text-ink-500 hover:text-ink-700">Close</button>
-                        <button @click="openProjectById(selectedWorkItem.project_id)"
+                        <button @click="openProjectById(selectedWorkItem?.project_id)"
                                 class="text-[11.5px] font-medium text-brand-700 border border-brand-200 bg-white px-3 py-1.5 rounded-xl hover:bg-brand-50 transition-all">Open in Projects</button>
                         <div class="flex items-center gap-2 ml-auto">
-                            <button x-show="workCurrentPhase() === 'Testing'" @click="sendBackWorkItem(selectedWorkItem.id)"
+                            <button x-show="workCurrentPhase() === 'Testing'" @click="sendBackWorkItem(selectedWorkItem?.id)"
                                     class="text-[11.5px] font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-all">↩ Send back to Dev</button>
                             <button @click="startWorkItemEdit()"
                                     class="text-[11.5px] font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 px-3 py-1.5 rounded-lg transition-all">✏ Edit</button>
-                            <button x-show="workAdvanceAllowed()" @click="advanceWorkItem(selectedWorkItem.id)"
+                            <button x-show="workAdvanceAllowed()" @click="advanceWorkItem(selectedWorkItem?.id)"
                                     class="text-[11.5px] font-medium text-white btn-primary px-3 py-1.5 rounded-lg transition-all" x-text="workAdvanceLabel()"></button>
                             <span x-show="workCurrentPhase() === 'Ready for UAT'" class="text-[10.5px] text-emerald-600 font-medium">✓ Ready for UAT — add to a release</span>
                         </div>

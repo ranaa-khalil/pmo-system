@@ -34,6 +34,8 @@ REPO = Path(__file__).resolve().parent.parent
 PROJECT_DETAIL = REPO / "app/templates/pmo/views/project_detail.html"
 PLANNING_JS = REPO / "app/static/js/app/domains/planning.js"
 BACKLOG_JS = REPO / "app/static/js/app/domains/backlog.js"
+INDEX_HTML = REPO / "app/templates/index.html"
+APPROVAL_MODALS = REPO / "app/templates/components/approval_modals.html"
 
 
 def _read(path: Path) -> str:
@@ -183,11 +185,18 @@ def test_approvals_fold_into_the_one_inbox():
 
 
 def test_no_second_approvals_surface():
-    """No new approvals queue/list was built anywhere in the frontend — the
-    approval detail modal (approve/reject/guest links) is the action surface."""
-    src = _read(PROJECT_DETAIL)
+    """No new approvals queue/list was built anywhere in the frontend - the
+    approval detail modal (approve/reject/guest links) is the action surface,
+    hosted at index level (QA F3: it renders from every route, so it moved out
+    of the project-detail route-scoped root)."""
+    src = _read(APPROVAL_MODALS)
     assert 'x-show="selectedApproval"' in src, "the approval detail modal survives"
     assert "approveStep(step.id)" in src and "rejectStep(step.id)" in src
+    index_src = _read(INDEX_HTML)
+    assert "{% include 'components/approval_modals.html' %}" in index_src, \
+        "the modal is included at index level"
+    assert 'x-show="selectedApproval"' not in _read(PROJECT_DETAIL), \
+        "project_detail no longer hosts the modal"
     js = _read(PLANNING_JS)
     assert 'x-show="route === \'approvals\'"' not in _read(PLANNING_JS), "no approvals route"
 

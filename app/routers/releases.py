@@ -1,5 +1,5 @@
 """Release API router — V-cycle release management with full detail."""
-from datetime import date, datetime
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -356,12 +356,17 @@ def create_release(
         **release.model_dump(),
     )
     db.add(db_release)
-    db.commit()
-    db.refresh(db_release)
+    db.flush()  # assign the ID before the audit write
 
     log_activity(db, current_user.id, current_user.name, project_id,
                  "release", db_release.id, "created",
                  f"Created release {db_release.version} — {db_release.name}")
+
+    # Single atomic commit: the release and its audit trail together.
+    # log_activity/append_artifact only flush — a write left after the only
+    # commit rolls back when the request session closes (live-only failure).
+    db.commit()
+    db.refresh(db_release)
 
     return db_release
 

@@ -66,9 +66,29 @@ def log_activity(
     action: str,
     summary: str,
     changes: dict = None,
+    tenant_id: int = None,
 ):
-    """Create an immutable activity log entry."""
+    """Create an immutable activity log entry.
+
+    tenant_id is resolved when not passed — from the project first, then the
+    acting user's active tenant — so the row matches the tenant-scoped read
+    in GET /api/activity (ActivityLog.tenant_id == current_tenant.id).
+    """
+    if tenant_id is None:
+        if project_id is not None:
+            from app.models.project import Project
+
+            tenant_id = db.query(Project.tenant_id).filter(
+                Project.id == project_id
+            ).scalar()
+        if tenant_id is None and user_id is not None:
+            from app.models.user import User
+
+            tenant_id = db.query(User.active_tenant_id).filter(
+                User.id == user_id
+            ).scalar()
     entry = ActivityLog(
+        tenant_id=tenant_id,
         user_id=user_id,
         user_name=user_name,
         project_id=project_id,

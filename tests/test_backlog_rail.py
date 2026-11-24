@@ -26,7 +26,6 @@ from app.models.release import Release
 from app.models.tenant import Tenant
 from app.services.lifecycle import get_effective_lifecycle
 
-
 # ── helpers ──────────────────────────────────────────────────────────────
 
 def _project(client, name="Rail P", project_type="software"):

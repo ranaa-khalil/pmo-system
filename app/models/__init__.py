@@ -38,7 +38,6 @@ from app.models.project_test_account import ProjectTestAccount
 from app.models.project_view import ProjectView
 from app.models.project_vision import ProjectVision
 from app.models.proof import ItemProof
-from app.models.slack_config import SlackConfig
 from app.models.release import Release, ReleaseItem
 from app.models.risk import Risk
 from app.models.roadmap import Roadmap
@@ -46,11 +45,12 @@ from app.models.role import Role
 from app.models.role_assignment import RoleAssignment
 from app.models.role_permission import RolePermission
 from app.models.share_link import ShareLink
+from app.models.slack_config import SlackConfig
 from app.models.stakeholder import Stakeholder
-from app.models.time_entry import TimeEntry, TimesheetLock
 from app.models.tag import Tag
 from app.models.tenant import Invitation, Tenant, TenantMembership
 from app.models.tenant_setting import TenantSetting
+from app.models.time_entry import TimeEntry, TimesheetLock
 from app.models.usage_record import UsageRecord
 from app.models.user import User
 from app.models.user_persona import UserPersona

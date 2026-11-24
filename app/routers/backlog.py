@@ -446,6 +446,10 @@ def send_back_to_development(
         payload={"title": item.title, "from_phase": "Testing", "to_phase": "Development"},
     )
 
+    # The audit writes above are flush-only — commit them or they roll back
+    # when the request session closes (live-only failure).
+    db.commit()
+
     return item
 
 

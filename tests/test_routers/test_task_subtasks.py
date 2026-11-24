@@ -76,7 +76,6 @@ class TestTaskSubtasks:
         db.commit()
 
         token = create_access_token({"sub": str(other.id)})
-        import os
         original = client.headers.get("Authorization")
         client.headers.update({"Authorization": f"Bearer {token}"})
         try:

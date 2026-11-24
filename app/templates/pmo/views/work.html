@@ -148,7 +148,7 @@
     </div>
 
     <!-- Main surface — Board (swaps in place, one Alpine subtree, no re-mount) -->
-    <div x-show="workViewMode === 'board' && workFiltered.length > 0" class="flex gap-3 overflow-x-auto pb-2 items-start">
+    <div x-show="workViewMode === 'board' && workFiltered.length > 0" x-effect="buildWorkBoard()" class="flex gap-3 overflow-x-auto pb-2 items-start">
         <template x-for="lane in workBoardColumns" :key="lane.kind + '-' + lane.key">
             <div class="w-64 flex-shrink-0"
                  @dragover.prevent="workAllowDrop(lane.key)"

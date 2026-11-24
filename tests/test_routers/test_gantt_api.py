@@ -14,7 +14,7 @@ class TestGanttAPI:
         cid = resp.json()["id"]
         pid = client.post("/api/projects", json={"name": "Gantt Project", "client_id": cid}).json()["id"]
         id_map = {}
-        for title, start, end, _ in items:
+        for title, _start, _end, _ in items:
             item = client.post(f"/api/projects/{pid}/backlog", json={"project_id": pid, "title": title}).json()
             id_map[title] = item["id"]
         for title, start, end, deps in items:

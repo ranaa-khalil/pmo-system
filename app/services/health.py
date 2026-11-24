@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 from app.models.approval import ApprovalRequest
 from app.models.backlog_item import BacklogItem
 from app.models.kpi import KPI
+from app.models.project import Project
 from app.models.release import Release, ReleaseItem
 from app.models.user_task import UserTask
 
@@ -130,6 +131,8 @@ def compute_project_health(db: Session, tenant_id: int, project_id: int) -> dict
     kpis = db.query(KPI).filter(KPI.project_id == project_id, KPI.tenant_id == tenant_id).all()
     kpis_below = 0
     kpi_progress = []
+    # project_id/project_name match the stats.py dashboard variant's row shape
+    project_name = db.query(Project.name).filter(Project.id == project_id).scalar() or "—"
     for k in kpis:
         try:
             target = float(k.target_value) if k.target_value else 0
@@ -142,6 +145,7 @@ def compute_project_health(db: Session, tenant_id: int, project_id: int) -> dict
         kpi_progress.append({
             "id": k.id, "name": k.name, "current": current,
             "target": target, "unit": k.unit, "progress": min(100, pct),
+            "project_id": project_id, "project_name": project_name,
         })
 
     # Composite health score (0-100)

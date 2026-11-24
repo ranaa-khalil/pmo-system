@@ -4,6 +4,11 @@
 export const tenants = {
 // ===== Tenant state =====
 currentTenant: null,
+// Loading flags declared up front (QA F5): the x-if templates in
+// clients.html/projects.html evaluate them at first render — undeclared
+// store keys throw uncaught ReferenceErrors on every boot.
+clientsLoading: false,
+projectsLoading: false,
 tenantEditForm: { name: '' },
 tenantMembers: [],
 inviteForm: { email: '', role: 'member' },

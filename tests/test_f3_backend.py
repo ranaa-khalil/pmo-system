@@ -27,10 +27,9 @@ from app.models.backlog_item import BacklogItem
 from app.models.client import Client
 from app.models.llm_usage import LlmUsage
 from app.models.project import Project
-from app.models.tenant import Tenant, TenantMembership
+from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.usage_service import derive_llm_usage_rollup
-
 
 # ── helpers ──────────────────────────────────────────────────────────────
 
@@ -236,7 +235,7 @@ class TestBacklogBulk:
         data = resp.json()
         assert data["advanced"] == 3 and data["failed"] == 0
         assert [r["id"] for r in data["results"]] == ids
-        for r, it in zip(data["results"], items):
+        for r, _it in zip(data["results"], items, strict=False):
             assert r["ok"] is True
             assert r["previous_phase"] == "Requirements"
             assert r["phase"] == "Design"
@@ -247,7 +246,7 @@ class TestBacklogBulk:
             ArtifactChain.action == "advanced",
         ).all()
         assert len(rows) == 3
-        for r, it in zip(data["results"], items):
+        for r, it in zip(data["results"], items, strict=False):
             entry = next(e for e in rows if e.entity_id == r["id"])
             assert entry.seq == 1
             assert entry.payload == {"title": it["title"], "to_phase": "Design", "status": "In Progress"}
@@ -272,7 +271,9 @@ class TestBacklogBulk:
         ).all()
         by_item = {r.entity_id: r for r in rows}
         # same machine payload (titles differ by design — normalize them out)
-        machine = lambda e: {k: v for k, v in (e.payload or {}).items() if k != "title"}
+        def machine(e):
+            return {k: v for k, v in (e.payload or {}).items() if k != "title"}
+
         assert machine(by_item[twin_a["id"]]) == machine(by_item[twin_b["id"]]) == {"to_phase": "Design", "status": "In Progress"}
         assert by_item[twin_a["id"]].seq == by_item[twin_b["id"]].seq == 1
         assert by_item[twin_a["id"]].hash != by_item[twin_b["id"]].hash  # per-entity chains

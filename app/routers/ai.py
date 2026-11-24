@@ -828,7 +828,7 @@ def create_automation_rule(
     from app.services.plan_enforcement import require_feature
 
     require_feature(current_tenant.plan, "ai_assistant")
-    from app.models.automation_rule import AutomationRule, RULE_TRIGGERS, RULE_ACTIONS
+    from app.models.automation_rule import RULE_ACTIONS, RULE_TRIGGERS, AutomationRule
 
     trigger = (req.get("trigger") or "").strip()
     if trigger not in RULE_TRIGGERS:

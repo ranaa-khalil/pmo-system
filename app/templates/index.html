@@ -99,6 +99,10 @@
      Work, Today rows, project backlog rows, dashboard, capture-box Skip AI. -->
 {% include 'components/item_drawer.html' %}
 
+<!-- Release + approval detail modals (QA F3): index level, outside the
+     route-scoped views — they render from every route (dashboard rows too). -->
+{% include 'components/approval_modals.html' %}
+
 {% include 'pmo/modals/fab.html' %}
 
 {% include 'pmo/modals/task.html' %}

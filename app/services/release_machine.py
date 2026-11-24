@@ -263,4 +263,9 @@ def advance_backlog_item_phase(db: Session, tenant: Tenant, user: User, item: Ba
         payload={"title": item.title, "to_phase": item.current_phase, "status": item.status},
     )
 
+    # The audit writes above are flush-only — commit them or they roll back
+    # when the request session closes (live-only failure; the suite is green
+    # either way because same-session tests read flushed rows in-transaction).
+    db.commit()
+
     return item

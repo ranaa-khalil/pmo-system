@@ -581,3 +581,40 @@ def test_ux_sweep_row_controls_are_touch_visible():
     for name in ("project_detail.html", "clients.html", "tasks.html", "projects.html"):
         src = (REPO / f"app/templates/pmo/views/{name}").read_text(encoding="utf-8")
         assert "opacity-0 group-hover:opacity-100" not in src, f"{name} still has hover-only controls"
+
+
+def test_css_version_parity():
+    """The compiled CSS link's ?v= MUST equal the JS import-graph version in
+    pmo-app.js — the CSS is immutable-cached 1yr, so a stale pin (it sat at
+    20261122 through every rebuild) served old styles to new markup: the
+    drawer rendered w-full uncapped (read as full-screen) and new board
+    classes were missing. Bump BOTH together with every build:css."""
+    index = (REPO / "app/templates/index.html").read_text(encoding="utf-8")
+    link = re.search(r'tailwind\.compiled\.css\?v=([a-z0-9]+)', index)
+    assert link, "the CSS link must carry ?v="
+    app_js = _read(APP_JS) if "APP_JS" in dir() else None
+    if app_js is None:
+        import pathlib
+        app_js = (REPO / "app/static/js/app/pmo-app.js").read_text(encoding="utf-8")
+    # the domain import specifiers only — ALPINE_URL carries its own deliberate pin
+    js_versions = set(re.findall(r"from '\./domains/[a-z_]+\.js\?v=([a-z0-9]+)'", app_js))
+    assert len(js_versions) == 1, f"the JS import graph must pin ONE version, found {js_versions}"
+    assert link.group(1) == js_versions.pop(), "the CSS link ?v= must match the JS import-graph version"
+
+
+def test_work_board_lanes_flex_not_fixed():
+    """UX fix: w-64 fixed lanes forced a horizontal scroll at any desktop
+    width — lanes flex to share the row with a min floor."""
+    html = _read(REPO / "app/templates/pmo/views/work.html")
+    assert 'flex-1 min-w-[200px]' in html, "board lanes flex with a floor"
+    assert 'w-64 flex-shrink-0' not in html, "fixed 256px lanes are gone"
+
+
+def test_work_board_lanes_narrow_with_project_filter():
+    """UX fix: the lane union ignored the project filter — selecting one
+    project still rendered every project's lanes. A project selection is a
+    scope change: lanes come from that project's rail only; status chips
+    (all/mine/blocked/overdue) keep the stable union."""
+    js = _read(BACKLOG_JS)
+    body = _fn_body(js, "workRailPhaseNames")
+    assert "workProjectFilter" in body, "the lane union respects the project filter"

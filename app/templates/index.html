@@ -10,7 +10,12 @@
     <!-- Compiled Tailwind (ADR-07 — the Play CDN JIT is gone; artifact built by
          npm run build:css from tailwind.src.css + tokens.css, ?v= cache-busted,
          same head position the JIT's injected style occupied) -->
-    <link rel="stylesheet" href="/static/css/tailwind.compiled.css?v=20261122">
+    <!-- CSS ?v= MUST match the JS import-graph version in pmo-app.js — the
+         compiled CSS is immutable-cached 1yr, so a stale pin here (it sat at
+         20261122 through every rebuild) serves old styles to new markup:
+         the drawer rendered w-full uncapped (read as full-screen) and new
+         board classes were missing. Pinned by test_css_version_parity. -->
+    <link rel="stylesheet" href="/static/css/tailwind.compiled.css?v=20261123l">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;600;700;800;900&display=swap" rel="stylesheet">

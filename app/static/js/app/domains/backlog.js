@@ -794,9 +794,15 @@ workRailPhaseNames() {
     // filter chips), each project's rail order preserved (Rethink v2 C2).
     // Rails load lazily per project; the loader re-lanes when they land.
     // No rail at all → the items' observed phases.
+    // A PROJECT filter narrows the dataset's scope — lanes then come from that
+    // project's rail only (status chips all/mine/blocked/overdue keep the
+    // stable union; a project selection is a scope change, not a filter).
     const pids = [];
     const seen = new Set();
-    for (const it of this.workItems || []) {
+    const source = this.workProjectFilter
+        ? (this.workItems || []).filter(i => String(i.project_id) === String(this.workProjectFilter))
+        : (this.workItems || []);
+    for (const it of source) {
         const pid = Number(it.project_id);
         if (pid && !seen.has(pid)) { seen.add(pid); pids.push(pid); }
     }

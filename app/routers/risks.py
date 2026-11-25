@@ -23,6 +23,7 @@ from app.models.risk import ESCALATION_TARGET, KIND_STATUSES, RAID_KINDS, Risk
 from app.models.tenant import TenantMembership
 from app.models.user import User
 from app.permissions import can_manage_project
+from app.services.scope import tenant_scoped
 
 router = APIRouter(prefix="/api", tags=["risks"])
 
@@ -98,8 +99,8 @@ def _load_risk_with_permission(db: Session, risk_id: int, user: User) -> Risk:
 @router.get("/projects/{project_id}/risks")
 def list_risks(project_id: int, kind: str | None = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     project = _load_project(db, project_id, current_user)
-    query = db.query(Risk).filter(
-        Risk.tenant_id == project.tenant_id, Risk.project_id == project.id,
+    query = tenant_scoped(db, Risk, project.tenant_id).filter(
+        Risk.project_id == project.id,
     )
     if kind:
         if kind not in RAID_KINDS:

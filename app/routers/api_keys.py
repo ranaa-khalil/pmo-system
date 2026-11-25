@@ -8,6 +8,7 @@ from app.dependencies import get_current_user
 from app.models.api_key import ApiKey
 from app.models.tenant import Tenant
 from app.models.user import User
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant, require_tenant_role
 
 router = APIRouter(prefix="/api", tags=["api-keys"])
@@ -70,9 +71,7 @@ def list_api_keys(
     _user: User = Depends(require_tenant_role("owner", "admin")),
 ):
     """List all API keys for the current tenant."""
-    keys = db.query(ApiKey).filter(
-        ApiKey.tenant_id == current_tenant.id,
-    ).order_by(ApiKey.created_at.desc()).all()
+    keys = tenant_scoped(db, ApiKey, current_tenant.id).order_by(ApiKey.created_at.desc()).all()
 
     return [
         {
@@ -96,9 +95,8 @@ def revoke_api_key(
     _user: User = Depends(require_tenant_role("owner", "admin")),
 ):
     """Revoke (delete) an API key."""
-    api_key = db.query(ApiKey).filter(
+    api_key = tenant_scoped(db, ApiKey, current_tenant.id).filter(
         ApiKey.id == key_id,
-        ApiKey.tenant_id == current_tenant.id,
     ).first()
     if not api_key:
         raise HTTPException(404, "API key not found.")

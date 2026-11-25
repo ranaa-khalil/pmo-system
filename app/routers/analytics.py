@@ -16,6 +16,7 @@ from app.services.analytics_service import (
     project_analytics_summary,
     velocity_per_release,
 )
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["analytics"])
@@ -30,7 +31,7 @@ def get_project_analytics(
 ):
     """Get complete analytics summary for a project."""
     from fastapi import HTTPException
-    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
     return project_analytics_summary(db, current_tenant.id, project_id)
@@ -47,7 +48,7 @@ def get_brd_coverage(
     from fastapi import HTTPException
 
     from app.services.brd import build_brd_coverage
-    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
     return build_brd_coverage(db, current_tenant, project)
@@ -62,7 +63,7 @@ def get_velocity(
 ):
     """Items completed per release (velocity)."""
     from fastapi import HTTPException
-    if not db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first():
+    if not tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first():
         raise HTTPException(404, "Project not found")
     return velocity_per_release(db, current_tenant.id, project_id)
 

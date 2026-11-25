@@ -18,6 +18,7 @@ from app.services.lifecycle import (
     LIFECYCLE_TEMPLATES,
     template_for,
 )
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api/lifecycle", tags=["lifecycle"])
@@ -45,8 +46,7 @@ def list_types(
     """Available project types with their template names (custom ones included)."""
     from app.models.lifecycle_template import TenantLifecycleTemplate
     rows = (
-        db.query(TenantLifecycleTemplate)
-        .filter(TenantLifecycleTemplate.tenant_id == current_tenant.id)
+        tenant_scoped(db, TenantLifecycleTemplate, current_tenant.id)
         .all()
     )
     custom = [{"key": r.project_type, "name": r.name, "custom": True} for r in rows]
@@ -95,8 +95,7 @@ def list_tenant_templates(
     """All custom lifecycle templates the tenant has defined."""
     from app.models.lifecycle_template import TenantLifecycleTemplate
     rows = (
-        db.query(TenantLifecycleTemplate)
-        .filter(TenantLifecycleTemplate.tenant_id == current_tenant.id)
+        tenant_scoped(db, TenantLifecycleTemplate, current_tenant.id)
         .order_by(TenantLifecycleTemplate.id)
         .all()
     )
@@ -144,9 +143,8 @@ def create_tenant_template(
         )
 
     row = (
-        db.query(TenantLifecycleTemplate)
+        tenant_scoped(db, TenantLifecycleTemplate, current_tenant.id)
         .filter(
-            TenantLifecycleTemplate.tenant_id == current_tenant.id,
             TenantLifecycleTemplate.project_type == key,
         )
         .first()
@@ -200,10 +198,9 @@ def delete_tenant_template(
     """Remove a custom template — the project type falls back to the built-in."""
     from app.models.lifecycle_template import TenantLifecycleTemplate
     row = (
-        db.query(TenantLifecycleTemplate)
+        tenant_scoped(db, TenantLifecycleTemplate, current_tenant.id)
         .filter(
             TenantLifecycleTemplate.id == template_id,
-            TenantLifecycleTemplate.tenant_id == current_tenant.id,
         )
         .first()
     )

@@ -26,6 +26,7 @@ from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.artifact_chain import append_artifact
 from app.services.email import send_email
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["reports"])
@@ -91,8 +92,8 @@ def send_status_report(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Generate a status report snapshot and lock it: one artifact_chain entry per send."""
-    project = db.query(Project).filter(
-        Project.id == project_id, Project.tenant_id == current_tenant.id
+    project = tenant_scoped(db, Project, current_tenant.id).filter(
+        Project.id == project_id
     ).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -114,8 +115,8 @@ def send_status_report(
         pm = db.query(User).filter(User.id == project.project_manager_id).first()
         if pm and pm.email:
             recipients.append({"name": pm.name, "email": pm.email, "role": "pm"})
-    for st in db.query(Stakeholder).filter(
-        Stakeholder.project_id == project.id, Stakeholder.tenant_id == current_tenant.id,
+    for st in tenant_scoped(db, Stakeholder, current_tenant.id).filter(
+        Stakeholder.project_id == project.id,
     ).all():
         if st.email:
             recipients.append({"name": st.name, "email": st.email, "role": st.role_name})
@@ -151,15 +152,14 @@ def list_status_reports(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Delivered reports for one project — newest first, from the immutable chain."""
-    project = db.query(Project).filter(
-        Project.id == project_id, Project.tenant_id == current_tenant.id
+    project = tenant_scoped(db, Project, current_tenant.id).filter(
+        Project.id == project_id
     ).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    entries = db.query(ArtifactChain).filter(
+    entries = tenant_scoped(db, ArtifactChain, current_tenant.id).filter(
         ArtifactChain.entity_type == "report",
         ArtifactChain.entity_id == project_id,
-        ArtifactChain.tenant_id == current_tenant.id,
     ).order_by(ArtifactChain.seq.desc()).limit(20).all()
     return [
         {

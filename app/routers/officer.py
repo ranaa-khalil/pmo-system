@@ -25,6 +25,7 @@ from app.models.tenant_setting import SETTING_RULES_ENABLED
 from app.models.user import User
 from app.services.officer import ensure_rule_templates
 from app.services.rules_engine import evaluate_rules
+from app.services.scope import tenant_scoped
 from app.services.settings_service import rules_enabled, set_setting
 from app.services.tenant import get_current_tenant
 from app.worker import JOBS, scheduler_status
@@ -41,13 +42,11 @@ def officer_status(
 ):
     sched = scheduler_status()
     rules_total = (
-        db.query(AutomationRule)
-        .filter(AutomationRule.tenant_id == current_tenant.id)
+        tenant_scoped(db, AutomationRule, current_tenant.id)
         .count()
     )
     rules_on_count = (
-        db.query(AutomationRule)
-        .filter(AutomationRule.tenant_id == current_tenant.id)
+        tenant_scoped(db, AutomationRule, current_tenant.id)
         .filter(AutomationRule.enabled.is_(True))
         .count()
     )

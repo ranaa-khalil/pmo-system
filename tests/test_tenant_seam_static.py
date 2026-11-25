@@ -16,6 +16,10 @@ with it (the test_p0_fix_round_static.py pattern):
       queries, User.active_tenant_id) — a forgotten fragment (the quiet leak
       vector) fails here; migrate it through the seam or document the
       exclusion.
+- S2c/S3c the COLD routers (2026-11-25 cold round: the 29 remaining router
+      files, 218 inline fragments migrated through scripts/
+      tenant_seam_codemod.py) get the same two pins — seam call sites per
+      file + only the documented inline exclusions left behind.
 """
 import re
 from pathlib import Path
@@ -73,6 +77,92 @@ ALLOWED_INLINE = {
     "app/services/copilot.py": [
         "Project.tenant_id == tid",  # _assigned_project_ids: Project.id COLUMN query
         "TenantMembership.tenant_id == tenant.id",  # assign_user: assignee membership check
+    ],
+}
+
+# The cold routers that carried inline fragments before the cold round —
+# everything in app/routers/ outside the 10 hot files (218 fragments
+# migrated through the codemod; auth.py and time_entries.py carry ONLY
+# excluded shapes, so they import no seam and have no seam sites).
+COLD_FILES = [
+    "app/routers/tenant.py", "app/routers/planning.py", "app/routers/infrastructure.py",
+    "app/routers/github_sync.py", "app/routers/forms.py", "app/routers/notifications.py",
+    "app/routers/mcp.py", "app/routers/personas.py", "app/routers/decisions.py",
+    "app/routers/comments.py", "app/routers/share.py", "app/routers/item_types.py",
+    "app/routers/guest_links.py", "app/routers/engagements.py", "app/routers/reports.py",
+    "app/routers/proofs.py", "app/routers/lifecycle.py", "app/routers/today.py",
+    "app/routers/portal.py", "app/routers/analytics.py", "app/routers/agents.py",
+    "app/routers/views.py", "app/routers/risks.py", "app/routers/officer.py",
+    "app/routers/auth.py", "app/routers/api_keys.py", "app/routers/time_entries.py",
+    "app/routers/slack.py", "app/routers/artifacts.py",
+]
+
+# Pinned seam call sites per cold file (the cold round's shape — a regression
+# that silently un-migrates a query drops the count with it). auth.py /
+# time_entries.py are absent: every fragment they carried is an excluded shape.
+COLD_SEAM_SITES = {
+    "app/routers/tenant.py": 34,
+    "app/routers/planning.py": 36,
+    "app/routers/infrastructure.py": 28,
+    "app/routers/github_sync.py": 15,
+    "app/routers/forms.py": 13,
+    "app/routers/notifications.py": 11,
+    "app/routers/mcp.py": 11,
+    "app/routers/personas.py": 8,
+    "app/routers/decisions.py": 3,
+    "app/routers/comments.py": 7,
+    "app/routers/share.py": 6,
+    "app/routers/item_types.py": 5,
+    "app/routers/guest_links.py": 5,
+    "app/routers/engagements.py": 4,
+    "app/routers/reports.py": 4,
+    "app/routers/proofs.py": 4,
+    "app/routers/lifecycle.py": 4,
+    "app/routers/today.py": 3,
+    "app/routers/portal.py": 3,
+    "app/routers/analytics.py": 3,
+    "app/routers/agents.py": 3,
+    "app/routers/views.py": 1,
+    "app/routers/risks.py": 1,
+    "app/routers/officer.py": 2,
+    "app/routers/api_keys.py": 2,
+    "app/routers/slack.py": 1,
+    "app/routers/artifacts.py": 1,
+}
+
+# Every inline `tenant_id ==` fragment left in a cold file, each carried by the
+# seam's documented exclusion — never a tenant-owned entity read.
+COLD_ALLOWED_INLINE = {
+    "app/routers/tenant.py": [
+        "TenantMembership.tenant_id == current_tenant.id",  # member checks
+        "TenantMembership.tenant_id == req.tenant_id",  # invite: target-tenant membership check
+        "TenantMembership.tenant_id == tenant_id",  # membership checks
+        "TenantMembership.tenant_id == t.id",  # admin listing: member counts
+        "user.active_tenant_id == tenant_id",  # active-tenant FK, not a tenant-owned entity
+    ],
+    "app/routers/decisions.py": [
+        "ok = item.tenant_id",  # Python authorization check, not a query filter
+        "ok = proj is not None and proj.tenant_id",  # Python authorization check
+        "ok = request.tenant_id",  # Python authorization check
+    ],
+    "app/routers/engagements.py": [
+        "TenantMembership.tenant_id == current_tenant.id",  # lead membership check
+    ],
+    "app/routers/views.py": [
+        "TenantMembership.tenant_id == project.tenant_id",  # viewer membership check
+    ],
+    "app/routers/risks.py": [
+        "TenantMembership.tenant_id == project.tenant_id",  # viewer membership check
+    ],
+    "app/routers/auth.py": [
+        "TenantMembership.tenant_id == current_user.active_tenant_id",  # tenant switch check
+        "current_user.active_tenant_id == tenant.id",  # is_active flag, not a query filter
+    ],
+    "app/routers/time_entries.py": [
+        "TenantMembership.tenant_id == project.tenant_id",  # assignee membership check
+    ],
+    "app/routers/infrastructure.py": [
+        ".filter(Secret.tenant_id == tid)",  # access logs: JOIN filter on a DIFFERENT model
     ],
 }
 
@@ -159,3 +249,59 @@ def test_s3_exclusions_are_not_tenant_owned_entity_reads():
     copilot = _read(REPO / "app/services/copilot.py")
     assert "db.query(Project.id)" in copilot, "copilot's exclusion is the Project.id COLUMN query"
     assert "db.query(TenantMembership)" in copilot, "copilot's membership check stays hand-written"
+
+
+# ── S2c — the cold routers route their reads through the seam ─────────────
+
+
+def test_s2c_cold_files_import_the_seam():
+    """Every cold file with migrated reads imports the ONE scoping seam.
+    auth.py / time_entries.py carry only excluded shapes and import none."""
+    for rel in COLD_SEAM_SITES:
+        src = _read(REPO / rel)
+        assert "from app.services.scope import tenant_scoped" in src, (
+            f"{rel} must import the ONE scoping seam"
+        )
+
+
+def test_s2c_cold_files_route_their_reads_through_the_seam():
+    """The pinned cold-round shape: the exact number of seam call sites per
+    cold file — a query silently un-migrated drops the count with it."""
+    for rel, expected in COLD_SEAM_SITES.items():
+        src = _read(REPO / rel)
+        found = len(re.findall(r"tenant_scoped\(db,", src))
+        assert found == expected, f"{rel}: expected {expected} tenant_scoped call sites, found {found}"
+
+
+# ── S3c — cold files keep only the documented inline exclusions ───────────
+
+
+def test_s3c_cold_files_keep_only_the_documented_inline_exclusions():
+    """A NEW inline `tenant_id ==` fragment in a cold file fails here — the
+    quiet leak vector. Same contract as the hot files (S3): the per-file
+    count is pinned (tenant.py carries 19 fragments across 5 exclusion
+    shapes, so the count is pinned separately from the shapes) and every
+    remaining fragment must carry a documented exclusion."""
+    EXPECTED_INLINE = {
+        "app/routers/tenant.py": 19,
+        "app/routers/decisions.py": 4,
+        "app/routers/engagements.py": 1,
+        "app/routers/views.py": 1,
+        "app/routers/risks.py": 1,
+        "app/routers/auth.py": 2,
+        "app/routers/time_entries.py": 1,
+        "app/routers/infrastructure.py": 1,
+    }
+    for rel in COLD_FILES:
+        src = _read(REPO / rel)
+        lines = [l for l in src.splitlines() if re.search(r"tenant_id\s*==", l)]
+        expected = EXPECTED_INLINE.get(rel, 0)
+        allowed = COLD_ALLOWED_INLINE.get(rel, [])
+        assert len(lines) == expected, (
+            f"{rel}: expected {expected} inline fragment(s), found {len(lines)} — "
+            + " | ".join(l.strip()[:100] for l in lines)
+        )
+        for line in lines:
+            assert any(a in line for a in allowed), (
+                f"{rel}: undocumented inline fragment: {line.strip()[:120]}"
+            )

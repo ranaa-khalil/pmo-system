@@ -25,6 +25,7 @@ from app.models.user import User
 from app.schemas.guest_link import GuestDecisionCreate, GuestLinkCreate
 from app.services.auth import hash_password, verify_password
 from app.services.notifications import log_activity, notify_approval_result
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["guest-links"])
@@ -61,16 +62,15 @@ def create_guest_link(
 ):
     """Create a tokenized guest link for one approval request."""
     tid = current_tenant.id
-    request = db.query(ApprovalRequest).filter(
-        ApprovalRequest.id == approval_id, ApprovalRequest.tenant_id == tid
+    request = tenant_scoped(db, ApprovalRequest, tid).filter(
+        ApprovalRequest.id == approval_id
     ).first()
     if not request:
         raise HTTPException(status_code=404, detail="Approval request not found")
     if body.step_id:
-        step = db.query(ApprovalStep).filter(
+        step = tenant_scoped(db, ApprovalStep, tid).filter(
             ApprovalStep.id == body.step_id,
             ApprovalStep.request_id == approval_id,
-            ApprovalStep.tenant_id == tid,
         ).first()
         if not step:
             raise HTTPException(status_code=404, detail="Approval step not found")
@@ -107,9 +107,8 @@ def list_guest_links(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List the guest links on one approval request."""
-    links = db.query(ApprovalGuestLink).filter(
+    links = tenant_scoped(db, ApprovalGuestLink, current_tenant.id).filter(
         ApprovalGuestLink.request_id == approval_id,
-        ApprovalGuestLink.tenant_id == current_tenant.id,
     ).order_by(ApprovalGuestLink.created_at.desc()).all()
     return [_link_payload(l) for l in links]
 
@@ -122,8 +121,8 @@ def revoke_guest_link(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Revoke a guest link (decisions through it then 410)."""
-    link = db.query(ApprovalGuestLink).filter(
-        ApprovalGuestLink.id == link_id, ApprovalGuestLink.tenant_id == current_tenant.id
+    link = tenant_scoped(db, ApprovalGuestLink, current_tenant.id).filter(
+        ApprovalGuestLink.id == link_id
     ).first()
     if not link:
         raise HTTPException(status_code=404, detail="Link not found")
@@ -269,8 +268,8 @@ def guest_decide(token: str, body: GuestDecisionCreate, db: Session = Depends(ge
                     from app.models.release import Release
                     from app.routers.releases import _create_phase_approval
 
-                    release = db.query(Release).filter(
-                        Release.id == request.release_id, Release.tenant_id == link.tenant_id
+                    release = tenant_scoped(db, Release, link.tenant_id).filter(
+                        Release.id == request.release_id
                     ).first()
                     if release and release.status != request.target_phase:
                         release.status = request.target_phase

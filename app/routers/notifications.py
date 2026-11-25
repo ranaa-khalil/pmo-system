@@ -22,6 +22,7 @@ from app.models.user import User as UserModel
 from app.models.user_task import UserTask
 from app.services.health import compute_project_health
 from app.services.notifications import ensure_preferences
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["notifications"])
@@ -65,14 +66,13 @@ def get_notifications(
 ):
     """Get current user's notifications."""
     tid = current_tenant.id
-    q = db.query(Notification).filter(Notification.user_id == current_user.id, Notification.tenant_id == tid)
+    q = tenant_scoped(db, Notification, tid).filter(Notification.user_id == current_user.id)
     if unread_only:
         q = q.filter(Notification.read == False)
     notifs = q.order_by(Notification.created_at.desc()).limit(limit).all()
-    unread_count = db.query(Notification).filter(
+    unread_count = tenant_scoped(db, Notification, tid).filter(
         Notification.user_id == current_user.id,
         Notification.read == False,
-        Notification.tenant_id == tid,
     ).count()
     return {
         "notifications": [
@@ -100,10 +100,9 @@ def mark_notification_read(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Mark a single notification as read."""
-    notif = db.query(Notification).filter(
+    notif = tenant_scoped(db, Notification, current_tenant.id).filter(
         Notification.id == notification_id,
         Notification.user_id == current_user.id,
-        Notification.tenant_id == current_tenant.id,
     ).first()
     if not notif:
         raise HTTPException(404, "Notification not found")
@@ -119,10 +118,9 @@ def mark_all_read(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Mark all notifications as read."""
-    db.query(Notification).filter(
+    tenant_scoped(db, Notification, current_tenant.id).filter(
         Notification.user_id == current_user.id,
         Notification.read == False,
-        Notification.tenant_id == current_tenant.id,
     ).update({"read": True})
     db.commit()
     return {"ok": True}
@@ -136,10 +134,9 @@ def delete_notification(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Delete a notification."""
-    notif = db.query(Notification).filter(
+    notif = tenant_scoped(db, Notification, current_tenant.id).filter(
         Notification.id == notification_id,
         Notification.user_id == current_user.id,
-        Notification.tenant_id == current_tenant.id,
     ).first()
     if not notif:
         raise HTTPException(404, "Notification not found")
@@ -199,7 +196,7 @@ def get_activity(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Get activity log entries (global or per-project)."""
-    q = db.query(ActivityLog).filter(ActivityLog.tenant_id == current_tenant.id)
+    q = tenant_scoped(db, ActivityLog, current_tenant.id)
     if project_id:
         q = q.filter(ActivityLog.project_id == project_id)
     entries = q.order_by(ActivityLog.created_at.desc()).limit(limit).all()
@@ -233,7 +230,7 @@ def export_backlog(
         raise HTTPException(401, "Token required")
     current_user = _get_user_from_token(token, db)
     tid = _resolve_tenant_id(current_user, db)
-    items = db.query(BacklogItem).filter(BacklogItem.project_id == project_id, BacklogItem.tenant_id == tid).all()
+    items = tenant_scoped(db, BacklogItem, tid).filter(BacklogItem.project_id == project_id).all()
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -249,7 +246,7 @@ def export_backlog(
         ])
 
     output.seek(0)
-    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == tid).first()
+    project = tenant_scoped(db, Project, tid).filter(Project.id == project_id).first()
     filename = f"backlog_{project.name.replace(' ', '_').lower()}.csv" if project else "backlog.csv"
 
     return StreamingResponse(
@@ -269,7 +266,7 @@ def export_tasks(
         raise HTTPException(401, "Token required")
     current_user = _get_user_from_token(token, db)
     tid = _resolve_tenant_id(current_user, db)
-    tasks = db.query(UserTask).filter(UserTask.assigned_to == current_user.id, UserTask.tenant_id == tid).all()
+    tasks = tenant_scoped(db, UserTask, tid).filter(UserTask.assigned_to == current_user.id).all()
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -304,7 +301,7 @@ def export_kpis(
         raise HTTPException(401, "Token required")
     current_user = _get_user_from_token(token, db)
     tid = _resolve_tenant_id(current_user, db)
-    kpis = db.query(KPI).filter(KPI.project_id == project_id, KPI.tenant_id == tid).all()
+    kpis = tenant_scoped(db, KPI, tid).filter(KPI.project_id == project_id).all()
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -324,7 +321,7 @@ def export_kpis(
         ])
 
     output.seek(0)
-    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == tid).first()
+    project = tenant_scoped(db, Project, tid).filter(Project.id == project_id).first()
     filename = f"kpis_{project.name.replace(' ', '_').lower()}.csv" if project else "kpis.csv"
 
     return StreamingResponse(

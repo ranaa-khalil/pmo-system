@@ -18,6 +18,7 @@ from app.models.infrastructure import (
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.encryption import decrypt_value, encrypt_value
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["infrastructure"])
@@ -53,18 +54,17 @@ def get_infra_overview(
     """Get infrastructure overview dashboard data."""
     tid = current_tenant.id
 
-    env_count = db.query(Environment).filter(Environment.tenant_id == tid).count()
-    secret_count = db.query(Secret).filter(Secret.tenant_id == tid).count()
-    asset_count = db.query(Asset).filter(Asset.tenant_id == tid).count()
-    service_count = db.query(InfraService).filter(InfraService.tenant_id == tid).count()
-    db_count = db.query(InfraDatabase).filter(InfraDatabase.tenant_id == tid).count()
+    env_count = tenant_scoped(db, Environment, tid).count()
+    secret_count = tenant_scoped(db, Secret, tid).count()
+    asset_count = tenant_scoped(db, Asset, tid).count()
+    service_count = tenant_scoped(db, InfraService, tid).count()
+    db_count = tenant_scoped(db, InfraDatabase, tid).count()
 
     # Expiring secrets (within 30 days)
     thirty_days = datetime.now(UTC) + timedelta(days=30)
     expiring = (
-        db.query(Secret)
+        tenant_scoped(db, Secret, tid)
         .filter(
-            Secret.tenant_id == tid,
             Secret.expires_at.isnot(None),
             Secret.expires_at <= thirty_days,
         )
@@ -83,11 +83,11 @@ def get_infra_overview(
 
     # Distributions
     assets_by_type = {}
-    for a in db.query(Asset).filter(Asset.tenant_id == tid).all():
+    for a in tenant_scoped(db, Asset, tid).all():
         assets_by_type[a.asset_type] = assets_by_type.get(a.asset_type, 0) + 1
 
     secrets_by_category = {}
-    for s in db.query(Secret).filter(Secret.tenant_id == tid).all():
+    for s in tenant_scoped(db, Secret, tid).all():
         secrets_by_category[s.category] = secrets_by_category.get(s.category, 0) + 1
 
     return {
@@ -125,7 +125,7 @@ def list_environments(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List all environments for the current tenant."""
-    envs = db.query(Environment).filter(Environment.tenant_id == current_tenant.id).order_by(Environment.name).all()
+    envs = tenant_scoped(db, Environment, current_tenant.id).order_by(Environment.name).all()
     return [e.to_dict() for e in envs]
 
 
@@ -162,8 +162,8 @@ def update_environment(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Update an environment."""
-    e = db.query(Environment).filter(
-        Environment.id == env_id, Environment.tenant_id == current_tenant.id
+    e = tenant_scoped(db, Environment, current_tenant.id).filter(
+        Environment.id == env_id
     ).first()
     if not e:
         raise HTTPException(status_code=404, detail="Environment not found")
@@ -183,8 +183,8 @@ def delete_environment(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Delete an environment."""
-    e = db.query(Environment).filter(
-        Environment.id == env_id, Environment.tenant_id == current_tenant.id
+    e = tenant_scoped(db, Environment, current_tenant.id).filter(
+        Environment.id == env_id
     ).first()
     if not e:
         raise HTTPException(status_code=404, detail="Environment not found")
@@ -205,7 +205,7 @@ def list_secrets(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List all secrets for the current tenant (values always masked)."""
-    secrets = db.query(Secret).filter(Secret.tenant_id == current_tenant.id).order_by(Secret.name).all()
+    secrets = tenant_scoped(db, Secret, current_tenant.id).order_by(Secret.name).all()
     return [s.to_dict() for s in secrets]
 
 
@@ -260,8 +260,8 @@ def update_secret(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Update a secret. If value is changed, a new version is created."""
-    s = db.query(Secret).filter(
-        Secret.id == secret_id, Secret.tenant_id == current_tenant.id
+    s = tenant_scoped(db, Secret, current_tenant.id).filter(
+        Secret.id == secret_id
     ).first()
     if not s:
         raise HTTPException(status_code=404, detail="Secret not found")
@@ -296,8 +296,8 @@ def delete_secret(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Delete a secret."""
-    s = db.query(Secret).filter(
-        Secret.id == secret_id, Secret.tenant_id == current_tenant.id
+    s = tenant_scoped(db, Secret, current_tenant.id).filter(
+        Secret.id == secret_id
     ).first()
     if not s:
         raise HTTPException(status_code=404, detail="Secret not found")
@@ -316,8 +316,8 @@ def reveal_secret(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Reveal a secret's decrypted value. Always logged."""
-    s = db.query(Secret).filter(
-        Secret.id == secret_id, Secret.tenant_id == current_tenant.id
+    s = tenant_scoped(db, Secret, current_tenant.id).filter(
+        Secret.id == secret_id
     ).first()
     if not s:
         raise HTTPException(status_code=404, detail="Secret not found")
@@ -335,8 +335,8 @@ def rotate_secret(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Rotate a secret — saves old version, creates new version with new value."""
-    s = db.query(Secret).filter(
-        Secret.id == secret_id, Secret.tenant_id == current_tenant.id
+    s = tenant_scoped(db, Secret, current_tenant.id).filter(
+        Secret.id == secret_id
     ).first()
     if not s:
         raise HTTPException(status_code=404, detail="Secret not found")
@@ -366,8 +366,8 @@ def list_secret_versions(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List version history for a secret."""
-    s = db.query(Secret).filter(
-        Secret.id == secret_id, Secret.tenant_id == current_tenant.id
+    s = tenant_scoped(db, Secret, current_tenant.id).filter(
+        Secret.id == secret_id
     ).first()
     if not s:
         raise HTTPException(status_code=404, detail="Secret not found")
@@ -390,8 +390,8 @@ def rollback_secret(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Rollback a secret to a previous version."""
-    s = db.query(Secret).filter(
-        Secret.id == secret_id, Secret.tenant_id == current_tenant.id
+    s = tenant_scoped(db, Secret, current_tenant.id).filter(
+        Secret.id == secret_id
     ).first()
     if not s:
         raise HTTPException(status_code=404, detail="Secret not found")
@@ -430,8 +430,8 @@ def get_secret_audit(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Get the access audit log for a secret."""
-    s = db.query(Secret).filter(
-        Secret.id == secret_id, Secret.tenant_id == current_tenant.id
+    s = tenant_scoped(db, Secret, current_tenant.id).filter(
+        Secret.id == secret_id
     ).first()
     if not s:
         raise HTTPException(status_code=404, detail="Secret not found")
@@ -465,7 +465,7 @@ def list_assets(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List all assets for the current tenant."""
-    assets = db.query(Asset).filter(Asset.tenant_id == current_tenant.id).order_by(Asset.name).all()
+    assets = tenant_scoped(db, Asset, current_tenant.id).order_by(Asset.name).all()
     return [a.to_dict() for a in assets]
 
 
@@ -506,8 +506,8 @@ def update_asset(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Update an asset."""
-    a = db.query(Asset).filter(
-        Asset.id == asset_id, Asset.tenant_id == current_tenant.id
+    a = tenant_scoped(db, Asset, current_tenant.id).filter(
+        Asset.id == asset_id
     ).first()
     if not a:
         raise HTTPException(status_code=404, detail="Asset not found")
@@ -530,8 +530,8 @@ def delete_asset(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Delete an asset."""
-    a = db.query(Asset).filter(
-        Asset.id == asset_id, Asset.tenant_id == current_tenant.id
+    a = tenant_scoped(db, Asset, current_tenant.id).filter(
+        Asset.id == asset_id
     ).first()
     if not a:
         raise HTTPException(status_code=404, detail="Asset not found")
@@ -552,7 +552,7 @@ def list_services(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List all services for the current tenant."""
-    services = db.query(InfraService).filter(InfraService.tenant_id == current_tenant.id).order_by(InfraService.name).all()
+    services = tenant_scoped(db, InfraService, current_tenant.id).order_by(InfraService.name).all()
     return [s.to_dict() for s in services]
 
 
@@ -591,8 +591,8 @@ def update_service(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Update a service."""
-    s = db.query(InfraService).filter(
-        InfraService.id == service_id, InfraService.tenant_id == current_tenant.id
+    s = tenant_scoped(db, InfraService, current_tenant.id).filter(
+        InfraService.id == service_id
     ).first()
     if not s:
         raise HTTPException(status_code=404, detail="Service not found")
@@ -615,8 +615,8 @@ def delete_service(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Delete a service."""
-    s = db.query(InfraService).filter(
-        InfraService.id == service_id, InfraService.tenant_id == current_tenant.id
+    s = tenant_scoped(db, InfraService, current_tenant.id).filter(
+        InfraService.id == service_id
     ).first()
     if not s:
         raise HTTPException(status_code=404, detail="Service not found")
@@ -637,7 +637,7 @@ def list_databases(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List all databases for the current tenant."""
-    databases = db.query(InfraDatabase).filter(InfraDatabase.tenant_id == current_tenant.id).order_by(InfraDatabase.name).all()
+    databases = tenant_scoped(db, InfraDatabase, current_tenant.id).order_by(InfraDatabase.name).all()
     return [d.to_dict() for d in databases]
 
 
@@ -677,8 +677,8 @@ def update_database(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Update a database record."""
-    d = db.query(InfraDatabase).filter(
-        InfraDatabase.id == db_id, InfraDatabase.tenant_id == current_tenant.id
+    d = tenant_scoped(db, InfraDatabase, current_tenant.id).filter(
+        InfraDatabase.id == db_id
     ).first()
     if not d:
         raise HTTPException(status_code=404, detail="Database not found")
@@ -701,8 +701,8 @@ def delete_database(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Delete a database record."""
-    d = db.query(InfraDatabase).filter(
-        InfraDatabase.id == db_id, InfraDatabase.tenant_id == current_tenant.id
+    d = tenant_scoped(db, InfraDatabase, current_tenant.id).filter(
+        InfraDatabase.id == db_id
     ).first()
     if not d:
         raise HTTPException(status_code=404, detail="Database not found")

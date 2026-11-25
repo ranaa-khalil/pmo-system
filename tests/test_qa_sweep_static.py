@@ -91,9 +91,9 @@ def test_b1_log_activity_takes_and_resolves_tenant_id():
 
 
 def test_b1_activity_read_is_tenant_scoped():
-    """GET /api/activity filters on the tenant the helper now writes."""
+    """GET /api/activity reads through the seam — the same tenant guarantee."""
     router = _read(REPO / "app/routers/notifications.py")
-    assert "ActivityLog.tenant_id == current_tenant.id" in router
+    assert "tenant_scoped(db, ActivityLog, current_tenant.id)" in router
 
 
 # ── B2 — create_release: audit write inside the transaction ─────────────

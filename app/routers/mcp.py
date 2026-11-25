@@ -23,6 +23,7 @@ from app.models.roadmap import Roadmap
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.routers.reports import _build_report
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api/mcp", tags=["mcp"])
@@ -122,14 +123,14 @@ def _call_tool(name: str, args: dict, db: Session, tenant: Tenant, user: User) -
     tid = tenant.id
 
     if name == "list_projects":
-        rows = db.query(Project).filter(Project.tenant_id == tid).order_by(Project.id).all()
+        rows = tenant_scoped(db, Project, tid).order_by(Project.id).all()
         return {"projects": [
             {"id": p.id, "name": p.name, "status": p.status, "client_id": p.client_id}
             for p in rows
         ]}
 
     if name == "get_project":
-        p = db.query(Project).filter(Project.id == args["project_id"], Project.tenant_id == tid).first()
+        p = tenant_scoped(db, Project, tid).filter(Project.id == args["project_id"]).first()
         if not p:
             return {"error": f"Project {args['project_id']} not found"}
         items = db.query(BacklogItem).filter(BacklogItem.project_id == p.id).all()
@@ -147,8 +148,8 @@ def _call_tool(name: str, args: dict, db: Session, tenant: Tenant, user: User) -
         }
 
     if name == "list_backlog_items":
-        query = db.query(BacklogItem).filter(
-            BacklogItem.project_id == args["project_id"], BacklogItem.tenant_id == tid
+        query = tenant_scoped(db, BacklogItem, tid).filter(
+            BacklogItem.project_id == args["project_id"]
         )
         if args.get("status"):
             query = query.filter(BacklogItem.status == args["status"])
@@ -162,8 +163,8 @@ def _call_tool(name: str, args: dict, db: Session, tenant: Tenant, user: User) -
         ]}
 
     if name == "get_item":
-        i = db.query(BacklogItem).filter(
-            BacklogItem.id == args["item_id"], BacklogItem.tenant_id == tid
+        i = tenant_scoped(db, BacklogItem, tid).filter(
+            BacklogItem.id == args["item_id"]
         ).first()
         if not i:
             return {"error": f"Item {args['item_id']} not found"}
@@ -178,7 +179,7 @@ def _call_tool(name: str, args: dict, db: Session, tenant: Tenant, user: User) -
         }
 
     if name == "create_backlog_item":
-        p = db.query(Project).filter(Project.id == args["project_id"], Project.tenant_id == tid).first()
+        p = tenant_scoped(db, Project, tid).filter(Project.id == args["project_id"]).first()
         if not p:
             return {"error": f"Project {args['project_id']} not found"}
         item = BacklogItem(
@@ -197,8 +198,8 @@ def _call_tool(name: str, args: dict, db: Session, tenant: Tenant, user: User) -
         return {"created": {"id": item.id, "title": item.title, "status": item.status}}
 
     if name == "update_item_status":
-        i = db.query(BacklogItem).filter(
-            BacklogItem.id == args["item_id"], BacklogItem.tenant_id == tid
+        i = tenant_scoped(db, BacklogItem, tid).filter(
+            BacklogItem.id == args["item_id"]
         ).first()
         if not i:
             return {"error": f"Item {args['item_id']} not found"}
@@ -211,8 +212,8 @@ def _call_tool(name: str, args: dict, db: Session, tenant: Tenant, user: User) -
         return {"updated": {"id": i.id, "title": i.title, "status": i.status}}
 
     if name == "list_releases":
-        rows = db.query(Release).filter(
-            Release.project_id == args["project_id"], Release.tenant_id == tid
+        rows = tenant_scoped(db, Release, tid).filter(
+            Release.project_id == args["project_id"]
         ).order_by(Release.created_at.desc()).all()
         return {"releases": [
             {"id": r.id, "version": r.version, "name": r.name, "status": r.status}
@@ -220,8 +221,8 @@ def _call_tool(name: str, args: dict, db: Session, tenant: Tenant, user: User) -
         ]}
 
     if name == "list_risks":
-        query = db.query(Risk).filter(
-            Risk.project_id == args["project_id"], Risk.tenant_id == tid
+        query = tenant_scoped(db, Risk, tid).filter(
+            Risk.project_id == args["project_id"]
         )
         if args.get("open_only", True):
             query = query.filter(Risk.status != "Closed")
@@ -232,8 +233,8 @@ def _call_tool(name: str, args: dict, db: Session, tenant: Tenant, user: User) -
         ]}
 
     if name == "list_raid":
-        query = db.query(Risk).filter(
-            Risk.project_id == args["project_id"], Risk.tenant_id == tid
+        query = tenant_scoped(db, Risk, tid).filter(
+            Risk.project_id == args["project_id"]
         )
         if args.get("kind"):
             query = query.filter(Risk.kind == args["kind"])
@@ -248,14 +249,14 @@ def _call_tool(name: str, args: dict, db: Session, tenant: Tenant, user: User) -
         ]}
 
     if name == "get_status_report":
-        p = db.query(Project).filter(Project.id == args["project_id"], Project.tenant_id == tid).first()
+        p = tenant_scoped(db, Project, tid).filter(Project.id == args["project_id"]).first()
         if not p:
             return {"error": f"Project {args['project_id']} not found"}
         return _build_report(db, p, user)
 
     if name == "list_approvals":
-        query = db.query(ApprovalRequest).filter(
-            ApprovalRequest.project_id == args["project_id"], ApprovalRequest.tenant_id == tid
+        query = tenant_scoped(db, ApprovalRequest, tid).filter(
+            ApprovalRequest.project_id == args["project_id"]
         )
         if args.get("pending_only", True):
             query = query.filter(ApprovalRequest.status == "Pending")

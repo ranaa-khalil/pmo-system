@@ -16,6 +16,7 @@ from app.dependencies import get_current_user
 from app.models.slack_config import SlackConfig
 from app.models.tenant import Tenant
 from app.models.user import User
+from app.services.scope import tenant_scoped
 from app.services.slack_digest import (
     SlackSendError,
     build_digest,
@@ -34,7 +35,7 @@ class SlackConfigRequest(BaseModel):
 
 
 def _load_config(db: Session, tenant: Tenant) -> SlackConfig | None:
-    return db.query(SlackConfig).filter(SlackConfig.tenant_id == tenant.id).first()
+    return tenant_scoped(db, SlackConfig, tenant.id).first()
 
 
 def _require_admin(db: Session, current_user: User) -> None:

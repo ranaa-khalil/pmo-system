@@ -23,6 +23,7 @@ from app.models.user import User
 from app.schemas.share_link import ShareLinkCreate
 from app.services.auth import hash_password, verify_password
 from app.services.notifications import log_activity
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["share"])
@@ -64,7 +65,7 @@ def create_share_link(
     if body.scope == "project":
         if not body.project_id:
             raise HTTPException(status_code=400, detail="project_id is required for project scope")
-        if not db.query(Project).filter(Project.id == body.project_id, Project.tenant_id == tid).first():
+        if not tenant_scoped(db, Project, tid).filter(Project.id == body.project_id).first():
             raise HTTPException(status_code=404, detail="Project not found")
 
     link = ShareLink(
@@ -98,7 +99,7 @@ def list_share_links(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List the tenant's share links with target names."""
-    links = db.query(ShareLink).filter(ShareLink.tenant_id == current_tenant.id).order_by(
+    links = tenant_scoped(db, ShareLink, current_tenant.id).order_by(
         ShareLink.created_at.desc()
     ).all()
     result = []
@@ -119,8 +120,8 @@ def revoke_share_link(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Revoke a share link (views then 410)."""
-    link = db.query(ShareLink).filter(
-        ShareLink.id == link_id, ShareLink.tenant_id == current_tenant.id
+    link = tenant_scoped(db, ShareLink, current_tenant.id).filter(
+        ShareLink.id == link_id
     ).first()
     if not link:
         raise HTTPException(status_code=404, detail="Link not found")
@@ -194,7 +195,7 @@ def _view_payload(db: Session, link: ShareLink) -> dict:
             ],
         }
     # dashboard scope — tenant-wide aggregate
-    projects = db.query(Project).filter(Project.tenant_id == link.tenant_id).all()
+    projects = tenant_scoped(db, Project, link.tenant_id).all()
     project_data = []
     for p in projects:
         items = db.query(BacklogItem).filter(BacklogItem.project_id == p.id).all()
@@ -206,10 +207,10 @@ def _view_payload(db: Session, link: ShareLink) -> dict:
             "done_items": done,
             "progress": round(done / len(items) * 100) if items else 0,
         })
-    releases = db.query(Release).filter(Release.tenant_id == link.tenant_id).order_by(
+    releases = tenant_scoped(db, Release, link.tenant_id).order_by(
         Release.created_at.desc()
     ).limit(5).all()
-    activity = db.query(ActivityLog).filter(ActivityLog.tenant_id == link.tenant_id).order_by(
+    activity = tenant_scoped(db, ActivityLog, link.tenant_id).order_by(
         ActivityLog.created_at.desc()
     ).limit(10).all()
     return {

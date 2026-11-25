@@ -18,6 +18,7 @@ from app.models.tag import Tag, backlog_item_tags
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.work import WorkList
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 from app.services.today import build_brief, build_today
 
@@ -47,7 +48,7 @@ def work_endpoint(
 
     tag_id filters via the cross-tagging M2M (one tag, many items).
     """
-    projects = db.query(Project).filter(Project.tenant_id == current_tenant.id).all()
+    projects = tenant_scoped(db, Project, current_tenant.id).all()
     project_ids = [p.id for p in projects]
     names = {p.id: p.name for p in projects}
     q = db.query(BacklogItem)
@@ -57,7 +58,7 @@ def work_endpoint(
         q = q.filter(BacklogItem.project_id == project_id)
     if tag_id:
         # Validate the tag belongs to this tenant (404 otherwise), then join
-        if not db.query(Tag).filter(Tag.id == tag_id, Tag.tenant_id == current_tenant.id).first():
+        if not tenant_scoped(db, Tag, current_tenant.id).filter(Tag.id == tag_id).first():
             from fastapi import HTTPException
 
             raise HTTPException(404, "Tag not found in this tenant.")
@@ -167,8 +168,8 @@ def brief_endpoint(
 ):
     """Narrative brief from live data (template v0; nightly AI rewrite lands in R3)."""
     project = (
-        db.query(Project)
-        .filter(Project.id == project_id, Project.tenant_id == current_tenant.id)
+        tenant_scoped(db, Project, current_tenant.id)
+        .filter(Project.id == project_id)
         .first()
     )
     if not project:

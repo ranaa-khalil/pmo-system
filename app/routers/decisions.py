@@ -31,6 +31,7 @@ from app.models.tenant import Tenant
 from app.models.user import User
 from app.permissions import can_manage_project, is_tenant_admin
 from app.services.artifact_chain import append_artifact
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["decisions"])
@@ -83,8 +84,8 @@ def _validate_links(db: Session, current_tenant: Tenant, req: DecisionBody) -> N
     Raises 404 on the first link that doesn't resolve; returns None when all do.
     """
     if req.project_id is not None:
-        project = db.query(Project).filter(
-            Project.id == req.project_id, Project.tenant_id == current_tenant.id
+        project = tenant_scoped(db, Project, current_tenant.id).filter(
+            Project.id == req.project_id
         ).first()
         if not project:
             raise HTTPException(404, "Project not found")
@@ -120,9 +121,8 @@ def _check_source(req: DecisionBody) -> None:
 
 
 def _get_tenant_decision(db: Session, decision_id: int, current_tenant: Tenant) -> DecisionRecord:
-    record = db.query(DecisionRecord).filter(
+    record = tenant_scoped(db, DecisionRecord, current_tenant.id).filter(
         DecisionRecord.id == decision_id,
-        DecisionRecord.tenant_id == current_tenant.id,
     ).first()
     if not record:
         raise HTTPException(404, "Decision not found")
@@ -189,7 +189,7 @@ def list_decisions(
     ?q= searches across title/decision/rationale; ?project_id= and ?item_id=
     chain the list to the work.
     """
-    query = db.query(DecisionRecord).filter(DecisionRecord.tenant_id == current_tenant.id)
+    query = tenant_scoped(db, DecisionRecord, current_tenant.id)
     if project_id is not None:
         query = query.filter(DecisionRecord.project_id == project_id)
     if item_id is not None:

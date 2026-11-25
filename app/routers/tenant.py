@@ -32,6 +32,7 @@ from app.schemas.tenant import (
     UsageResponse,
 )
 from app.services.auth import create_access_token, hash_password
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant, require_tenant_role
 
 router = APIRouter(prefix="/api", tags=["tenant"])
@@ -517,8 +518,7 @@ def create_invitation(
     check_quota(db, current_tenant, METRIC_USERS)
 
     # Check if already invited
-    existing = db.query(Invitation).filter(
-        Invitation.tenant_id == current_tenant.id,
+    existing = tenant_scoped(db, Invitation, current_tenant.id).filter(
         Invitation.email == req.email.lower(),
         Invitation.status == "pending",
     ).first()
@@ -685,8 +685,7 @@ def list_invitations(
     db: Session = Depends(get_db),
 ):
     """List pending invitations for the tenant."""
-    return db.query(Invitation).filter(
-        Invitation.tenant_id == current_tenant.id,
+    return tenant_scoped(db, Invitation, current_tenant.id).filter(
         Invitation.status == "pending",
     ).all()
 
@@ -699,9 +698,8 @@ def revoke_invitation(
     db: Session = Depends(get_db),
 ):
     """Revoke a pending invitation."""
-    invitation = db.query(Invitation).filter(
+    invitation = tenant_scoped(db, Invitation, current_tenant.id).filter(
         Invitation.id == invitation_id,
-        Invitation.tenant_id == current_tenant.id,
     ).first()
     if not invitation:
         raise HTTPException(404, "Invitation not found.")
@@ -1010,8 +1008,8 @@ def list_all_tenants(
             "logo_url": t.logo_url,
             "created_at": t.created_at.isoformat() if t.created_at else None,
             "member_count": db.query(TenantMembership).filter(TenantMembership.tenant_id == t.id).count(),
-            "project_count": db.query(Project).filter(Project.tenant_id == t.id).count(),
-            "client_count": db.query(Client).filter(Client.tenant_id == t.id).count(),
+            "project_count": tenant_scoped(db, Project, t.id).count(),
+            "client_count": tenant_scoped(db, Client, t.id).count(),
         }
         for t in tenants
     ]
@@ -1120,9 +1118,9 @@ def get_admin_insights(
     tenant_details = []
     for t in tenants:
         members = db.query(TenantMembership).filter(TenantMembership.tenant_id == t.id).count()
-        projects = db.query(Project).filter(Project.tenant_id == t.id).count()
-        backlog = db.query(BacklogItem).filter(BacklogItem.tenant_id == t.id).count()
-        releases = db.query(Release).filter(Release.tenant_id == t.id).count()
+        projects = tenant_scoped(db, Project, t.id).count()
+        backlog = tenant_scoped(db, BacklogItem, t.id).count()
+        releases = tenant_scoped(db, Release, t.id).count()
         # Get plan name
         plan_name = t.plan
         if t.plan_id:
@@ -1202,7 +1200,7 @@ def get_tenant_detail(
             })
 
     # Projects
-    projects = db.query(Project).filter(Project.tenant_id == tenant_id).all()
+    projects = tenant_scoped(db, Project, tenant_id).all()
     project_list = []
     for p in projects:
         project_list.append({
@@ -1213,13 +1211,13 @@ def get_tenant_detail(
         })
 
     # Stats
-    backlog_count = db.query(BacklogItem).filter(BacklogItem.tenant_id == tenant_id).count()
-    release_count = db.query(Release).filter(Release.tenant_id == tenant_id).count()
-    api_key_count = db.query(ApiKey).filter(ApiKey.tenant_id == tenant_id).count()
+    backlog_count = tenant_scoped(db, BacklogItem, tenant_id).count()
+    release_count = tenant_scoped(db, Release, tenant_id).count()
+    api_key_count = tenant_scoped(db, ApiKey, tenant_id).count()
 
     # Settings
     from app.models.tenant_setting import TenantSetting
-    settings_list = db.query(TenantSetting).filter(TenantSetting.tenant_id == tenant_id).all()
+    settings_list = tenant_scoped(db, TenantSetting, tenant_id).all()
     settings_keys = [{"key": s.key, "is_secret": s.is_secret} for s in settings_list]
 
     return {
@@ -1239,7 +1237,7 @@ def get_tenant_detail(
         "stats": {
             "member_count": len(members),
             "project_count": len(project_list),
-            "client_count": db.query(Client).filter(Client.tenant_id == tenant.id).count(),
+            "client_count": tenant_scoped(db, Client, tenant.id).count(),
             "backlog_items": backlog_count,
             "releases": release_count,
             "api_keys": api_key_count,
@@ -1553,7 +1551,7 @@ def get_audit_log(
 ):
     """Paginated audit log with filters (owner/admin only)."""
     from app.models.activity_log import ActivityLog
-    q = db.query(ActivityLog).filter(ActivityLog.tenant_id == current_tenant.id)
+    q = tenant_scoped(db, ActivityLog, current_tenant.id)
     if entity_type:
         q = q.filter(ActivityLog.entity_type == entity_type)
     if action:
@@ -1623,25 +1621,25 @@ def delete_tenant_data(
     from app.models.user_persona import UserPersona
     from app.models.user_task import UserTask
 
-    deleted["release_items"] = db.query(ReleaseItem).filter(ReleaseItem.tenant_id == tid).delete()
-    deleted["releases"] = db.query(Release).filter(Release.tenant_id == tid).delete()
-    deleted["approval_steps"] = db.query(ApprovalStep).filter(ApprovalStep.tenant_id == tid).delete()
-    deleted["approval_requests"] = db.query(ApprovalRequest).filter(ApprovalRequest.tenant_id == tid).delete()
-    deleted["backlog_items"] = db.query(BacklogItem).filter(BacklogItem.tenant_id == tid).delete()
-    deleted["form_instances"] = db.query(FormInstance).filter(FormInstance.tenant_id == tid).delete()
-    deleted["form_templates"] = db.query(FormTemplate).filter(FormTemplate.tenant_id == tid).delete()
-    deleted["kpis"] = db.query(KPI).filter(KPI.tenant_id == tid).delete()
-    deleted["milestones"] = db.query(Milestone).filter(Milestone.tenant_id == tid).delete()
-    deleted["roadmaps"] = db.query(Roadmap).filter(Roadmap.tenant_id == tid).delete()
-    deleted["stakeholders"] = db.query(Stakeholder).filter(Stakeholder.tenant_id == tid).delete()
-    deleted["personas"] = db.query(UserPersona).filter(UserPersona.tenant_id == tid).delete()
-    deleted["test_accounts"] = db.query(ProjectTestAccount).filter(ProjectTestAccount.tenant_id == tid).delete()
-    deleted["visions"] = db.query(ProjectVision).filter(ProjectVision.tenant_id == tid).delete()
-    deleted["github_configs"] = db.query(GitHubBoardConfig).filter(GitHubBoardConfig.tenant_id == tid).delete()
-    deleted["user_tasks"] = db.query(UserTask).filter(UserTask.tenant_id == tid).delete()
-    deleted["notifications"] = db.query(Notification).filter(Notification.tenant_id == tid).delete()
-    deleted["activity_logs"] = db.query(ActivityLog).filter(ActivityLog.tenant_id == tid).delete()
-    deleted["projects"] = db.query(Project).filter(Project.tenant_id == tid).delete()
+    deleted["release_items"] = tenant_scoped(db, ReleaseItem, tid).delete()
+    deleted["releases"] = tenant_scoped(db, Release, tid).delete()
+    deleted["approval_steps"] = tenant_scoped(db, ApprovalStep, tid).delete()
+    deleted["approval_requests"] = tenant_scoped(db, ApprovalRequest, tid).delete()
+    deleted["backlog_items"] = tenant_scoped(db, BacklogItem, tid).delete()
+    deleted["form_instances"] = tenant_scoped(db, FormInstance, tid).delete()
+    deleted["form_templates"] = tenant_scoped(db, FormTemplate, tid).delete()
+    deleted["kpis"] = tenant_scoped(db, KPI, tid).delete()
+    deleted["milestones"] = tenant_scoped(db, Milestone, tid).delete()
+    deleted["roadmaps"] = tenant_scoped(db, Roadmap, tid).delete()
+    deleted["stakeholders"] = tenant_scoped(db, Stakeholder, tid).delete()
+    deleted["personas"] = tenant_scoped(db, UserPersona, tid).delete()
+    deleted["test_accounts"] = tenant_scoped(db, ProjectTestAccount, tid).delete()
+    deleted["visions"] = tenant_scoped(db, ProjectVision, tid).delete()
+    deleted["github_configs"] = tenant_scoped(db, GitHubBoardConfig, tid).delete()
+    deleted["user_tasks"] = tenant_scoped(db, UserTask, tid).delete()
+    deleted["notifications"] = tenant_scoped(db, Notification, tid).delete()
+    deleted["activity_logs"] = tenant_scoped(db, ActivityLog, tid).delete()
+    deleted["projects"] = tenant_scoped(db, Project, tid).delete()
 
     db.commit()
     return {"ok": True, "deleted": deleted}

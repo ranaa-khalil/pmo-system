@@ -32,6 +32,7 @@ from app.models.tenant import Tenant, TenantMembership
 from app.models.user import User
 from app.permissions import can_manage_client, is_tenant_admin
 from app.services.artifact_chain import append_artifact
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["engagements"])
@@ -90,8 +91,8 @@ def _validate_client(db: Session, current_tenant: Tenant, client_id: int) -> Cli
     The kpi_id tenancy pattern (Slice 9 QA fix): the raw body would otherwise
     write an engagement under another tenant's client.
     """
-    client = db.query(Client).filter(
-        Client.id == client_id, Client.tenant_id == current_tenant.id
+    client = tenant_scoped(db, Client, current_tenant.id).filter(
+        Client.id == client_id
     ).first()
     if not client:
         raise HTTPException(400, "Client not found in this tenant")
@@ -108,8 +109,8 @@ def _validate_lead(db: Session, current_tenant: Tenant, lead_id: int) -> None:
 
 
 def _get_tenant_engagement(db: Session, engagement_id: int, current_tenant: Tenant) -> Engagement:
-    engagement = db.query(Engagement).filter(
-        Engagement.id == engagement_id, Engagement.tenant_id == current_tenant.id
+    engagement = tenant_scoped(db, Engagement, current_tenant.id).filter(
+        Engagement.id == engagement_id
     ).first()
     if not engagement:
         raise HTTPException(404, "Engagement not found")
@@ -123,8 +124,8 @@ def _projects_rollup(db: Session, current_tenant: Tenant, engagement: Engagement
     appears here even if it shares the client_id.
     """
     projects = (
-        db.query(Project)
-        .filter(Project.tenant_id == current_tenant.id, Project.client_id == engagement.client_id)
+        tenant_scoped(db, Project, current_tenant.id)
+        .filter(Project.client_id == engagement.client_id)
         .order_by(Project.created_at.desc(), Project.id.desc())
         .all()
     )
@@ -191,7 +192,7 @@ def list_engagements(
 
     ?client_id= scopes the list to one client; ?status= filters the lifecycle.
     """
-    query = db.query(Engagement).filter(Engagement.tenant_id == current_tenant.id)
+    query = tenant_scoped(db, Engagement, current_tenant.id)
     if client_id is not None:
         query = query.filter(Engagement.client_id == client_id)
     if status:

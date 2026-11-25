@@ -30,6 +30,7 @@ from app.schemas.planning import (
     VisionResponse,
     VisionUpdate,
 )
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["planning"])
@@ -39,11 +40,11 @@ router = APIRouter(prefix="/api", tags=["planning"])
 @router.post("/projects/{project_id}/vision", response_model=VisionResponse, status_code=201)
 def create_vision(project_id: int, vision: VisionCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
     """Create a vision for a project."""
-    if not db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first():
+    if not tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first():
         raise HTTPException(status_code=404, detail="Project not found")
     if vision.project_id != project_id:
         raise HTTPException(status_code=400, detail="project_id mismatch")
-    if db.query(ProjectVision).filter(ProjectVision.project_id == project_id, ProjectVision.tenant_id == current_tenant.id).first():
+    if tenant_scoped(db, ProjectVision, current_tenant.id).filter(ProjectVision.project_id == project_id).first():
         raise HTTPException(status_code=409, detail="Vision already exists for this project")
     db_vision = ProjectVision(**vision.model_dump(), tenant_id=current_tenant.id)
     db.add(db_vision)
@@ -54,7 +55,7 @@ def create_vision(project_id: int, vision: VisionCreate, db: Session = Depends(g
 @router.get("/projects/{project_id}/vision", response_model=VisionResponse)
 def get_vision(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
     """Get the vision for a project."""
-    vision = db.query(ProjectVision).filter(ProjectVision.project_id == project_id, ProjectVision.tenant_id == current_tenant.id).first()
+    vision = tenant_scoped(db, ProjectVision, current_tenant.id).filter(ProjectVision.project_id == project_id).first()
     if not vision:
         raise HTTPException(status_code=404, detail="No vision found for this project")
     return vision
@@ -62,7 +63,7 @@ def get_vision(project_id: int, db: Session = Depends(get_db), current_user: Use
 @router.put("/projects/{project_id}/vision", response_model=VisionResponse)
 def update_vision(project_id: int, vision_update: VisionUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
     """Update a project's vision."""
-    vision = db.query(ProjectVision).filter(ProjectVision.project_id == project_id, ProjectVision.tenant_id == current_tenant.id).first()
+    vision = tenant_scoped(db, ProjectVision, current_tenant.id).filter(ProjectVision.project_id == project_id).first()
     if not vision:
         raise HTTPException(status_code=404, detail="No vision found for this project")
     for field, val in vision_update.model_dump(exclude_unset=True).items():
@@ -75,7 +76,7 @@ def update_vision(project_id: int, vision_update: VisionUpdate, db: Session = De
 # ===== KPIs =====
 @router.post("/projects/{project_id}/kpis", response_model=KPIResponse, status_code=201)
 def create_kpi(project_id: int, kpi: KPICreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    if not db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first():
+    if not tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first():
         raise HTTPException(status_code=404, detail="Project not found")
     kpi.project_id = project_id
     db_kpi = KPI(**kpi.model_dump(), tenant_id=current_tenant.id)
@@ -86,11 +87,11 @@ def create_kpi(project_id: int, kpi: KPICreate, db: Session = Depends(get_db), c
 
 @router.get("/projects/{project_id}/kpis", response_model=list[KPIResponse])
 def list_kpis(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    return db.query(KPI).filter(KPI.project_id == project_id, KPI.tenant_id == current_tenant.id).all()
+    return tenant_scoped(db, KPI, current_tenant.id).filter(KPI.project_id == project_id).all()
 
 @router.put("/kpis/{kpi_id}", response_model=KPIResponse)
 def update_kpi(kpi_id: int, kpi_update: KPIUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    kpi = db.query(KPI).filter(KPI.id == kpi_id, KPI.tenant_id == current_tenant.id).first()
+    kpi = tenant_scoped(db, KPI, current_tenant.id).filter(KPI.id == kpi_id).first()
     if not kpi:
         raise HTTPException(status_code=404, detail="KPI not found")
     updates = kpi_update.model_dump(exclude_unset=True)
@@ -115,7 +116,7 @@ def update_kpi(kpi_id: int, kpi_update: KPIUpdate, db: Session = Depends(get_db)
 
 @router.delete("/kpis/{kpi_id}", status_code=204)
 def delete_kpi(kpi_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    kpi = db.query(KPI).filter(KPI.id == kpi_id, KPI.tenant_id == current_tenant.id).first()
+    kpi = tenant_scoped(db, KPI, current_tenant.id).filter(KPI.id == kpi_id).first()
     if not kpi:
         raise HTTPException(status_code=404, detail="KPI not found")
     db.delete(kpi)
@@ -135,8 +136,8 @@ def project_velocity(
     from app.services.plan_enforcement import require_feature
     require_feature(current_tenant.plan, "sprint_planning")
 
-    project = db.query(Project).filter(
-        Project.id == project_id, Project.tenant_id == current_tenant.id,
+    project = tenant_scoped(db, Project, current_tenant.id).filter(
+        Project.id == project_id,
     ).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -152,20 +153,20 @@ def project_velocity(
 def get_kpi_detail(kpi_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
     """Get a KPI with related items: linked vision objective, releases, backlog items."""
     tid = current_tenant.id
-    kpi = db.query(KPI).filter(KPI.id == kpi_id, KPI.tenant_id == tid).first()
+    kpi = tenant_scoped(db, KPI, tid).filter(KPI.id == kpi_id).first()
     if not kpi:
         raise HTTPException(status_code=404, detail="KPI not found")
 
     project_id = kpi.project_id
 
     # Linked vision objective
-    vision = db.query(ProjectVision).filter(ProjectVision.project_id == project_id, ProjectVision.tenant_id == tid).first()
+    vision = tenant_scoped(db, ProjectVision, tid).filter(ProjectVision.project_id == project_id).first()
 
     # Releases for this project (the KPI measures the project's output)
-    releases = db.query(Release).filter(Release.project_id == project_id, Release.tenant_id == tid).all()
+    releases = tenant_scoped(db, Release, tid).filter(Release.project_id == project_id).all()
 
     # Backlog items for this project
-    backlog_items = db.query(BacklogItem).filter(BacklogItem.project_id == project_id, BacklogItem.tenant_id == tid).all()
+    backlog_items = tenant_scoped(db, BacklogItem, tid).filter(BacklogItem.project_id == project_id).all()
 
     return {
         "id": kpi.id,
@@ -188,7 +189,7 @@ def get_kpi_detail(kpi_id: int, db: Session = Depends(get_db), current_user: Use
 # ===== Roadmaps =====
 @router.post("/projects/{project_id}/roadmaps", response_model=RoadmapResponse, status_code=201)
 def create_roadmap(project_id: int, roadmap: RoadmapCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    if not db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first():
+    if not tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first():
         raise HTTPException(status_code=404, detail="Project not found")
     roadmap.project_id = project_id
     db_roadmap = Roadmap(**roadmap.model_dump(), tenant_id=current_tenant.id)
@@ -199,14 +200,14 @@ def create_roadmap(project_id: int, roadmap: RoadmapCreate, db: Session = Depend
 
 @router.get("/projects/{project_id}/roadmaps", response_model=list[RoadmapWithMilestonesResponse])
 def list_roadmaps(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    roadmaps = db.query(Roadmap).filter(Roadmap.project_id == project_id, Roadmap.tenant_id == current_tenant.id).all()
+    roadmaps = tenant_scoped(db, Roadmap, current_tenant.id).filter(Roadmap.project_id == project_id).all()
     for rm in roadmaps:
-        rm.milestones = db.query(Milestone).filter(Milestone.roadmap_id == rm.id, Milestone.tenant_id == current_tenant.id).all()
+        rm.milestones = tenant_scoped(db, Milestone, current_tenant.id).filter(Milestone.roadmap_id == rm.id).all()
     return roadmaps
 
 @router.put("/roadmaps/{roadmap_id}", response_model=RoadmapResponse)
 def update_roadmap(roadmap_id: int, rm_update: RoadmapUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    rm = db.query(Roadmap).filter(Roadmap.id == roadmap_id, Roadmap.tenant_id == current_tenant.id).first()
+    rm = tenant_scoped(db, Roadmap, current_tenant.id).filter(Roadmap.id == roadmap_id).first()
     if not rm:
         raise HTTPException(status_code=404, detail="Roadmap not found")
     for field, val in rm_update.model_dump(exclude_unset=True).items():
@@ -217,7 +218,7 @@ def update_roadmap(roadmap_id: int, rm_update: RoadmapUpdate, db: Session = Depe
 
 @router.delete("/roadmaps/{roadmap_id}", status_code=204)
 def delete_roadmap(roadmap_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    rm = db.query(Roadmap).filter(Roadmap.id == roadmap_id, Roadmap.tenant_id == current_tenant.id).first()
+    rm = tenant_scoped(db, Roadmap, current_tenant.id).filter(Roadmap.id == roadmap_id).first()
     if not rm:
         raise HTTPException(status_code=404, detail="Roadmap not found")
     db.delete(rm)
@@ -227,7 +228,7 @@ def delete_roadmap(roadmap_id: int, db: Session = Depends(get_db), current_user:
 # ===== Milestones =====
 @router.post("/roadmaps/{roadmap_id}/milestones", response_model=MilestoneResponse, status_code=201)
 def create_milestone(roadmap_id: int, milestone: MilestoneCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    if not db.query(Roadmap).filter(Roadmap.id == roadmap_id, Roadmap.tenant_id == current_tenant.id).first():
+    if not tenant_scoped(db, Roadmap, current_tenant.id).filter(Roadmap.id == roadmap_id).first():
         raise HTTPException(status_code=404, detail="Roadmap not found")
     milestone.roadmap_id = roadmap_id
     db_ms = Milestone(**milestone.model_dump(), tenant_id=current_tenant.id)
@@ -240,21 +241,21 @@ def create_milestone(roadmap_id: int, milestone: MilestoneCreate, db: Session = 
 def get_milestone_detail(milestone_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
     """Get a milestone with all related items: tasks, releases, backlog items."""
     tid = current_tenant.id
-    ms = db.query(Milestone).filter(Milestone.id == milestone_id, Milestone.tenant_id == tid).first()
+    ms = tenant_scoped(db, Milestone, tid).filter(Milestone.id == milestone_id).first()
     if not ms:
         raise HTTPException(status_code=404, detail="Milestone not found")
 
     # Related user tasks
-    tasks = db.query(UserTask).filter(UserTask.milestone_id == milestone_id, UserTask.tenant_id == tid).all()
+    tasks = tenant_scoped(db, UserTask, tid).filter(UserTask.milestone_id == milestone_id).all()
 
     # Related releases
-    releases = db.query(Release).filter(Release.milestone_id == milestone_id, Release.tenant_id == tid).all()
+    releases = tenant_scoped(db, Release, tid).filter(Release.milestone_id == milestone_id).all()
 
     # Backlog items for this milestone's project
-    rm = db.query(Roadmap).filter(Roadmap.id == ms.roadmap_id, Roadmap.tenant_id == tid).first()
+    rm = tenant_scoped(db, Roadmap, tid).filter(Roadmap.id == ms.roadmap_id).first()
     backlog_items = []
     if rm:
-        backlog_items = db.query(BacklogItem).filter(BacklogItem.project_id == rm.project_id, BacklogItem.tenant_id == tid).all()
+        backlog_items = tenant_scoped(db, BacklogItem, tid).filter(BacklogItem.project_id == rm.project_id).all()
 
     return {
         "id": ms.id,
@@ -272,7 +273,7 @@ def get_milestone_detail(milestone_id: int, db: Session = Depends(get_db), curre
 @router.put("/milestones/{milestone_id}", response_model=MilestoneResponse)
 def update_milestone(milestone_id: int, ms_update: MilestoneUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
     """Update a milestone (used by the milestone edit modal in the UI)."""
-    ms = db.query(Milestone).filter(Milestone.id == milestone_id, Milestone.tenant_id == current_tenant.id).first()
+    ms = tenant_scoped(db, Milestone, current_tenant.id).filter(Milestone.id == milestone_id).first()
     if not ms:
         raise HTTPException(status_code=404, detail="Milestone not found")
     for field, val in ms_update.model_dump(exclude_unset=True).items():
@@ -285,7 +286,7 @@ def update_milestone(milestone_id: int, ms_update: MilestoneUpdate, db: Session 
 @router.delete("/milestones/{milestone_id}", status_code=204)
 def delete_milestone(milestone_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
     """Delete a milestone."""
-    ms = db.query(Milestone).filter(Milestone.id == milestone_id, Milestone.tenant_id == current_tenant.id).first()
+    ms = tenant_scoped(db, Milestone, current_tenant.id).filter(Milestone.id == milestone_id).first()
     if not ms:
         raise HTTPException(status_code=404, detail="Milestone not found")
     db.delete(ms)
@@ -304,7 +305,7 @@ def get_traceability_matrix(
     tid = current_tenant.id
 
     # Vision
-    vision = db.query(ProjectVision).filter(ProjectVision.project_id == project_id, ProjectVision.tenant_id == tid).first()
+    vision = tenant_scoped(db, ProjectVision, tid).filter(ProjectVision.project_id == project_id).first()
     vision_data = None
     if vision:
         vision_data = {
@@ -313,10 +314,10 @@ def get_traceability_matrix(
         }
 
     # KPIs (with linked backlog items)
-    kpis = db.query(KPI).filter(KPI.project_id == project_id, KPI.tenant_id == tid).all()
+    kpis = tenant_scoped(db, KPI, tid).filter(KPI.project_id == project_id).all()
     kpi_data = []
     for k in kpis:
-        linked_items = db.query(BacklogItem).filter(BacklogItem.kpi_id == k.id, BacklogItem.tenant_id == tid).all()
+        linked_items = tenant_scoped(db, BacklogItem, tid).filter(BacklogItem.kpi_id == k.id).all()
         kpi_data.append({
             "id": k.id,
             "name": k.name,
@@ -329,10 +330,10 @@ def get_traceability_matrix(
         })
 
     # Roadmaps + Milestones
-    roadmaps = db.query(Roadmap).filter(Roadmap.project_id == project_id, Roadmap.tenant_id == tid).all()
+    roadmaps = tenant_scoped(db, Roadmap, tid).filter(Roadmap.project_id == project_id).all()
     roadmap_data = []
     for rm in roadmaps:
-        milestones = db.query(Milestone).filter(Milestone.roadmap_id == rm.id, Milestone.tenant_id == tid).all()
+        milestones = tenant_scoped(db, Milestone, tid).filter(Milestone.roadmap_id == rm.id).all()
         roadmap_data.append({
             "id": rm.id,
             "title": rm.title,
@@ -341,12 +342,12 @@ def get_traceability_matrix(
 
     # Releases (with linked backlog items)
     from app.models.release import ReleaseItem
-    releases = db.query(Release).filter(Release.project_id == project_id, Release.tenant_id == tid).all()
+    releases = tenant_scoped(db, Release, tid).filter(Release.project_id == project_id).all()
     release_data = []
     for rel in releases:
-        rel_items = db.query(ReleaseItem).filter(ReleaseItem.release_id == rel.id, ReleaseItem.tenant_id == tid).all()
+        rel_items = tenant_scoped(db, ReleaseItem, tid).filter(ReleaseItem.release_id == rel.id).all()
         item_ids = [ri.backlog_item_id for ri in rel_items]
-        linked_items = db.query(BacklogItem).filter(BacklogItem.id.in_(item_ids), BacklogItem.tenant_id == tid).all() if item_ids else []
+        linked_items = tenant_scoped(db, BacklogItem, tid).filter(BacklogItem.id.in_(item_ids)).all() if item_ids else []
         release_data.append({
             "id": rel.id,
             "version": rel.version,
@@ -357,7 +358,7 @@ def get_traceability_matrix(
         })
 
     # All backlog items
-    backlog_items = db.query(BacklogItem).filter(BacklogItem.project_id == project_id, BacklogItem.tenant_id == tid).all()
+    backlog_items = tenant_scoped(db, BacklogItem, tid).filter(BacklogItem.project_id == project_id).all()
     backlog_data = [{"id": i.id, "title": i.title, "phase": i.current_phase, "status": i.status, "priority": i.priority, "item_type": i.item_type} for i in backlog_items]
 
     return {
@@ -383,7 +384,7 @@ def get_project_coverage(
     project has no KPIs), each KPI's work block, the orphan items with
     kpi_id NULL, and the KPIs that have no work beneath them.
     """
-    if not db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first():
+    if not tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first():
         raise HTTPException(status_code=404, detail="Project not found")
     from app.services.coverage import compute_coverage
     return compute_coverage(db, current_tenant.id, project_id)

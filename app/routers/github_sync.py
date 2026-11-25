@@ -34,6 +34,7 @@ from app.schemas.github_sync import (
 )
 from app.services.github import GitHubService
 from app.services.notifications import log_activity
+from app.services.scope import tenant_scoped
 from app.services.settings_service import get_github_token
 from app.services.tenant import get_current_tenant
 
@@ -73,7 +74,7 @@ def _link_labels_to_pool(db, tenant_id: int, item, label_names: list) -> int:
         name = (name or "").strip()[:100]
         if not name:
             continue
-        tag = db.query(Tag).filter(Tag.tenant_id == tenant_id, Tag.name == name).first()
+        tag = tenant_scoped(db, Tag, tenant_id).filter(Tag.name == name).first()
         if not tag:
             tag = Tag(tenant_id=tenant_id, name=name, color="indigo")
             db.add(tag)
@@ -87,9 +88,8 @@ def _link_labels_to_pool(db, tenant_id: int, item, label_names: list) -> int:
 
 def _get_or_create_config(db: Session, project_id: int, tenant_id: int) -> GitHubBoardConfig:
     """Get existing config or create a new default one."""
-    config = db.query(GitHubBoardConfig).filter(
+    config = tenant_scoped(db, GitHubBoardConfig, tenant_id).filter(
         GitHubBoardConfig.project_id == project_id,
-        GitHubBoardConfig.tenant_id == tenant_id,
     ).first()
     if not config:
         config = GitHubBoardConfig(project_id=project_id, tenant_id=tenant_id)
@@ -134,7 +134,7 @@ def get_github_config(
     from app.services.plan_enforcement import require_feature
     require_feature(current_tenant.plan, "github_sync")
 
-    if not db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first():
+    if not tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first():
         raise HTTPException(status_code=404, detail="Project not found")
     config = _get_or_create_config(db, project_id, current_tenant.id)
     return config
@@ -149,7 +149,7 @@ def update_github_config(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Create or update the GitHub board configuration for a project."""
-    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -188,7 +188,7 @@ def list_github_projects(
     Also lists repo-level and org-level projects if a repo is configured.
     Requires 'project' scope on the GitHub token.
     """
-    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -247,7 +247,7 @@ def resolve_board_url(
     Returns the project's node ID, title, URL, etc.
     Requires 'project' scope on the GitHub token.
     """
-    if not db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first():
+    if not tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first():
         raise HTTPException(status_code=404, detail="Project not found")
 
     if not get_github_token(db, current_tenant.id) and not settings.github_token:
@@ -271,7 +271,7 @@ def list_github_labels(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List available labels in the project's GitHub repo."""
-    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -313,7 +313,7 @@ def export_to_github(
     4. Records the issue number, URL, and sync timestamp on the backlog item
     """
     tid = current_tenant.id
-    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == tid).first()
+    project = tenant_scoped(db, Project, tid).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -334,20 +334,18 @@ def export_to_github(
 
     # Determine which items to export
     if export_req.item_ids:
-        items = db.query(BacklogItem).filter(
+        items = tenant_scoped(db, BacklogItem, tid).filter(
             BacklogItem.project_id == project_id,
             BacklogItem.id.in_(export_req.item_ids),
-            BacklogItem.tenant_id == tid,
         ).all()
     else:
         # Export all items past Requirements that aren't synced yet
         exportable_phases = [p for p in ITEM_PHASES if p != "Requirements"]
-        items = db.query(BacklogItem).filter(
+        items = tenant_scoped(db, BacklogItem, tid).filter(
             BacklogItem.project_id == project_id,
             BacklogItem.current_phase.in_(exportable_phases),
             BacklogItem.github_issue_number.is_(None),
             BacklogItem.status != "Cancelled",
-            BacklogItem.tenant_id == tid,
         ).all()
 
     # Parse labels
@@ -445,16 +443,15 @@ def get_sync_status(
 ):
     """Check the GitHub sync status of a project's backlog items."""
     tid = current_tenant.id
-    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == tid).first()
+    project = tenant_scoped(db, Project, tid).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
     config = _get_or_create_config(db, project_id, tid)
 
-    all_items = db.query(BacklogItem).filter(
+    all_items = tenant_scoped(db, BacklogItem, tid).filter(
         BacklogItem.project_id == project_id,
         BacklogItem.status != "Cancelled",
-        BacklogItem.tenant_id == tid,
     ).all()
 
     synced = [i for i in all_items if i.github_issue_number]
@@ -492,7 +489,7 @@ def import_from_github(
     - Otherwise: individual REST calls per issue (works without project board)
     """
     tid = current_tenant.id
-    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == tid).first()
+    project = tenant_scoped(db, Project, tid).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -712,7 +709,7 @@ def sync_tags_with_github(
     Push: tenant tags become repo labels (ensure_label, palette hex).
     """
     tid = current_tenant.id
-    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == tid).first()
+    project = tenant_scoped(db, Project, tid).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     config = _get_or_create_config(db, project_id, tid)
@@ -725,7 +722,7 @@ def sync_tags_with_github(
     gh = _get_gh_service(db, tid)
 
     # Push: tenant tags → repo labels
-    tags = db.query(Tag).filter(Tag.tenant_id == tid).all()
+    tags = tenant_scoped(db, Tag, tid).all()
     pushed = []
     try:
         repo_labels = gh.list_labels(repo) or []

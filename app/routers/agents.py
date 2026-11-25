@@ -16,6 +16,7 @@ from app.models.automation_rule import RULE_ACTIONS, RULE_TRIGGERS, AutomationRu
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.notifications import log_activity
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api/automation", tags=["agents"])
@@ -150,9 +151,7 @@ def list_rules(
     current_user: User = Depends(get_current_user),
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
-    rules = db.query(AutomationRule).filter(
-        AutomationRule.tenant_id == current_tenant.id
-    ).order_by(AutomationRule.created_at.desc()).all()
+    rules = tenant_scoped(db, AutomationRule, current_tenant.id).order_by(AutomationRule.created_at.desc()).all()
     return [_rule_payload(r) for r in rules]
 
 
@@ -202,8 +201,8 @@ def update_rule(
     current_user: User = Depends(get_current_user),
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
-    rule = db.query(AutomationRule).filter(
-        AutomationRule.id == rule_id, AutomationRule.tenant_id == current_tenant.id
+    rule = tenant_scoped(db, AutomationRule, current_tenant.id).filter(
+        AutomationRule.id == rule_id
     ).first()
     if not rule:
         raise HTTPException(status_code=404, detail="Rule not found")
@@ -224,8 +223,8 @@ def delete_rule(
     current_user: User = Depends(get_current_user),
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
-    rule = db.query(AutomationRule).filter(
-        AutomationRule.id == rule_id, AutomationRule.tenant_id == current_tenant.id
+    rule = tenant_scoped(db, AutomationRule, current_tenant.id).filter(
+        AutomationRule.id == rule_id
     ).first()
     if not rule:
         raise HTTPException(status_code=404, detail="Rule not found")

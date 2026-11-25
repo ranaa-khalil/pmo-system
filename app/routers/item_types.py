@@ -12,6 +12,7 @@ from app.models.item_type import DEFAULT_ITEM_TYPES, ITEM_TYPE_COLORS, ItemType
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.item_type import ItemTypeCreate, ItemTypeUpdate
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api/item-types", tags=["item-types"])
@@ -19,7 +20,7 @@ router = APIRouter(prefix="/api/item-types", tags=["item-types"])
 
 def _seed_if_empty(db: Session, tenant_id: int) -> None:
     """Seed the standardized vocabulary for a tenant with no item types."""
-    existing = db.query(ItemType).filter(ItemType.tenant_id == tenant_id).count()
+    existing = tenant_scoped(db, ItemType, tenant_id).count()
     if existing:
         return
     for order, spec in enumerate(DEFAULT_ITEM_TYPES):
@@ -54,7 +55,7 @@ def list_item_types(
 ):
     """The tenant's vocabulary, seeded from the standardized defaults on first read."""
     _seed_if_empty(db, current_tenant.id)
-    query = db.query(ItemType).filter(ItemType.tenant_id == current_tenant.id)
+    query = tenant_scoped(db, ItemType, current_tenant.id)
     if not include_inactive:
         query = query.filter(ItemType.is_active.is_(True))
     rows = query.order_by(ItemType.sort_order, ItemType.id).all()
@@ -73,8 +74,8 @@ def create_item_type(
     key = body.key.strip()
     if not key:
         raise HTTPException(status_code=400, detail="Type key is required")
-    existing = db.query(ItemType).filter(
-        ItemType.tenant_id == current_tenant.id, ItemType.key == key
+    existing = tenant_scoped(db, ItemType, current_tenant.id).filter(
+        ItemType.key == key
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail=f"Type '{key}' already exists")
@@ -102,8 +103,8 @@ def update_item_type(
     current_user: User = Depends(get_current_user),
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
-    row = db.query(ItemType).filter(
-        ItemType.id == type_id, ItemType.tenant_id == current_tenant.id
+    row = tenant_scoped(db, ItemType, current_tenant.id).filter(
+        ItemType.id == type_id
     ).first()
     if not row:
         raise HTTPException(status_code=404, detail="Item type not found")
@@ -123,8 +124,8 @@ def delete_item_type(
     current_user: User = Depends(get_current_user),
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
-    row = db.query(ItemType).filter(
-        ItemType.id == type_id, ItemType.tenant_id == current_tenant.id
+    row = tenant_scoped(db, ItemType, current_tenant.id).filter(
+        ItemType.id == type_id
     ).first()
     if not row:
         raise HTTPException(status_code=404, detail="Item type not found")

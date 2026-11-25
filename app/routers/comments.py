@@ -17,6 +17,7 @@ from app.models.user import User
 from app.models.user_task import UserTask
 from app.schemas.comment import CommentCreate, CommentResponse
 from app.services.notifications import create_notification
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["comments"])
@@ -32,8 +33,8 @@ def _row(c: Comment) -> dict:
 
 def _list_for(db: Session, tenant_id: int, **filters) -> list[dict]:
     rows = (
-        db.query(Comment)
-        .filter(Comment.tenant_id == tenant_id, *filters.values())
+        tenant_scoped(db, Comment, tenant_id)
+        .filter(*filters.values())
         .order_by(Comment.id.asc())
         .all()
     )
@@ -59,8 +60,8 @@ def _notify_assignee(db: Session, tenant_id: int, actor: User, filters: dict) ->
     never notified about their own comment."""
     assignee, title, project_id = None, None, None
     if filters.get("task_id"):
-        task = db.query(UserTask).filter(
-            UserTask.id == filters["task_id"], UserTask.tenant_id == tenant_id,
+        task = tenant_scoped(db, UserTask, tenant_id).filter(
+            UserTask.id == filters["task_id"],
         ).first()
         if task:
             title = task.title
@@ -68,8 +69,8 @@ def _notify_assignee(db: Session, tenant_id: int, actor: User, filters: dict) ->
             if task.assigned_to:
                 assignee = db.query(User).filter(User.id == task.assigned_to).first()
     elif filters.get("item_id"):
-        item = db.query(BacklogItem).filter(
-            BacklogItem.id == filters["item_id"], BacklogItem.tenant_id == tenant_id,
+        item = tenant_scoped(db, BacklogItem, tenant_id).filter(
+            BacklogItem.id == filters["item_id"],
         ).first()
         if item:
             title = item.title
@@ -90,7 +91,7 @@ def _notify_assignee(db: Session, tenant_id: int, actor: User, filters: dict) ->
 
 @router.get("/tasks/{task_id}/comments", response_model=list[CommentResponse])
 def list_task_comments(task_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    task = db.query(UserTask).filter(UserTask.id == task_id, UserTask.tenant_id == current_tenant.id).first()
+    task = tenant_scoped(db, UserTask, current_tenant.id).filter(UserTask.id == task_id).first()
     if not task:
         raise HTTPException(404, "Task not found")
     return _list_for(db, current_tenant.id, task_id=Comment.task_id == task_id)
@@ -98,7 +99,7 @@ def list_task_comments(task_id: int, db: Session = Depends(get_db), current_user
 
 @router.post("/tasks/{task_id}/comments", response_model=CommentResponse, status_code=201)
 def create_task_comment(task_id: int, req: CommentCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    task = db.query(UserTask).filter(UserTask.id == task_id, UserTask.tenant_id == current_tenant.id).first()
+    task = tenant_scoped(db, UserTask, current_tenant.id).filter(UserTask.id == task_id).first()
     if not task:
         raise HTTPException(404, "Task not found")
     return _create(db, current_tenant.id, current_user, req, task_id=task_id)
@@ -106,7 +107,7 @@ def create_task_comment(task_id: int, req: CommentCreate, db: Session = Depends(
 
 @router.get("/backlog/{item_id}/comments", response_model=list[CommentResponse])
 def list_item_comments(item_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    item = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id).first()
+    item = tenant_scoped(db, BacklogItem, current_tenant.id).filter(BacklogItem.id == item_id).first()
     if not item:
         raise HTTPException(404, "Item not found")
     return _list_for(db, current_tenant.id, item_id=Comment.item_id == item_id)
@@ -114,7 +115,7 @@ def list_item_comments(item_id: int, db: Session = Depends(get_db), current_user
 
 @router.post("/backlog/{item_id}/comments", response_model=CommentResponse, status_code=201)
 def create_item_comment(item_id: int, req: CommentCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    item = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id).first()
+    item = tenant_scoped(db, BacklogItem, current_tenant.id).filter(BacklogItem.id == item_id).first()
     if not item:
         raise HTTPException(404, "Item not found")
     return _create(db, current_tenant.id, current_user, req, item_id=item_id)

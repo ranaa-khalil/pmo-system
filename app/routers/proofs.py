@@ -18,6 +18,7 @@ from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.item_type import ProofDecide
 from app.services.notifications import log_activity
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["proofs"])
@@ -32,8 +33,8 @@ _ALLOWED_PROOF_TYPES = {
 
 
 def _get_item(db: Session, item_id: int, tenant_id: int) -> BacklogItem:
-    item = db.query(BacklogItem).filter(
-        BacklogItem.id == item_id, BacklogItem.tenant_id == tenant_id
+    item = tenant_scoped(db, BacklogItem, tenant_id).filter(
+        BacklogItem.id == item_id
     ).first()
     if not item:
         raise HTTPException(status_code=404, detail="Backlog item not found")
@@ -95,8 +96,8 @@ def upload_proof(
         saved_path = f"{_PROOFS_URL_PREFIX}/{filename}"
         uploaded_size = len(data)
 
-    next_version = (db.query(ItemProof).filter(
-        ItemProof.item_id == item_id, ItemProof.tenant_id == current_tenant.id
+    next_version = (tenant_scoped(db, ItemProof, current_tenant.id).filter(
+        ItemProof.item_id == item_id
     ).count()) + 1
 
     proof = ItemProof(
@@ -133,8 +134,8 @@ def list_proofs(
 ):
     """All proof versions for an item, newest first."""
     _get_item(db, item_id, current_tenant.id)
-    rows = db.query(ItemProof).filter(
-        ItemProof.item_id == item_id, ItemProof.tenant_id == current_tenant.id
+    rows = tenant_scoped(db, ItemProof, current_tenant.id).filter(
+        ItemProof.item_id == item_id
     ).order_by(ItemProof.version.desc()).all()
     return [_payload(p) for p in rows]
 
@@ -148,8 +149,8 @@ def decide_proof(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Approve a proof or request changes (human decision, stored verbatim)."""
-    proof = db.query(ItemProof).filter(
-        ItemProof.id == proof_id, ItemProof.tenant_id == current_tenant.id
+    proof = tenant_scoped(db, ItemProof, current_tenant.id).filter(
+        ItemProof.id == proof_id
     ).first()
     if not proof:
         raise HTTPException(status_code=404, detail="Proof not found")

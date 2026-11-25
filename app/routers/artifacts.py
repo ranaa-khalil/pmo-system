@@ -35,6 +35,7 @@ from app.services.artifact_chain import (
     get_chain,
     verify_chain,
 )
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api/artifacts", tags=["artifacts"])
@@ -104,7 +105,7 @@ def timeline(
     entries plus every project-scoped entity's entries); ?since= / ?until=
     window the stream in time; limit/offset paginate.
     """
-    query = db.query(ArtifactChain).filter(ArtifactChain.tenant_id == current_tenant.id)
+    query = tenant_scoped(db, ArtifactChain, current_tenant.id)
     if project_id is not None:
         scopes = [and_(ArtifactChain.entity_type == "project", ArtifactChain.entity_id == project_id)]
         for entity_type, model in _PROJECT_SCOPED_ENTITIES.items():

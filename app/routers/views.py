@@ -17,6 +17,7 @@ from app.models.tenant import TenantMembership
 from app.models.user import User
 from app.permissions import can_manage_project
 from app.schemas.project_view import ProjectViewCreate, ProjectViewResponse
+from app.services.scope import tenant_scoped
 
 router = APIRouter(prefix="/api", tags=["views"])
 
@@ -55,8 +56,8 @@ def _row(view: ProjectView) -> dict:
 @router.get("/projects/{project_id}/views", response_model=list[ProjectViewResponse])
 def list_views(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     project = _load_project(db, project_id, current_user)
-    query = db.query(ProjectView).filter(
-        ProjectView.tenant_id == project.tenant_id, ProjectView.project_id == project.id,
+    query = tenant_scoped(db, ProjectView, project.tenant_id).filter(
+        ProjectView.project_id == project.id,
     )
     # Private views are visible only to their creator
     query = query.filter((ProjectView.shared == True) | (ProjectView.created_by == current_user.id))  # noqa: E712

@@ -19,6 +19,7 @@ from app.schemas.persona import (
     TestAccountResponse,
     TestAccountUpdate,
 )
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api/projects/{project_id}", tags=["personas"])
@@ -28,12 +29,12 @@ router = APIRouter(prefix="/api/projects/{project_id}", tags=["personas"])
 
 @router.get("/personas", response_model=list[PersonaResponse])
 def list_personas(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    return db.query(UserPersona).filter(UserPersona.project_id == project_id, UserPersona.tenant_id == current_tenant.id).order_by(UserPersona.name).all()
+    return tenant_scoped(db, UserPersona, current_tenant.id).filter(UserPersona.project_id == project_id).order_by(UserPersona.name).all()
 
 
 @router.post("/personas", response_model=PersonaResponse, status_code=201)
 def create_persona(project_id: int, persona: PersonaCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     if not can_manage_project(current_user, project, db):
@@ -47,7 +48,7 @@ def create_persona(project_id: int, persona: PersonaCreate, db: Session = Depend
 
 @router.put("/personas/{persona_id}", response_model=PersonaResponse)
 def update_persona(project_id: int, persona_id: int, persona: PersonaUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    db_persona = db.query(UserPersona).filter(UserPersona.id == persona_id, UserPersona.project_id == project_id, UserPersona.tenant_id == current_tenant.id).first()
+    db_persona = tenant_scoped(db, UserPersona, current_tenant.id).filter(UserPersona.id == persona_id, UserPersona.project_id == project_id).first()
     if not db_persona:
         raise HTTPException(status_code=404, detail="Persona not found")
     if not can_manage_project(current_user, db_persona.project, db):
@@ -61,7 +62,7 @@ def update_persona(project_id: int, persona_id: int, persona: PersonaUpdate, db:
 
 @router.delete("/personas/{persona_id}")
 def delete_persona(project_id: int, persona_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    db_persona = db.query(UserPersona).filter(UserPersona.id == persona_id, UserPersona.project_id == project_id, UserPersona.tenant_id == current_tenant.id).first()
+    db_persona = tenant_scoped(db, UserPersona, current_tenant.id).filter(UserPersona.id == persona_id, UserPersona.project_id == project_id).first()
     if not db_persona:
         raise HTTPException(status_code=404, detail="Persona not found")
     if not can_manage_project(current_user, db_persona.project, db):
@@ -75,14 +76,14 @@ def delete_persona(project_id: int, persona_id: int, db: Session = Depends(get_d
 
 @router.get("/test-accounts", response_model=list[TestAccountResponse])
 def list_test_accounts(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    return db.query(ProjectTestAccount).filter(ProjectTestAccount.project_id == project_id, ProjectTestAccount.tenant_id == current_tenant.id).order_by(
+    return tenant_scoped(db, ProjectTestAccount, current_tenant.id).filter(ProjectTestAccount.project_id == project_id).order_by(
         ProjectTestAccount.environment, ProjectTestAccount.username
     ).all()
 
 
 @router.post("/test-accounts", response_model=TestAccountResponse, status_code=201)
 def create_test_account(project_id: int, account: TestAccountCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     if not can_manage_project(current_user, project, db):
@@ -96,7 +97,7 @@ def create_test_account(project_id: int, account: TestAccountCreate, db: Session
 
 @router.put("/test-accounts/{account_id}", response_model=TestAccountResponse)
 def update_test_account(project_id: int, account_id: int, account: TestAccountUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    db_account = db.query(ProjectTestAccount).filter(ProjectTestAccount.id == account_id, ProjectTestAccount.project_id == project_id, ProjectTestAccount.tenant_id == current_tenant.id).first()
+    db_account = tenant_scoped(db, ProjectTestAccount, current_tenant.id).filter(ProjectTestAccount.id == account_id, ProjectTestAccount.project_id == project_id).first()
     if not db_account:
         raise HTTPException(status_code=404, detail="Test account not found")
     if not can_manage_project(current_user, db_account.project, db):
@@ -110,7 +111,7 @@ def update_test_account(project_id: int, account_id: int, account: TestAccountUp
 
 @router.delete("/test-accounts/{account_id}")
 def delete_test_account(project_id: int, account_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
-    db_account = db.query(ProjectTestAccount).filter(ProjectTestAccount.id == account_id, ProjectTestAccount.project_id == project_id, ProjectTestAccount.tenant_id == current_tenant.id).first()
+    db_account = tenant_scoped(db, ProjectTestAccount, current_tenant.id).filter(ProjectTestAccount.id == account_id, ProjectTestAccount.project_id == project_id).first()
     if not db_account:
         raise HTTPException(status_code=404, detail="Test account not found")
     if not can_manage_project(current_user, db_account.project, db):

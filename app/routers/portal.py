@@ -37,6 +37,7 @@ from app.services.auth import (
     hash_password,
     verify_password,
 )
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api/portal", tags=["portal"])
@@ -209,7 +210,7 @@ def setup_portal(
 
     Returns the plaintext passcode ONCE — only the bcrypt hash is stored.
     """
-    client = db.query(Client).filter(Client.id == client_id, Client.tenant_id == current_tenant.id).first()
+    client = tenant_scoped(db, Client, current_tenant.id).filter(Client.id == client_id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
     if not client.contact_email:
@@ -243,7 +244,7 @@ def disable_portal(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Disable the portal for a client (revokes portal access immediately)."""
-    client = db.query(Client).filter(Client.id == client_id, Client.tenant_id == current_tenant.id).first()
+    client = tenant_scoped(db, Client, current_tenant.id).filter(Client.id == client_id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
     _require_portal_manager(current_user, db, client)
@@ -261,7 +262,7 @@ def portal_status(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Check whether a client's portal is enabled (never returns the passcode)."""
-    client = db.query(Client).filter(Client.id == client_id, Client.tenant_id == current_tenant.id).first()
+    client = tenant_scoped(db, Client, current_tenant.id).filter(Client.id == client_id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
     return {"client_id": client.id, "portal_enabled": bool(client.portal_enabled)}

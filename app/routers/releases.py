@@ -28,6 +28,7 @@ from app.services.lifecycle import (
 )
 from app.services.notifications import log_activity
 from app.services.release_machine import advance_release_phase
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant, resolve_tenant_for_user
 
 router = APIRouter(prefix="/api", tags=["releases"])
@@ -330,7 +331,7 @@ def create_release(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Create a new release for a project."""
-    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     # The release starts at S1 of its project's ladder (BA FR-R1): software
@@ -368,7 +369,7 @@ def list_releases(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List all releases for a project."""
-    return db.query(Release).filter(Release.project_id == project_id, Release.tenant_id == current_tenant.id).order_by(Release.created_at.desc()).all()
+    return tenant_scoped(db, Release, current_tenant.id).filter(Release.project_id == project_id).order_by(Release.created_at.desc()).all()
 
 
 @router.get("/releases/{release_id}", response_model=dict)
@@ -379,7 +380,7 @@ def get_release(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Get release detail with linked backlog items, forms, approvals, milestone, and progress."""
-    release = db.query(Release).filter(Release.id == release_id, Release.tenant_id == current_tenant.id).first()
+    release = tenant_scoped(db, Release, current_tenant.id).filter(Release.id == release_id).first()
     if not release:
         raise HTTPException(status_code=404, detail="Release not found")
 
@@ -396,7 +397,7 @@ def get_release(
     items = []
     done_phases = release_done_phases(db, current_tenant.id, project_type)
     for ri in release.items:
-        bi = db.query(BacklogItem).filter(BacklogItem.id == ri.backlog_item_id, BacklogItem.tenant_id == current_tenant.id).first()
+        bi = tenant_scoped(db, BacklogItem, current_tenant.id).filter(BacklogItem.id == ri.backlog_item_id).first()
         if bi:
             items.append({
                 "id": bi.id, "title": bi.title, "description": bi.description,
@@ -434,11 +435,10 @@ def get_release(
 
     # Approvals (for this project, type=release, linked to THIS release)
     approvals = []
-    approval_requests = db.query(ApprovalRequest).filter(
+    approval_requests = tenant_scoped(db, ApprovalRequest, current_tenant.id).filter(
         ApprovalRequest.project_id == release.project_id,
         ApprovalRequest.request_type == "release",
         ApprovalRequest.release_id == release_id,
-        ApprovalRequest.tenant_id == current_tenant.id,
     ).all()
     pending_approval = None
     for ar in approval_requests:
@@ -526,7 +526,7 @@ def update_release(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Update a release."""
-    release = db.query(Release).filter(Release.id == release_id, Release.tenant_id == current_tenant.id).first()
+    release = tenant_scoped(db, Release, current_tenant.id).filter(Release.id == release_id).first()
     if not release:
         raise HTTPException(status_code=404, detail="Release not found")
     updates = update.model_dump(exclude_unset=True)
@@ -572,7 +572,7 @@ def advance_phase(
     delegates; the response shape, status codes and error strings are
     byte-identical to the pre-extraction router.
     """
-    release = db.query(Release).filter(Release.id == release_id, Release.tenant_id == current_tenant.id).first()
+    release = tenant_scoped(db, Release, current_tenant.id).filter(Release.id == release_id).first()
     if not release:
         raise HTTPException(status_code=404, detail="Release not found")
 
@@ -658,7 +658,7 @@ def delete_release(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Delete a release."""
-    release = db.query(Release).filter(Release.id == release_id, Release.tenant_id == current_tenant.id).first()
+    release = tenant_scoped(db, Release, current_tenant.id).filter(Release.id == release_id).first()
     if not release:
         raise HTTPException(status_code=404, detail="Release not found")
     db.delete(release)
@@ -674,10 +674,10 @@ def add_item_to_release(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Link a backlog item to a release."""
-    release = db.query(Release).filter(Release.id == release_id, Release.tenant_id == current_tenant.id).first()
+    release = tenant_scoped(db, Release, current_tenant.id).filter(Release.id == release_id).first()
     if not release:
         raise HTTPException(status_code=404, detail="Release not found")
-    item = db.query(BacklogItem).filter(BacklogItem.id == backlog_item_id, BacklogItem.tenant_id == current_tenant.id).first()
+    item = tenant_scoped(db, BacklogItem, current_tenant.id).filter(BacklogItem.id == backlog_item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Backlog item not found")
     existing = db.query(ReleaseItem).filter(
@@ -728,11 +728,11 @@ def get_next_version(
 
     If project has version_prefix (e.g. "1.0"), the first release is 1.0.0.
     """
-    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    releases = db.query(Release).filter(Release.project_id == project_id, Release.tenant_id == current_tenant.id).all()
+    releases = tenant_scoped(db, Release, current_tenant.id).filter(Release.project_id == project_id).all()
 
     if not releases:
         # First release — use version_prefix if set, otherwise 1.0.0
@@ -975,16 +975,16 @@ def generate_release_notes(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Auto-generate structured release notes matching Release_Notes_Template_v1.1.docx."""
-    release = db.query(Release).filter(Release.id == release_id, Release.tenant_id == current_tenant.id).first()
+    release = tenant_scoped(db, Release, current_tenant.id).filter(Release.id == release_id).first()
     if not release:
         raise HTTPException(status_code=404, detail="Release not found")
 
-    project = db.query(Project).filter(Project.id == release.project_id, Project.tenant_id == current_tenant.id).first()
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == release.project_id).first()
 
     # Gather backlog items
     items = []
     for ri in release.items:
-        bi = db.query(BacklogItem).filter(BacklogItem.id == ri.backlog_item_id, BacklogItem.tenant_id == current_tenant.id).first()
+        bi = tenant_scoped(db, BacklogItem, current_tenant.id).filter(BacklogItem.id == ri.backlog_item_id).first()
         if bi:
             items.append(bi)
 
@@ -996,7 +996,7 @@ def generate_release_notes(
             milestone = {"id": ms.id, "title": ms.title, "target_date": str(ms.target_date) if ms.target_date else None}
 
     # Find previous stable tag
-    all_releases = db.query(Release).filter(Release.project_id == release.project_id, Release.tenant_id == current_tenant.id).all()
+    all_releases = tenant_scoped(db, Release, current_tenant.id).filter(Release.project_id == release.project_id).all()
     prev_tag = None
     def parse_version(v):
         try:
@@ -1383,23 +1383,23 @@ def download_release_notes(
     # dependency, which would 401 before the route body ran).
     current_tenant = resolve_tenant_for_user(db, current_user)
 
-    release = db.query(Release).filter(Release.id == release_id, Release.tenant_id == current_tenant.id).first()
+    release = tenant_scoped(db, Release, current_tenant.id).filter(Release.id == release_id).first()
     if not release:
         raise HTTPException(status_code=404, detail="Release not found")
     if not release.release_notes:
         raise HTTPException(status_code=400, detail="Generate release notes first")
 
-    project = db.query(Project).filter(Project.id == release.project_id, Project.tenant_id == current_tenant.id).first()
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == release.project_id).first()
 
     # Gather items
     items = []
     for ri in release.items:
-        bi = db.query(BacklogItem).filter(BacklogItem.id == ri.backlog_item_id, BacklogItem.tenant_id == current_tenant.id).first()
+        bi = tenant_scoped(db, BacklogItem, current_tenant.id).filter(BacklogItem.id == ri.backlog_item_id).first()
         if bi:
             items.append(bi)
 
     # Find previous stable tag
-    all_releases = db.query(Release).filter(Release.project_id == release.project_id, Release.tenant_id == current_tenant.id).all()
+    all_releases = tenant_scoped(db, Release, current_tenant.id).filter(Release.project_id == release.project_id).all()
     prev_tag = None
     def parse_version(v):
         try:
@@ -1430,7 +1430,7 @@ def share_release_notes(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Mark release notes as shared with project stakeholders."""
-    release = db.query(Release).filter(Release.id == release_id, Release.tenant_id == current_tenant.id).first()
+    release = tenant_scoped(db, Release, current_tenant.id).filter(Release.id == release_id).first()
     if not release:
         raise HTTPException(status_code=404, detail="Release not found")
     if not release.release_notes:
@@ -1438,7 +1438,7 @@ def share_release_notes(
 
     # Get project stakeholders
     from app.models.stakeholder import Stakeholder
-    stakeholders = db.query(Stakeholder).filter(Stakeholder.project_id == release.project_id, Stakeholder.tenant_id == current_tenant.id).all()
+    stakeholders = tenant_scoped(db, Stakeholder, current_tenant.id).filter(Stakeholder.project_id == release.project_id).all()
 
     # Get assigned users (RACI roles)
     from app.models.role_assignment import RoleAssignment
@@ -1486,19 +1486,19 @@ def download_signoff_pdf(
     # dependency, which would 401 before the route body ran).
     current_tenant = resolve_tenant_for_user(db, current_user)
 
-    release = db.query(Release).filter(Release.id == release_id, Release.tenant_id == current_tenant.id).first()
+    release = tenant_scoped(db, Release, current_tenant.id).filter(Release.id == release_id).first()
     if not release:
         raise HTTPException(status_code=404, detail="Release not found")
 
-    project = db.query(Project).filter(Project.id == release.project_id, Project.tenant_id == current_tenant.id).first()
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == release.project_id).first()
 
     # Get items linked to this release — tenant-filtered (the release is
     # tenant-scoped, but the BacklogItem IN-query must be too).
     from app.models.release import ReleaseItem
     release_items = db.query(ReleaseItem).filter(ReleaseItem.release_id == release.id).all()
     item_ids = [ri.backlog_item_id for ri in release_items]
-    items = db.query(BacklogItem).filter(
-        BacklogItem.id.in_(item_ids), BacklogItem.tenant_id == current_tenant.id,
+    items = tenant_scoped(db, BacklogItem, current_tenant.id).filter(
+        BacklogItem.id.in_(item_ids),
     ).all() if item_ids else []
 
     # Compute the ladder index (the release's resolved stage list)

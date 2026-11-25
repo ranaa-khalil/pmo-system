@@ -19,6 +19,7 @@ from app.services.notifications import (
     notify_approval_created,
     notify_approval_result,
 )
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["approvals"])
@@ -26,9 +27,8 @@ router = APIRouter(prefix="/api", tags=["approvals"])
 
 def _enrich_steps(db: Session, request: ApprovalRequest, tenant_id: int):
     """Add approver_name to each step by resolving the FK."""
-    steps = db.query(ApprovalStep).filter(
+    steps = tenant_scoped(db, ApprovalStep, tenant_id).filter(
         ApprovalStep.request_id == request.id,
-        ApprovalStep.tenant_id == tenant_id,
     ).order_by(ApprovalStep.step_order).all()
     for s in steps:
         s.approver_name = None
@@ -52,7 +52,7 @@ def create_approval_request(
     require_feature(current_tenant.plan, "approvals")
 
     tid = current_tenant.id
-    if not db.query(Project).filter(Project.id == project_id, Project.tenant_id == tid).first():
+    if not tenant_scoped(db, Project, tid).filter(Project.id == project_id).first():
         raise HTTPException(status_code=404, detail="Project not found")
     if req.project_id != project_id:
         raise HTTPException(status_code=400, detail="project_id mismatch")
@@ -106,7 +106,7 @@ def create_approval_request(
         release_name = ""
         if request.release_id:
             from app.models.release import Release
-            rel = db.query(Release).filter(Release.id == request.release_id, Release.tenant_id == tid).first()
+            rel = tenant_scoped(db, Release, tid).filter(Release.id == request.release_id).first()
             release_name = f"{rel.version} — {rel.name}" if rel else ""
         notify_approval_created(
             db, request.id, first_step.role_name,
@@ -129,7 +129,7 @@ def list_project_approvals(
 ):
     """List all approval requests for a project."""
     tid = current_tenant.id
-    requests = db.query(ApprovalRequest).filter(ApprovalRequest.project_id == project_id, ApprovalRequest.tenant_id == tid).all()
+    requests = tenant_scoped(db, ApprovalRequest, tid).filter(ApprovalRequest.project_id == project_id).all()
     for r in requests:
         _enrich_steps(db, r, tid)
     return requests
@@ -143,7 +143,7 @@ def get_approval_request(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Get an approval request with its steps."""
-    request = db.query(ApprovalRequest).filter(ApprovalRequest.id == approval_id, ApprovalRequest.tenant_id == current_tenant.id).first()
+    request = tenant_scoped(db, ApprovalRequest, current_tenant.id).filter(ApprovalRequest.id == approval_id).first()
     if not request:
         raise HTTPException(status_code=404, detail="Approval request not found")
     return _enrich_steps(db, request, current_tenant.id)
@@ -160,13 +160,13 @@ def approve_step(
 ):
     """Approve a step in the approval chain. Advances to next step or completes."""
     tid = current_tenant.id
-    request = db.query(ApprovalRequest).filter(ApprovalRequest.id == approval_id, ApprovalRequest.tenant_id == tid).first()
+    request = tenant_scoped(db, ApprovalRequest, tid).filter(ApprovalRequest.id == approval_id).first()
     if not request:
         raise HTTPException(status_code=404, detail="Approval request not found")
     if request.status != "Pending":
         raise HTTPException(status_code=400, detail=f"Cannot approve: request is '{request.status}'")
 
-    step = db.query(ApprovalStep).filter(ApprovalStep.id == step_id, ApprovalStep.request_id == approval_id, ApprovalStep.tenant_id == tid).first()
+    step = tenant_scoped(db, ApprovalStep, tid).filter(ApprovalStep.id == step_id, ApprovalStep.request_id == approval_id).first()
     if not step:
         raise HTTPException(status_code=404, detail="Approval step not found")
     if step.status != "Pending":
@@ -204,7 +204,7 @@ def approve_step(
         },
         artifact_type="gate_event",
     )
-    all_steps = db.query(ApprovalStep).filter(ApprovalStep.request_id == approval_id, ApprovalStep.tenant_id == tid).order_by(ApprovalStep.step_order).all()
+    all_steps = tenant_scoped(db, ApprovalStep, tid).filter(ApprovalStep.request_id == approval_id).order_by(ApprovalStep.step_order).all()
     if step.step_order >= all_steps[-1].step_order:
         # Last step approved — request is fully approved
         request.status = "Approved"
@@ -216,7 +216,7 @@ def approve_step(
             from app.models.release import Release
             from app.routers.releases import _create_phase_approval
 
-            release = db.query(Release).filter(Release.id == request.release_id, Release.tenant_id == tid).first()
+            release = tenant_scoped(db, Release, tid).filter(Release.id == request.release_id).first()
             if release and release.status != request.target_phase:
                 # release_date stamps at the release's RESOLVED ladder live
                 # stage — literally "Released" only for the software family
@@ -239,7 +239,7 @@ def approve_step(
             release_name = ""
             if request.release_id:
                 from app.models.release import Release
-                rel = db.query(Release).filter(Release.id == request.release_id, Release.tenant_id == tid).first()
+                rel = tenant_scoped(db, Release, tid).filter(Release.id == request.release_id).first()
                 release_name = f"{rel.version} — {rel.name}" if rel else ""
             notify_approval_result(
                 db, True, current_user.name, release_name,
@@ -268,13 +268,13 @@ def reject_step(
 ):
     """Reject a step. This rejects the entire approval request."""
     tid = current_tenant.id
-    request = db.query(ApprovalRequest).filter(ApprovalRequest.id == approval_id, ApprovalRequest.tenant_id == tid).first()
+    request = tenant_scoped(db, ApprovalRequest, tid).filter(ApprovalRequest.id == approval_id).first()
     if not request:
         raise HTTPException(status_code=404, detail="Approval request not found")
     if request.status != "Pending":
         raise HTTPException(status_code=400, detail=f"Cannot reject: request is '{request.status}'")
 
-    step = db.query(ApprovalStep).filter(ApprovalStep.id == step_id, ApprovalStep.request_id == approval_id, ApprovalStep.tenant_id == tid).first()
+    step = tenant_scoped(db, ApprovalStep, tid).filter(ApprovalStep.id == step_id, ApprovalStep.request_id == approval_id).first()
     if not step:
         raise HTTPException(status_code=404, detail="Approval step not found")
     if step.status != "Pending":
@@ -317,7 +317,7 @@ def reject_step(
         release_name = ""
         if request.release_id:
             from app.models.release import Release
-            rel = db.query(Release).filter(Release.id == request.release_id, Release.tenant_id == tid).first()
+            rel = tenant_scoped(db, Release, tid).filter(Release.id == request.release_id).first()
             release_name = f"{rel.version} — {rel.name}" if rel else ""
         notify_approval_result(
             db, False, current_user.name, release_name,

@@ -79,7 +79,7 @@ def test_t1_gantt_lists_releases_with_the_dynamic_ladder():
     assert "release_lifecycle(" in body, "the ladder must resolve dynamically"
     assert "live_stage" in body, "release rows must carry the live_stage"
     assert "Release.project_id == project_id" in body, "releases must scope to the project"
-    assert "Release.tenant_id == tenant_id" in body, "releases must scope to the tenant"
+    assert "tenant_scoped(db, Release, tenant_id)" in body, "releases must scope to the tenant (the ONE scoping seam)"
 
 
 def test_t1_gantt_computes_the_drift_chip():

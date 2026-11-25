@@ -21,6 +21,7 @@ from app.models.risk import PROBABILITY_LEVELS, SEVERITY_LEVELS, Risk
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.models.user_task import UserTask
+from app.services.scope import tenant_scoped
 
 # Items sitting in a phase longer than this are "aging"
 AGING_THRESHOLD_DAYS = 7
@@ -46,7 +47,7 @@ def _assigned_project_ids(db: Session, user: User, tenant: Tenant) -> list[int]:
     for (pid,) in db.query(RoleAssignment.project_id).filter(
         RoleAssignment.user_id == user.id,
     ).all():
-        p = db.query(Project).filter(Project.id == pid, Project.tenant_id == tid).first()
+        p = tenant_scoped(db, Project, tid).filter(Project.id == pid).first()
         if p:
             ids.add(pid)
     return sorted(ids)
@@ -67,8 +68,8 @@ def build_context(
     uid = user.id if user is not None else None
 
     if project_id is not None:
-        project = db.query(Project).filter(
-            Project.id == project_id, Project.tenant_id == tid,
+        project = tenant_scoped(db, Project, tid).filter(
+            Project.id == project_id,
         ).first()
         if not project:
             return {
@@ -89,8 +90,8 @@ def build_context(
             "schedule": None, "schedules": [],
         }
 
-    projects = db.query(Project).filter(
-        Project.tenant_id == tid, Project.id.in_(proj_ids),
+    projects = tenant_scoped(db, Project, tid).filter(
+        Project.id.in_(proj_ids),
     ).order_by(Project.id).all()
 
     # ── Pending approvals in the user's projects ─────────────────────────
@@ -173,8 +174,8 @@ def build_context(
     # invisible to at-risk. Releases per tenant are few and the built-in
     # lookups are dict hits, so this stays a Python-side filter.
     at_risk_releases = []
-    releases = db.query(Release).filter(
-        Release.tenant_id == tid, Release.project_id.in_(proj_ids),
+    releases = tenant_scoped(db, Release, tid).filter(
+        Release.project_id.in_(proj_ids),
     ).all()
     done_cache: dict = {}
     projects_by_id = {p.id: p for p in projects}
@@ -753,9 +754,8 @@ def copilot_propose(
 
 def get_proposal(db: Session, user: User, tenant: Tenant, proposal_id: int) -> AiInteraction | None:
     """Load a proposal owned by this user in this tenant; expire stale drafts."""
-    row = db.query(AiInteraction).filter(
+    row = tenant_scoped(db, AiInteraction, tenant.id).filter(
         AiInteraction.id == proposal_id,
-        AiInteraction.tenant_id == tenant.id,
         AiInteraction.user_id == user.id,
         AiInteraction.kind == "proposal",
     ).first()
@@ -816,8 +816,8 @@ def _execute_op(db: Session, user: User, tenant: Tenant, op: dict) -> dict:
     kind = op.get("op")
 
     if kind == "advance_item":
-        item = db.query(BacklogItem).filter(
-            BacklogItem.id == op.get("item_id"), BacklogItem.tenant_id == tenant.id,
+        item = tenant_scoped(db, BacklogItem, tenant.id).filter(
+            BacklogItem.id == op.get("item_id"),
         ).first()
         if not item:
             raise ValueError(f"Backlog item {op.get('item_id')} not found")
@@ -866,8 +866,8 @@ def _execute_op(db: Session, user: User, tenant: Tenant, op: dict) -> dict:
         return {"item_id": item.id, "phase": item.current_phase}
 
     if kind == "assign_user":
-        item = db.query(BacklogItem).filter(
-            BacklogItem.id == op.get("item_id"), BacklogItem.tenant_id == tenant.id,
+        item = tenant_scoped(db, BacklogItem, tenant.id).filter(
+            BacklogItem.id == op.get("item_id"),
         ).first()
         if not item:
             raise ValueError(f"Backlog item {op.get('item_id')} not found")
@@ -896,8 +896,8 @@ def _execute_op(db: Session, user: User, tenant: Tenant, op: dict) -> dict:
     if kind == "create_risk":
         # P3: a confirmed proposal writes a real Risk row (replaces P1 risk drafts)
         project_id = op.get("project_id")
-        project = db.query(Project).filter(
-            Project.id == project_id, Project.tenant_id == tenant.id,
+        project = tenant_scoped(db, Project, tenant.id).filter(
+            Project.id == project_id,
         ).first() if project_id else None
         if not project:
             raise ValueError(f"Project {project_id} not found")
@@ -923,8 +923,8 @@ def _execute_op(db: Session, user: User, tenant: Tenant, op: dict) -> dict:
         return {"risk_id": risk.id, "score": risk.score, "title": risk.title}
 
     if kind == "escalate_approval":
-        approval = db.query(ApprovalRequest).filter(
-            ApprovalRequest.id == op.get("approval_id"), ApprovalRequest.tenant_id == tenant.id,
+        approval = tenant_scoped(db, ApprovalRequest, tenant.id).filter(
+            ApprovalRequest.id == op.get("approval_id"),
         ).first()
         if not approval:
             raise ValueError(f"Approval {op.get('approval_id')} not found")

@@ -31,6 +31,7 @@ from app.schemas.stakeholder import (
     StakeholderResponse,
     StakeholderUpdate,
 )
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["stakeholders"])
@@ -47,7 +48,7 @@ def create_stakeholder(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Add a stakeholder to a project (super admin, AM, or PM for this project)."""
-    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     if not can_manage_stakeholders(current_user, project, db):
@@ -67,7 +68,7 @@ def list_stakeholders(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List all stakeholders for a project."""
-    return db.query(Stakeholder).filter(Stakeholder.project_id == project_id, Stakeholder.tenant_id == current_tenant.id).order_by(Stakeholder.role_name).all()
+    return tenant_scoped(db, Stakeholder, current_tenant.id).filter(Stakeholder.project_id == project_id).order_by(Stakeholder.role_name).all()
 
 
 @router.put("/stakeholders/{stakeholder_id}", response_model=StakeholderResponse)
@@ -79,7 +80,7 @@ def update_stakeholder(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Update a stakeholder."""
-    s = db.query(Stakeholder).filter(Stakeholder.id == stakeholder_id, Stakeholder.tenant_id == current_tenant.id).first()
+    s = tenant_scoped(db, Stakeholder, current_tenant.id).filter(Stakeholder.id == stakeholder_id).first()
     if not s:
         raise HTTPException(status_code=404, detail="Stakeholder not found")
     for field, val in update.model_dump(exclude_unset=True).items():
@@ -97,7 +98,7 @@ def delete_stakeholder(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Delete a stakeholder."""
-    s = db.query(Stakeholder).filter(Stakeholder.id == stakeholder_id, Stakeholder.tenant_id == current_tenant.id).first()
+    s = tenant_scoped(db, Stakeholder, current_tenant.id).filter(Stakeholder.id == stakeholder_id).first()
     if not s:
         raise HTTPException(status_code=404, detail="Stakeholder not found")
     db.delete(s)
@@ -113,7 +114,7 @@ def list_roles(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List all RACI roles."""
-    return db.query(Role).filter(Role.tenant_id == current_tenant.id).order_by(Role.id).all()
+    return tenant_scoped(db, Role, current_tenant.id).order_by(Role.id).all()
 
 
 @router.post("/roles", response_model=RoleResponse, status_code=201)
@@ -124,7 +125,7 @@ def create_role(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Create a new role."""
-    if db.query(Role).filter(Role.name == role.name, Role.tenant_id == current_tenant.id).first():
+    if tenant_scoped(db, Role, current_tenant.id).filter(Role.name == role.name).first():
         raise HTTPException(status_code=400, detail="Role already exists")
     db_role = Role(**role.model_dump(), tenant_id=current_tenant.id)
     db.add(db_role)
@@ -142,7 +143,7 @@ def update_role(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Update a role."""
-    r = db.query(Role).filter(Role.id == role_id, Role.tenant_id == current_tenant.id).first()
+    r = tenant_scoped(db, Role, current_tenant.id).filter(Role.id == role_id).first()
     if not r:
         raise HTTPException(status_code=404, detail="Role not found")
     for field, val in update.model_dump(exclude_unset=True).items():
@@ -160,7 +161,7 @@ def delete_role(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Delete a role."""
-    r = db.query(Role).filter(Role.id == role_id, Role.tenant_id == current_tenant.id).first()
+    r = tenant_scoped(db, Role, current_tenant.id).filter(Role.id == role_id).first()
     if not r:
         raise HTTPException(status_code=404, detail="Role not found")
     db.delete(r)
@@ -178,11 +179,11 @@ def list_assignments(
 ):
     """List role assignments for a project — returns user + role info."""
     tid = current_tenant.id
-    assignments = db.query(RoleAssignment).filter(RoleAssignment.project_id == project_id, RoleAssignment.tenant_id == tid).all()
+    assignments = tenant_scoped(db, RoleAssignment, tid).filter(RoleAssignment.project_id == project_id).all()
     result = []
     for a in assignments:
         user = db.query(User).filter(User.id == a.user_id).first()
-        role = db.query(Role).filter(Role.id == a.role_id, Role.tenant_id == tid).first()
+        role = tenant_scoped(db, Role, tid).filter(Role.id == a.role_id).first()
         result.append({
             "id": a.id,
             "user_id": a.user_id,
@@ -204,18 +205,17 @@ def create_assignment(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Assign a user to a role on a project (super admin, AM, or PM for this project)."""
-    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     if not can_assign_role(current_user, project, db):
         raise HTTPException(status_code=403, detail="You don't have permission to assign roles on this project")
     if assignment.project_id != project_id:
         raise HTTPException(status_code=400, detail="project_id mismatch")
-    existing = db.query(RoleAssignment).filter(
+    existing = tenant_scoped(db, RoleAssignment, current_tenant.id).filter(
         RoleAssignment.user_id == assignment.user_id,
         RoleAssignment.role_id == assignment.role_id,
         RoleAssignment.project_id == project_id,
-        RoleAssignment.tenant_id == current_tenant.id,
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="Assignment already exists")
@@ -240,8 +240,8 @@ def update_assignment(
     the same tenant-scope and duplicate rules as create. Accepts partial
     updates: fields not sent keep their current value.
     """
-    a = db.query(RoleAssignment).filter(
-        RoleAssignment.id == assignment_id, RoleAssignment.tenant_id == current_tenant.id
+    a = tenant_scoped(db, RoleAssignment, current_tenant.id).filter(
+        RoleAssignment.id == assignment_id
     ).first()
     if not a:
         raise HTTPException(status_code=404, detail="Assignment not found")
@@ -251,11 +251,10 @@ def update_assignment(
     new_role_id = update.role_id if update.role_id is not None else a.role_id
     if new_user_id == a.user_id and new_role_id == a.role_id:
         return {"id": a.id, "user_id": a.user_id, "role_id": a.role_id, "message": "No change"}
-    existing = db.query(RoleAssignment).filter(
+    existing = tenant_scoped(db, RoleAssignment, current_tenant.id).filter(
         RoleAssignment.user_id == new_user_id,
         RoleAssignment.role_id == new_role_id,
         RoleAssignment.project_id == a.project_id,
-        RoleAssignment.tenant_id == current_tenant.id,
     ).first()
     if existing and existing.id != a.id:
         raise HTTPException(status_code=400, detail="Assignment already exists")
@@ -274,7 +273,7 @@ def delete_assignment(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Remove a role assignment."""
-    a = db.query(RoleAssignment).filter(RoleAssignment.id == assignment_id, RoleAssignment.tenant_id == current_tenant.id).first()
+    a = tenant_scoped(db, RoleAssignment, current_tenant.id).filter(RoleAssignment.id == assignment_id).first()
     if not a:
         raise HTTPException(status_code=404, detail="Assignment not found")
     db.delete(a)
@@ -298,7 +297,7 @@ def get_traceability(
     from app.models.roadmap import Roadmap
 
     # Vision
-    vision = db.query(ProjectVision).filter(ProjectVision.project_id == project_id, ProjectVision.tenant_id == tid).first()
+    vision = tenant_scoped(db, ProjectVision, tid).filter(ProjectVision.project_id == project_id).first()
     vision_data = None
     if vision:
         vision_data = {
@@ -307,10 +306,10 @@ def get_traceability(
         }
 
     # KPIs (with linked backlog items)
-    kpis = db.query(KPI).filter(KPI.project_id == project_id, KPI.tenant_id == tid).all()
+    kpis = tenant_scoped(db, KPI, tid).filter(KPI.project_id == project_id).all()
     kpi_data = []
     for k in kpis:
-        linked_items = db.query(BacklogItem).filter(BacklogItem.kpi_id == k.id, BacklogItem.tenant_id == tid).all()
+        linked_items = tenant_scoped(db, BacklogItem, tid).filter(BacklogItem.kpi_id == k.id).all()
         kpi_data.append({
             "id": k.id,
             "name": k.name,
@@ -323,19 +322,19 @@ def get_traceability(
         })
 
     # Roadmaps → Milestones → Releases
-    roadmaps = db.query(Roadmap).filter(Roadmap.project_id == project_id, Roadmap.tenant_id == tid).all()
+    roadmaps = tenant_scoped(db, Roadmap, tid).filter(Roadmap.project_id == project_id).all()
     roadmap_data = []
     for rm in roadmaps:
-        milestones = db.query(Milestone).filter(Milestone.roadmap_id == rm.id, Milestone.tenant_id == tid).all()
+        milestones = tenant_scoped(db, Milestone, tid).filter(Milestone.roadmap_id == rm.id).all()
         milestone_list = []
         for ms in milestones:
-            linked_releases = db.query(Release).filter(Release.milestone_id == ms.id, Release.tenant_id == tid).all()
+            linked_releases = tenant_scoped(db, Release, tid).filter(Release.milestone_id == ms.id).all()
             release_list = []
             for rel in linked_releases:
-                items = db.query(ReleaseItem).filter(ReleaseItem.release_id == rel.id, ReleaseItem.tenant_id == tid).all()
+                items = tenant_scoped(db, ReleaseItem, tid).filter(ReleaseItem.release_id == rel.id).all()
                 backlog_items = []
                 for ri in items:
-                    bi = db.query(BacklogItem).filter(BacklogItem.id == ri.backlog_item_id, BacklogItem.tenant_id == tid).first()
+                    bi = tenant_scoped(db, BacklogItem, tid).filter(BacklogItem.id == ri.backlog_item_id).first()
                     if bi:
                         backlog_items.append({
                             "id": bi.id, "title": bi.title, "phase": bi.current_phase,
@@ -358,14 +357,14 @@ def get_traceability(
         })
 
     # Unlinked backlog items (no KPI)
-    unlinked = db.query(BacklogItem).filter(
-        BacklogItem.project_id == project_id, BacklogItem.kpi_id.is_(None), BacklogItem.tenant_id == tid
+    unlinked = tenant_scoped(db, BacklogItem, tid).filter(
+        BacklogItem.project_id == project_id, BacklogItem.kpi_id.is_(None)
     ).all()
     unlinked_data = [{"id": i.id, "title": i.title, "phase": i.current_phase, "status": i.status, "priority": i.priority} for i in unlinked]
 
     # Unlinked releases (no milestone)
-    unlinked_releases = db.query(Release).filter(
-        Release.project_id == project_id, Release.milestone_id.is_(None), Release.tenant_id == tid
+    unlinked_releases = tenant_scoped(db, Release, tid).filter(
+        Release.project_id == project_id, Release.milestone_id.is_(None)
     ).all()
     unlinked_rel_data = [{"id": r.id, "version": r.version, "name": r.name, "status": r.status, "target_date": r.target_date} for r in unlinked_releases]
 
@@ -391,15 +390,15 @@ def list_users(
     users = db.query(User).filter(User.active_tenant_id == tid).order_by(User.created_at.desc()).all()
     result = []
     for u in users:
-        assignments = db.query(RoleAssignment).filter(RoleAssignment.user_id == u.id, RoleAssignment.tenant_id == tid).all()
+        assignments = tenant_scoped(db, RoleAssignment, tid).filter(RoleAssignment.user_id == u.id).all()
         roles = []
         for a in assignments:
-            role = db.query(Role).filter(Role.id == a.role_id, Role.tenant_id == tid).first()
+            role = tenant_scoped(db, Role, tid).filter(Role.id == a.role_id).first()
             if role:
                 roles.append({"role": role.name, "project_id": a.project_id})
         # Find managed clients and projects
-        managed_clients = db.query(Client).filter(Client.account_manager_id == u.id, Client.tenant_id == tid).all()
-        managed_projects = db.query(Project).filter(Project.project_manager_id == u.id, Project.tenant_id == tid).all()
+        managed_clients = tenant_scoped(db, Client, tid).filter(Client.account_manager_id == u.id).all()
+        managed_projects = tenant_scoped(db, Project, tid).filter(Project.project_manager_id == u.id).all()
         result.append({
             "id": u.id,
             "email": u.email,

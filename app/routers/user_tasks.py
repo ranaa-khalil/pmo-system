@@ -13,6 +13,7 @@ from app.models.user import User
 from app.models.user_task import TASK_PRIORITIES, TASK_STATUSES, UserTask
 from app.schemas.user_task import UserTaskCreate, UserTaskUpdate
 from app.services.notifications import log_activity
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["user-tasks"])
@@ -41,11 +42,11 @@ def _enrich(task: UserTask, db: Session, tenant_id: int) -> dict:
         "assignee_name": None,
     }
     if task.project_id:
-        proj = db.query(Project).filter(Project.id == task.project_id, Project.tenant_id == tenant_id).first()
+        proj = tenant_scoped(db, Project, tenant_id).filter(Project.id == task.project_id).first()
         if proj:
             data["project_name"] = proj.name
     if task.milestone_id:
-        ms = db.query(Milestone).filter(Milestone.id == task.milestone_id, Milestone.tenant_id == tenant_id).first()
+        ms = tenant_scoped(db, Milestone, tenant_id).filter(Milestone.id == task.milestone_id).first()
         if ms:
             data["milestone_title"] = ms.title
     assignee = db.query(User).filter(User.id == task.assigned_to).first()
@@ -85,7 +86,7 @@ def list_tasks(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List tasks for the current user, with optional filters."""
-    query = db.query(UserTask).filter(UserTask.assigned_to == current_user.id, UserTask.tenant_id == current_tenant.id)
+    query = tenant_scoped(db, UserTask, current_tenant.id).filter(UserTask.assigned_to == current_user.id)
     if status:
         query = query.filter(UserTask.status == status)
     if priority:
@@ -142,11 +143,11 @@ def create_task(
     assigned_to = task.assigned_to or current_user.id
     # Validate project if set
     if task.project_id:
-        if not db.query(Project).filter(Project.id == task.project_id, Project.tenant_id == tid).first():
+        if not tenant_scoped(db, Project, tid).filter(Project.id == task.project_id).first():
             raise HTTPException(status_code=404, detail="Project not found")
     # Validate milestone if set
     if task.milestone_id:
-        if not db.query(Milestone).filter(Milestone.id == task.milestone_id, Milestone.tenant_id == tid).first():
+        if not tenant_scoped(db, Milestone, tid).filter(Milestone.id == task.milestone_id).first():
             raise HTTPException(status_code=404, detail="Milestone not found")
     # Validate status
     if task.status not in TASK_STATUSES:
@@ -156,8 +157,8 @@ def create_task(
     # Validate subtask parent: must exist in tenant, and one level only
     parent = None
     if task.parent_task_id:
-        parent = db.query(UserTask).filter(
-            UserTask.id == task.parent_task_id, UserTask.tenant_id == tid
+        parent = tenant_scoped(db, UserTask, tid).filter(
+            UserTask.id == task.parent_task_id
         ).first()
         if not parent:
             raise HTTPException(status_code=404, detail="Parent task not found")
@@ -213,7 +214,7 @@ def update_task(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Update a task. Only the assigned user or a super_admin can update."""
-    task = db.query(UserTask).filter(UserTask.id == task_id, UserTask.tenant_id == current_tenant.id).first()
+    task = tenant_scoped(db, UserTask, current_tenant.id).filter(UserTask.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     if task.assigned_to != current_user.id and current_user.system_role != "super_admin":
@@ -261,7 +262,7 @@ def delete_task(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Delete a task. Only the assigned user or a super_admin can delete."""
-    task = db.query(UserTask).filter(UserTask.id == task_id, UserTask.tenant_id == current_tenant.id).first()
+    task = tenant_scoped(db, UserTask, current_tenant.id).filter(UserTask.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     if task.assigned_to != current_user.id and current_user.system_role != "super_admin":
@@ -285,14 +286,14 @@ def list_subtasks(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List a task's subtasks (checklist). Only the assignee, creator, or super_admin."""
-    task = db.query(UserTask).filter(UserTask.id == task_id, UserTask.tenant_id == current_tenant.id).first()
+    task = tenant_scoped(db, UserTask, current_tenant.id).filter(UserTask.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     if task.assigned_to != current_user.id and task.created_by != current_user.id and current_user.system_role != "super_admin":
         raise HTTPException(status_code=403, detail="You can only view subtasks of your own tasks")
     subtasks = (
-        db.query(UserTask)
-        .filter(UserTask.parent_task_id == task_id, UserTask.tenant_id == current_tenant.id)
+        tenant_scoped(db, UserTask, current_tenant.id)
+        .filter(UserTask.parent_task_id == task_id)
         .order_by(UserTask.status != "Completed", UserTask.created_at)
         .all()
     )
@@ -312,7 +313,7 @@ def tasks_summary(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Get a summary of the current user's tasks — for dashboard widget and nav badge."""
-    base = db.query(UserTask).filter(UserTask.assigned_to == current_user.id, UserTask.tenant_id == current_tenant.id)
+    base = tenant_scoped(db, UserTask, current_tenant.id).filter(UserTask.assigned_to == current_user.id)
     total = base.count()
     pending = base.filter(UserTask.status == "Pending").count()
     in_progress = base.filter(UserTask.status == "In Progress").count()

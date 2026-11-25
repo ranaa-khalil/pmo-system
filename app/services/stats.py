@@ -30,6 +30,7 @@ from app.models.stakeholder import Stakeholder
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.lifecycle import release_done_phases
+from app.services.scope import tenant_scoped
 
 
 def _done_phases_by_type(db: Session, tid: int, projects: list[Project]) -> dict:
@@ -59,7 +60,7 @@ def get_dashboard_stats(db: Session, current_user: User, current_tenant: Tenant)
     # One tenant-wide project fetch replaces the per-RA and per-project
     # tenant-check N+1 loops: the RA ids are tenant-checked by set
     # membership, and the client mapping reads the same rows.
-    projects = db.query(Project).filter(Project.tenant_id == tid).all()
+    projects = tenant_scoped(db, Project, tid).all()
     projects_by_id = {p.id: p for p in projects}
 
     # The done set per project type (the dynamic release lifecycle)
@@ -92,8 +93,8 @@ def get_dashboard_stats(db: Session, current_user: User, current_tenant: Tenant)
     client_ids = list(assigned_client_ids) if assigned_client_ids else [0]
 
     # ── Clients (count + name map in one query) ─────────────────────────
-    client_rows = db.query(Client).filter(
-        Client.tenant_id == tid, Client.id.in_(client_ids),
+    client_rows = tenant_scoped(db, Client, tid).filter(
+        Client.id.in_(client_ids),
     ).all()
     clients_count = len(client_rows)
     client_names = {c.id: c.name for c in client_rows}
@@ -120,8 +121,8 @@ def get_dashboard_stats(db: Session, current_user: User, current_tenant: Tenant)
 
     # ── Releases: one fetch feeds the count, the status distribution, and
     #    the per-project rollup ───────────────────────────────────────────
-    releases = db.query(Release).filter(
-        Release.tenant_id == tid, Release.project_id.in_(proj_ids),
+    releases = tenant_scoped(db, Release, tid).filter(
+        Release.project_id.in_(proj_ids),
     ).all()
     releases_count = len(releases)
     release_status_dist: dict[str, int] = {}
@@ -239,8 +240,8 @@ def get_dashboard_stats(db: Session, current_user: User, current_tenant: Tenant)
             "client_id": p.client_id,
             "client_name": next((pp["client_name"] for pp in project_progress if pp["id"] == p.id), "—"),
         }
-        for p in db.query(Project).filter(
-            Project.tenant_id == tid, Project.id.in_(proj_ids),
+        for p in tenant_scoped(db, Project, tid).filter(
+            Project.id.in_(proj_ids),
         ).order_by(Project.created_at.desc()).limit(5).all()
     ]
 

@@ -10,6 +10,7 @@ from app.models.tenant import Tenant
 from app.models.user import User
 from app.permissions import can_assign_am, can_create_client, can_manage_client, get_visible_clients
 from app.schemas.client import ClientCreate, ClientResponse, ClientUpdate
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api/clients", tags=["clients"])
@@ -44,7 +45,7 @@ def list_clients(db: Session = Depends(get_db), current_user: User = Depends(get
 @router.get("/{client_id}", response_model=ClientResponse)
 def get_client(client_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
     """Get a specific client by ID."""
-    client = db.query(Client).filter(Client.id == client_id, Client.tenant_id == current_tenant.id).first()
+    client = tenant_scoped(db, Client, current_tenant.id).filter(Client.id == client_id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
     return client
@@ -53,7 +54,7 @@ def get_client(client_id: int, db: Session = Depends(get_db), current_user: User
 @router.put("/{client_id}", response_model=ClientResponse)
 def update_client(client_id: int, client_update: ClientUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
     """Update a client (super admin, tenant owner/admin, or assigned AM)."""
-    client = db.query(Client).filter(Client.id == client_id, Client.tenant_id == current_tenant.id).first()
+    client = tenant_scoped(db, Client, current_tenant.id).filter(Client.id == client_id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
     if not can_manage_client(current_user, client, db):
@@ -75,7 +76,7 @@ def assign_account_manager(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Assign an account manager to a client (super admin, tenant owner/admin, or current AM)."""
-    client = db.query(Client).filter(Client.id == client_id, Client.tenant_id == current_tenant.id).first()
+    client = tenant_scoped(db, Client, current_tenant.id).filter(Client.id == client_id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
     if not can_assign_am(current_user, client, db):
@@ -97,7 +98,7 @@ def delete_client(client_id: int, db: Session = Depends(get_db), current_user: U
     """Delete a client (super admin, tenant owner, or tenant admin)."""
     if not can_create_client(current_user, db):
         raise HTTPException(status_code=403, detail="You don't have permission to delete clients")
-    client = db.query(Client).filter(Client.id == client_id, Client.tenant_id == current_tenant.id).first()
+    client = tenant_scoped(db, Client, current_tenant.id).filter(Client.id == client_id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
     db.delete(client)

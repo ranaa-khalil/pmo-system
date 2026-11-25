@@ -18,6 +18,7 @@ from app.permissions import (
     get_visible_projects,
 )
 from app.schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -30,7 +31,7 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db), curren
     from app.services.usage_service import METRIC_PROJECTS, check_quota
     check_quota(db, current_tenant, METRIC_PROJECTS)
 
-    client = db.query(Client).filter(Client.id == project.client_id, Client.tenant_id == current_tenant.id).first()
+    client = tenant_scoped(db, Client, current_tenant.id).filter(Client.id == project.client_id).first()
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
     if not can_create_project(current_user, client, db):
@@ -75,7 +76,7 @@ def list_projects(
 @router.get("/{project_id}", response_model=ProjectResponse)
 def get_project(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
     """Get a specific project by ID."""
-    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     return project
@@ -84,7 +85,7 @@ def get_project(project_id: int, db: Session = Depends(get_db), current_user: Us
 @router.put("/{project_id}", response_model=ProjectResponse)
 def update_project(project_id: int, project_update: ProjectUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
     """Update a project (super admin, AM, or PM)."""
-    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     if not can_manage_project(current_user, project, db):
@@ -106,7 +107,7 @@ def assign_project_manager(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Assign a project manager to a project (super admin, AM, or current PM)."""
-    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     if not can_assign_pm(current_user, project, db):
@@ -127,10 +128,10 @@ def assign_project_manager(
 @router.delete("/{project_id}", status_code=204)
 def delete_project(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), current_tenant: Tenant = Depends(get_current_tenant)):
     """Delete a project (super admin or AM)."""
-    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    client = db.query(Client).filter(Client.id == project.client_id, Client.tenant_id == current_tenant.id).first()
+    client = tenant_scoped(db, Client, current_tenant.id).filter(Client.id == project.client_id).first()
     if not can_manage_client(current_user, client, db):
         raise HTTPException(status_code=403, detail="You don't have permission to delete projects")
     # Stakeholders FK is ON DELETE NO ACTION with a NOT NULL project_id —

@@ -20,6 +20,7 @@ from app.services.ai import (
     suggest_features,
     suggest_vision_improvements,
 )
+from app.services.scope import tenant_scoped
 from app.services.settings_service import (
     SETTING_AI_API_KEY,
     SETTING_AI_BASE_URL,
@@ -88,8 +89,8 @@ def get_predictive_flags(
 
     if project_id is not None:
         from app.models.project import Project
-        project = db.query(Project).filter(
-            Project.id == project_id, Project.tenant_id == current_tenant.id,
+        project = tenant_scoped(db, Project, current_tenant.id).filter(
+            Project.id == project_id,
         ).first()
         if not project:
             from fastapi import HTTPException
@@ -140,11 +141,11 @@ def ai_suggest_vision(
     if not tenant_config["api_key"]:
         raise HTTPException(400, "AI is not configured. Set the API key in Settings.")
 
-    project = db.query(Project).filter(Project.id == req.project_id, Project.tenant_id == current_tenant.id).first()
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == req.project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
 
-    vision = db.query(ProjectVision).filter(ProjectVision.project_id == req.project_id, ProjectVision.tenant_id == current_tenant.id).first()
+    vision = tenant_scoped(db, ProjectVision, current_tenant.id).filter(ProjectVision.project_id == req.project_id).first()
 
     try:
         return suggest_vision_improvements(
@@ -170,17 +171,17 @@ def ai_suggest_features(
     if not tenant_config["api_key"]:
         raise HTTPException(400, "AI is not configured. Set the API key in Settings.")
 
-    project = db.query(Project).filter(Project.id == req.project_id, Project.tenant_id == current_tenant.id).first()
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == req.project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
 
-    vision = db.query(ProjectVision).filter(ProjectVision.project_id == req.project_id, ProjectVision.tenant_id == current_tenant.id).first()
-    items = db.query(BacklogItem).filter(BacklogItem.project_id == req.project_id, BacklogItem.tenant_id == current_tenant.id).all()
+    vision = tenant_scoped(db, ProjectVision, current_tenant.id).filter(ProjectVision.project_id == req.project_id).first()
+    items = tenant_scoped(db, BacklogItem, current_tenant.id).filter(BacklogItem.project_id == req.project_id).all()
 
     existing_epics = list(set(i.epic for i in items if i.epic))
     existing_features = [i.title for i in items if i.item_type != "Epic"]
 
-    personas = db.query(UserPersona).filter(UserPersona.project_id == req.project_id, UserPersona.tenant_id == current_tenant.id).all()
+    personas = tenant_scoped(db, UserPersona, current_tenant.id).filter(UserPersona.project_id == req.project_id).all()
     persona_list = [{"name": p.name, "role": p.role or ""} for p in personas]
 
     try:
@@ -209,12 +210,12 @@ def ai_fill_field(
     if not tenant_config["api_key"]:
         raise HTTPException(400, "AI is not configured. Set the API key in Settings.")
 
-    item = db.query(BacklogItem).filter(BacklogItem.id == req.item_id, BacklogItem.tenant_id == current_tenant.id).first()
+    item = tenant_scoped(db, BacklogItem, current_tenant.id).filter(BacklogItem.id == req.item_id).first()
     if not item:
         raise HTTPException(404, "Backlog item not found")
 
-    project = db.query(Project).filter(Project.id == item.project_id, Project.tenant_id == current_tenant.id).first()
-    vision = db.query(ProjectVision).filter(ProjectVision.project_id == item.project_id, ProjectVision.tenant_id == current_tenant.id).first()
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == item.project_id).first()
+    vision = tenant_scoped(db, ProjectVision, current_tenant.id).filter(ProjectVision.project_id == item.project_id).first()
 
     try:
         return fill_field(
@@ -366,8 +367,8 @@ def _intake_project(db: Session, current_tenant: Tenant, project_id: int | None)
     """Resolve the intake target project inside the current tenant."""
     if project_id is None:
         return None
-    return db.query(Project).filter(
-        Project.id == project_id, Project.tenant_id == current_tenant.id,
+    return tenant_scoped(db, Project, current_tenant.id).filter(
+        Project.id == project_id,
     ).first()
 
 
@@ -448,9 +449,8 @@ def intake_apply_endpoint(
 
     draft = req.draft
     if draft is None and req.draft_id is not None:
-        row = db.query(AiInteraction).filter(
+        row = tenant_scoped(db, AiInteraction, current_tenant.id).filter(
             AiInteraction.id == req.draft_id,
-            AiInteraction.tenant_id == current_tenant.id,
             AiInteraction.user_id == current_user.id,
             AiInteraction.kind == "intake_draft",
         ).first()
@@ -780,7 +780,7 @@ def interview_apply_endpoint(
 
 def _fallback_project(db: Session, tenant: Tenant) -> Project | None:
     """First project in the tenant, used when no project_id is given for capture."""
-    return db.query(Project).filter(Project.tenant_id == tenant.id).order_by(Project.id).first()
+    return tenant_scoped(db, Project, tenant.id).order_by(Project.id).first()
 
 
 # ── Self-proposing automation (P4.2) ─────────────────────────────────────
@@ -796,8 +796,7 @@ def list_automation_rules(
     require_feature(current_tenant.plan, "ai_assistant")
     from app.models.automation_rule import AutomationRule
     rules = (
-        db.query(AutomationRule)
-        .filter(AutomationRule.tenant_id == current_tenant.id)
+        tenant_scoped(db, AutomationRule, current_tenant.id)
         .order_by(AutomationRule.id.desc())
         .all()
     )
@@ -898,8 +897,8 @@ def enable_automation_rule(
     require_feature(current_tenant.plan, "ai_assistant")
     from app.models.automation_rule import AutomationRule
     rule = (
-        db.query(AutomationRule)
-        .filter(AutomationRule.id == rule_id, AutomationRule.tenant_id == current_tenant.id)
+        tenant_scoped(db, AutomationRule, current_tenant.id)
+        .filter(AutomationRule.id == rule_id)
         .first()
     )
     if not rule:
@@ -928,8 +927,8 @@ def disable_automation_rule(
     require_feature(current_tenant.plan, "ai_assistant")
     from app.models.automation_rule import AutomationRule
     rule = (
-        db.query(AutomationRule)
-        .filter(AutomationRule.id == rule_id, AutomationRule.tenant_id == current_tenant.id)
+        tenant_scoped(db, AutomationRule, current_tenant.id)
+        .filter(AutomationRule.id == rule_id)
         .first()
     )
     if not rule:
@@ -958,8 +957,8 @@ def delete_automation_rule(
     require_feature(current_tenant.plan, "ai_assistant")
     from app.models.automation_rule import AutomationRule
     rule = (
-        db.query(AutomationRule)
-        .filter(AutomationRule.id == rule_id, AutomationRule.tenant_id == current_tenant.id)
+        tenant_scoped(db, AutomationRule, current_tenant.id)
+        .filter(AutomationRule.id == rule_id)
         .first()
     )
     if not rule:

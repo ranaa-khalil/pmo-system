@@ -26,6 +26,7 @@ from app.schemas.backlog import (
 from app.services.github import GitHubService
 from app.services.notifications import log_activity
 from app.services.release_machine import advance_backlog_item_phase
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api", tags=["backlog"])
@@ -57,14 +58,13 @@ def _auto_export_to_github(db: Session, item: BacklogItem, tenant_id: int):
 
     from app.models.github_board_config import GitHubBoardConfig
 
-    project = db.query(Project).filter(Project.id == item.project_id, Project.tenant_id == tenant_id).first()
+    project = tenant_scoped(db, Project, tenant_id).filter(Project.id == item.project_id).first()
     if not project:
         return
 
     # Check for board config
-    config = db.query(GitHubBoardConfig).filter(
+    config = tenant_scoped(db, GitHubBoardConfig, tenant_id).filter(
         GitHubBoardConfig.project_id == item.project_id,
-        GitHubBoardConfig.tenant_id == tenant_id,
     ).first()
 
     # Determine the repo to use
@@ -131,14 +131,13 @@ def create_backlog_item(
     (Requirements for Software/SDLC/Hybrid, Agent Intent for ADLC), so a new
     ADLC project's items never begin on a Software phase by mistake.
     """
-    if not db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first():
+    if not tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first():
         raise HTTPException(status_code=404, detail="Project not found")
     if item.project_id != project_id:
         raise HTTPException(status_code=400, detail="project_id mismatch")
     if item.parent_item_id:
-        parent = db.query(BacklogItem).filter(
+        parent = tenant_scoped(db, BacklogItem, current_tenant.id).filter(
             BacklogItem.id == item.parent_item_id,
-            BacklogItem.tenant_id == current_tenant.id,
             BacklogItem.project_id == project_id,
         ).first()
         if not parent:
@@ -149,7 +148,7 @@ def create_backlog_item(
     # model_dump would otherwise write a cross-tenant link that the coverage
     # and traceability reads silently ignore (data row holds a rogue link).
     if item.kpi_id:
-        kpi = db.query(KPI).filter(KPI.id == item.kpi_id, KPI.tenant_id == current_tenant.id).first()
+        kpi = tenant_scoped(db, KPI, current_tenant.id).filter(KPI.id == item.kpi_id).first()
         if not kpi:
             raise HTTPException(status_code=400, detail="KPI not found in this tenant")
     payload = item.model_dump()
@@ -175,7 +174,7 @@ def list_backlog_items(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List backlog items for a project, optionally filtered by phase or status."""
-    query = db.query(BacklogItem).filter(BacklogItem.project_id == project_id, BacklogItem.tenant_id == current_tenant.id)
+    query = tenant_scoped(db, BacklogItem, current_tenant.id).filter(BacklogItem.project_id == project_id)
     if phase:
         query = query.filter(BacklogItem.current_phase == phase)
     if status:
@@ -203,7 +202,7 @@ def get_backlog_rail(
     is_release_stage, gate: {deliverables, roles} | null}],
     source: 'template' | 'builtin'}.
     """
-    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -255,7 +254,7 @@ def get_backlog_item(
     The ONE Work drawer's detail fetch and the #N item references both load
     their item here — before this route existed, GET /backlog/{id} hit the
     PUT-only path (405) and every consumer silently fell back to null."""
-    item = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id).first()
+    item = tenant_scoped(db, BacklogItem, current_tenant.id).filter(BacklogItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Backlog item not found")
     return item
@@ -281,8 +280,8 @@ def reorder_backlog_board(
     if not order.order:
         return {"updated": 0}
     ids = [entry.id for entry in order.order]
-    rows = db.query(BacklogItem).filter(
-        BacklogItem.id.in_(ids), BacklogItem.tenant_id == current_tenant.id
+    rows = tenant_scoped(db, BacklogItem, current_tenant.id).filter(
+        BacklogItem.id.in_(ids)
     ).all()
     by_id = {row.id: row for row in rows}
     missing = [i for i in ids if i not in by_id]
@@ -333,8 +332,8 @@ def bulk_advance_backlog(
 
     results = []
     for item_id in bulk.item_ids:
-        item = db.query(BacklogItem).filter(
-            BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id
+        item = tenant_scoped(db, BacklogItem, current_tenant.id).filter(
+            BacklogItem.id == item_id
         ).first()
         if not item:
             results.append({"id": item_id, "ok": False, "error": "Backlog item not found"})
@@ -364,7 +363,7 @@ def update_backlog_item(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Update a backlog item. If phase changes to Development, sync to GitHub."""
-    item = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id).first()
+    item = tenant_scoped(db, BacklogItem, current_tenant.id).filter(BacklogItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Backlog item not found")
 
@@ -374,7 +373,7 @@ def update_backlog_item(
     # KPI tenancy on update: None (unlink) is allowed; a non-null kpi_id must
     # be a THIS-tenant KPI — never another tenant's.
     if updates.get("kpi_id") is not None:
-        kpi = db.query(KPI).filter(KPI.id == updates["kpi_id"], KPI.tenant_id == current_tenant.id).first()
+        kpi = tenant_scoped(db, KPI, current_tenant.id).filter(KPI.id == updates["kpi_id"]).first()
         if not kpi:
             raise HTTPException(status_code=400, detail="KPI not found in this tenant")
 
@@ -404,7 +403,7 @@ def advance_backlog_phase(
     delegates; the response shape, status codes and error strings are
     byte-identical to the pre-extraction router.
     """
-    item = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id).first()
+    item = tenant_scoped(db, BacklogItem, current_tenant.id).filter(BacklogItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Backlog item not found")
 
@@ -419,7 +418,7 @@ def send_back_to_development(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Send a backlog item back from Testing to Development (rework)."""
-    item = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id).first()
+    item = tenant_scoped(db, BacklogItem, current_tenant.id).filter(BacklogItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Backlog item not found")
 
@@ -461,7 +460,7 @@ def delete_backlog_item(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Delete a backlog item."""
-    item = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id).first()
+    item = tenant_scoped(db, BacklogItem, current_tenant.id).filter(BacklogItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Backlog item not found")
     db.delete(item)
@@ -482,11 +481,11 @@ def add_dependency(
 ):
     """Mark item_id as depending on depends_on_id."""
     tid = current_tenant.id
-    item = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == tid).first()
+    item = tenant_scoped(db, BacklogItem, tid).filter(BacklogItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Backlog item not found")
 
-    target = db.query(BacklogItem).filter(BacklogItem.id == dep.depends_on_id, BacklogItem.tenant_id == tid).first()
+    target = tenant_scoped(db, BacklogItem, tid).filter(BacklogItem.id == dep.depends_on_id).first()
     if not target:
         raise HTTPException(status_code=404, detail="Dependency target item not found")
 
@@ -518,11 +517,11 @@ def remove_dependency(
 ):
     """Remove a dependency link."""
     tid = current_tenant.id
-    item = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == tid).first()
+    item = tenant_scoped(db, BacklogItem, tid).filter(BacklogItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Backlog item not found")
 
-    target = db.query(BacklogItem).filter(BacklogItem.id == depends_on_id, BacklogItem.tenant_id == tid).first()
+    target = tenant_scoped(db, BacklogItem, tid).filter(BacklogItem.id == depends_on_id).first()
     if not target:
         raise HTTPException(status_code=404, detail="Dependency target item not found")
 
@@ -545,13 +544,13 @@ def list_available_dependencies(
 ):
     """List backlog items in a project that can be used as dependencies."""
     tid = current_tenant.id
-    item = db.query(BacklogItem).filter(BacklogItem.id == exclude_id, BacklogItem.tenant_id == tid).first()
+    item = tenant_scoped(db, BacklogItem, tid).filter(BacklogItem.id == exclude_id).first()
     existing_dep_ids = {d.id for d in item.depends_on} if item else set()
     existing_dep_ids.add(exclude_id)
 
     items = (
-        db.query(BacklogItem)
-        .filter(BacklogItem.project_id == project_id, BacklogItem.tenant_id == tid)
+        tenant_scoped(db, BacklogItem, tid)
+        .filter(BacklogItem.project_id == project_id)
         .filter(~BacklogItem.id.in_(existing_dep_ids))
         .order_by(BacklogItem.created_at.desc())
         .all()
@@ -569,11 +568,11 @@ def list_subitems(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """List an item's sub-items (one level deep)."""
-    parent = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id).first()
+    parent = tenant_scoped(db, BacklogItem, current_tenant.id).filter(BacklogItem.id == item_id).first()
     if not parent:
         raise HTTPException(status_code=404, detail="Item not found")
-    return db.query(BacklogItem).filter(
-        BacklogItem.parent_item_id == item_id, BacklogItem.tenant_id == current_tenant.id,
+    return tenant_scoped(db, BacklogItem, current_tenant.id).filter(
+        BacklogItem.parent_item_id == item_id,
     ).order_by(BacklogItem.created_at.asc()).all()
 
 
@@ -585,11 +584,11 @@ def subitem_tree(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """An item with its sub-items and a progress rollup (done / total)."""
-    parent = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id).first()
+    parent = tenant_scoped(db, BacklogItem, current_tenant.id).filter(BacklogItem.id == item_id).first()
     if not parent:
         raise HTTPException(status_code=404, detail="Item not found")
-    children = db.query(BacklogItem).filter(
-        BacklogItem.parent_item_id == item_id, BacklogItem.tenant_id == current_tenant.id,
+    children = tenant_scoped(db, BacklogItem, current_tenant.id).filter(
+        BacklogItem.parent_item_id == item_id,
     ).order_by(BacklogItem.created_at.asc()).all()
     done = sum(1 for c in children if c.status == "Done")
     total = len(children)
@@ -608,12 +607,11 @@ def list_backlinks(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Items whose description references this one as #<id> (mention-style links)."""
-    parent = db.query(BacklogItem).filter(BacklogItem.id == item_id, BacklogItem.tenant_id == current_tenant.id).first()
+    parent = tenant_scoped(db, BacklogItem, current_tenant.id).filter(BacklogItem.id == item_id).first()
     if not parent:
         raise HTTPException(status_code=404, detail="Item not found")
     needle = f"#{item_id}"
-    rows = db.query(BacklogItem).filter(
-        BacklogItem.tenant_id == current_tenant.id,
+    rows = tenant_scoped(db, BacklogItem, current_tenant.id).filter(
         BacklogItem.project_id == parent.project_id,
         BacklogItem.id != item_id,
         BacklogItem.description.like(f"%{needle}%"),

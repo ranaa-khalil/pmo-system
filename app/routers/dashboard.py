@@ -41,6 +41,7 @@ from app.models.user import User
 from app.models.user_task import UserTask
 from app.services import schedule as schedule_service
 from app.services import stats as stats_service
+from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 
 router = APIRouter(prefix="/api")
@@ -74,15 +75,13 @@ def team_workload(
 
     result = []
     for member in members:
-        open_items = db.query(BacklogItem).filter(
+        open_items = tenant_scoped(db, BacklogItem, current_tenant.id).filter(
             BacklogItem.assigned_to == member.id,
             BacklogItem.status.in_(_OPEN_ITEM_STATUSES),
-            BacklogItem.tenant_id == current_tenant.id,
         ).count()
-        open_tasks = db.query(UserTask).filter(
+        open_tasks = tenant_scoped(db, UserTask, current_tenant.id).filter(
             UserTask.assigned_to == member.id,
             UserTask.status.in_(_OPEN_TASK_STATUSES),
-            UserTask.tenant_id == current_tenant.id,
         ).count()
         result.append({
             "user_id": member.id,
@@ -102,8 +101,8 @@ def project_gantt(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Item-level Gantt data: scheduled window, dependencies, CPM float/critical."""
-    project = db.query(Project).filter(
-        Project.id == project_id, Project.tenant_id == current_tenant.id
+    project = tenant_scoped(db, Project, current_tenant.id).filter(
+        Project.id == project_id
     ).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")

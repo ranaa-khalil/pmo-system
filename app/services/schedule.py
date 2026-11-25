@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.models.backlog_item import BacklogItem, backlog_dependencies
 from app.models.release import Release, ReleaseItem
+from app.services.scope import tenant_scoped
 
 
 def project_schedule(
@@ -69,8 +70,8 @@ def project_schedule(
     release_rows = []
     release_targets = {}  # release_id -> parsed target date
     drift = None
-    for r in db.query(Release).filter(
-        Release.project_id == project_id, Release.tenant_id == tenant_id
+    for r in tenant_scoped(db, Release, tenant_id).filter(
+        Release.project_id == project_id
     ).all():
         release_rows.append({
             "id": r.id,

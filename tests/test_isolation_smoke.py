@@ -2,11 +2,14 @@
 
 The first probe in the per-phase isolation discipline: seed two tenants with
 real data, then assert tenant A cannot read tenant B's data across the key
-routers (projects, clients, backlog items). This test verifies the EXISTING
-scoping discipline — every router query filters tenant_id == current_tenant.id
-— and must pass against the current build. Expected behavior per the API as
-built: cross-tenant single-resource GETs 404, list endpoints omit the other
-tenant's rows, tenant-scoped backlog reads come back empty.
+routers (projects, clients, backlog items) — and, since the Tenant P1 seam
+round, the remaining hot routers: releases, approvals, tags, user tasks, and
+the dashboard surfaces (gantt + workload). This test verifies the scoping
+discipline — every tenant-scoped read goes through the ONE seam
+(app/services/scope.tenant_scoped) or a hand-written filter — and must pass
+against the current build. Expected behavior per the API as built:
+cross-tenant single-resource GETs 404, list endpoints omit the other tenant's
+rows, tenant-scoped backlog reads come back empty.
 """
 import app.models  # noqa: F401 — register all models with Base
 from app.models.backlog_item import BacklogItem
@@ -119,3 +122,106 @@ class TestTenantIsolation:
         # Item-level access to tenant B's item 404s (update path is tenant-scoped)
         resp = client.put(f"/api/backlog/{item_b.id}", json={"title": "hijacked"})
         assert resp.status_code == 404
+
+    # ── Tenant P1 seam round — the remaining hot routers ──────────────────
+
+    def test_releases_are_tenant_scoped(self, client, db):
+        """Tenant A never sees tenant B's release: the project list is empty
+        and a direct GET of tenant B's release id 404s (seam-scoped)."""
+        from app.models.release import Release
+
+        seeded = _seed_two_tenants(db)
+        release_b = Release(
+            tenant_id=seeded["b"]["tenant"].id,
+            project_id=seeded["b"]["project"].id,
+            version="9.9.9", name="Tenant B Release", status="Planning",
+        )
+        db.add(release_b)
+        db.commit()
+        db.refresh(release_b)
+
+        resp = client.get(f"/api/projects/{seeded['b']['project'].id}/releases")
+        assert resp.status_code == 200
+        assert resp.json() == []  # no rows match tenant A's scope
+
+        resp = client.get(f"/api/releases/{release_b.id}")
+        assert resp.status_code == 404
+
+    def test_approvals_are_tenant_scoped(self, client, db):
+        """Tenant A never sees tenant B's approval request: the project list
+        is empty and a direct GET of tenant B's request id 404s."""
+        from app.models.approval import ApprovalRequest
+
+        seeded = _seed_two_tenants(db)
+        request_b = ApprovalRequest(
+            tenant_id=seeded["b"]["tenant"].id,
+            project_id=seeded["b"]["project"].id,
+            title="Tenant B Gate", request_type="phase",
+            requested_by=seeded["b"]["user"].id, status="Pending",
+        )
+        db.add(request_b)
+        db.commit()
+        db.refresh(request_b)
+
+        resp = client.get(f"/api/projects/{seeded['b']['project'].id}/approvals")
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+        resp = client.get(f"/api/approvals/{request_b.id}")
+        assert resp.status_code == 404
+
+    def test_tags_are_tenant_scoped(self, client, db):
+        """Tenant A's tag pool omits tenant B's tag; a direct DELETE of
+        tenant B's tag 404s (lookup is seam-scoped)."""
+        from app.models.tag import Tag
+
+        seeded = _seed_two_tenants(db)
+        tag_b = Tag(tenant_id=seeded["b"]["tenant"].id, name="B Tag", color="#ff0000")
+        db.add(tag_b)
+        db.commit()
+        db.refresh(tag_b)
+
+        resp = client.get("/api/tags")
+        assert resp.status_code == 200
+        names = [t["name"] for t in resp.json()]
+        assert "B Tag" not in names
+
+        resp = client.delete(f"/api/tags/{tag_b.id}")
+        assert resp.status_code == 404
+
+    def test_user_tasks_are_tenant_scoped(self, client, db):
+        """Tenant A's task list omits tenant B's task, and acting on tenant
+        B's task 404s — the lookup is seam-scoped BEFORE the super_admin
+        permission check, so 404 (not 200) proves tenancy, not RBAC."""
+        from app.models.user_task import UserTask
+
+        seeded = _seed_two_tenants(db)
+        task_b = UserTask(
+            tenant_id=seeded["b"]["tenant"].id, title="B Task",
+            assigned_to=seeded["b"]["user"].id, status="Pending",
+        )
+        db.add(task_b)
+        db.commit()
+        db.refresh(task_b)
+
+        resp = client.get("/api/tasks")
+        assert resp.status_code == 200
+        titles = [t["title"] for t in resp.json()]
+        assert "B Task" not in titles
+
+        resp = client.put(f"/api/tasks/{task_b.id}", json={"title": "hijacked"})
+        assert resp.status_code == 404
+
+    def test_gantt_and_workload_are_tenant_scoped(self, client, db):
+        """The dashboard surfaces: tenant B's project gantt 404s (the project
+        lookup is seam-scoped) and the workload strip lists only tenant A's
+        members — tenant B's owner never appears."""
+        seeded = _seed_two_tenants(db)
+
+        resp = client.get(f"/api/projects/{seeded['b']['project'].id}/gantt")
+        assert resp.status_code == 404
+
+        resp = client.get("/api/workload")
+        assert resp.status_code == 200
+        names = [r["name"] for r in resp.json()]
+        assert "Tenant B Owner" not in names

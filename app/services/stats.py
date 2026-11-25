@@ -29,9 +29,21 @@ from app.models.role_assignment import RoleAssignment
 from app.models.stakeholder import Stakeholder
 from app.models.tenant import Tenant
 from app.models.user import User
+from app.services.lifecycle import release_done_phases
 
-# The "done" phases (byte-identical to the handler this replaces).
-DONE_PHASES = ["Pre-Release", "Release", "Post-Release", "Retrospective"]
+
+def _done_phases_by_type(db: Session, tid: int, projects: list[Project]) -> dict:
+    """The done set per project type (the dynamic release lifecycle).
+
+    The old module-level DONE_PHASES constant mis-bucketed items for any
+    non-software template — release_done_phases resolves it per type.
+    """
+    cache: dict = {}
+    for p in projects:
+        ptype = getattr(p, "project_type", None)
+        if ptype not in cache:
+            cache[ptype] = release_done_phases(db, tid, ptype)
+    return cache
 
 
 def get_dashboard_stats(db: Session, current_user: User, current_tenant: Tenant) -> dict:
@@ -49,6 +61,9 @@ def get_dashboard_stats(db: Session, current_user: User, current_tenant: Tenant)
     # membership, and the client mapping reads the same rows.
     projects = db.query(Project).filter(Project.tenant_id == tid).all()
     projects_by_id = {p.id: p for p in projects}
+
+    # The done set per project type (the dynamic release lifecycle)
+    done_by_type = _done_phases_by_type(db, tid, projects)
 
     pm_project_ids = {p.id for p in projects if p.project_manager_id == uid}
     ra_project_ids = {
@@ -116,8 +131,10 @@ def get_dashboard_stats(db: Session, current_user: User, current_tenant: Tenant)
         releases_by_project[rel.project_id] = releases_by_project.get(rel.project_id, 0) + 1
 
     # Release items progress: one ReleaseItem fetch + one BacklogItem fetch
-    # replaces the per-release × per-item N+1 walk.
+    # replaces the per-release × per-item N+1 walk. Done is bucketed by the
+    # release's own project's ladder (the dynamic release lifecycle).
     release_ids = [rel.id for rel in releases]
+    release_type_by_id = {rel.id: getattr(projects_by_id.get(rel.project_id), "project_type", None) for rel in releases}
     total_release_items = 0
     completed_release_items = 0
     if release_ids:
@@ -131,10 +148,10 @@ def get_dashboard_stats(db: Session, current_user: User, current_tenant: Tenant)
             .filter(BacklogItem.id.in_(list(bi_ids)))
             .all()
         } if bi_ids else {}
-        for _rel_id, bi_id in ri_rows:
+        for rel_id, bi_id in ri_rows:
             if bi_id in bi_phases:
                 total_release_items += 1
-                if bi_phases[bi_id] in DONE_PHASES:
+                if bi_phases[bi_id] in done_by_type.get(release_type_by_id.get(rel_id), []):
                     completed_release_items += 1
 
     # ── Grouped per-model counts (one grouped query each replaces a count
@@ -167,7 +184,7 @@ def get_dashboard_stats(db: Session, current_user: User, current_tenant: Tenant)
             continue
         p_bl = bl_by_project.get(p.id, [])
         p_total = len(p_bl)
-        p_done = len([phase for phase in p_bl if phase in DONE_PHASES])
+        p_done = len([phase for phase in p_bl if phase in done_by_type.get(p.project_type, [])])
         progress_pct = round((p_done / p_total * 100) if p_total > 0 else 0)
 
         client_name = client_names.get(p.client_id, "—") if p.client_id else "—"

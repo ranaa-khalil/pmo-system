@@ -241,7 +241,11 @@ class TestTemplateDrivesAdvance:
 
     def test_release_advance_walks_template_release_stages(self, client, db, auth_user):
         """A release parked on a template release stage advances along the
-        TEMPLATE's ladder (the V-cycle stays the built-in fallback)."""
+        TEMPLATE's ladder — THROUGH THE GATE now: every stage transition
+        creates its RACI approval (the gate-free template fallback is
+        deleted), and the release moves when the step is approved."""
+        from app.models.approval import ApprovalStep
+
         pid = _project(client, project_type="adlc")["id"]
         row = _tenant_template(db, auth_user["tenant"].id)
         release = Release(
@@ -254,7 +258,21 @@ class TestTemplateDrivesAdvance:
 
         resp = client.post(f"/api/releases/{release.id}/advance")
         assert resp.status_code == 200
-        assert resp.json()["status"] == row.release_stages[1]
+        body = resp.json()
+        # The gate is created for the template's next stage; nothing moves
+        assert body["approval_status"] == "created"
+        assert body["target_phase"] == row.release_stages[1]
+        db.refresh(release)
+        assert release.status == row.release_stages[0]
+
+        # Approving the step completes the request; the NEXT advance call
+        # moves the release along the template ladder
+        step = db.query(ApprovalStep).filter(ApprovalStep.request_id == body["approval_id"]).first()
+        ok = client.post(f"/api/approvals/{body['approval_id']}/steps/{step.id}/approve")
+        assert ok.status_code == 200, ok.text
+        resp2 = client.post(f"/api/releases/{release.id}/advance")
+        assert resp2.status_code == 200
+        assert resp2.json()["status"] == row.release_stages[1]
 
     def test_release_at_final_template_stage_400(self, client, db, auth_user):
         pid = _project(client, project_type="adlc")["id"]

@@ -13,7 +13,13 @@ _TEMPLATE = {
     "item_phases": ["Proposal", "Collection", "Analysis", "Writeup"],
     "release_stages": ["Proposal", "Fieldwork", "Analysis", "Publication"],
     "gate_deliverables": {"Proposal": ["Study plan"]},
-    "gate_roles": {"Proposal": "Product Manager"},
+    # Gates are MANDATORY: every non-final release stage declares its role
+    # (the save-time validation 400s otherwise).
+    "gate_roles": {
+        "Proposal": "Product Manager",
+        "Fieldwork": "Product Manager",
+        "Analysis": "Tech Lead",
+    },
     "fields": [{"name": "sample_size", "label": "Sample size", "type": "text"}],
 }
 

@@ -165,12 +165,26 @@ def build_context(
     overdue_tasks.sort(key=lambda e: -e["days_overdue"])
 
     # ── At-risk releases: pending approval or past target date ───────────
+    # Ladder-aware filter (the dynamic release lifecycle): a release is a
+    # candidate unless its phase is in ITS OWN project's ladder done-set —
+    # the old hardcoded V-cycle statuses made a template-stage release
+    # invisible to at-risk. Releases per tenant are few and the built-in
+    # lookups are dict hits, so this stays a Python-side filter.
     at_risk_releases = []
     releases = db.query(Release).filter(
         Release.tenant_id == tid, Release.project_id.in_(proj_ids),
-        Release.status.in_(["Planning", "In Progress", "Testing", "UAT"]),
     ).all()
+    done_cache: dict = {}
+    projects_by_id = {p.id: p for p in projects}
+    from app.services.lifecycle import release_done_phases
     for rel in releases:
+        if rel.status == "Cancelled":
+            continue  # terminal, outside the gate path
+        p_type = getattr(projects_by_id.get(rel.project_id), "project_type", None)
+        if p_type not in done_cache:
+            done_cache[p_type] = release_done_phases(db, tid, p_type)
+        if rel.status in done_cache[p_type]:
+            continue  # shipped (at its ladder's live stage or beyond)
         reasons = []
         if rel.target_date:
             try:

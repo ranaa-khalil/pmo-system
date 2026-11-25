@@ -137,8 +137,10 @@ def _seed_fixture(db, tenant, user) -> list[Project]:
 def test_query_budget_flat_not_n_plus_one(db, auth_user):
     """The seeded fixture (3 projects, 6 items, 3 releases with release
     items, KPIs, stakeholders, forms, milestones, pending approvals) computes
-    in ≤ 16 queries — the old handler ran 33+ sequential queries plus the
-    six N+1 loops this fixture exercises."""
+    in ≤ 18 queries — the old handler ran 33+ sequential queries plus the
+    six N+1 loops this fixture exercises. The +2 headroom over the pre-
+    lifecycle budget (16) is the dynamic release ladder's resolution cost:
+    one indexed template lookup per distinct project type (§3.4 step 1)."""
     t, u = auth_user["tenant"], auth_user["user"]
     _seed_fixture(db, t, u)
     _ = t.id, u.id  # warm the fixture objects (expired by the last seed commit)
@@ -162,7 +164,9 @@ def test_query_budget_flat_not_n_plus_one(db, auth_user):
     assert len(stats["project_progress"]) == 3
     assert len(stats["upcoming_milestones"]) == 2
     assert stats["pending_approvals"] == 2
-    assert counter["n"] <= 16
+    # 16 = the pre-lifecycle budget; +2 headroom for the ladder resolution
+    # (one indexed template lookup per distinct project type, §3.4 step 1)
+    assert counter["n"] <= 18
 
 
 # --------------------------------------------------------------------------- 2. payload parity with the old handler

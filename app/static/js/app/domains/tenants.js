@@ -29,7 +29,7 @@ officerScanResult: null,
 officerLastRuns: [],
 lifecycleTemplates: [],
 lifecycleTypes: [],
-lifecycleForm: { project_type: '', name: '', description: '', item_phases: '', release_stages: '', fields_text: '' },
+lifecycleForm: { project_type: '', name: '', description: '', item_phases: '', release_stages: '', gate_roles: {}, fields_text: '' },
 showLifecycleForm: false,
 
 
@@ -752,6 +752,11 @@ async loadLifecycle() {
     } catch { this.lifecycleTemplates = []; this.lifecycleTypes = []; }
 },
 
+// The release ladder as typed — drives the per-stage gate-role inputs
+lifecycleStageList() {
+    return (this.lifecycleForm.release_stages || '').split(',').map(s => s.trim()).filter(Boolean);
+},
+
 async saveLifecycleTemplate() {
     const f = this.lifecycleForm;
     try {
@@ -762,11 +767,11 @@ async saveLifecycleTemplate() {
             item_phases: f.item_phases.split(',').map(s => s.trim()).filter(Boolean),
             release_stages: f.release_stages.split(',').map(s => s.trim()).filter(Boolean),
             gate_deliverables: {},
-            gate_roles: {},
+            gate_roles: { ...(f.gate_roles || {}) },
             fields: [],
         });
         this.showLifecycleForm = false;
-        this.lifecycleForm = { project_type: '', name: '', description: '', item_phases: '', release_stages: '', fields_text: '' };
+        this.lifecycleForm = { project_type: '', name: '', description: '', item_phases: '', release_stages: '', gate_roles: {}, fields_text: '' };
         await this.loadLifecycle();
         this.showToast('Lifecycle template saved — new projects of this type use it', 'success');
     } catch (e) { this.showToast(e.message, 'error'); }
@@ -779,6 +784,7 @@ async editLifecycleTemplate(t) {
         description: t.description || '',
         item_phases: (t.item_phases || []).join(', '),
         release_stages: (t.release_stages || []).join(', '),
+        gate_roles: { ...(t.gate_roles || {}) },
         fields_text: '',
     };
     this.showLifecycleForm = true;

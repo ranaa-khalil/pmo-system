@@ -342,3 +342,286 @@ def gate_roles(project_type: str | None) -> dict[str, str]:
 
 def template_fields(project_type: str | None) -> list[dict]:
     return template_for(project_type)["fields"]
+
+
+# ── The dynamic release lifecycle (Release Lifecycle Dynamic Design §3) ───
+#
+# The key fact that shapes this section: for the software family the
+# template's `release_stages` column is a 5-stage TAIL, not the ladder — the
+# release ladder is the 7-phase V-cycle below, whose first three stages
+# appear in no template column. Extending `release_stages` to the full
+# ladder would break the backlog rail (advance_backlog_item_phase checks
+# `item.current_phase in release_stages` and would refuse to advance any
+# item parked in Testing/Ready for UAT). So the ladder and the item-level
+# release marker are resolved separately — one resolver, two outputs,
+# per template (release_lifecycle below).
+
+# The software-family release ladder — the 7-phase V-cycle, moved VERBATIM
+# from routers/releases.py (V_CYCLE). Byte-identical for the live releases.
+RELEASE_LIFECYCLE_SOFTWARE = [
+    ("Planning", "Requirements gathered, items selected", "brand"),
+    ("In Progress", "Design + Development underway", "blue"),
+    ("Testing", "System Integration Testing (SIT)", "amber"),
+    ("UAT", "User Acceptance Testing", "violet"),
+    ("Pre-Release", "Release notes, deployment prep", "orange"),
+    ("Released", "Deployed to production", "emerald"),
+    ("Post-Release", "Monitoring, hotfixes if needed", "teal"),
+]
+
+# Software-family project types (unknown/None → software).
+SOFTWARE_FAMILY_TYPES = ("", "software", "sdlc", "hybrid")
+
+# The stage at which a release is considered shipped — drives release_date
+# stamping and done-detection. Authored per built-in.
+_RELEASE_LIVE_STAGES = {
+    "software": "Released",
+    "sdlc": "Released",
+    "hybrid": "Released",
+    "ai": "Model Deployment",
+    "marketing": "Launch",
+    "operations": "Verification",
+    "adlc": "Agent Deployment",
+}
+
+# Software release gates — VERBATIM from routers/releases.py
+# (PHASE_GATE_ROLES), keyed by the 6 non-terminal V-cycle stages. The
+# "Released" entry — dead code under the old hardcoded guards — is live
+# again as the Released → Post-Release gate (the gate mechanism is
+# inviolable; every stage transition creates its RACI approval).
+SOFTWARE_RELEASE_GATES = {
+    "Planning":     ("Product Owner",   "Approve requirements are complete and ready for development",
+                     ["Requirements reviewed and signed off",
+                      "Backlog items selected for this release",
+                      "Scope and priority agreed with stakeholders"]),
+    "In Progress":  ("Tech Lead",       "Approve code completion and readiness for testing",
+                     ["All features developed and code-reviewed",
+                      "Unit tests passing",
+                      "Technical debt logged and accepted",
+                      "Branch merged to release branch"]),
+    "Testing":      ("QA Lead",         "Approve SIT results and readiness for UAT",
+                     ["System Integration Testing complete",
+                      "All critical defects resolved",
+                      "Regression tests passing",
+                      "Test report generated"]),
+    "UAT":          ("Product Manager", "Approve UAT passed and readiness for release",
+                     ["UAT scenarios executed by business users",
+                      "All must-fix defects resolved",
+                      "Business sign-off obtained",
+                      "No critical/severe open defects"]),
+    "Pre-Release":  ("DevOps Lead",     "Approve deployment checklist and go-live",
+                     ["Release notes generated and reviewed",
+                      "Deployment runbook ready",
+                      "Rollback plan prepared",
+                      "DB migrations tested in staging",
+                      "Monitoring and alerts configured"]),
+    "Released":     ("DevOps Lead",     "Confirm deployment success and begin monitoring",
+                     ["Deployment to production successful",
+                      "Smoke tests passed in production",
+                      "Stakeholders notified",
+                      "Post-release monitoring active"]),
+}
+
+# Authored release gates for the non-software built-ins: their release_stages
+# are already complete end-to-end ladders, so the gate tables key the same
+# stage names. Every non-final stage MUST carry a role — the terminal stage
+# (the ladder's last) carries no gate.
+AI_RELEASE_GATES = {
+    "Business Understanding":       ("Product Manager", "Approve Business Understanding completion",
+                                     ["Business KPIs agreed", "Data success criteria"]),
+    "Data Readiness & Processing":  ("Data/ML Lead", "Approve Data Readiness & Processing completion",
+                                     ["Dataset readiness report", "Provenance & consent record"]),
+    "Model Development & Training": ("Tech Lead", "Approve Model Development & Training completion",
+                                     ["Training run log", "Model card draft"]),
+    "Evaluation":                   ("Product Manager", "Approve Evaluation completion",
+                                     ["Model performance report", "Bias & fairness assessment"]),
+    "Model Deployment":             ("DevOps Lead", "Approve Model Deployment completion",
+                                     ["Inference cost estimate", "Drift-monitoring plan", "Rollback plan"]),
+}
+
+MARKETING_RELEASE_GATES = {
+    "Briefing":             ("Product Manager", "Approve Briefing completion",
+                             ["Budget approval", "Campaign brief sign-off"]),
+    "Creative Development": ("Product Manager", "Approve Creative Development completion",
+                             ["Creative direction approval"]),
+    "Content Production":   ("Content Lead", "Approve Content Production completion",
+                             ["Content calendar", "Asset checklist"]),
+    "Review":               ("Product Manager", "Approve Review completion",
+                             ["Legal/compliance review", "Final QA checklist"]),
+    "Launch":               ("Product Manager", "Approve Launch completion",
+                             ["Launch plan", "Channel schedule"]),
+}
+
+OPERATIONS_RELEASE_GATES = {
+    "Intake":       ("Product Manager", "Approve Intake completion",
+                     ["Request intake form", "Cost center confirmation"]),
+    "Planning":     ("Product Manager", "Approve Planning completion",
+                     ["Plan of record", "Vendor quote (if any)"]),
+    "Execution":    ("Operations Lead", "Approve Execution completion",
+                     ["Execution checklist"]),
+    "Verification": ("Product Manager", "Approve Verification completion",
+                     ["Verification report", "Lessons learned"]),
+}
+
+ADLC_RELEASE_GATES = {
+    "Intent Review":       ("Product Manager", "Approve Intent Review completion",
+                            ["Intent spec", "Success criteria & eval set"]),
+    "Scenario Validation": ("Tech Lead", "Approve Scenario Validation completion",
+                            ["Sandbox trace evidence", "Guardrail policy check"]),
+    "Agent Deployment":    ("DevOps Lead", "Approve Agent Deployment completion",
+                            ["Agent run log", "Rollback & monitoring plan"]),
+    "Live Monitoring":     ("Tech Lead", "Approve Live Monitoring completion",
+                            ["Drift/cost/loop monitoring review"]),
+}
+
+# Built-in template name → its release-gate table (the software family shares
+# the V-cycle gates verbatim; SDLC/Hybrid differ only in item phases).
+_BUILTIN_RELEASE_GATES = {
+    "Software": SOFTWARE_RELEASE_GATES,
+    "SDLC": SOFTWARE_RELEASE_GATES,
+    "Hybrid (SDLC + ADLC)": SOFTWARE_RELEASE_GATES,
+    "AI Project (CPMAI)": AI_RELEASE_GATES,
+    "Marketing Campaign": MARKETING_RELEASE_GATES,
+    "Operations": OPERATIONS_RELEASE_GATES,
+    "ADLC (Agentic)": ADLC_RELEASE_GATES,
+}
+
+# The display/notes/DOCX/stats done set for the software family — VERBATIM
+# (including its Pre-Release quirk), byte-identical to the old hardcoded
+# lists at releases.py:399/741/985/1061 and stats.py DONE_PHASES.
+_SOFTWARE_DONE_PHASES = ["Pre-Release", "Release", "Post-Release", "Retrospective"]
+
+# The item-sync done tuple for the software family — VERBATIM from
+# _sync_release_items_to_phase (items' status flips Done no earlier than
+# the display rule).
+_SOFTWARE_SYNC_DONE_PHASES = ("Release", "Post-Release", "Retrospective")
+
+
+def _release_ladder_key(project_type: str | None) -> str:
+    """The template key for a project type; unknown/None → software."""
+    key = (project_type or "").lower()
+    return key if key in LIFECYCLE_TEMPLATES else DEFAULT_TYPE
+
+
+def release_lifecycle(db, tenant_id: int | None, project_type: str | None) -> dict:
+    """The ONE release-stage ladder for a tenant + project type.
+
+    The release twin of get_effective_lifecycle. Returns
+    {"stages": [...], "source": "template"|"builtin", "name": str,
+     "live_stage": str}.
+
+    - Software-family built-ins (software, sdlc, hybrid, unknown/None →
+      software): the ladder is the 7-phase V-cycle (RELEASE_LIFECYCLE_SOFTWARE,
+      byte-identical for the live releases). `release_stages` stays the
+      item-level "release-managed phases" marker exactly as the backlog rail
+      reads it.
+    - All other built-ins (ai, marketing, operations, adlc) and tenant
+      template rows: their release_stages are already complete end-to-end
+      ladders — the ladder is that list.
+    """
+    eff = get_effective_lifecycle(db, tenant_id, project_type)
+    key = _release_ladder_key(project_type)
+    if eff["source"] == "builtin" and key in SOFTWARE_FAMILY_TYPES:
+        stages = [p for p, _, _ in RELEASE_LIFECYCLE_SOFTWARE]
+    else:
+        stages = eff["release_stages"]
+    return {
+        "stages": list(stages),
+        "source": eff["source"],
+        "name": eff["name"],
+        "live_stage": _live_stage(stages, eff, key),
+    }
+
+
+def _live_stage(stages: list[str], eff: dict, key: str) -> str | None:
+    """The stage at which a release is considered shipped.
+
+    Tenant rows: "Released" if present in their stages, else the final
+    stage. Built-ins: the authored live stage, falling back to the final
+    stage if the authored name is somehow absent.
+    """
+    if eff["source"] == "template":
+        if "Released" in stages:
+            return "Released"
+        return stages[-1] if stages else None
+    live = _RELEASE_LIVE_STAGES.get(key or DEFAULT_TYPE, "Released")
+    if live not in stages:
+        return stages[-1] if stages else None
+    return live
+
+
+def release_gate(stage: str, eff: dict) -> tuple[str, str, list[str]]:
+    """(role, description, checklist) for leaving `stage`. ALWAYS non-None
+    for non-terminal stages — a gate-free transition cannot exist.
+
+    Resolution order:
+    1. built-in ai/marketing/operations/adlc: the authored per-stage tables;
+    2. built-in software family: SOFTWARE_RELEASE_GATES (verbatim);
+    3. tenant rows: gate_roles[stage] — required by save-time validation —
+       with description/checklist derived from gate_deliverables[stage] or
+       the defaults ("Approve {stage} completion" / "{stage} reviewed");
+    4. default when nothing is authored: ("Product Manager",
+       "Approve {stage} completion", deliverables or generic). Never None —
+       never gate-free.
+    """
+    if eff["source"] == "template":
+        role = (eff.get("gate_roles") or {}).get(stage)
+        if role:
+            checklist = list(
+                (eff.get("gate_deliverables") or {}).get(stage) or [f"{stage} reviewed"]
+            )
+            return (role, f"Approve {stage} completion", checklist)
+    else:
+        table = _BUILTIN_RELEASE_GATES.get(eff.get("name") or "")
+        if table:
+            info = table.get(stage)
+            if info:
+                return (info[0], info[1], list(info[2]))
+    return (
+        "Product Manager",
+        f"Approve {stage} completion",
+        list((eff.get("gate_deliverables") or {}).get(stage) or [f"{stage} reviewed"]),
+    )
+
+
+def missing_release_gate_roles(
+    release_stages: list[str] | None, gate_roles: dict | None
+) -> list[str]:
+    """Non-final release stages with no gate role — the save-time validator.
+
+    A template that bypasses governance cannot be saved (BA FR-R2): every
+    non-final release stage must declare its gate role.
+    """
+    stages = list(release_stages or [])
+    return [s for s in stages[:-1] if not (gate_roles or {}).get(s)]
+
+
+def release_done_phases(db, tenant_id: int | None, project_type: str | None) -> list[str]:
+    """The done set for display/notes/DOCX/stats (release_lifecycle's twin).
+
+    Software family built-in: today's verbatim list (including its
+    Pre-Release quirk). Other templates: the ladder stages from live_stage
+    onward.
+    """
+    key = _release_ladder_key(project_type)
+    ladder = release_lifecycle(db, tenant_id, project_type)
+    if ladder["source"] == "builtin" and key in SOFTWARE_FAMILY_TYPES:
+        return list(_SOFTWARE_DONE_PHASES)
+    stages = ladder["stages"]
+    live = ladder["live_stage"]
+    if live in stages:
+        return list(stages[stages.index(live):])
+    return list(stages)
+
+
+def release_sync_done_phases(db, tenant_id: int | None, project_type: str | None) -> tuple[str, ...]:
+    """The item-sync done tuple (release_done_phases' twin).
+
+    Software family built-in: today's verbatim tuple. Other templates: the
+    same set as the display rule (the display/sync difference is a preserved
+    software quirk, not a new one).
+    """
+    key = _release_ladder_key(project_type)
+    ladder = release_lifecycle(db, tenant_id, project_type)
+    if ladder["source"] == "builtin" and key in SOFTWARE_FAMILY_TYPES:
+        return _SOFTWARE_SYNC_DONE_PHASES
+    return tuple(release_done_phases(db, tenant_id, project_type))

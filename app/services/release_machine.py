@@ -7,11 +7,17 @@ behavior change lands once — and a future bulk advance calls these same
 functions instead of looping the machine into a third copy.
 
 The bodies are a VERBATIM move from the two router functions they replace:
-same status guards, same V-cycle walk, same RACI gate flow (created →
-pending → approved/rejected branches), same effective-template reads
+same status guards, same RACI gate flow (created → pending →
+approved/rejected branches), same effective-template reads
 (get_effective_lifecycle with the tenant id, Rethink v2 C1), same GitHub
 sync on the build phase, and the log_activity + artifact-chain entries in
 the same order with the same payloads — the chain never forks.
+
+The release advance walks the DYNAMIC LADDER (release_lifecycle in
+services/lifecycle.py): the 7-phase V-cycle for the software family, the
+template's complete release_stages otherwise — and every stage transition
+creates its RACI gate (gates are mandatory; the gate-free advance branch is
+deleted).
 
 The helpers the machine calls (_create_phase_approval and
 _sync_release_items_to_phase in routers/releases.py — the former is
@@ -37,60 +43,55 @@ from app.services.notifications import log_activity
 
 
 def advance_release_phase(db: Session, tenant: Tenant, user: User, release: Release) -> dict:
-    """Advance a release to the next V-cycle phase (the service machine).
+    """Advance a release to the next stage of its ladder (the service machine).
 
     Instead of immediately advancing, this creates an approval request routed
-    to the RACI role that gate-keeps the CURRENT phase. The release advances
-    only when that role approves (see approve_step in approvals.py).
+    to the RACI role that gate-keeps the CURRENT stage. The release advances
+    only when that role approves (see approve_step in approvals.py). Gates are
+    MANDATORY: every stage transition creates its RACI approval — a gate-free
+    advance cannot exist.
 
     If an approval is already pending for this release, returns its status.
     If the approval was already approved, advances the release immediately and
-    creates the next phase's approval.
+    creates the next stage's approval.
     """
     from app.routers.releases import (
-        PHASE_GATE_ROLES,
-        V_CYCLE,
         _create_phase_approval,
         _sync_release_items_to_phase,
     )
+    from app.services.lifecycle import (
+        get_effective_lifecycle,
+        release_gate,
+        release_lifecycle,
+    )
 
-    if release.status == "Released":
-        raise HTTPException(status_code=400, detail="Release is already in Released state")
     if release.status == "Cancelled":
         raise HTTPException(status_code=400, detail="Cannot advance a cancelled release")
-    if release.status == "Post-Release":
-        raise HTTPException(status_code=400, detail="Release is already in the final phase (Post-Release)")
 
-    current_idx = -1
-    for i, (phase, _, _) in enumerate(V_CYCLE):
-        if release.status == phase:
-            current_idx = i
-            break
+    project = db.query(Project).filter(Project.id == release.project_id).first()
+    project_type = getattr(project, "project_type", None)
 
-    # Rethink v2 C1 — the vocabulary check reads the EFFECTIVE lifecycle: a
-    # tenant's template row overrides the release-stage ladder, so a release
-    # parked on one of the template's release stages advances along the
-    # TEMPLATE's ladder (no RACI gate maps to template stages — they advance
-    # directly). Tenants without a template row keep the built-in V-cycle
-    # verbatim (byte-identical behavior).
-    if current_idx < 0:
-        from app.services.lifecycle import get_effective_lifecycle
+    # THE DYNAMIC LADDER — the release's stage list comes from the effective
+    # lifecycle: the 7-phase V-cycle for the software family (byte-identical
+    # for the live releases), the complete release_stages for the other
+    # built-ins and for tenant template rows (§3.2).
+    ladder = release_lifecycle(db, tenant.id, project_type)
+    stages = ladder["stages"]
 
-        project = db.query(Project).filter(Project.id == release.project_id).first()
-        eff = get_effective_lifecycle(db, tenant.id, getattr(project, "project_type", None))
-        template_stages = eff["release_stages"]
-        if eff["source"] == "template" and release.status in template_stages:
-            stage_idx = template_stages.index(release.status)
-            if stage_idx >= len(template_stages) - 1:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Release is already in the final release stage ({template_stages[-1]})",
-                )
-            next_phase = template_stages[stage_idx + 1]
-        else:
-            raise HTTPException(status_code=400, detail=f"Unknown status: {release.status}")
-    else:
-        next_phase = V_CYCLE[current_idx + 1][0]
+    if release.status not in stages:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown status: {release.status}. Valid stages: {', '.join(stages)}",
+        )
+    current_idx = stages.index(release.status)
+    # The single terminal guard, template-derived — supersedes the old
+    # hardcoded Released/Post-Release 400s.
+    if current_idx == len(stages) - 1:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Release is already in the final stage ({stages[-1]})",
+        )
+    next_phase = stages[current_idx + 1]
 
     # Check if there's already an approval for this release + target phase
     existing = db.query(ApprovalRequest).filter(
@@ -119,7 +120,9 @@ def advance_release_phase(db: Session, tenant: Tenant, user: User, release: Rele
         elif existing.status == "Approved":
             # Approval granted — advance the release now
             release.status = next_phase
-            if next_phase == "Released":
+            # release_date stamps at the ladder's live stage (software:
+            # "Released", byte-identical to the old literal).
+            if next_phase == ladder["live_stage"]:
                 release.release_date = date.today().isoformat()
             _sync_release_items_to_phase(db, release, next_phase)
             db.commit()
@@ -147,19 +150,13 @@ def advance_release_phase(db: Session, tenant: Tenant, user: User, release: Rele
                 "message": f"Advancement to {next_phase} was rejected. See request #{existing.id}.",
             }
 
-    # No existing approval — create one for the current phase's gate-keeper
-    gate_info = PHASE_GATE_ROLES.get(release.status)
-    if not gate_info:
-        # No gate for this phase — advance directly
-        release.status = next_phase
-        if next_phase == "Released":
-            release.release_date = date.today().isoformat()
-        _sync_release_items_to_phase(db, release, next_phase)
-        db.commit()
-        db.refresh(release)
-        return {"id": release.id, "status": release.status, "message": f"Advanced to {next_phase}"}
-
-    gate_role, gate_desc, gate_checklist = gate_info
+    # No existing approval — create one for the current stage's gate-keeper.
+    # Gates are MANDATORY (the gate MECHANISM is inviolable): release_gate
+    # ALWAYS returns a tuple for a non-terminal stage — the gate-free
+    # advance branch is deleted, so every stage transition creates its RACI
+    # approval (including tenant-template stages and Released → Post-Release).
+    eff = get_effective_lifecycle(db, tenant.id, project_type)
+    gate_role, gate_desc, gate_checklist = release_gate(release.status, eff)
     approval = ApprovalRequest(
         tenant_id=tenant.id,
         project_id=release.project_id,

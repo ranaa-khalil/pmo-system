@@ -1,7 +1,8 @@
 """Release model — groups backlog items into a versioned release.
 
-A release goes through the V-cycle:
-  Planning → In Progress → Testing → UAT → Pre-Release → Released → Post-Release
+The release stage ladder is DATA per project type, resolved by
+app.services.lifecycle.release_lifecycle (the software family walks the
+7-phase V-cycle; other ladders come from the template's release_stages).
 
 Each release links to backlog items and can generate release notes.
 """
@@ -10,17 +11,6 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
-
-# Valid release statuses (maps to the V-cycle phases)
-RELEASE_STATUSES = [
-    "Planning",      # Gathering requirements, selecting items
-    "In Progress",   # Design + Development
-    "Testing",       # SIT
-    "UAT",           # User acceptance testing
-    "Pre-Release",   # Ready to deploy, generating release notes
-    "Released",      # Deployed to production
-    "Post-Release",  # Monitoring, hotfixes if needed
-]
 
 
 class Release(Base):

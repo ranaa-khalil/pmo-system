@@ -86,7 +86,10 @@ def test_advance_release_gate_flow(release_world, client, db):
     assert release.status == "Planning"
 
 
-def test_advance_released_release_400(release_world, client, db):
+def test_advance_released_release_creates_the_post_release_gate(release_world, client, db):
+    """Released is a normal ladder stage now: the advance creates the DevOps
+    Lead confirm gate (the old hardcoded 'already in Released state' guard is
+    deleted — Released → Post-Release is reachable through the gate path)."""
     project = release_world["project"]
     release = Release(tenant_id=release_world["tenant"].id, project_id=project.id, version="1.3.1", name="R4b", status="Released")
     db.add(release)
@@ -94,8 +97,13 @@ def test_advance_released_release_400(release_world, client, db):
     db.refresh(release)
 
     resp = client.post(f"/api/releases/{release.id}/advance")
-    assert resp.status_code == 400
-    assert "Released" in resp.json()["detail"]
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["approval_status"] == "created"
+    assert body["pending_role"] == "DevOps Lead"
+    assert body["target_phase"] == "Post-Release"
+    db.refresh(release)
+    assert release.status == "Released"  # the gate keeps the release in place
 
 
 def test_add_and_remove_release_item(release_world, client, db):

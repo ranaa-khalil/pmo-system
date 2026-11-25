@@ -76,8 +76,12 @@ class TemplateCreate(BaseModel):
     name: str
     description: str | None = None
     item_phases: list[str]
+    # The tenant authors the COMPLETE release ladder (the dynamic release
+    # lifecycle resolves it verbatim).
     release_stages: list[str]
     gate_deliverables: dict[str, list[str]]
+    # Gate roles keyed by item phase AND release stage — every non-final
+    # release stage MUST declare a gate role (save-time validation below).
     gate_roles: dict[str, str]
     fields: list[dict] = []
 
@@ -119,11 +123,25 @@ def create_tenant_template(
 ):
     """Define (or replace) a custom lifecycle for a project_type key."""
     from app.models.lifecycle_template import TenantLifecycleTemplate
+    from app.services.lifecycle import missing_release_gate_roles
+
     key = data.project_type.strip().lower()
     if not key:
         raise HTTPException(400, "project_type is required")
     if not data.item_phases:
         raise HTTPException(400, "At least one item phase is required")
+
+    # Gates are MANDATORY (BA FR-R2, the dynamic release lifecycle §3.3):
+    # every non-final release stage must declare a gate role — a template
+    # that bypasses governance cannot be saved.
+    missing = missing_release_gate_roles(data.release_stages, data.gate_roles)
+    if missing:
+        raise HTTPException(
+            400,
+            "Gate roles are required for every non-final release stage — "
+            f"a template that bypasses governance cannot be saved. "
+            f"Missing: {', '.join(missing)}",
+        )
 
     row = (
         db.query(TenantLifecycleTemplate)

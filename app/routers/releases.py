@@ -1,4 +1,4 @@
-"""Release API router — V-cycle release management with full detail."""
+"""Release API router — dynamic-ladder release management with full detail."""
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -16,72 +16,43 @@ from app.models.role import Role
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.release import ReleaseCreate, ReleaseResponse, ReleaseUpdate
+from app.services.lifecycle import (
+    RELEASE_LIFECYCLE_SOFTWARE,
+    SOFTWARE_FAMILY_TYPES,
+    _release_ladder_key,
+    get_effective_lifecycle,
+    release_done_phases,
+    release_gate,
+    release_lifecycle,
+    release_sync_done_phases,
+)
 from app.services.notifications import log_activity
 from app.services.release_machine import advance_release_phase
 from app.services.tenant import get_current_tenant, resolve_tenant_for_user
 
 router = APIRouter(prefix="/api", tags=["releases"])
 
-# V-cycle phases in order (maps release status to the V-cycle)
-V_CYCLE = [
-    ("Planning", "Requirements gathered, items selected", "brand"),
-    ("In Progress", "Design + Development underway", "blue"),
-    ("Testing", "System Integration Testing (SIT)", "amber"),
-    ("UAT", "User Acceptance Testing", "violet"),
-    ("Pre-Release", "Release notes, deployment prep", "orange"),
-    ("Released", "Deployed to production", "emerald"),
-    ("Post-Release", "Monitoring, hotfixes if needed", "teal"),
-]
-
 # Cancelled is a terminal status, not a phase in the progress bar
 CANCELLED = "Cancelled"
 
-# ── Automatic approval routing ──────────────────────────────────────────────
-# When a release advances from phase X → phase X+1, an approval request is
-# auto-created and routed to the RACI role that GATE-KEEPS phase X.
-# The release cannot advance until that role approves.
-#
-# Mapping: current_phase → (gate_keeper_role, gate_description, checklist_items)
-PHASE_GATE_ROLES = {
-    "Planning":     ("Product Owner",   "Approve requirements are complete and ready for development",
-                     ["Requirements reviewed and signed off",
-                      "Backlog items selected for this release",
-                      "Scope and priority agreed with stakeholders"]),
-    "In Progress":  ("Tech Lead",       "Approve code completion and readiness for testing",
-                     ["All features developed and code-reviewed",
-                      "Unit tests passing",
-                      "Technical debt logged and accepted",
-                      "Branch merged to release branch"]),
-    "Testing":      ("QA Lead",         "Approve SIT results and readiness for UAT",
-                     ["System Integration Testing complete",
-                      "All critical defects resolved",
-                      "Regression tests passing",
-                      "Test report generated"]),
-    "UAT":          ("Product Manager", "Approve UAT passed and readiness for release",
-                     ["UAT scenarios executed by business users",
-                      "All must-fix defects resolved",
-                      "Business sign-off obtained",
-                      "No critical/severe open defects"]),
-    "Pre-Release":  ("DevOps Lead",     "Approve deployment checklist and go-live",
-                     ["Release notes generated and reviewed",
-                      "Deployment runbook ready",
-                      "Rollback plan prepared",
-                      "DB migrations tested in staging",
-                      "Monitoring and alerts configured"]),
-    "Released":     ("DevOps Lead",     "Confirm deployment success and begin monitoring",
-                     ["Deployment to production successful",
-                      "Smoke tests passed in production",
-                      "Stakeholders notified",
-                      "Post-release monitoring active"]),
-}
+# The V-cycle phase tuples and the phase-gate table moved to
+# app/services/lifecycle.py (RELEASE_LIFECYCLE_SOFTWARE / the release-gate
+# data) — the ONE release-stage ladder + gate source, shared with the
+# advance machine. The fixed palette cycled by ladder index below colors
+# the non-software ladders (the software family keeps its authored colors).
+_CYCLE_COLORS = ["brand", "blue", "amber", "violet", "orange", "emerald", "teal"]
 
 
-def _compute_phase_gates(release, items, v_cycle_index):
+def _compute_phase_gates(release, items, v_cycle_index, ladder, eff):
     """Compute phase gate checklist status based on actual release data.
 
+    Ladder-aware (the dynamic release lifecycle): gates map to the release's
+    RESOLVED ladder stages — every non-terminal stage carries a gate
+    (release_gate), and the checklist evaluation walks ladder indexes.
     Each checklist item is evaluated against the real state of the release
-    and its linked backlog items. Returns a list of gates with checklist
-    items marked as checked or unchecked.
+    and its linked backlog items; template checklists whose items match no
+    heuristic render unchecked until the gate is reached — the approval step
+    is the gate, the checkbox is the display.
     """
 
     # Item stats
@@ -101,31 +72,32 @@ def _compute_phase_gates(release, items, v_cycle_index):
     # gates the Testing checklist below.
     items_past_development = len([i for i in items if i.get("is_done") or i.get("current_phase") in ("Testing", "Ready for UAT", "UAT", "Pre-Release", "Release", "Post-Release", "Retrospective")])
 
-    # Phase index helpers
-    release_phases = [p for p, _, _ in V_CYCLE]
+    # Phase index helpers — ladder indexes, not a hardcoded V-cycle
+    stages = ladder["stages"]
     current_idx = v_cycle_index
 
     def phase_reached(phase_name):
         """True if the release has passed this gate (moved beyond this phase)."""
-        idx = release_phases.index(phase_name) if phase_name in release_phases else -1
+        idx = stages.index(phase_name) if phase_name in stages else -1
         return current_idx > idx
 
     gates = []
-    for phase, (role, desc, checklist) in PHASE_GATE_ROLES.items():
-        gate_reached = phase_reached(phase)
+    for stage in stages[:-1]:  # the terminal stage carries no gate
+        role, desc, checklist = release_gate(stage, eff)
+        gate_reached = phase_reached(stage)
 
         # Compute checked status for each checklist item
         checked_items = []
         for item_text in checklist:
             checked = _is_checklist_item_satisfied(
-                item_text, phase, gate_reached, has_items, total_items,
+                item_text, stage, gate_reached, has_items, total_items,
                 done_items, items_past_testing, items_in_or_past_testing,
-                items_past_development, has_release_notes, release
+                items_past_development, has_release_notes, release, stages
             )
             checked_items.append({"text": item_text, "checked": checked})
 
         gates.append({
-            "phase": phase,
+            "phase": stage,
             "role": role,
             "description": desc,
             "checklist": checked_items,
@@ -137,13 +109,19 @@ def _compute_phase_gates(release, items, v_cycle_index):
 def _is_checklist_item_satisfied(item_text, phase, gate_reached, has_items,
                                   total_items, done_items, items_past_testing,
                                   items_in_or_past_testing, items_past_development,
-                                  has_release_notes, release):
+                                  has_release_notes, release, stages):
     """Determine if a specific checklist item is satisfied based on release data."""
     text = item_text.lower()
 
     # If the gate has been reached (release passed this phase), all items are checked
     if gate_reached:
         return True
+
+    def stage_passed(stage_name):
+        """True if the release sits beyond `stage_name` on its ladder."""
+        current_idx = stages.index(release.status) if release.status in stages else -1
+        target_idx = stages.index(stage_name) if stage_name in stages else -1
+        return current_idx > target_idx
 
     # Otherwise, check specific conditions based on the item text
     # Planning gate
@@ -176,49 +154,37 @@ def _is_checklist_item_satisfied(item_text, phase, gate_reached, has_items,
 
     # UAT gate
     if "uat scenarios" in text:
-        return phase_reached(release, "UAT")
+        return stage_passed("UAT")
     if "must-fix defects" in text:
-        return phase_reached(release, "UAT")
+        return stage_passed("UAT")
     if "business sign-off" in text:
-        return phase_reached(release, "UAT")
+        return stage_passed("UAT")
     if "no critical" in text:
-        return phase_reached(release, "UAT")
+        return stage_passed("UAT")
 
     # Pre-Release gate
     if "release notes" in text:
         return has_release_notes
     if "deployment runbook" in text:
-        return phase_reached(release, "Pre-Release")
+        return stage_passed("Pre-Release")
     if "rollback plan" in text:
-        return phase_reached(release, "Pre-Release")
+        return stage_passed("Pre-Release")
     if "db migrations" in text:
-        return phase_reached(release, "Pre-Release")
+        return stage_passed("Pre-Release")
     if "monitoring and alerts" in text:
-        return phase_reached(release, "Pre-Release")
+        return stage_passed("Pre-Release")
 
     # Released gate
     if "deployment to production" in text:
-        return phase_reached(release, "Released")
+        return stage_passed("Released")
     if "smoke tests" in text:
-        return phase_reached(release, "Released")
+        return stage_passed("Released")
     if "stakeholders notified" in text:
-        return phase_reached(release, "Released")
+        return stage_passed("Released")
     if "post-release monitoring" in text:
-        return phase_reached(release, "Released")
+        return stage_passed("Released")
 
     return False
-
-
-def phase_reached(release, phase_name):
-    """Check if the release has passed the given phase (moved beyond it)."""
-    release_phases = [p for p, _, _ in V_CYCLE]
-    current_idx = -1
-    for i, (p, _, _) in enumerate(V_CYCLE):
-        if release.status == p:
-            current_idx = i
-            break
-    target_idx = release_phases.index(phase_name) if phase_name in release_phases else -1
-    return current_idx > target_idx
 
 
 def _sync_release_items_to_phase(db: Session, release: Release, phase: str):
@@ -234,7 +200,13 @@ def _sync_release_items_to_phase(db: Session, release: Release, phase: str):
         ReleaseItem, ReleaseItem.backlog_item_id == BacklogItem.id
     ).filter(ReleaseItem.release_id == release.id).all()
 
-    new_status = "Done" if phase in ("Release", "Post-Release", "Retrospective") else None
+    # The done rule is template-derived (the dynamic release lifecycle):
+    # the software family keeps today's verbatim tuple — items' status flips
+    # Done no earlier than today — while other ladders use their own set.
+    project = db.query(Project).filter(Project.id == release.project_id).first()
+    project_type = getattr(project, "project_type", None)
+    sync_done = release_sync_done_phases(db, release.tenant_id, project_type)
+    new_status = "Done" if phase in sync_done else None
 
     for item in items:
         item.current_phase = phase
@@ -243,9 +215,9 @@ def _sync_release_items_to_phase(db: Session, release: Release, phase: str):
 
     db.commit()
 
-    # Note: Sign-offs are handled by the approval system (PHASE_GATE_ROLES),
-    # not by forms. Each phase gate auto-creates an approval request for the
-    # accountable RACI role. No manual form creation needed.
+    # Note: Sign-offs are handled by the approval system (the RACI release
+    # gates — every stage transition auto-creates an approval request),
+    # not by forms.
 
 
 # Mapping: release phase → (form_type, form_name)
@@ -353,12 +325,18 @@ def create_release(
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
     """Create a new release for a project."""
-    if not db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first():
+    project = db.query(Project).filter(Project.id == project_id, Project.tenant_id == current_tenant.id).first()
+    if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    # The release starts at S1 of its project's ladder (BA FR-R1): software
+    # "Planning" (byte-identical to the model default), other ladders their
+    # first release stage.
+    ladder = release_lifecycle(db, current_tenant.id, getattr(project, "project_type", None))
     db_release = Release(
         tenant_id=current_tenant.id,
         project_id=project_id,
         created_by=current_user.id,
+        status=ladder["stages"][0],
         **release.model_dump(),
     )
     db.add(db_release)
@@ -400,9 +378,18 @@ def get_release(
     if not release:
         raise HTTPException(status_code=404, detail="Release not found")
 
-    # Backlog items
+    # The resolved ladder drives every computed field below (v_cycle_index,
+    # progress, next_phase, done-detection, phase gates) — one source, the
+    # effective lifecycle.
+    project = db.query(Project).filter(Project.id == release.project_id).first()
+    project_type = getattr(project, "project_type", None)
+    ladder = release_lifecycle(db, current_tenant.id, project_type)
+    eff = get_effective_lifecycle(db, current_tenant.id, project_type)
+    stages = ladder["stages"]
+
+    # Backlog items — done is the template-derived display set
     items = []
-    done_phases = ["Pre-Release", "Release", "Post-Release", "Retrospective"]
+    done_phases = release_done_phases(db, current_tenant.id, project_type)
     for ri in release.items:
         bi = db.query(BacklogItem).filter(BacklogItem.id == ri.backlog_item_id, BacklogItem.tenant_id == current_tenant.id).first()
         if bi:
@@ -476,18 +463,26 @@ def get_release(
         if ar.status == "Pending" and not pending_approval:
             pending_approval = approval_data
 
-    # V-cycle progress
-    v_cycle_index = -1
-    for i, (phase, _, _) in enumerate(V_CYCLE):
-        if release.status == phase:
-            v_cycle_index = i
-            break
-    v_cycle_progress = round((v_cycle_index / (len(V_CYCLE) - 1)) * 100) if v_cycle_index >= 0 else 0
+    # V-cycle progress — ladder indexes
+    v_cycle_index = stages.index(release.status) if release.status in stages else -1
+    v_cycle_progress = round((v_cycle_index / (len(stages) - 1)) * 100) if v_cycle_index >= 0 and len(stages) > 1 else 0
 
     # Phase actions — what the user can do next
     next_phase = None
-    if v_cycle_index >= 0 and v_cycle_index < len(V_CYCLE) - 1:  # not at final phase
-        next_phase = V_CYCLE[v_cycle_index + 1][0]
+    if v_cycle_index >= 0 and v_cycle_index < len(stages) - 1:  # not at final stage
+        next_phase = stages[v_cycle_index + 1]
+
+    # v_cycle payload: the software family keeps its authored V-cycle tuples
+    # (byte-identical); other ladders default the description to the stage
+    # name and cycle a fixed palette by index.
+    key = _release_ladder_key(project_type)
+    if ladder["source"] == "builtin" and key in SOFTWARE_FAMILY_TYPES:
+        v_cycle = [{"phase": p, "description": d, "color": c} for p, d, c in RELEASE_LIFECYCLE_SOFTWARE]
+    else:
+        v_cycle = [
+            {"phase": s, "description": s, "color": _CYCLE_COLORS[i % len(_CYCLE_COLORS)]}
+            for i, s in enumerate(stages)
+        ]
 
     return {
         "id": release.id,
@@ -511,8 +506,8 @@ def get_release(
         "next_phase": next_phase,
         "forms": forms,
         "approvals": approvals,
-        "v_cycle": [{"phase": p, "description": d, "color": c} for p, d, c in V_CYCLE],
-        "phase_gates": _compute_phase_gates(release, items, v_cycle_index),
+        "v_cycle": v_cycle,
+        "phase_gates": _compute_phase_gates(release, items, v_cycle_index, ladder, eff),
         "pending_approval": pending_approval,
     }
 
@@ -529,7 +524,29 @@ def update_release(
     release = db.query(Release).filter(Release.id == release_id, Release.tenant_id == current_tenant.id).first()
     if not release:
         raise HTTPException(status_code=404, detail="Release not found")
-    for field, val in update.model_dump(exclude_unset=True).items():
+    updates = update.model_dump(exclude_unset=True)
+
+    # §3.7 — direct status PUTs restricted (the gate bypass is closed):
+    # a forward move skips a gate, so it is refused; Cancelled stays allowed
+    # (terminal, outside the gate path); in-ladder backward/same-stage writes
+    # land (re-plan, rollback, legacy import). All other fields unchanged.
+    if "status" in updates and updates["status"] != CANCELLED:
+        new_status = updates["status"]
+        project = db.query(Project).filter(Project.id == release.project_id).first()
+        project_type = getattr(project, "project_type", None)
+        stages = release_lifecycle(db, current_tenant.id, project_type)["stages"]
+        if new_status not in stages:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown status: {new_status}. Valid stages: {', '.join(stages)}",
+            )
+        if release.status in stages and stages.index(new_status) > stages.index(release.status):
+            raise HTTPException(
+                status_code=400,
+                detail="Status changes only through the gate path: POST /api/releases/{id}/advance",
+            )
+
+    for field, val in updates.items():
         setattr(release, field, val)
     db.commit()
     db.refresh(release)
@@ -558,28 +575,34 @@ def advance_phase(
 
 
 def _create_phase_approval(db: Session, release: Release, current_user: User, tenant_id: int = None):
-    """Auto-create an approval request for the release's current phase gate-keeper.
-    Returns {'id': approval_id, 'role': role_name} or None if no gate for this phase.
+    """Auto-create an approval request for the release's current stage gate-keeper.
+    Returns {'id': approval_id, 'role': role_name} or None at the final stage.
+
+    Ladder-aware: the next stage and the gate come from the release's
+    RESOLVED ladder (release_lifecycle / release_gate) — every stage
+    transition creates its RACI approval, gates are mandatory.
 
     The approval step is auto-assigned to the user who holds the gate-keeper
     role on this project (via RoleAssignment). If no user has the role,
     the step stays unassigned (role_name is set so it can be claimed later).
     """
-    gate_info = PHASE_GATE_ROLES.get(release.status)
-    if not gate_info:
-        return None
+    from app.services.lifecycle import release_gate, release_lifecycle
 
-    # Find the next phase
-    current_idx = -1
-    for i, (phase, _, _) in enumerate(V_CYCLE):
-        if release.status == phase:
-            current_idx = i
-            break
-    if current_idx < 0 or current_idx >= len(V_CYCLE) - 1:
-        return None
-    next_phase = V_CYCLE[current_idx + 1][0]
+    project = db.query(Project).filter(Project.id == release.project_id).first()
+    project_type = getattr(project, "project_type", None)
+    ladder = release_lifecycle(db, tenant_id, project_type)
+    stages = ladder["stages"]
 
-    gate_role, gate_desc, gate_checklist = gate_info
+    # Find the next stage
+    if release.status not in stages:
+        return None
+    current_idx = stages.index(release.status)
+    if current_idx >= len(stages) - 1:
+        return None  # terminal stage — no gate
+    next_phase = stages[current_idx + 1]
+
+    eff = get_effective_lifecycle(db, tenant_id, project_type)
+    gate_role, gate_desc, gate_checklist = release_gate(release.status, eff)
 
     # Find the user assigned to this role on this project
     from app.models.role import Role
@@ -744,7 +767,9 @@ def _build_release_notes(release, project, items, milestone, prev_tag, db):
     """Build release notes matching Release_Notes_Template_v1.1.docx exactly."""
     from datetime import date
 
-    done_phases = ["Pre-Release", "Release", "Post-Release", "Retrospective"]
+    # The done set is template-derived (the dynamic release lifecycle) —
+    # the software family keeps today's verbatim list.
+    done_phases = release_done_phases(db, release.tenant_id, getattr(project, "project_type", None))
     completed = [i for i in items if i.current_phase in done_phases]
     in_progress = [i for i in items if i.current_phase not in done_phases]
 
@@ -982,7 +1007,7 @@ def generate_release_notes(
     release.release_notes = notes
     db.commit()
 
-    done_phases = ["Pre-Release", "Release", "Post-Release", "Retrospective"]
+    done_phases = release_done_phases(db, current_tenant.id, getattr(project, "project_type", None))
     completed = len([i for i in items if i.current_phase in done_phases])
     return {"release_notes": notes, "total_items": len(items), "completed": completed}
 
@@ -1058,7 +1083,9 @@ def _build_docx(release, project, items, prev_tag, db):
     from docx.oxml.ns import qn
     from docx.shared import Cm, Pt, RGBColor
 
-    done_phases = ["Pre-Release", "Release", "Post-Release", "Retrospective"]
+    # The done set is template-derived (the dynamic release lifecycle) —
+    # the software family keeps today's verbatim list.
+    done_phases = release_done_phases(db, release.tenant_id, getattr(project, "project_type", None))
     completed = [i for i in items if i.current_phase in done_phases]
     in_progress = [i for i in items if i.current_phase not in done_phases]
 
@@ -1460,21 +1487,23 @@ def download_signoff_pdf(
 
     project = db.query(Project).filter(Project.id == release.project_id, Project.tenant_id == current_tenant.id).first()
 
-    # Get items linked to this release
+    # Get items linked to this release — tenant-filtered (the release is
+    # tenant-scoped, but the BacklogItem IN-query must be too).
     from app.models.release import ReleaseItem
     release_items = db.query(ReleaseItem).filter(ReleaseItem.release_id == release.id).all()
     item_ids = [ri.backlog_item_id for ri in release_items]
-    items = db.query(BacklogItem).filter(BacklogItem.id.in_(item_ids)).all() if item_ids else []
+    items = db.query(BacklogItem).filter(
+        BacklogItem.id.in_(item_ids), BacklogItem.tenant_id == current_tenant.id,
+    ).all() if item_ids else []
 
-    # Compute V-cycle index
-    v_cycle_index = -1
-    for i, (phase, _, _) in enumerate(V_CYCLE):
-        if release.status == phase:
-            v_cycle_index = i
-            break
+    # Compute the ladder index (the release's resolved stage list)
+    project_type = getattr(project, "project_type", None)
+    ladder = release_lifecycle(db, current_tenant.id, project_type)
+    eff = get_effective_lifecycle(db, current_tenant.id, project_type)
+    v_cycle_index = ladder["stages"].index(release.status) if release.status in ladder["stages"] else -1
 
     # Get phase gates
-    phase_gates = _compute_phase_gates(release, [{"current_phase": i.current_phase, "is_done": i.status == "Done"} for i in items], v_cycle_index)
+    phase_gates = _compute_phase_gates(release, [{"current_phase": i.current_phase, "is_done": i.status == "Done"} for i in items], v_cycle_index, ladder, eff)
 
     # Get approvals
     approval_requests = db.query(ApprovalRequest).filter(

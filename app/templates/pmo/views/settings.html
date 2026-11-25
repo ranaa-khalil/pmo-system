@@ -659,6 +659,18 @@
                                 <label class="text-[11px] font-medium text-ink-500 block mb-1">Release stages (comma-separated, in order)</label>
                                 <input x-model="lifecycleForm.release_stages" class="input-premium text-[13px] rounded-[10px] px-3 py-2 w-full" placeholder="Proposal, Fieldwork, Analysis, Publication">
                             </div>
+                            <!-- Release-gate column: every non-final release stage MUST declare its RACI gate role (the server 400s otherwise) -->
+                            <div class="mb-3" x-show="lifecycleStageList().length > 1">
+                                <label class="text-[11px] font-medium text-ink-500 block mb-1">Release gate roles — every non-final stage needs its gate-keeper</label>
+                                <div class="space-y-1.5">
+                                    <template x-for="(s, i) in lifecycleStageList()" :key="'gate-' + i + '-' + s">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-[12px] text-ink-600 w-1/2 truncate" x-text="s"></span>
+                                            <input x-model="lifecycleForm.gate_roles[s]" :disabled="i === lifecycleStageList().length - 1" class="input-premium text-[13px] rounded-[10px] px-3 py-1.5 flex-1 disabled:opacity-40" :placeholder="i === lifecycleStageList().length - 1 ? 'Final stage — no gate' : 'e.g. Product Manager'">
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
                             <button @click="saveLifecycleTemplate()" class="text-[13px] font-medium text-white btn-primary px-4 py-2 rounded-xl transition-all">Save Template</button>
                         </div>
                         <!-- Saved templates -->

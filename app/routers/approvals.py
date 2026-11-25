@@ -218,8 +218,15 @@ def approve_step(
 
             release = db.query(Release).filter(Release.id == request.release_id, Release.tenant_id == tid).first()
             if release and release.status != request.target_phase:
+                # release_date stamps at the release's RESOLVED ladder live
+                # stage — literally "Released" only for the software family
+                # (§3.4: the ladder, not the handler, owns the semantics)
+                from app.services.lifecycle import release_lifecycle
+
+                project = db.query(Project).filter(Project.id == release.project_id).first()
+                ladder = release_lifecycle(db, tid, getattr(project, "project_type", None))
                 release.status = request.target_phase
-                if request.target_phase == "Released":
+                if request.target_phase == ladder["live_stage"]:
                     release.release_date = _date.today().isoformat()
                 db.commit()
                 db.refresh(release)

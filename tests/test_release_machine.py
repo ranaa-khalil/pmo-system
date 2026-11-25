@@ -133,15 +133,16 @@ def test_service_release_gate_flow(db, auth_user):
 
 
 def test_service_release_guards_raise_400s(db, auth_user):
-    """The terminal-state guards raise the byte-identical 400s from the
-    pre-extraction router."""
+    """The cancelled guard keeps its byte-identical 400; the terminal guard
+    is template-derived (the dynamic ladder's single final-stage 400 — the
+    old hardcoded Released/Post-Release guards are superseded by the ladder
+    position check, which makes Released → Post-Release reachable)."""
     tenant, user = auth_user["tenant"], auth_user["user"]
     project = _project(db, auth_user, "Guard P")
 
     for status, detail in [
-        ("Released", "Release is already in Released state"),
         ("Cancelled", "Cannot advance a cancelled release"),
-        ("Post-Release", "Release is already in the final phase (Post-Release)"),
+        ("Post-Release", "Release is already in the final stage (Post-Release)"),
     ]:
         release = Release(tenant_id=tenant.id, project_id=project.id, version="3.2.0", name=f"RG {status}", status=status)
         db.add(release)

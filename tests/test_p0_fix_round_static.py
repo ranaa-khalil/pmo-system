@@ -42,7 +42,7 @@ COPILOT_JS = REPO / "app/static/js/app/domains/copilot.js"
 APP_JS = REPO / "app/static/js/app/pmo-app.js"
 INDEX_HTML = REPO / "app/templates/index.html"
 
-JS_VERSION = "20261125a"
+JS_VERSION = "20261125b"
 
 PAST_DEVELOPMENT_TAIL = ('i.get("is_done") or i.get("current_phase") in '
                          '("Testing", "Ready for UAT", "UAT", "Pre-Release", '

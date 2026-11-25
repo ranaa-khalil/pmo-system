@@ -81,6 +81,19 @@ INDEXES = [
     # Unique per-tenant setting keys — prevents duplicate rows from
     # concurrent query-then-insert races in set_setting().
     ("uq_tenant_settings_key", "tenant_settings", "tenant_id, key"),
+    # Hot-path indexes (Rethink v2 Phase A — a7c2e9f41d05): Postgres does not
+    # auto-index FKs, so the hottest read paths (rail counts, coverage %,
+    # gates aging, decisions-by-project, My Tasks, bundling, portfolio
+    # triage) would scan at 10k rows/tenant without these.
+    ("ix_backlog_items_project_id", "backlog_items", "project_id"),
+    ("ix_backlog_items_current_phase", "backlog_items", "current_phase"),
+    ("ix_approval_steps_request_id", "approval_steps", "request_id"),
+    ("ix_approval_steps_status", "approval_steps", "status"),
+    ("ix_decision_records_project_created", "decision_records", "project_id, made_at"),
+    ("ix_user_tasks_assigned_to", "user_tasks", "assigned_to"),
+    ("ix_kpis_project_id", "kpis", "project_id"),
+    ("ix_release_items_release_id", "release_items", "release_id"),
+    ("ix_projects_status", "projects", "status"),
 ]
 
 # FK constraints that must allow project deletion: nullable audit columns get
@@ -95,6 +108,18 @@ FK_SET_NULL = [
 # SET NULL would violate it; these get ON DELETE CASCADE.
 FK_CASCADE = [
     ("risks", "risks_project_id_fkey", "project_id"),
+]
+
+# Self-referencing parent links the live DB was built without: the columns
+# were added by _add_missing_columns() as bare INTEGERs before the models
+# declared the FKs, and create_all never ALTERs existing tables to attach
+# constraints — so sub-issue / sub-task / escalation links had no referential
+# integrity. ondelete matches the model declarations.
+# (table, column, ondelete)
+SELF_REF_FKS = [
+    ("backlog_items", "parent_item_id", "CASCADE"),
+    ("risks", "escalated_from_id", "SET NULL"),
+    ("user_tasks", "parent_task_id", "CASCADE"),
 ]
 
 
@@ -170,8 +195,9 @@ def _fix_project_delete_fks() -> None:
             continue
         fks = {fk["name"]: fk for fk in inspector.get_foreign_keys(table)}
         # Constraint exists already with ON DELETE SET NULL → nothing to do
+        # (get_foreign_keys reports ondelete under options, not at top level)
         existing = fks.get(constraint)
-        if existing and (existing.get("ondelete") or "").upper() == "SET NULL":
+        if existing and (existing.get("options") or {}).get("ondelete", "").upper() == "SET NULL":
             continue
         with engine.begin() as connection:
             connection.execute(text(f"ALTER TABLE {table} DROP CONSTRAINT IF EXISTS {constraint}"))
@@ -196,8 +222,10 @@ def _fix_project_cascade_fks() -> None:
         if not inspector.has_table(table):
             continue
         fks = {fk["name"]: fk for fk in inspector.get_foreign_keys(table)}
+        # Constraint exists already with ON DELETE CASCADE → nothing to do
+        # (get_foreign_keys reports ondelete under options, not at top level)
         existing = fks.get(constraint)
-        if existing and (existing.get("ondelete") or "").upper() == "CASCADE":
+        if existing and (existing.get("options") or {}).get("ondelete", "").upper() == "CASCADE":
             continue
         with engine.begin() as connection:
             connection.execute(text(f"ALTER TABLE {table} DROP CONSTRAINT IF EXISTS {constraint}"))
@@ -208,11 +236,46 @@ def _fix_project_cascade_fks() -> None:
         logger.info("Recreated %s with ON DELETE CASCADE", constraint)
 
 
+def _add_missing_self_ref_fks() -> None:
+    """Add the self-referencing parent FKs the live DB is missing (idempotent).
+
+    Only touches Postgres (SQLite doesn't enforce these constraint names).
+    Adding the FK validates existing data — orphaned parent links would fail
+    the migration loudly instead of staying silent.
+    """
+    if engine.dialect.name != "postgresql":
+        return
+    inspector = inspect(engine)
+    for table, column, ondelete in SELF_REF_FKS:
+        if not inspector.has_table(table):
+            continue
+        constraint = f"{table}_{column}_fkey"
+        matched = False
+        for fk in inspector.get_foreign_keys(table):
+            if column not in fk.get("constrained_columns", []):
+                continue
+            if fk.get("referred_table") != table:
+                continue
+            if (fk.get("options") or {}).get("ondelete", "").upper() == ondelete:
+                matched = True
+                break
+        if matched:
+            continue
+        with engine.begin() as connection:
+            connection.execute(text(f"ALTER TABLE {table} DROP CONSTRAINT IF EXISTS {constraint}"))
+            connection.execute(text(
+                f"ALTER TABLE {table} ADD CONSTRAINT {constraint} "
+                f"FOREIGN KEY ({column}) REFERENCES {table}(id) ON DELETE {ondelete}"
+            ))
+        logger.info("Recreated %s with ON DELETE %s", constraint, ondelete)
+
+
 def run_migrations() -> None:
     """Apply every known migration; safe to run more than once."""
     Base.metadata.create_all(bind=engine)
     _add_missing_columns()
     _add_missing_indexes()
+    _add_missing_self_ref_fks()
     _fix_project_delete_fks()
     _fix_project_cascade_fks()
     _ensure_reference_data()

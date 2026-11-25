@@ -110,6 +110,9 @@ def upload_proof(
     log_activity(db, current_user.id, current_user.name, item.project_id,
                  "backlog_item", item_id, "updated",
                  f"Uploaded proof v{proof.version} on '{item.title[:60]}'")
+    # The audit write above is flush-only — commit it or it rolls back with
+    # the request session (live-only failure; same-session tests can't see it).
+    db.commit()
     return _payload(proof)
 
 

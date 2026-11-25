@@ -5,7 +5,9 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.models.activity_log import ActivityLog
 from app.models.client import Client
+from app.models.notification import Notification, NotificationPreference
 from app.models.project import Project
 from app.models.role import Role
 from app.models.role_assignment import RoleAssignment
@@ -459,5 +461,15 @@ def delete_user(
         raise HTTPException(status_code=404, detail="User not found")
     if not can_delete_user(current_user, user, db):
         raise HTTPException(status_code=403, detail="You don't have permission to delete this user")
+    # Child rows with NO ACTION FKs would 500 the delete on live Postgres:
+    # audit history survives the user (user_id is nullable), notifications
+    # and preferences are meaningless without them.
+    db.query(ActivityLog).filter(ActivityLog.user_id == user_id).update(
+        {"user_id": None}, synchronize_session=False
+    )
+    db.query(Notification).filter(Notification.user_id == user_id).delete(synchronize_session=False)
+    db.query(NotificationPreference).filter(NotificationPreference.user_id == user_id).delete(
+        synchronize_session=False
+    )
     db.delete(user)
     db.commit()

@@ -164,6 +164,9 @@ def update_github_config(
     log_activity(db, current_user.id, current_user.name, project_id,
                  "github_config", config.id, "updated",
                  f"Updated GitHub board config for '{project.name}'")
+    # The audit write above is flush-only — commit it or it rolls back with
+    # the request session (live-only failure; same-session tests can't see it).
+    db.commit()
 
     return config
 
@@ -418,6 +421,10 @@ def export_to_github(
                      "github_export", 0, "exported",
                      f"Exported {result.exported} items to GitHub ({repo}). "
                      f"Skipped: {result.skipped}, Failed: {result.failed}")
+        # The audit write above is flush-only — commit it or it rolls back
+        # with the request session (live-only failure; same-session tests
+        # can't see it).
+        db.commit()
 
     finally:
         gh.close()
@@ -679,6 +686,10 @@ def import_from_github(
                      f"Imported status from GitHub ({repo}). "
                      f"Updated: {result.updated}, Unchanged: {result.unchanged}, "
                      f"Failed: {result.failed}, Closed: {result.closed_count}")
+        # The audit write above is flush-only — commit it or it rolls back
+        # with the request session (live-only failure; same-session tests
+        # can't see it).
+        db.commit()
 
     finally:
         gh.close()

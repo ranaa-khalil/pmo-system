@@ -188,6 +188,9 @@ def create_rule(
     log_activity(db, current_user.id, current_user.name, None,
                  "automation_rule", rule.id, "created",
                  f"Created agent: {rule.name[:80]}")
+    # The audit write above is flush-only — commit it or it rolls back with
+    # the request session (live-only failure; same-session tests can't see it).
+    db.commit()
     return _rule_payload(rule)
 
 

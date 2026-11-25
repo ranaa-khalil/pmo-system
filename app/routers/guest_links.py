@@ -93,6 +93,9 @@ def create_guest_link(
     log_activity(db, current_user.id, current_user.name, request.project_id,
                  "approval", approval_id, "updated",
                  f"Created guest link for: {request.title[:80]}")
+    # The audit write above is flush-only — commit it or it rolls back with
+    # the request session (live-only failure; same-session tests can't see it).
+    db.commit()
     return _link_payload(link)
 
 

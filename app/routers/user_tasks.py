@@ -197,6 +197,9 @@ def create_task(
     log_activity(db, current_user.id, current_user.name, task.project_id,
                  "task", db_task.id, "created",
                  f"Created task: {db_task.title}")
+    # The audit write above is flush-only — commit it or it rolls back with
+    # the request session (live-only failure; same-session tests can't see it).
+    db.commit()
 
     return _enrich(db_task, db, tid)
 

@@ -85,6 +85,9 @@ def create_share_link(
     log_activity(db, current_user.id, current_user.name, body.project_id,
                  "share", link.id, "created",
                  f"Created {body.scope} share link" + (f" for {target}" if target else ""))
+    # The audit write above is flush-only — commit it or it rolls back with
+    # the request session (live-only failure; same-session tests can't see it).
+    db.commit()
     return _link_payload(link)
 
 

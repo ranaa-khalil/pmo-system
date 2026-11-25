@@ -7,6 +7,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.client import Client
 from app.models.project import Project
+from app.models.stakeholder import Stakeholder
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.permissions import (
@@ -132,5 +133,8 @@ def delete_project(project_id: int, db: Session = Depends(get_db), current_user:
     client = db.query(Client).filter(Client.id == project.client_id, Client.tenant_id == current_tenant.id).first()
     if not can_manage_client(current_user, client, db):
         raise HTTPException(status_code=403, detail="You don't have permission to delete projects")
+    # Stakeholders FK is ON DELETE NO ACTION with a NOT NULL project_id —
+    # delete them explicitly (live Postgres would 500 otherwise).
+    db.query(Stakeholder).filter(Stakeholder.project_id == project_id).delete(synchronize_session=False)
     db.delete(project)
     db.commit()

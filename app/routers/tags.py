@@ -124,6 +124,9 @@ def attach_item_tag(
     log_activity(db, current_user.id, current_user.name, item.project_id,
                  "backlog_item", item.id, "updated",
                  f"Tagged '{item.title[:100]}' with #{tag.name}")
+    # The audit write above is flush-only — commit it or it rolls back with
+    # the request session (live-only failure; same-session tests can't see it).
+    db.commit()
     return _tag_payload(tag)
 
 
@@ -182,6 +185,9 @@ def attach_task_tag(
     log_activity(db, current_user.id, current_user.name, task.project_id,
                  "task", task.id, "updated",
                  f"Tagged '{task.title[:100]}' with #{tag.name}")
+    # The audit write above is flush-only — commit it or it rolls back with
+    # the request session (live-only failure; same-session tests can't see it).
+    db.commit()
     return _tag_payload(tag)
 
 

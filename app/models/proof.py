@@ -25,6 +25,9 @@ class ItemProof(Base):
     title = Column(String(255), nullable=False)
     file_path = Column(String(500), nullable=True)   # /uploads/proofs/...
     file_url = Column(String(500), nullable=True)    # external link (alternative)
+    # FR-T6 storage metering: uploaded bytes (None for pre-column rows and
+    # URL-only proofs — they contribute 0 to the tenant's storage usage).
+    file_size = Column(Integer, nullable=True)
     status = Column(String(30), default="Pending", nullable=False, index=True)  # PROOF_STATUSES
     uploaded_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     uploader_name = Column(String(255), nullable=True)

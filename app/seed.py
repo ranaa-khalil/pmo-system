@@ -43,15 +43,19 @@ DEFAULT_PASSWORD = "Pmo@2026"
 DEFAULT_PLANS = [
     {"name": "Free", "description": "Perfect for small teams getting started with project management. Includes core PMO features with basic limits.",
      "max_users": 3, "max_projects": 1, "max_clients": 2, "max_releases": 2, "max_backlog_items": 50,
+     "max_ai_calls": 100, "max_storage_bytes": 100 * 1024 * 1024, "max_portals": 1,
      "price_monthly": 0, "price_yearly": 0, "is_active": True, "sort_order": 1},
     {"name": "Team", "description": "For growing teams that need more projects, collaborators, and advanced planning tools. Includes roadmap timeline and release management.",
      "max_users": 25, "max_projects": 10, "max_clients": 15, "max_releases": 20, "max_backlog_items": 500,
+     "max_ai_calls": 1000, "max_storage_bytes": 5 * 1024 * 1024 * 1024, "max_portals": 5,
      "price_monthly": 12, "price_yearly": 120, "is_active": True, "sort_order": 2},
     {"name": "Business", "description": "For established organizations managing multiple clients and complex project portfolios. Includes infrastructure module, KPIs, and approval workflows.",
      "max_users": 100, "max_projects": 999999, "max_clients": 999999, "max_releases": 999999, "max_backlog_items": 999999,
+     "max_ai_calls": 10000, "max_storage_bytes": 20 * 1024 * 1024 * 1024, "max_portals": 25,
      "price_monthly": 25, "price_yearly": 250, "is_active": True, "sort_order": 3},
     {"name": "Enterprise", "description": "Unlimited everything for large enterprises. Includes dedicated support, SSO, audit logs, and custom integrations. Contact sales for volume pricing.",
      "max_users": 999999, "max_projects": 999999, "max_clients": 999999, "max_releases": 999999, "max_backlog_items": 999999,
+     "max_ai_calls": 100000, "max_storage_bytes": 50 * 1024 * 1024 * 1024, "max_portals": 999999,
      "price_monthly": 99, "price_yearly": 990, "is_active": True, "sort_order": 4},
 ]
 
@@ -140,6 +144,9 @@ def seed():
             "max_clients": enterprise_plan.max_clients,
             "max_releases": enterprise_plan.max_releases,
             "max_backlog_items": enterprise_plan.max_backlog_items,
+            "max_ai_calls": enterprise_plan.max_ai_calls,
+            "max_storage_bytes": enterprise_plan.max_storage_bytes,
+            "max_portals": enterprise_plan.max_portals,
         })
     db.commit()
     print(f"✅ Created {len(plans_data)} subscription plans (Free, Team, Business, Enterprise)")

@@ -215,6 +215,11 @@ def setup_portal(
     if not client.contact_email:
         raise HTTPException(status_code=400, detail="Client needs a contact email before enabling the portal")
     _require_portal_manager(current_user, db, client)
+    # FR-T6 portal quota: enabling a NEW portal consumes portal capacity —
+    # regenerating the passcode on an already-enabled portal does not.
+    if not client.portal_enabled:
+        from app.services.usage_service import METRIC_PORTALS, check_quota
+        check_quota(db, current_tenant, METRIC_PORTALS)
 
     passcode = req.passcode if req.passcode else secrets.token_urlsafe(9)
     if len(passcode) < 8:

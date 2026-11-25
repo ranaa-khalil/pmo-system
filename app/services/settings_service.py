@@ -171,13 +171,23 @@ def get_ai_config(db: Session, tenant_id: int) -> dict:
     """Get AI configuration for a tenant (per-tenant or global fallback).
 
     tenant_id rides in the dict so the LLM wrapper can attribute every
-    LlmUsage row to its tenant.
+    LlmUsage row to its tenant. The monthly AI-call quota rides too
+    (ai_calls_used / ai_calls_limit — FR-T6): computed on the caller's
+    session so services/llm.call_llm can gate the call at the ONE door
+    without opening its own session.
     """
+    from app.models.tenant import Tenant
+    from app.services.usage_service import ai_calls_this_month, get_limits
+
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    limits = get_limits(tenant) if tenant else {}
     return {
         "tenant_id": tenant_id,
         "api_key": get_setting(db, tenant_id, SETTING_AI_API_KEY) or "",
         "base_url": get_setting(db, tenant_id, SETTING_AI_BASE_URL) or settings.ai_base_url,
         "model": get_setting(db, tenant_id, SETTING_AI_MODEL) or settings.ai_model,
+        "ai_calls_used": ai_calls_this_month(db, tenant_id),
+        "ai_calls_limit": (limits or {}).get("ai_calls"),
     }
 
 

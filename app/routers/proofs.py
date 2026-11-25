@@ -75,6 +75,7 @@ def upload_proof(
         raise HTTPException(status_code=400, detail="Attach a file or provide a URL")
 
     saved_path = None
+    uploaded_size = None
     if file is not None:
         ct = file.content_type or ""
         if ct not in _ALLOWED_PROOF_TYPES:
@@ -82,12 +83,17 @@ def upload_proof(
         data = file.file.read()
         if len(data) > _PROOF_MAX_SIZE:
             raise HTTPException(status_code=400, detail="Proof file too large (max 10 MB).")
+        # FR-T6 storage quota: gate BEFORE the disk write + row insert — the
+        # uploaded bytes meter into the tenant's item_proofs.file_size sum.
+        from app.services.usage_service import check_storage_quota
+        check_storage_quota(db, current_tenant, len(data))
         ext = _ALLOWED_PROOF_TYPES[ct]
         _PROOFS_DIR.mkdir(parents=True, exist_ok=True)
         import uuid
         filename = f"item-{item_id}-v{uuid.uuid4().hex[:8]}{ext}"
         (_PROOFS_DIR / filename).write_bytes(data)
         saved_path = f"{_PROOFS_URL_PREFIX}/{filename}"
+        uploaded_size = len(data)
 
     next_version = (db.query(ItemProof).filter(
         ItemProof.item_id == item_id, ItemProof.tenant_id == current_tenant.id
@@ -100,6 +106,8 @@ def upload_proof(
         title=title.strip(),
         file_path=saved_path,
         file_url=(file_url or "").strip() or None,
+        # FR-T6 storage metering: uploaded bytes (None for URL-only proofs)
+        file_size=uploaded_size,
         status="Pending",
         uploaded_by=current_user.id,
         uploader_name=current_user.name,

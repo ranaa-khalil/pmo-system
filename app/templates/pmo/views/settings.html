@@ -601,6 +601,25 @@
                                     <span class="text-[11px] text-ink-400" x-text="' / ' + (tenantLimitsForm.max_clients >= 999999 ? '∞' : tenantLimitsForm.max_clients)"></span>
                                 </div>
                             </div>
+                            <!-- FR-T6 counters: AI calls (month), proof storage, client portals -->
+                            <div class="bg-ink-100/60 rounded-xl p-3 text-center">
+                                <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-400">AI Calls</div>
+                                <div class="text-[16px] font-bold text-ink-900 mt-1">
+                                    <span x-text="usageCurrent.ai_calls || 0"></span>
+                                    <span class="text-[11px] text-ink-400" x-text="' / ' + ((usageCurrent.ai_calls_limit ?? 999999) >= 999999 ? '∞' : usageCurrent.ai_calls_limit)"></span>
+                                </div>
+                            </div>
+                            <div class="bg-ink-100/60 rounded-xl p-3 text-center">
+                                <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-400">Storage</div>
+                                <div class="text-[14px] font-bold text-ink-900 mt-1.5" x-text="usageCurrent.storage_display || '0 B / ∞'"></div>
+                            </div>
+                            <div class="bg-ink-100/60 rounded-xl p-3 text-center">
+                                <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-400">Portals</div>
+                                <div class="text-[16px] font-bold text-ink-900 mt-1">
+                                    <span x-text="usageCurrent.portals || 0"></span>
+                                    <span class="text-[11px] text-ink-400" x-text="' / ' + ((usageCurrent.portals_limit ?? 999999) >= 999999 ? '∞' : usageCurrent.portals_limit)"></span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 

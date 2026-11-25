@@ -90,6 +90,13 @@ class UsageResponse(BaseModel):
     users_limit: int
     projects: int
     projects_limit: int
+    # FR-T6 counters (AI / storage / portal)
+    ai_calls: int = 0
+    ai_calls_limit: int = 999999
+    storage_bytes: int = 0
+    storage_limit: int | None = None  # None = unlimited (bytes never use the count sentinel)
+    portals: int = 0
+    portals_limit: int = 999999
 
 
 class AdminCreateUserRequest(BaseModel):

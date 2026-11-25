@@ -72,6 +72,13 @@ COLUMNS = [
     ("risks", "escalated_from_id INTEGER"),
     # Sub-issues on backlog items (R6): self-referencing parent, one level only
     ("backlog_items", "parent_item_id INTEGER"),
+    # FR-T6 plan counters: AI/storage/portal limits on the plans table
+    # (NULL = unlimited; storage is BIGINT — 50GB overflows int32), plus the
+    # uploaded-byte size on item_proofs that meters storage from existing rows.
+    ("plans", "max_ai_calls INTEGER"),
+    ("plans", "max_storage_bytes BIGINT"),
+    ("plans", "max_portals INTEGER"),
+    ("item_proofs", "file_size INTEGER"),
 ]
 
 INDEXES = [
@@ -160,9 +167,37 @@ def _ensure_reference_data() -> None:
     db = SessionLocal()
     try:
         for plan_data in DEFAULT_PLANS:
-            if not db.query(Plan).filter(Plan.name == plan_data["name"]).first():
+            existing = db.query(Plan).filter(Plan.name == plan_data["name"]).first()
+            if not existing:
                 db.add(Plan(**plan_data))
+                continue
+            # FR-T6: backfill the AI/storage/portal limits onto plans created
+            # before the counters existed (NULL = not yet set; idempotent —
+            # once set the values are never touched again).
+            for field in ("max_ai_calls", "max_storage_bytes", "max_portals"):
+                if getattr(existing, field) is None and field in plan_data:
+                    setattr(existing, field, plan_data[field])
         db.flush()
+
+        # FR-T6: merge the new limit keys into existing tenants' limits JSON —
+        # missing keys only, resolved from the tenant's assigned plan, so live
+        # tenants pick up the new counters without waiting for a plan
+        # re-assignment. Idempotent: present keys are never rewritten.
+        plans_by_name = {p.name.lower(): p for p in db.query(Plan).all()}
+        for tenant in db.query(Tenant).all():
+            if not tenant.limits:
+                continue
+            limits = json.loads(tenant.limits)
+            plan = plans_by_name.get((tenant.plan or "").lower())
+            if plan is None:
+                continue
+            changed = False
+            for key in ("max_ai_calls", "max_storage_bytes", "max_portals"):
+                if key not in limits and getattr(plan, key) is not None:
+                    limits[key] = getattr(plan, key)
+                    changed = True
+            if changed:
+                tenant.limits = json.dumps(limits)
 
         enterprise_plan = db.query(Plan).filter(Plan.name == "Enterprise").first()
         if enterprise_plan:
@@ -175,6 +210,9 @@ def _ensure_reference_data() -> None:
                         "max_clients": enterprise_plan.max_clients,
                         "max_releases": enterprise_plan.max_releases,
                         "max_backlog_items": enterprise_plan.max_backlog_items,
+                        "max_ai_calls": enterprise_plan.max_ai_calls,
+                        "max_storage_bytes": enterprise_plan.max_storage_bytes,
+                        "max_portals": enterprise_plan.max_portals,
                     })
         db.commit()
     except Exception:

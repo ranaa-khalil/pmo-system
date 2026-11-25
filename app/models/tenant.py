@@ -18,11 +18,17 @@ PLAN_TEAM = "team"
 PLAN_BUSINESS = "business"
 PLAN_ENTERPRISE = "enterprise"
 
+# Plan tiers — count limits. FR-T6: AI/storage/portal counters ride the same
+# tiers (AI calls per calendar month, proof storage in BYTES, client portals).
+# DEFAULT_PLANS (app/seed.py) is the propagation source for the plans table —
+# this dict mirrors it for reference; storage bytes never use the 999999
+# sentinel (it is only ~1MB in bytes — None means unlimited there).
+_MB = 1024 * 1024
 PLAN_LIMITS = {
-    PLAN_FREE: {"users": 3, "projects": 1},
-    PLAN_TEAM: {"users": 25, "projects": 10},
-    PLAN_BUSINESS: {"users": 100, "projects": 999999},
-    PLAN_ENTERPRISE: {"users": 999999, "projects": 999999},
+    PLAN_FREE: {"users": 3, "projects": 1, "ai_calls": 100, "storage_bytes": 100 * _MB, "portals": 1},
+    PLAN_TEAM: {"users": 25, "projects": 10, "ai_calls": 1_000, "storage_bytes": 5 * 1024 * _MB, "portals": 5},
+    PLAN_BUSINESS: {"users": 100, "projects": 999999, "ai_calls": 10_000, "storage_bytes": 20 * 1024 * _MB, "portals": 25},
+    PLAN_ENTERPRISE: {"users": 999999, "projects": 999999, "ai_calls": 100_000, "storage_bytes": 50 * 1024 * _MB, "portals": 999999},
 }
 
 # Member roles within a tenant

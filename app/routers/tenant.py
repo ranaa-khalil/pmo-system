@@ -432,8 +432,12 @@ def get_tenant_limits(
     max_users = limits.get("max_users", 999999)
     max_projects = limits.get("max_projects", 999999)
     max_clients = limits.get("max_clients", 999999)
+    # FR-T6 counters (AI / storage / portal)
+    max_ai_calls = limits.get("max_ai_calls", 999999)
+    max_storage_bytes = limits.get("max_storage_bytes")  # None = unlimited
+    max_portals = limits.get("max_portals", 999999)
 
-    from app.services.usage_service import get_usage_counts
+    from app.services.usage_service import _human_bytes, get_usage_counts
     counts = get_usage_counts(db, current_tenant.id)
 
     # Include plan name if assigned
@@ -444,13 +448,30 @@ def get_tenant_limits(
         if plan:
             plan_name = plan.name
 
+    storage_current = counts.get("storage_bytes", 0)
+    storage_display = (
+        f"{_human_bytes(storage_current)} / {_human_bytes(max_storage_bytes)}"
+        if max_storage_bytes is not None else f"{_human_bytes(storage_current)} / ∞"
+    )
+
     return {
         "plan_name": plan_name,
-        "limits": {"max_users": max_users, "max_projects": max_projects, "max_clients": max_clients},
+        "limits": {
+            "max_users": max_users,
+            "max_projects": max_projects,
+            "max_clients": max_clients,
+            "max_ai_calls": max_ai_calls,
+            "max_storage_bytes": max_storage_bytes,
+            "max_portals": max_portals,
+        },
         "current": {
             "users": counts.get("users", 0),
             "projects": counts.get("projects", 0),
             "clients": counts.get("clients", 0),
+            "ai_calls": counts.get("ai_calls", 0),
+            "storage_bytes": storage_current,
+            "storage_display": storage_display,
+            "portals": counts.get("portals", 0),
         },
     }
 
@@ -697,7 +718,15 @@ def get_usage(
     _user: User = Depends(get_current_user),
 ):
     """Get current usage metrics for the tenant."""
-    from app.services.usage_service import METRIC_PROJECTS, METRIC_USERS, get_limits, get_usage_counts
+    from app.services.usage_service import (
+        METRIC_AI_CALLS,
+        METRIC_PORTALS,
+        METRIC_PROJECTS,
+        METRIC_STORAGE_BYTES,
+        METRIC_USERS,
+        get_limits,
+        get_usage_counts,
+    )
     counts = get_usage_counts(db, current_tenant.id)
     limits = get_limits(current_tenant)
     return UsageResponse(
@@ -706,6 +735,12 @@ def get_usage(
         users_limit=limits[METRIC_USERS],
         projects=counts[METRIC_PROJECTS],
         projects_limit=limits[METRIC_PROJECTS],
+        ai_calls=counts[METRIC_AI_CALLS],
+        ai_calls_limit=limits[METRIC_AI_CALLS],
+        storage_bytes=counts[METRIC_STORAGE_BYTES],
+        storage_limit=limits[METRIC_STORAGE_BYTES],
+        portals=counts[METRIC_PORTALS],
+        portals_limit=limits[METRIC_PORTALS],
     )
 
 
@@ -829,6 +864,11 @@ def admin_create_plan(
         max_clients=int(req.get("max_clients", 999999)),
         max_releases=int(req.get("max_releases", 999999)),
         max_backlog_items=int(req.get("max_backlog_items", 999999)),
+        # FR-T6 counters: counts default to the unlimited sentinel; storage
+        # bytes default to None (the 999999 sentinel is only ~1MB in bytes).
+        max_ai_calls=int(req.get("max_ai_calls", 999999)),
+        max_storage_bytes=(int(req["max_storage_bytes"]) if req.get("max_storage_bytes") is not None else None),
+        max_portals=int(req.get("max_portals", 999999)),
         price_monthly=int(req.get("price_monthly", 0)),
         price_yearly=int(req.get("price_yearly", 0)),
         is_active=req.get("is_active", True),
@@ -860,9 +900,11 @@ def admin_update_plan(
         if existing:
             raise HTTPException(400, f"Plan name '{req['name']}' already exists")
         plan.name = req["name"]
-    for field in ["description", "max_users", "max_projects", "max_clients", "max_releases", "max_backlog_items", "price_monthly", "price_yearly", "sort_order"]:
+    for field in ["description", "max_users", "max_projects", "max_clients", "max_releases", "max_backlog_items", "max_ai_calls", "max_portals", "price_monthly", "price_yearly", "sort_order"]:
         if field in req:
             setattr(plan, field, int(req[field]) if field not in ["description"] else req[field])
+    if "max_storage_bytes" in req:
+        plan.max_storage_bytes = int(req["max_storage_bytes"]) if req["max_storage_bytes"] is not None else None
     if "is_active" in req:
         plan.is_active = req["is_active"]
     db.commit()
@@ -876,6 +918,9 @@ def admin_update_plan(
             "max_clients": plan.max_clients,
             "max_releases": plan.max_releases,
             "max_backlog_items": plan.max_backlog_items,
+            "max_ai_calls": plan.max_ai_calls,
+            "max_storage_bytes": plan.max_storage_bytes,
+            "max_portals": plan.max_portals,
         })
     db.commit()
     return {"ok": True, "propagated_to": len(tenants)}
@@ -930,6 +975,9 @@ def admin_assign_tenant_plan(
             "max_clients": plan.max_clients,
             "max_releases": plan.max_releases,
             "max_backlog_items": plan.max_backlog_items,
+            "max_ai_calls": plan.max_ai_calls,
+            "max_storage_bytes": plan.max_storage_bytes,
+            "max_portals": plan.max_portals,
         })
     else:
         tenant.plan_id = None

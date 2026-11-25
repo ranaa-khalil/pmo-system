@@ -155,6 +155,8 @@ def ai_suggest_vision(
             objectives=vision.strategic_objectives if vision else "",
             tenant_config=tenant_config,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(502, f"AI request failed: {str(e)}")
 
@@ -194,6 +196,8 @@ def ai_suggest_features(
             personas=persona_list,
             tenant_config=tenant_config,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(502, f"AI request failed: {str(e)}")
 
@@ -228,6 +232,8 @@ def ai_fill_field(
             existing_description=item.description or "",
             tenant_config=tenant_config,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(502, f"AI request failed: {str(e)}")
 
@@ -431,6 +437,8 @@ def intake_verdict_endpoint(
             db, current_tenant, project, req.title.strip(), req.description,
             tenant_config=tenant_config,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(502, f"AI request failed: {str(e)}")
 

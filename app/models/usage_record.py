@@ -16,6 +16,10 @@ METRIC_CLIENTS = "clients"
 METRIC_RELEASES = "releases"
 METRIC_BACKLOG_ITEMS = "backlog_items"
 METRIC_API_CALLS = "api_calls"
+# FR-T6 counters (AI / storage / portal) — metered from existing tables
+METRIC_AI_CALLS = "ai_calls"
+METRIC_STORAGE_BYTES = "storage_bytes"
+METRIC_PORTALS = "portals"
 
 
 class UsageRecord(Base):

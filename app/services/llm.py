@@ -11,6 +11,7 @@ import logging
 import time
 
 import httpx
+from fastapi import HTTPException
 
 from app.config import settings
 
@@ -20,6 +21,29 @@ FALLBACK_TEXT = "AI service unavailable — the deterministic fallback was used.
 TIMEOUT_S = 20.0
 ATTEMPTS = 2  # 1 attempt + exactly 1 retry
 RETRY_DELAY_S = 1.0
+UNLIMITED = 999999  # count-metric sentinel (matches usage_service.UNLIMITED)
+
+
+def _enforce_ai_quota(tenant_config: dict | None) -> None:
+    """Raise 403 when the tenant's monthly AI-call quota is exhausted (FR-T6).
+
+    The quota numbers ride in tenant_config from get_ai_config — computed on
+    the caller's session, so the wrapper never opens its own. Gating at the
+    ONE door means every metered call (llm_usage rows) passes here first; a
+    rejected call makes no HTTP request and writes no llm_usage row.
+    """
+    if not tenant_config:
+        return
+    limit = tenant_config.get("ai_calls_limit")
+    used = tenant_config.get("ai_calls_used")
+    if limit is None or used is None or int(limit) >= UNLIMITED:
+        return
+    if int(used) >= int(limit):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Quota exceeded: AI call limit is {limit}/month (current: {used}). "
+                   f"Upgrade your plan for more AI calls.",
+        )
 
 
 def _resolve_config(tenant_config: dict | None) -> tuple[str, str, str]:
@@ -44,6 +68,9 @@ def call_llm(
     feature: str = "ai",
 ) -> str:
     """Call the LLM through the resilience layer. Never raises through."""
+    # Plan quota gate (FR-T6): BEFORE any HTTP attempt — a rejected call
+    # never reaches the provider and is never metered into llm_usage.
+    _enforce_ai_quota(tenant_config)
     started = time.monotonic()
     ok = False
     try:

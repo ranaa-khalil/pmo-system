@@ -4,6 +4,7 @@ Provides:
 - record_usage(): snapshot current usage for a tenant (called periodically)
 - get_usage(): get current usage counts
 - check_quota(): verify a tenant can add more of a resource
+- check_storage_quota(): verify an incoming upload fits the storage quota
 - get_quota_headers(): return X-Quota-* headers for API responses
 - derive_llm_usage_rollup(): the LLM-call rollup derived FROM llm_usage
 
@@ -13,10 +14,18 @@ so llm_usage is the record of truth for LLM calls — the ``api_calls``
 metric in usage_records (METRIC_API_CALLS, defined but never written)
 would be DERIVED via derive_llm_usage_rollup(), never written by a second
 path. One row source (services/llm.py per-call), one derivation (here).
+
+FR-T6 counters (AI / storage / portal) are metered from existing tables:
+- ai_calls: llm_usage rows for the calendar month (one row per call, ok or
+  fallback alike)
+- storage_bytes: SUM(item_proofs.file_size) — uploaded proof bytes
+- portals: clients with an enabled portal (views/tokens are not recorded
+  anywhere — the portal JWT is stateless — so this is the countable state)
 """
 from datetime import date as _date
 
 from fastapi import HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.backlog_item import BacklogItem
@@ -25,18 +34,58 @@ from app.models.project import Project
 from app.models.release import Release
 from app.models.tenant import Tenant, TenantMembership
 from app.models.usage_record import (
+    METRIC_AI_CALLS,
     METRIC_API_CALLS,
     METRIC_BACKLOG_ITEMS,
     METRIC_CLIENTS,
+    METRIC_PORTALS,
     METRIC_PROJECTS,
     METRIC_RELEASES,
+    METRIC_STORAGE_BYTES,
     METRIC_USERS,
     UsageRecord,
 )
 
+UNLIMITED = 999999  # count-metric sentinel — NEVER used for storage bytes
+
 
 def _today() -> str:
     return _date.today().isoformat()
+
+
+def ai_calls_this_month(db: Session, tenant_id: int) -> int:
+    """LLM calls this calendar month — metered FROM llm_usage (one row per
+    call, ok or fallback alike). created_at is a String timestamp; the LIKE
+    prefix is the same pattern derive_llm_usage_rollup uses per-day."""
+    from app.models.llm_usage import LlmUsage
+
+    prefix = _date.today().strftime("%Y-%m")
+    return db.query(LlmUsage).filter(
+        LlmUsage.tenant_id == tenant_id,
+        LlmUsage.created_at.like(f"{prefix}%"),
+    ).count()
+
+
+def storage_bytes_used(db: Session, tenant_id: int) -> int:
+    """Sum of uploaded proof bytes — metered FROM item_proofs.file_size.
+    Pre-column rows and URL-only proofs carry NULL and contribute 0."""
+    from app.models.proof import ItemProof
+
+    row = db.query(func.coalesce(func.sum(ItemProof.file_size), 0)).filter(
+        ItemProof.tenant_id == tenant_id,
+    ).one()
+    return int(row[0] or 0)
+
+
+def portals_enabled(db: Session, tenant_id: int) -> int:
+    """Active client portals — metered FROM clients (the only portal state in
+    existing tables: portal views/tokens are not recorded anywhere, the JWT
+    is stateless). Same gate get_portal_client enforces at read time."""
+    return db.query(Client).filter(
+        Client.tenant_id == tenant_id,
+        Client.portal_enabled == True,  # noqa: E712
+        Client.portal_passcode_hash.isnot(None),
+    ).count()
 
 
 def get_usage_counts(db: Session, tenant_id: int) -> dict:
@@ -47,20 +96,37 @@ def get_usage_counts(db: Session, tenant_id: int) -> dict:
         METRIC_CLIENTS: db.query(Client).filter(Client.tenant_id == tenant_id).count(),
         METRIC_RELEASES: db.query(Release).filter(Release.tenant_id == tenant_id).count(),
         METRIC_BACKLOG_ITEMS: db.query(BacklogItem).filter(BacklogItem.tenant_id == tenant_id).count(),
+        # FR-T6 counters (AI / storage / portal)
+        METRIC_AI_CALLS: ai_calls_this_month(db, tenant_id),
+        METRIC_STORAGE_BYTES: storage_bytes_used(db, tenant_id),
+        METRIC_PORTALS: portals_enabled(db, tenant_id),
     }
+
+
+def _limit(value, default: int) -> int:
+    """None (absent or JSON null) means unlimited; a set value wins."""
+    return default if value is None else int(value)
 
 
 def get_limits(tenant: Tenant) -> dict:
     """Get plan limits for a tenant — reads from tenant.limits JSON column
-    (propagated from the assigned Plan, not configurable per-tenant)."""
+    (propagated from the assigned Plan, not configurable per-tenant).
+
+    Count metrics use UNLIMITED (999999); storage bytes use None — the count
+    sentinel is only ~1MB in bytes and would shadow every real storage limit.
+    """
     import json as _json
     limits = _json.loads(tenant.limits) if tenant.limits else {}
     return {
-        METRIC_USERS: limits.get("max_users", 999999),
-        METRIC_PROJECTS: limits.get("max_projects", 999999),
-        METRIC_CLIENTS: limits.get("max_clients", 999999),
-        METRIC_RELEASES: 999999,  # No limit on releases
-        METRIC_BACKLOG_ITEMS: 999999,  # No limit on backlog items
+        METRIC_USERS: _limit(limits.get("max_users"), UNLIMITED),
+        METRIC_PROJECTS: _limit(limits.get("max_projects"), UNLIMITED),
+        METRIC_CLIENTS: _limit(limits.get("max_clients"), UNLIMITED),
+        METRIC_RELEASES: UNLIMITED,  # No limit on releases
+        METRIC_BACKLOG_ITEMS: UNLIMITED,  # No limit on backlog items
+        # FR-T6 counters (AI / storage / portal)
+        METRIC_AI_CALLS: _limit(limits.get("max_ai_calls"), UNLIMITED),
+        METRIC_STORAGE_BYTES: limits.get("max_storage_bytes"),  # None = unlimited
+        METRIC_PORTALS: _limit(limits.get("max_portals"), UNLIMITED),
     }
 
 
@@ -93,15 +159,30 @@ def record_usage(db: Session, tenant_id: int):
     db.commit()
 
 
+def _human_bytes(n: int) -> str:
+    """Human-readable byte size for quota messages and headers."""
+    n = int(n or 0)
+    for unit, factor in (("GB", 1024 ** 3), ("MB", 1024 ** 2), ("KB", 1024)):
+        if n >= factor:
+            return f"{n / factor:.1f} {unit}"
+    return f"{n} B"
+
+
 def check_quota(db: Session, tenant: Tenant, metric: str) -> bool:
     """Check if a tenant can add one more of the given metric.
 
     Returns True if within quota, raises HTTPException if over quota.
     """
-    limits = get_limits(tenant)
-    limit = limits.get(metric, 999999)
+    if metric == METRIC_STORAGE_BYTES:
+        # Bytes: the count sentinel (999999) is ~1MB and would shadow every
+        # real storage limit — storage enforces through its own check.
+        check_storage_quota(db, tenant, 0)
+        return True
 
-    if limit >= 999999:
+    limits = get_limits(tenant)
+    limit = limits.get(metric, UNLIMITED)
+
+    if limit >= UNLIMITED:
         return True
 
     counts = get_usage_counts(db, tenant.id)
@@ -117,16 +198,43 @@ def check_quota(db: Session, tenant: Tenant, metric: str) -> bool:
     return True
 
 
+def check_storage_quota(db: Session, tenant: Tenant, incoming_bytes: int) -> None:
+    """Raise 403 when an incoming upload would exceed the storage quota.
+
+    Bytes metered FROM item_proofs.file_size; unlimited is None/absent
+    (never the 999999 count sentinel, which is only ~1MB in bytes).
+    """
+    limit = get_limits(tenant).get(METRIC_STORAGE_BYTES)
+    if limit is None:
+        return
+    current = storage_bytes_used(db, tenant.id)
+    if current + incoming_bytes > int(limit):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Quota exceeded: storage limit is {_human_bytes(limit)} "
+                   f"(used: {_human_bytes(current)}); this upload adds "
+                   f"{_human_bytes(incoming_bytes)}. Upgrade your plan for more storage.",
+        )
+
+
 def get_quota_headers(db: Session, tenant: Tenant) -> dict:
     """Return X-Quota-* headers for API responses."""
     counts = get_usage_counts(db, tenant.id)
     limits = get_limits(tenant)
 
     headers = {}
-    for metric in [METRIC_USERS, METRIC_PROJECTS, METRIC_CLIENTS, METRIC_RELEASES, METRIC_BACKLOG_ITEMS]:
-        limit = limits.get(metric, 999999)
+    for metric in [
+        METRIC_USERS, METRIC_PROJECTS, METRIC_CLIENTS, METRIC_RELEASES,
+        METRIC_BACKLOG_ITEMS, METRIC_AI_CALLS, METRIC_PORTALS, METRIC_STORAGE_BYTES,
+    ]:
+        limit = limits.get(metric, None if metric == METRIC_STORAGE_BYTES else UNLIMITED)
         current = counts.get(metric, 0)
-        if limit < 999999:
+        if metric == METRIC_STORAGE_BYTES:
+            if limit is not None:
+                headers[f"X-Quota-{metric.replace('_', '-').title()}"] = (
+                    f"{_human_bytes(current)}/{_human_bytes(limit)}"
+                )
+        elif limit is not None and limit < UNLIMITED:
             headers[f"X-Quota-{metric.replace('_', '-').title()}"] = f"{current}/{limit}"
     return headers
 
@@ -136,7 +244,7 @@ def get_usage_history(db: Session, tenant_id: int, days: int = 30) -> dict:
     from sqlalchemy import desc
     records = db.query(UsageRecord).filter(
         UsageRecord.tenant_id == tenant_id,
-    ).order_by(desc(UsageRecord.date)).limit(days * 5).all()  # 5 metrics per day
+    ).order_by(desc(UsageRecord.date)).limit(days * 8).all()  # 8 metrics per day (5 base + FR-T6 AI/storage/portal)
 
     # Group by metric
     history = {}

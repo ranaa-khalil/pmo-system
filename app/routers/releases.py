@@ -18,7 +18,7 @@ from app.models.user import User
 from app.schemas.release import ReleaseCreate, ReleaseResponse, ReleaseUpdate
 from app.services.notifications import log_activity
 from app.services.release_machine import advance_release_phase
-from app.services.tenant import get_current_tenant
+from app.services.tenant import get_current_tenant, resolve_tenant_for_user
 
 router = APIRouter(prefix="/api", tags=["releases"])
 
@@ -93,7 +93,13 @@ def _compute_phase_gates(release, items, v_cycle_index):
     # Check how many items are past each phase
     items_past_testing = len([i for i in items if i.get("current_phase") in ("Ready for UAT", "UAT", "Pre-Release", "Release", "Post-Release", "Retrospective")])
     items_in_or_past_testing = len([i for i in items if i.get("current_phase") in ("Testing", "Ready for UAT", "UAT", "Pre-Release", "Release", "Post-Release", "Retrospective")])
-    items_past_development = len([i for i in items if i.get("current_phase") in ("Testing", "Ready for UAT", "UAT", "Pre-Release", "Release", "Post-Release", "Retrospective")])
+    # Past DEVELOPMENT is its own bucket — an item qualifies when it has left
+    # the Development phase (Testing or later), or when the item is Done: a
+    # Done item is developed regardless of where its phase pointer sits (it
+    # can be marked Done without ever advancing through the item machine).
+    # It is NOT the Testing bucket (items_in_or_past_testing) — that one also
+    # gates the Testing checklist below.
+    items_past_development = len([i for i in items if i.get("is_done") or i.get("current_phase") in ("Testing", "Ready for UAT", "UAT", "Pre-Release", "Release", "Post-Release", "Retrospective")])
 
     # Phase index helpers
     release_phases = [p for p, _, _ in V_CYCLE]
@@ -1340,6 +1346,10 @@ def download_release_notes(
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     current_user = get_current_user(token, db)
+    # window.open requests carry no Authorization header, so the tenant comes
+    # from the token-derived user (same rules as the get_current_tenant
+    # dependency, which would 401 before the route body ran).
+    current_tenant = resolve_tenant_for_user(db, current_user)
 
     release = db.query(Release).filter(Release.id == release_id, Release.tenant_id == current_tenant.id).first()
     if not release:
@@ -1439,6 +1449,10 @@ def download_signoff_pdf(
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     current_user = get_current_user(token, db)
+    # window.open requests carry no Authorization header, so the tenant comes
+    # from the token-derived user (same rules as the get_current_tenant
+    # dependency, which would 401 before the route body ran).
+    current_tenant = resolve_tenant_for_user(db, current_user)
 
     release = db.query(Release).filter(Release.id == release_id, Release.tenant_id == current_tenant.id).first()
     if not release:

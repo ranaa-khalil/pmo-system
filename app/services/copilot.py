@@ -697,16 +697,45 @@ def _execute_op(db: Session, user: User, tenant: Tenant, op: dict) -> dict:
         if not project or (project.project_manager_id != user.id and user.system_role != "super_admin"
                            and not _has_role_assignment(db, user.id, item.project_id)):
             raise PermissionError("You don't have rights over this project's items")
-        target = op.get("target_phase") or item.current_phase
+        # The advance goes through the ONE advance machine (the same path the
+        # backlog advance route uses) so the effective lifecycle decides the
+        # next phase and the artifact-chain entry lands. A no-op advance
+        # (target == current phase) was a false success — a real transition or
+        # a clear failure only.
+        from app.models.backlog_item import RELEASE_PHASES
+        from app.services.lifecycle import get_effective_lifecycle
+        from app.services.release_machine import advance_backlog_item_phase
+
+        eff = get_effective_lifecycle(db, tenant.id, project.project_type)
+        if item.current_phase in RELEASE_PHASES or item.current_phase in eff["release_stages"]:
+            raise ValueError(
+                f"Item is in the release-level phase '{item.current_phase}' — "
+                "advance it through the release workflow, not the Copilot"
+            )
+        if item.current_phase not in eff["item_phases"]:
+            raise ValueError(
+                f"Item phase '{item.current_phase}' is not part of this project's "
+                "lifecycle — advance it manually"
+            )
+        phases = eff["item_phases"]
+        current_idx = phases.index(item.current_phase)
+        if current_idx >= len(phases) - 1:
+            raise ValueError(
+                f"Item is at its final item phase ({phases[-1]}) — no next phase "
+                "exists. Add it to a release to continue through the release stages."
+            )
+        next_phase = phases[current_idx + 1]
+        requested = op.get("target_phase")
+        if requested and requested != next_phase:
+            raise ValueError(
+                f"Proposal targets '{requested}' but the item's next phase is "
+                f"'{next_phase}' — Copilot advances resolve to the next phase only"
+            )
         old = item.current_phase
-        item.current_phase = target
-        db.add(ActivityLog(
-            tenant_id=tenant.id, user_id=user.id, project_id=item.project_id,
-            entity_type="backlog_item", entity_id=item.id, action="advanced",
-            summary=f"{item.title} advanced {old} → {target} via Copilot proposal",
-        ))
-        db.commit()
-        return {"item_id": item.id, "phase": target}
+        item = advance_backlog_item_phase(db, tenant, user, item)
+        if item.current_phase == old:
+            raise ValueError(f"Item did not advance from '{old}'")
+        return {"item_id": item.id, "phase": item.current_phase}
 
     if kind == "assign_user":
         item = db.query(BacklogItem).filter(
@@ -720,6 +749,18 @@ def _execute_op(db: Session, user: User, tenant: Tenant, op: dict) -> dict:
         assignee = db.query(User).filter(User.id == op.get("assignee_id")).first()
         if not assignee:
             raise ValueError(f"User {op.get('assignee_id')} not found")
+        # The assignee must be a member of the item's tenant — same
+        # TenantMembership check every route does. Without it a cross-tenant
+        # user id executed as a real assignment.
+        from app.models.tenant import TenantMembership
+        membership = db.query(TenantMembership).filter(
+            TenantMembership.user_id == assignee.id,
+            TenantMembership.tenant_id == tenant.id,
+        ).first()
+        if not membership:
+            raise PermissionError(
+                f"{assignee.name} is not a member of this tenant — cross-tenant assignment rejected"
+            )
         item.assigned_to = assignee.id
         db.commit()
         return {"item_id": item.id, "assigned_to": assignee.id}

@@ -8,19 +8,23 @@ from app.models.tenant import Tenant, TenantMembership
 from app.models.user import User
 
 
-def get_current_tenant(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> Tenant:
-    """Resolve the user's active tenant. Raises 403 if user has no tenant."""
-    tenant_id = current_user.active_tenant_id
+def resolve_tenant_for_user(db: Session, user: User) -> Tenant:
+    """Resolve the user's active tenant from a user object (not the request).
+
+    Same rules as get_current_tenant — active_tenant_id, first-membership
+    fallback, active-status and membership checks — for routes that
+    authenticate OUTSIDE the dependency graph (query-param token downloads via
+    window.open carry no Authorization header, so the get_current_tenant
+    dependency would 401 before the route body runs).
+    """
+    tenant_id = user.active_tenant_id
     if not tenant_id:
         # Auto-select first membership if no active tenant set
         membership = db.query(TenantMembership).filter(
-            TenantMembership.user_id == current_user.id
+            TenantMembership.user_id == user.id
         ).first()
         if membership:
-            current_user.active_tenant_id = membership.tenant_id
+            user.active_tenant_id = membership.tenant_id
             db.commit()
             tenant_id = membership.tenant_id
         else:
@@ -43,7 +47,7 @@ def get_current_tenant(
 
     # Verify membership
     membership = db.query(TenantMembership).filter(
-        TenantMembership.user_id == current_user.id,
+        TenantMembership.user_id == user.id,
         TenantMembership.tenant_id == tenant.id,
     ).first()
     if not membership:
@@ -53,6 +57,14 @@ def get_current_tenant(
         )
 
     return tenant
+
+
+def get_current_tenant(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Tenant:
+    """Resolve the user's active tenant. Raises 403 if user has no tenant."""
+    return resolve_tenant_for_user(db, current_user)
 
 
 def get_tenant_role(

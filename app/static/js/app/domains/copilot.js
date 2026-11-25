@@ -73,31 +73,41 @@ renderChatMarkdown(text) {
     return html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
 },
 
-toggleCopilot() {
-    this.copilotOpen = !this.copilotOpen;
-    if (this.copilotOpen && this.copilotMessages.length === 0) {
-        const scope = this.selectedProject
-            ? `I'm scoped to **${this.selectedProject.name}** — the project you have open. I know its backlog, epics, risks, approvals, and releases, and I'll cite record ids.`
-            : "I cover all your assigned projects. Open a project to scope me to it — then I know that project's backlog, risks, approvals, and releases specifically.";
-        this.copilotMessages.push({
-            role: 'assistant',
-            text: `Hi — I'm your AI PMO officer. **Tell me what's happening** and I'll structure it, or ask me anything: overdue work, waiting approvals, aging items. I read your data and cite sources. ${scope}`,
-        });
-    }
-},
-
 // Quick action chip: labeled capability → asked as a plain chat message
 copilotQuickAsk(text) {
     this.copilotOpen = true;
     this.copilotAsk(text);
 },
 
-// New topic: clear the conversation, keep scope greeting
+// Scope greeting — seeded once, on open and after a new topic
+seedCopilotGreeting() {
+    if (this.copilotMessages.length > 0) return;
+    const scope = this.selectedProject
+        ? `I'm scoped to **${this.selectedProject.name}** — the project you have open. I know its backlog, epics, risks, approvals, and releases, and I'll cite record ids.`
+        : "I cover all your assigned projects. Open a project to scope me to it — then I know that project's backlog, risks, approvals, and releases specifically.";
+    this.copilotMessages.push({
+        role: 'assistant',
+        text: `Hi — I'm your AI PMO officer. **Tell me what's happening** and I'll structure it, or ask me anything: overdue work, waiting approvals, aging items. I read your data and cite sources. ${scope}`,
+    });
+},
+
+toggleCopilot() {
+    this.copilotOpen = !this.copilotOpen;
+    if (this.copilotOpen && this.copilotMessages.length === 0) {
+        this.seedCopilotGreeting();
+    }
+},
+
+// New topic: clear the conversation, keep scope greeting.
+// One open path only — toggling twice visibly closed and reopened the drawer.
 copilotNewTopic() {
     this.copilotMessages = [];
     this.copilotPendingProposal = null;
-    this.toggleCopilot();
-    this.toggleCopilot();
+    if (!this.copilotOpen) {
+        this.toggleCopilot();
+    } else {
+        this.seedCopilotGreeting();
+    }
 },
 
 copilotStartProjectKickoff() {
@@ -156,7 +166,7 @@ async copilotAsk(text) {
     } catch (e) {
         this.copilotMessages.push({
             role: 'assistant',
-            text: e?.message || 'Copilot request failed.',
+            text: e?.message || 'PMO Copilot request failed.',
             error: true,
         });
     }

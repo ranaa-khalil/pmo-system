@@ -212,6 +212,11 @@ def _sync_release_items_to_phase(db: Session, release: Release, phase: str):
         item.current_phase = phase
         if new_status:
             item.status = new_status
+            # Actuals (Timeline P2): the release sync is where the software
+            # family's items reach Done — the advance machine owns item-level
+            # stamps, this is its release-level twin. Set-when-None.
+            if item.actual_end_date is None:
+                item.actual_end_date = datetime.now().date()
 
     db.commit()
 

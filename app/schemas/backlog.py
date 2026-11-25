@@ -93,6 +93,8 @@ class BacklogItemResponse(BacklogItemBase):
     board_order: int | None = None
     start_date: date | None = None
     end_date: date | None = None
+    actual_start_date: date | None = None  # machine-stamped (Timeline P2)
+    actual_end_date: date | None = None
     depends_on: list[BacklogItemBrief] = []
     blocked_by: list[BacklogItemBrief] = []
     parent_item_id: int | None = None

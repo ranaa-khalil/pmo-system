@@ -21,7 +21,10 @@ class Client(Base):
     # Client portal: hashed passcode; NULL/empty = portal disabled for this client.
     # Portal logins authenticate by contact_email + passcode.
     portal_passcode_hash = Column(String(255), nullable=True)
-    portal_enabled = Column(Boolean, nullable=False, server_default=text("0"))
+    # Postgres rejects DEFAULT 0 on BOOLEAN (DEFAULT FALSE is what
+    # app/migrate.py and production use) — fresh create_all/alembic deploys
+    # must not diverge from the live schema.
+    portal_enabled = Column(Boolean, nullable=False, server_default=text("false"))
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

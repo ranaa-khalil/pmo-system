@@ -255,6 +255,43 @@ ganttDayIndex(iso) {
     if (!this.ganttData || !this.ganttData.start) return 0;
     return Math.round((new Date(iso + 'T00:00:00') - new Date(this.ganttData.start + 'T00:00:00')) / 86400000);
 },
+// Release targets (Timeline P1): the project's releases are the commitment
+// layer on the item Gantt — each target renders as a key-date line. Targets
+// outside the day window stay on the drift chip (the line can't be placed).
+ganttReleaseLines() {
+    if (!this.ganttData || !this.ganttData.releases || !this.ganttData.start) return [];
+    const days = this.ganttDayList().length;
+    const lines = [];
+    for (const r of this.ganttData.releases) {
+        if (!r.target_date) continue;
+        const t = new Date(r.target_date + 'T00:00:00');
+        if (isNaN(t.getTime())) continue;
+        const idx = Math.round((t - new Date(this.ganttData.start + 'T00:00:00')) / 86400000);
+        if (idx < 0 || idx >= days) continue;
+        lines.push({ id: r.id, version: r.version, status: r.status, day_index: idx });
+    }
+    return lines;
+},
+// Drift chip (Timeline P1): the plan runs past a release target — the
+// backend's window-end vs target comparison (the PNU contradiction).
+ganttDrift() {
+    return (this.ganttData && this.ganttData.drift) || null;
+},
+// Actuals (Timeline P2): baseline-vs-actual — the actual bar overlays the
+// planned bar once the advance machine has stamped actual dates. An open
+// item (no actual end yet) runs its actual bar to the window edge; bars
+// clamp to the visible day grid.
+ganttActualBar(it) {
+    if (!it.actual_start_date || !this.ganttData || !this.ganttData.start) return null;
+    const days = this.ganttDayList().length;
+    if (!days) return null;
+    const left = Math.max(this.ganttDayIndex(it.actual_start_date), 0);
+    const endIso = it.actual_end_date || this.ganttData.end;
+    const right = Math.min(this.ganttDayIndex(endIso), days - 1);
+    const width = right - left + 1;
+    if (width <= 0) return null;
+    return { left: left * 28 + 1, width: Math.max(width * 28 - 2, 6) };
+},
 async onGanttDrop(item, dayIso) {
     if (!item || !item.start_date) return;
     const shift = Math.round((new Date(dayIso + 'T00:00:00') - new Date(item.start_date + 'T00:00:00')) / 86400000);

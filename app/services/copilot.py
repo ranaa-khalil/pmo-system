@@ -75,6 +75,7 @@ def build_context(
                 "projects": [], "pending_approvals": [], "aging_items": [],
                 "overdue_tasks": [], "at_risk_releases": [], "epic_tree": {},
                 "open_risks": [], "predictive_flags": [],
+                "schedule": None, "schedules": [],
             }
         proj_ids = [project.id]
     else:
@@ -85,6 +86,7 @@ def build_context(
             "projects": [], "pending_approvals": [], "aging_items": [],
             "overdue_tasks": [], "at_risk_releases": [], "epic_tree": {},
             "open_risks": [], "predictive_flags": [],
+            "schedule": None, "schedules": [],
         }
 
     projects = db.query(Project).filter(
@@ -206,6 +208,51 @@ def build_context(
 
     epic_tree = _epic_tree(db, proj_ids)
 
+    # ── Schedule (Copilot P1): the ask sees the item Gantt ───────────────
+    # The SAME compute the Gantt API serves (app/services/schedule.py) —
+    # planned windows, CPM critical path, release targets and the
+    # plan-vs-target drift. ADDITIONAL grounded context: entries carry
+    # entity_type/entity_id so answers still cite "Item 3"/"Release 1".
+    from app.services.schedule import project_schedule
+
+    def _schedule_for(p: Project) -> dict:
+        gantt = project_schedule(db, p.id, tid, p.project_type)
+        critical = [
+            {
+                "entity_type": "backlog_item", "entity_id": it["id"],
+                "record_type": "Item",
+                "title": it["title"], "phase": it["current_phase"],
+                "status": it["status"],
+            }
+            for it in gantt["items"] if it.get("is_critical")
+        ][:10]
+        releases = [
+            {
+                "entity_type": "release", "entity_id": r["id"],
+                "record_type": "Release",
+                "title": f"{r['version']} {r['name']}".strip(),
+                "status": r["status"], "target_date": r["target_date"],
+                "drift_days": r["drift_days"], "live_stage": r["live_stage"],
+            }
+            for r in gantt["releases"]
+        ]
+        return {
+            "entity_type": "project", "entity_id": p.id, "title": p.name,
+            "window_start": gantt["start"], "window_end": gantt["end"],
+            "planned_finish": gantt["end"],
+            "critical_count": gantt["critical_count"],
+            "unscheduled_count": gantt["unscheduled_count"],
+            "critical_items": critical,
+            "releases": releases,
+        }
+
+    schedule = None
+    schedules = []
+    if project_id is not None:
+        schedule = _schedule_for(projects[0])
+    else:
+        schedules = [_schedule_for(p) for p in projects[:5]]
+
     # ── Project identity: what the copilot needs to be project-specific ───
     from app.models.milestone import Milestone
     from app.models.project_vision import ProjectVision
@@ -308,6 +355,8 @@ def build_context(
         "open_risks": open_risks,
         "predictive_flags": predictive_flags,
         "epic_tree": epic_tree,
+        "schedule": schedule,
+        "schedules": schedules,
     }
 
 
@@ -356,6 +405,44 @@ def _days_since(value) -> int:
     return 0
 
 
+def _render_schedule_block(s: dict, max_items: int = 40) -> str:
+    """One project's schedule as prompt lines — the ask's schedule block.
+
+    Computed states are labeled as computed: the critical path is CPM
+    (zero float against the planned windows) and drift compares the plan's
+    last end date with the release target — never a manual flag. Every
+    entry keeps its record type so the model cites "Item 3"/"Release 1".
+    """
+    lines = []
+    if s.get("planned_finish"):
+        window = f"{s.get('window_start')} → {s.get('window_end')}"
+        lines.append(
+            f"- planned window {window}, planned finish {s['planned_finish']}"
+        )
+    critical = s.get("critical_items") or []
+    if critical:
+        members = "; ".join(
+            f"Item {c['entity_id']}: {c['title']} ({c.get('phase')}, {c.get('status')})"
+            for c in critical[:max_items]
+        )
+        lines.append(
+            f"- critical path ({s.get('critical_count', len(critical))} items, zero float): {members}"
+        )
+    lines.append(f"- unscheduled items: {s.get('unscheduled_count', 0)}")
+    for r in (s.get("releases") or [])[:6]:
+        rel = f"- Release {r['entity_id']}: {r['title']} ({r.get('status')}, live stage {r.get('live_stage')}"
+        if r.get("target_date"):
+            rel += f", target {r['target_date']}"
+        rel += ")"
+        if r.get("drift_days"):
+            rel += f" — the plan runs {r['drift_days']} days past the release target"
+        lines.append(rel)
+    return (
+        "PROJECT SCHEDULE (computed from the item Gantt — CPM + release windows, not manual flags):\n"
+        + "\n".join(lines)
+    )
+
+
 def summarize_context(ctx: dict, max_items: int = 40) -> str:
     """Compact text rendering of the context for the LLM prompt.
 
@@ -402,6 +489,28 @@ def summarize_context(ctx: dict, max_items: int = 40) -> str:
     elif ctx["projects"]:
         lines.append("PROJECTS: " + "; ".join(
             f"Project {p['entity_id']}: {p['title']} ({p['status']})" for p in ctx["projects"]))
+    if ctx.get("schedule"):
+        lines.append(_render_schedule_block(ctx["schedule"], max_items))
+    elif ctx.get("schedules"):
+        rows = []
+        for s in ctx["schedules"][:5]:
+            if not s.get("planned_finish"):
+                rows.append(f"- Project {s['entity_id']} ({s['title']}): no planned windows yet")
+                continue
+            parts = [
+                f"Project {s['entity_id']} ({s['title']}): planned finish {s['planned_finish']}, "
+                f"{s['critical_count']} on critical path, {s['unscheduled_count']} unscheduled"
+            ]
+            for r in s.get("releases", [])[:3]:
+                rel = f"Release {r['entity_id']}: {r['title']} ({r['status']}, target {r['target_date']})"
+                if r.get("drift_days"):
+                    rel += f" — plan runs {r['drift_days']} days past the target"
+                parts.append(rel)
+            rows.append("; ".join(parts))
+        lines.append(
+            "SCHEDULE PER PROJECT (computed from the item Gantt — CPM + release windows, not manual flags):\n"
+            + "\n".join(f"- {r}" for r in rows)
+        )
     if ctx["pending_approvals"]:
         rows = [f"- Approval {a['entity_id']}: {a['title']} (awaiting {a.get('awaiting_role') or 'next role'}, pending for {a.get('days_pending', 0)} days)" for a in ctx["pending_approvals"][:max_items]]
         lines.append("PENDING GATE APPROVALS:\n" + "\n".join(rows))
@@ -449,6 +558,11 @@ CHAT_SYSTEM_PROMPT = (
     "means for the plan (phases, releases, approvals) in your answer. "
     "The system computes at-risk releases (overdue target or pending gate); never say a "
     "release was 'flagged' unless the data shows a flag. "
+    "The schedule block is computed from the item Gantt (CPM forward/backward pass): "
+    "'critical path' means zero-float items against the planned windows, and release drift "
+    "compares the plan's last end date with the release target date — a computed comparison, "
+    "never a manual flag. Answer schedule questions (what's blocking the release, what to move) "
+    "from it. "
     "If the data doesn't contain the answer, say so plainly — never invent records. "
     "Reply ONLY with a JSON object with EXACTLY these keys: "
     '{"answer": "<your answer as concise markdown>", "sources": ["Task 2", "Approval 7", "PNU Cloud"]}. '

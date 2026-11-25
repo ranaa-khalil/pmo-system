@@ -83,6 +83,11 @@ class BacklogItem(Base):
     # Gantt scheduling: planned window for this item (drag on the item Gantt)
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
+    # Actuals (Timeline P2): machine-stamped — actual start on the first
+    # advance, actual end when the item reaches Done. Baseline-vs-actual
+    # bars on the item Gantt read these; they are never user-edited.
+    actual_start_date = Column(Date, nullable=True)
+    actual_end_date = Column(Date, nullable=True)
     created_at = Column(String, server_default=func.now(), nullable=False)
     updated_at = Column(String, server_default=func.now(), onupdate=func.now())
 

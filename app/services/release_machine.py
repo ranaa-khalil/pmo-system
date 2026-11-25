@@ -239,6 +239,17 @@ def advance_backlog_item_phase(db: Session, tenant: Tenant, user: User, item: Ba
     if item.status == "Draft":
         item.status = "In Progress"
 
+    # Actuals (Timeline P2): the advance machine is the ONE write point.
+    # The first advance stamps the actual start; reaching Done stamps the
+    # actual end ("Done" is the operations ladder's terminal item phase, or
+    # a status a prior write already set). Set-when-None: a later advance
+    # never rewrites a stamped date.
+    today = date.today()
+    if item.actual_start_date is None:
+        item.actual_start_date = today
+    if (item.status == "Done" or item.current_phase == "Done") and item.actual_end_date is None:
+        item.actual_end_date = today
+
     # GitHub sync on entering the build phase for this template
     from app.services.lifecycle import GITHUB_SYNC_PHASES
     sync_phases = GITHUB_SYNC_PHASES.get(project_type or "software", ["Development"])

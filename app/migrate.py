@@ -58,6 +58,10 @@ COLUMNS = [
     # Gantt scheduling: planned window per backlog item
     ("backlog_items", "start_date DATE"),
     ("backlog_items", "end_date DATE"),
+    # Actuals (Timeline P2): machine-stamped actual dates for the item
+    # Gantt's baseline-vs-actual bars (first advance / reaching Done)
+    ("backlog_items", "actual_start_date DATE"),
+    ("backlog_items", "actual_end_date DATE"),
     # RAID register (R6): one risks table, four kinds + kind fields + lineage
     ("risks", "kind VARCHAR(20) DEFAULT 'Risk' NOT NULL"),
     ("risks", "validation_plan TEXT"),

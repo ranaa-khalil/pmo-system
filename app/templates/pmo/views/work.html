@@ -225,6 +225,13 @@
                     <span x-show="ganttData && ganttData.critical_count > 0" class="text-[11px] font-medium text-rose-600">
                         <span x-text="ganttData?.critical_count || 0"></span> on critical path
                     </span>
+                    <!-- Drift chip (Timeline P1): the plan runs past a release target -->
+                    <span x-show="ganttDrift()" class="text-[11px] font-medium text-rose-600 border border-rose-200 bg-rose-50 px-2 py-0.5 rounded-full"
+                          title="The plan's last item finishes past this release's target date">
+                        <span x-text="ganttDrift()?.version"></span> target
+                        <span x-text="ganttDrift()?.target_date"></span> ·
+                        <span x-text="ganttDrift()?.drift_days"></span>d past
+                    </span>
                 </div>
             </div>
             <div x-show="ganttLoading" class="h-24 flex items-center justify-center">
@@ -249,6 +256,22 @@
                             </template>
                         </div>
                     </div>
+                    <!-- Release targets (Timeline P1): one key-date line per release -->
+                    <template x-if="ganttReleaseLines().length > 0">
+                        <div class="flex border-b border-ink-100 bg-ink-50/40">
+                            <div class="w-[240px] flex-shrink-0 px-4 py-1.5 border-r border-ink-100 sticky left-0 bg-white z-20">
+                                <span class="text-[9px] font-semibold text-ink-400 uppercase tracking-wider">Releases</span>
+                            </div>
+                            <div class="relative" :style="'width: ' + (ganttDayList().length * 28) + 'px; min-height: 22px'">
+                                <template x-for="line in ganttReleaseLines()" :key="'lane' + line.id">
+                                    <div class="absolute top-0 h-full pointer-events-none" :style="'left: ' + (line.day_index * 28) + 'px'">
+                                        <div class="h-full border-l-2 border-dashed border-violet-400"></div>
+                                        <div class="absolute top-0.5 left-1 text-[9px] font-semibold text-violet-600 whitespace-nowrap" x-text="line.version"></div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
                     <!-- Rows -->
                     <template x-for="it in (ganttData?.items || [])" :key="it.id">
                         <div class="flex border-b border-ink-50 hover:bg-ink-50/30 transition-colors group">
@@ -258,6 +281,8 @@
                                     <span x-text="it.current_phase"></span>
                                     <span x-show="it.depends_on.length" class="text-brand-400" x-text="'← ' + it.depends_on.map(id => '#' + id).join(', ')"></span>
                                     <span x-show="it.is_critical" class="text-rose-500 font-semibold">critical</span>
+                                    <!-- Drift flag (Timeline P1): the item runs past its release target -->
+                                    <span x-show="it.past_release" class="text-amber-600 font-semibold" x-text="'past release +' + it.release_drift?.drift_days + 'd'"></span>
                                 </div>
                             </div>
                             <div class="relative py-1.5" :style="'width: ' + (ganttDayList().length * 28) + 'px; min-height: 44px'">
@@ -266,6 +291,12 @@
                                     <template x-for="d in ganttDayList()" :key="d.iso">
                                         <div class="flex-shrink-0 border-r border-ink-50 h-full"
                                              :class="d.isToday ? 'bg-rose-50/40' : d.isWeekend ? 'bg-ink-50/30' : ''" style="width: 28px"></div>
+                                    </template>
+                                </div>
+                                <!-- Release target lines (Timeline P1) -->
+                                <div class="absolute inset-0 pointer-events-none">
+                                    <template x-for="line in ganttReleaseLines()" :key="'rl' + line.id">
+                                        <div class="absolute top-0 h-full border-l-2 border-dashed border-violet-300" :style="'left: ' + (line.day_index * 28) + 'px'"></div>
                                     </template>
                                 </div>
                                 <template x-if="it.start_date">
@@ -280,6 +311,12 @@
                                         <span class="text-[9px] font-semibold text-white truncate pointer-events-none" x-text="it.title"></span>
                                         <span x-show="!it.is_critical && it.float > 0" class="ml-auto text-[9px] text-white/80 font-semibold pointer-events-none" x-text="'+' + it.float + 'd'"></span>
                                     </div>
+                                </template>
+                                <!-- Actual bar (Timeline P2): baseline-vs-actual, machine-stamped -->
+                                <template x-if="ganttActualBar(it)">
+                                    <div class="absolute h-2 top-8 rounded-sm bg-ink-600 pointer-events-none"
+                                         :style="'left: ' + ganttActualBar(it).left + 'px; width: ' + ganttActualBar(it).width + 'px'"
+                                         :title="'Actual: ' + it.actual_start_date + ' → ' + (it.actual_end_date || 'open')"></div>
                                 </template>
                                 <template x-if="!it.start_date">
                                     <div class="absolute left-2 top-2.5 text-[10px] text-ink-300 italic">no dates — schedule the item to place it</div>
@@ -297,6 +334,14 @@
                 <div class="flex items-center gap-1.5">
                     <div class="w-4 h-2.5 rounded-sm bg-brand-500"></div>
                     <span class="text-[10px] text-ink-500">Scheduled</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <div class="w-4 h-2 rounded-sm bg-ink-600"></div>
+                    <span class="text-[10px] text-ink-500">Actual</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <div class="h-3 border-l-2 border-dashed border-violet-400"></div>
+                    <span class="text-[10px] text-ink-500">Release target</span>
                 </div>
                 <span class="text-[10px] text-ink-300">Drag a bar to move it. Float shows slack in days.</span>
             </div>

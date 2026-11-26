@@ -79,6 +79,10 @@ COLUMNS = [
     ("plans", "max_storage_bytes BIGINT"),
     ("plans", "max_portals INTEGER"),
     ("item_proofs", "file_size INTEGER"),
+    # Per-capability metering (Rethink slice 2): the provider's token counts
+    # on each LLM call — nullable, filled when the usage payload is present.
+    ("llm_usage", "prompt_tokens INTEGER"),
+    ("llm_usage", "completion_tokens INTEGER"),
 ]
 
 INDEXES = [

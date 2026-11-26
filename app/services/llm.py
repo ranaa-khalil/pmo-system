@@ -73,6 +73,7 @@ def call_llm(
     _enforce_ai_quota(tenant_config)
     started = time.monotonic()
     ok = False
+    provider_usage = None
     try:
         api_key, base_url, model = _resolve_config(tenant_config)
         if not api_key:
@@ -99,6 +100,11 @@ def call_llm(
                     resp.raise_for_status()
                     data = resp.json()
                 ok = True
+                # Per-capability metering: the provider's usage payload (when
+                # present) fills the nullable prompt/completion token columns.
+                usage = data.get("usage")
+                if isinstance(usage, dict):
+                    provider_usage = usage
                 return data["choices"][0]["message"]["content"]
             except Exception as exc:  # noqa: BLE001 — the fallback never raises through
                 logger.warning(
@@ -109,10 +115,16 @@ def call_llm(
                     time.sleep(RETRY_DELAY_S)
         return FALLBACK_TEXT
     finally:
-        _record_usage(tenant_config, feature, ok, time.monotonic() - started)
+        _record_usage(tenant_config, feature, ok, time.monotonic() - started, provider_usage)
 
 
-def _record_usage(tenant_config: dict | None, feature: str, ok: bool, elapsed_s: float) -> None:
+def _record_usage(
+    tenant_config: dict | None,
+    feature: str,
+    ok: bool,
+    elapsed_s: float,
+    provider_usage: dict | None = None,
+) -> None:
     """One LlmUsage row per call. Key values are never recorded."""
     try:
         from app.database import SessionLocal
@@ -124,6 +136,8 @@ def _record_usage(tenant_config: dict | None, feature: str, ok: bool, elapsed_s:
             db.add(LlmUsage(
                 tenant_id=tenant_id, feature=feature[:50], ok=ok,
                 latency_ms=int(elapsed_s * 1000),
+                prompt_tokens=_token_count(provider_usage, "prompt_tokens"),
+                completion_tokens=_token_count(provider_usage, "completion_tokens"),
                 error=None if ok else "fallback",
             ))
             db.commit()
@@ -131,3 +145,17 @@ def _record_usage(tenant_config: dict | None, feature: str, ok: bool, elapsed_s:
             db.close()
     except Exception:  # noqa: BLE001 — usage bookkeeping must never raise through
         logger.exception("LlmUsage row write failed")
+
+
+def _token_count(usage: dict | None, key: str) -> int | None:
+    """An int token count from the provider's usage payload, or None —
+    absent/invalid values stay NULL (the columns are nullable by design)."""
+    if not isinstance(usage, dict):
+        return None
+    value = usage.get(key)
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None

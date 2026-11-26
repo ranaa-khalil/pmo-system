@@ -438,7 +438,7 @@ def get_tenant_limits(
     max_storage_bytes = limits.get("max_storage_bytes")  # None = unlimited
     max_portals = limits.get("max_portals", 999999)
 
-    from app.services.usage_service import _human_bytes, get_usage_counts
+    from app.services.usage_service import _human_bytes, ai_capability_breakdown, get_usage_counts
     counts = get_usage_counts(db, current_tenant.id)
 
     # Include plan name if assigned
@@ -474,6 +474,10 @@ def get_tenant_limits(
             "storage_display": storage_display,
             "portals": counts.get("portals", 0),
         },
+        # Per-capability metering (Rethink slice 2): LLM burn per capability —
+        # the settings.html Plan tiles read this for copilot.reasoned /
+        # copilot.briefing burn.
+        "ai_capabilities": ai_capability_breakdown(db, current_tenant.id),
     }
 
 
@@ -722,6 +726,7 @@ def get_usage(
         METRIC_PROJECTS,
         METRIC_STORAGE_BYTES,
         METRIC_USERS,
+        ai_capability_breakdown,
         get_limits,
         get_usage_counts,
     )
@@ -739,6 +744,7 @@ def get_usage(
         storage_limit=limits[METRIC_STORAGE_BYTES],
         portals=counts[METRIC_PORTALS],
         portals_limit=limits[METRIC_PORTALS],
+        ai_capabilities=ai_capability_breakdown(db, current_tenant.id),
     )
 
 

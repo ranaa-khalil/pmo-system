@@ -244,6 +244,10 @@ class CopilotChatRequest(BaseModel):
     question: str
     project_id: int | None = None
     history: list[dict] | None = None
+    # Rethink slice 2: optional intent override — auto (default) lets the
+    # server's rules-first router pick fast vs reasoned; "lookup" forces the
+    # deterministic fast path; "reasoned" forces the LLM writer.
+    mode: str = "auto"
 
 
 class CopilotProposeRequest(BaseModel):
@@ -273,9 +277,12 @@ def copilot_chat_endpoint(
             db, current_user, current_tenant, req.question, tenant_config,
             project_id=req.project_id,
             history=req.history,
+            mode=req.mode,
         )
     except HTTPException:
         raise
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     except Exception as e:
         import logging
         import traceback
@@ -405,8 +412,11 @@ def today_brief_narrative_endpoint(
     )
 
     from app.services.ai import _call_llm as ai_call
+    from app.services.copilot import BRIEFING_FEATURE
     try:
-        narrative = (ai_call(system, user_prompt, tenant_config=tenant_config, max_tokens=200) or "").strip()
+        # Per-capability metering: the narrative burn is labeled
+        # copilot.briefing (distinct from the copilot.reasoned chat writer).
+        narrative = (ai_call(system, user_prompt, tenant_config=tenant_config, max_tokens=200, feature=BRIEFING_FEATURE) or "").strip()
     except HTTPException:
         # Quota exceeded (403 at the ONE door) → the deterministic card alone
         narrative = ""

@@ -8,9 +8,12 @@ with it (the test_p0_fix_round_static.py pattern):
       docstring: every tenant-scoped read goes through it.
 - S2  the HOT routers (dashboard, projects, backlog, releases, approvals,
       copilot/ai, clients, stakeholders, tags, user_tasks) and the delegate
-      services their hot routes run through (stats, schedule, copilot) import
-      the seam and route their entity reads through it — the exact number of
-      seam call sites per file is pinned.
+      services their hot routes run through (stats, schedule, copilot,
+      grounding) import the seam and route their entity reads through it —
+      the exact number of seam call sites per file is pinned. Rethink slice 2
+      carved copilot's build_context into services/grounding.py (five
+      grounding bundles), so copilot's queries now live in grounding — all of
+      them through the seam (17 sites).
 - S3  the hot files' remaining inline ``tenant_id ==`` fragments are EXACTLY
       the seam's documented exclusions (join/membership checks, column
       queries, User.active_tenant_id) — a forgotten fragment (the quiet leak
@@ -36,6 +39,7 @@ HOT_FILES = [
     "app/routers/clients.py", "app/routers/stakeholders.py", "app/routers/tags.py",
     "app/routers/user_tasks.py",
     "app/services/stats.py", "app/services/schedule.py", "app/services/copilot.py",
+    "app/services/grounding.py",  # Rethink slice 2: the copilot's grounding bundles
 ]
 
 # Pinned seam call sites per hot file (the migration's shape — a regression
@@ -53,7 +57,8 @@ SEAM_SITES = {
     "app/routers/user_tasks.py": 11,
     "app/services/stats.py": 4,
     "app/services/schedule.py": 1,
-    "app/services/copilot.py": 9,
+    "app/services/copilot.py": 5,  # slice 2: build_context's queries carved into grounding
+    "app/services/grounding.py": 17,  # the five bundles — every read through the seam
 }
 
 # Every inline `tenant_id ==` fragment left in a hot file, each carried by the
@@ -75,8 +80,11 @@ ALLOWED_INLINE = {
         "Client.tenant_id == tid",  # AM client ids: Client.id COLUMN query (tuple rows)
     ],
     "app/services/copilot.py": [
-        "Project.tenant_id == tid",  # _assigned_project_ids: Project.id COLUMN query
         "TenantMembership.tenant_id == tenant.id",  # assign_user: assignee membership check
+    ],
+    "app/services/grounding.py": [  # Rethink slice 2: the extracted build_context
+        "Project.tenant_id == tid",  # assigned_project_ids: Project.id COLUMN query
+        "ActivityLog.tenant_id == tid",  # aging last-movement: ActivityLog COLUMN query (tuple rows)
     ],
 }
 
@@ -247,8 +255,14 @@ def test_s3_exclusions_are_not_tenant_owned_entity_reads():
     stats = _read(REPO / "app/services/stats.py")
     assert "db.query(Client.id)" in stats, "stats' exclusion is the Client.id COLUMN query"
     copilot = _read(REPO / "app/services/copilot.py")
-    assert "db.query(Project.id)" in copilot, "copilot's exclusion is the Project.id COLUMN query"
     assert "db.query(TenantMembership)" in copilot, "copilot's membership check stays hand-written"
+    grounding = _read(REPO / "app/services/grounding.py")
+    assert "db.query(Project.id)" in grounding, (
+        "grounding's exclusion is the assigned_project_ids Project.id COLUMN query"
+    )
+    assert "db.query(\n        ActivityLog.entity_id" in grounding, (
+        "grounding's aging exclusion is the ActivityLog COLUMN query (tuple rows)"
+    )
 
 
 # ── S2c — the cold routers route their reads through the seam ─────────────

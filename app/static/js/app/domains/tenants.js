@@ -104,7 +104,9 @@ async loadTenantLimits() {
             max_projects: data.limits.max_projects >= 999999 ? 999999 : data.limits.max_projects,
             max_clients: data.limits.max_clients >= 999999 ? 999999 : data.limits.max_clients,
         };
-        this.usageCurrent = { ...data.current, plan_name: data.plan_name };
+        // ai_capabilities: LLM burn per capability (copilot.reasoned /
+        // copilot.briefing / ...) — rendered under the Plan tiles.
+        this.usageCurrent = { ...data.current, plan_name: data.plan_name, ai_capabilities: data.ai_capabilities || {} };
     } catch { /* ignore */ }
 },
 

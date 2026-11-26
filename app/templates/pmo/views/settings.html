@@ -608,6 +608,14 @@
                                     <span x-text="usageCurrent.ai_calls || 0"></span>
                                     <span class="text-[11px] text-ink-400" x-text="' / ' + ((usageCurrent.ai_calls_limit ?? 999999) >= 999999 ? '∞' : usageCurrent.ai_calls_limit)"></span>
                                 </div>
+                                <!-- Per-capability burn (Rethink slice 2): one line per
+                                     llm_usage feature label — calls + tokens when reported -->
+                                <div class="text-[10px] text-ink-400 mt-1 leading-snug" x-show="Object.keys(usageCurrent.ai_capabilities || {}).length">
+                                    <template x-for="[capName, cap] in Object.entries(usageCurrent.ai_capabilities || {})" :key="capName">
+                                        <span class="mr-2 whitespace-nowrap"
+                                              x-text="`${capName.replace('copilot.', '')}: ${cap.calls} call${cap.calls === 1 ? '' : 's'}${(cap.prompt_tokens || cap.completion_tokens) ? ' · ' + (((cap.prompt_tokens || 0) + (cap.completion_tokens || 0)) + '').replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' tok' : ''}`"></span>
+                                    </template>
+                                </div>
                             </div>
                             <div class="bg-ink-100/60 rounded-xl p-3 text-center">
                                 <div class="text-[10px] font-semibold uppercase tracking-wider text-ink-400">Storage</div>

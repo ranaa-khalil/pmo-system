@@ -66,6 +66,34 @@ def ai_calls_this_month(db: Session, tenant_id: int) -> int:
     ).count()
 
 
+def ai_capability_breakdown(db: Session, tenant_id: int) -> dict:
+    """LLM burn PER CAPABILITY for the calendar month (Rethink slice 2): one
+    entry per llm_usage.feature label — {calls, prompt_tokens,
+    completion_tokens}. The fast path makes no llm_usage row at all, so it
+    never appears here; token totals are 0 until the provider payload fills
+    the nullable columns. Lexicographic order for a stable frontend view."""
+    from app.models.llm_usage import LlmUsage
+
+    prefix = _date.today().strftime("%Y-%m")
+    rows = db.query(
+        LlmUsage.feature,
+        func.count(LlmUsage.id),
+        func.coalesce(func.sum(LlmUsage.prompt_tokens), 0),
+        func.coalesce(func.sum(LlmUsage.completion_tokens), 0),
+    ).filter(
+        LlmUsage.tenant_id == tenant_id,
+        LlmUsage.created_at.like(f"{prefix}%"),
+    ).group_by(LlmUsage.feature).all()
+    return {
+        feature: {
+            "calls": calls,
+            "prompt_tokens": int(pt or 0),
+            "completion_tokens": int(ct or 0),
+        }
+        for feature, calls, pt, ct in sorted(rows, key=lambda r: r[0] or "")
+    }
+
+
 def storage_bytes_used(db: Session, tenant_id: int) -> int:
     """Sum of uploaded proof bytes — metered FROM item_proofs.file_size.
     Pre-column rows and URL-only proofs carry NULL and contribute 0."""

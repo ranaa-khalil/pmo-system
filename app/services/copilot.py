@@ -7,24 +7,26 @@ traceable to real records. Writes only ever happen via the proposal pattern:
 draft → human confirm → execute.
 """
 import json
-from datetime import date, datetime
+import re as _re
 
 from sqlalchemy.orm import Session
 
 from app.models.activity_log import ActivityLog
 from app.models.ai_interaction import AiInteraction
-from app.models.approval import ApprovalRequest, ApprovalStep
+from app.models.approval import ApprovalRequest
 from app.models.backlog_item import BacklogItem
 from app.models.project import Project
-from app.models.release import Release
-from app.models.risk import PROBABILITY_LEVELS, SEVERITY_LEVELS, Risk
+from app.models.risk import Risk
 from app.models.tenant import Tenant
 from app.models.user import User
-from app.models.user_task import UserTask
+from app.services import grounding
+from app.services.grounding import (
+    _days_since,
+)
+from app.services.grounding import (  # noqa: F401 — re-exported for routers/ai.py
+    assigned_project_ids as _assigned_project_ids,
+)
 from app.services.scope import tenant_scoped
-
-# Items sitting in a phase longer than this are "aging"
-AGING_THRESHOLD_DAYS = 7
 
 # Proposals expire after this many days pending
 PROPOSAL_EXPIRY_DAYS = 7
@@ -32,25 +34,10 @@ PROPOSAL_EXPIRY_DAYS = 7
 # v1 operation vocabulary — each maps to an existing service call
 PROPOSAL_OPS = ["advance_item", "assign_user", "create_risk", "escalate_approval"]
 
-
-def _assigned_project_ids(db: Session, user: User, tenant: Tenant) -> list[int]:
-    """Projects where the user is PM or holds a RACI role assignment —
-    same filtering as app/routers/dashboard.py."""
-    from app.models.role_assignment import RoleAssignment
-
-    tid = tenant.id
-    ids: set[int] = set()
-    for (pid,) in db.query(Project.id).filter(
-        Project.tenant_id == tid, Project.project_manager_id == user.id,
-    ).all():
-        ids.add(pid)
-    for (pid,) in db.query(RoleAssignment.project_id).filter(
-        RoleAssignment.user_id == user.id,
-    ).all():
-        p = tenant_scoped(db, Project, tid).filter(Project.id == pid).first()
-        if p:
-            ids.add(pid)
-    return sorted(ids)
+# Per-capability metering (Rethink slice 2): the llm_usage.feature labels the
+# copilot's burns. The fast path (lookups) makes NO call and writes no row.
+REASONED_FEATURE = "copilot.reasoned"
+BRIEFING_FEATURE = "copilot.briefing"
 
 
 def build_context(
@@ -61,26 +48,13 @@ def build_context(
 ) -> dict:
     """Assemble the grounded system state the copilot can see.
 
-    Returns a dict of lists; every entry has entity_type/entity_id/title so the
-    UI can render source chips and the LLM can cite record ids.
+    Rethink slice 2: a FACADE over the grounding bundles (app/services/
+    grounding.py) — the payload is byte-identical to the pre-facade compute
+    (the chat tests are the parity gate). Every entry has entity_type/
+    entity_id/title so the UI can render source chips and the LLM can cite
+    record ids.
     """
-    tid = tenant.id
-    uid = user.id if user is not None else None
-
-    if project_id is not None:
-        project = tenant_scoped(db, Project, tid).filter(
-            Project.id == project_id,
-        ).first()
-        if not project:
-            return {
-                "projects": [], "pending_approvals": [], "aging_items": [],
-                "overdue_tasks": [], "at_risk_releases": [], "epic_tree": {},
-                "open_risks": [], "predictive_flags": [],
-                "schedule": None, "schedules": [],
-            }
-        proj_ids = [project.id]
-    else:
-        proj_ids = _assigned_project_ids(db, user, tenant) if user is not None else []
+    proj_ids = grounding.resolve_project_ids(db, user, tenant, project_id)
 
     if not proj_ids:
         return {
@@ -90,322 +64,8 @@ def build_context(
             "schedule": None, "schedules": [],
         }
 
-    projects = tenant_scoped(db, Project, tid).filter(
-        Project.id.in_(proj_ids),
-    ).order_by(Project.id).all()
-
-    # ── Pending approvals in the user's projects ─────────────────────────
-    approvals = db.query(ApprovalRequest).filter(
-        ApprovalRequest.status == "Pending",
-        ApprovalRequest.project_id.in_(proj_ids),
-    ).order_by(ApprovalRequest.id.desc()).all()
-
-    pending_approvals = []
-    for a in approvals:
-        step = db.query(ApprovalStep).filter(
-            ApprovalStep.request_id == a.id,
-            ApprovalStep.status == "Pending",
-        ).order_by(ApprovalStep.step_order).first()
-        pending_approvals.append({
-            "entity_type": "approval_request", "entity_id": a.id,
-            "record_type": "Approval",
-            "title": a.title, "project_id": a.project_id,
-            "request_type": a.request_type, "target_phase": a.target_phase,
-            "awaiting_role": step.role_name if step else None,
-            "days_pending": _days_since(a.created_at),
-        })
-
-    # ── Aging items: last movement per item from the activity log ────────
-    aging_items = []
-    items = db.query(BacklogItem).filter(
-        BacklogItem.project_id.in_(proj_ids),
-        BacklogItem.status.in_(["In Progress", "Blocked", "Draft"]),
-    ).all()
-    last_movement = {}
-    for (entity_id, latest) in db.query(
-        ActivityLog.entity_id, ActivityLog.created_at,
-    ).filter(
-        ActivityLog.entity_type == "backlog_item",
-        ActivityLog.action.in_(["advanced", "updated", "assigned"]),
-    ).order_by(ActivityLog.created_at.desc()).all():
-        if entity_id not in last_movement:
-            last_movement[entity_id] = latest
-
-    for item in items:
-        last = last_movement.get(item.id) or item.created_at
-        days = _days_since(last)
-        if days >= AGING_THRESHOLD_DAYS:
-            aging_items.append({
-                "entity_type": "backlog_item", "entity_id": item.id,
-                "title": item.title, "project_id": item.project_id,
-                "phase": item.current_phase, "status": item.status,
-                "epic": item.epic, "days_in_phase": days,
-            })
-    aging_items.sort(key=lambda e: -e["days_in_phase"])
-
-    # ── Overdue tasks assigned to this user ──────────────────────────────
-    today = date.today()
-    tasks = db.query(UserTask).filter(
-        UserTask.assigned_to == uid if user is not None else None,
-        UserTask.status.in_(["Pending", "In Progress"]),
-        UserTask.project_id.in_(proj_ids),
-    ).all()
-    overdue_tasks = []
-    for t in tasks:
-        if t.due_date:
-            try:
-                due = t.due_date if isinstance(t.due_date, date) else date.fromisoformat(str(t.due_date))
-            except ValueError:
-                continue
-            if due < today:
-                overdue_tasks.append({
-                    "entity_type": "user_task", "entity_id": t.id,
-                    "record_type": "Task",
-                    "title": t.title, "project_id": t.project_id,
-                    "due_date": str(t.due_date), "days_overdue": (today - due).days,
-                    "status": t.status, "priority": t.priority,
-                })
-    overdue_tasks.sort(key=lambda e: -e["days_overdue"])
-
-    # ── At-risk releases: pending approval or past target date ───────────
-    # Ladder-aware filter (the dynamic release lifecycle): a release is a
-    # candidate unless its phase is in ITS OWN project's ladder done-set —
-    # the old hardcoded V-cycle statuses made a template-stage release
-    # invisible to at-risk. Releases per tenant are few and the built-in
-    # lookups are dict hits, so this stays a Python-side filter.
-    at_risk_releases = []
-    releases = tenant_scoped(db, Release, tid).filter(
-        Release.project_id.in_(proj_ids),
-    ).all()
-    done_cache: dict = {}
-    projects_by_id = {p.id: p for p in projects}
-    from app.services.lifecycle import release_done_phases
-    for rel in releases:
-        if rel.status == "Cancelled":
-            continue  # terminal, outside the gate path
-        p_type = getattr(projects_by_id.get(rel.project_id), "project_type", None)
-        if p_type not in done_cache:
-            done_cache[p_type] = release_done_phases(db, tid, p_type)
-        if rel.status in done_cache[p_type]:
-            continue  # shipped (at its ladder's live stage or beyond)
-        reasons = []
-        if rel.target_date:
-            try:
-                target = rel.target_date if isinstance(rel.target_date, date) else date.fromisoformat(str(rel.target_date))
-                if target < today:
-                    reasons.append(f"target date {rel.target_date} passed")
-            except ValueError:
-                pass
-        if any(a["project_id"] == rel.project_id for a in pending_approvals):
-            reasons.append("has a pending gate approval")
-        if reasons:
-            at_risk_releases.append({
-                "entity_type": "release", "entity_id": rel.id,
-                "record_type": "Release",
-                "title": f"{rel.version} {rel.name}".strip(),
-                "project_id": rel.project_id, "status": rel.status,
-                "reasons": reasons,
-            })
-
-    epic_tree = _epic_tree(db, proj_ids)
-
-    # ── Schedule (Copilot P1): the ask sees the item Gantt ───────────────
-    # The SAME compute the Gantt API serves (app/services/schedule.py) —
-    # planned windows, CPM critical path, release targets and the
-    # plan-vs-target drift. ADDITIONAL grounded context: entries carry
-    # entity_type/entity_id so answers still cite "Item 3"/"Release 1".
-    from app.services.schedule import project_schedule
-
-    def _schedule_for(p: Project) -> dict:
-        gantt = project_schedule(db, p.id, tid, p.project_type)
-        critical = [
-            {
-                "entity_type": "backlog_item", "entity_id": it["id"],
-                "record_type": "Item",
-                "title": it["title"], "phase": it["current_phase"],
-                "status": it["status"], "project_id": p.id,
-            }
-            for it in gantt["items"] if it.get("is_critical")
-        ][:10]
-        releases = [
-            {
-                "entity_type": "release", "entity_id": r["id"],
-                "record_type": "Release",
-                "title": f"{r['version']} {r['name']}".strip(),
-                "status": r["status"], "target_date": r["target_date"],
-                "project_id": p.id,
-                "drift_days": r["drift_days"], "live_stage": r["live_stage"],
-            }
-            for r in gantt["releases"]
-        ]
-        return {
-            "entity_type": "project", "entity_id": p.id, "title": p.name,
-            "window_start": gantt["start"], "window_end": gantt["end"],
-            "planned_finish": gantt["end"],
-            "critical_count": gantt["critical_count"],
-            "unscheduled_count": gantt["unscheduled_count"],
-            "critical_items": critical,
-            "releases": releases,
-        }
-
-    schedule = None
-    schedules = []
-    if project_id is not None:
-        schedule = _schedule_for(projects[0])
-    else:
-        schedules = [_schedule_for(p) for p in projects[:5]]
-
-    # ── Project identity: what the copilot needs to be project-specific ───
-    from app.models.milestone import Milestone
-    from app.models.project_vision import ProjectVision
-    from app.models.roadmap import Roadmap
-
-    def _identity_for(p: Project, with_activity: bool) -> dict:
-        """Identity block for one project: description, client, PM, vision,
-        milestones — everything the copilot needs to discuss THIS project."""
-        manager = (
-            db.query(User).filter(User.id == p.project_manager_id).first()
-            if p.project_manager_id else None
-        )
-        vision_row = db.query(ProjectVision).filter(ProjectVision.project_id == p.id).first()
-        p_milestones = (
-            db.query(Milestone)
-            .join(Roadmap, Milestone.roadmap_id == Roadmap.id)
-            .filter(Roadmap.project_id == p.id)
-            .order_by(Milestone.id)
-            .limit(6)
-            .all()
-        )
-        identity = {
-            "entity_type": "project",
-            "entity_id": p.id,
-            "title": p.name,
-            "status": p.status,
-            "description": p.description or "",
-            "project_type": p.project_type or "",
-            "client": p.client.name if p.client else None,
-            "manager": manager.name if manager else None,
-            "vision": vision_row.statement if vision_row else None,
-            "milestones": [
-                {"title": m.title, "target_date": str(m.target_date) if m.target_date else None, "status": m.status}
-                for m in p_milestones if m.title
-            ],
-        }
-        if with_activity:
-            recent_activity = (
-                db.query(ActivityLog)
-                .filter(
-                    ActivityLog.project_id == p.id,
-                    ActivityLog.action.in_(["created", "applied", "advanced", "updated", "approved", "rejected"]),
-                )
-                .order_by(ActivityLog.id.desc())
-                .limit(10)
-                .all()
-            )
-            identity["recent_activity"] = [
-                {"summary": a.summary, "action": a.action, "entity": a.entity_type}
-                for a in recent_activity if a.summary
-            ]
-        return identity
-
-    project_identity = None
-    portfolio_identity = None
-    if project_id is not None:
-        # Scoped: full identity for the one project the user has open.
-        project_identity = _identity_for(projects[0], with_activity=True)
-    else:
-        # Portfolio: identity for EVERY assigned project (up to 5) so the
-        # copilot is relevant across the whole portfolio — not just the
-        # first-assigned project. Features summary comes from epic_tree.
-        portfolio_identity = [_identity_for(p, with_activity=False) for p in projects[:5]]
-
-    # ── Risks on the scoped projects (register rows, computed score) ─────
-    open_risks = []
-    from app.models.risk import Risk
-    risks = db.query(Risk).filter(
-        Risk.project_id.in_(proj_ids),
-        Risk.status != "Closed",
-    ).order_by(Risk.id.desc()).limit(15).all()
-    for r in risks:
-        score = _risk_score(r.severity, r.probability)
-        open_risks.append({
-            "entity_type": "risk", "entity_id": r.id,
-            "record_type": "Risk",
-            "title": r.title, "project_id": r.project_id,
-            "severity": r.severity, "probability": r.probability,
-            "score": score, "status": r.status,
-            "owner_id": r.owner_id, "source": r.source,
-        })
-
-    # ── Predictive flags (P3): KPI off-target / deteriorating trend ──────
-    # Derived on read from KPI.current_value + KpiHistory — template-aware
-    # kind (drift for AI, spend for marketing, capacity for operations).
-    from app.services import predictive
-    predictive_flags = predictive.predictive_flags(db, tenant, proj_ids)
-
-    return {
-        "projects": [
-            {"entity_type": "project", "entity_id": p.id, "title": p.name,
-             "status": p.status} for p in projects
-        ],
-        "project_identity": project_identity,
-        "portfolio_identity": portfolio_identity,
-        "pending_approvals": pending_approvals,
-        "aging_items": aging_items,
-        "overdue_tasks": overdue_tasks,
-        "at_risk_releases": at_risk_releases,
-        "open_risks": open_risks,
-        "predictive_flags": predictive_flags,
-        "epic_tree": epic_tree,
-        "schedule": schedule,
-        "schedules": schedules,
-    }
-
-
-def _epic_tree(db: Session, proj_ids: list[int]) -> dict:
-    """Epic → features map for intake verdicts and backlog questions."""
-    items = db.query(BacklogItem).filter(
-        BacklogItem.project_id.in_(proj_ids),
-    ).order_by(BacklogItem.id).all()
-    tree: dict[str, dict] = {}
-    for item in items:
-        epic = item.epic or "Ungrouped"
-        node = tree.setdefault(epic, {"entity_type": "epic", "title": epic, "features": []})
-        node["features"].append({
-            "entity_type": "backlog_item", "entity_id": item.id,
-            "title": item.title, "phase": item.current_phase,
-            "status": item.status, "item_type": item.item_type,
-            "project_id": item.project_id,  # deep links for validated citations
-        })
-    return tree
-
-
-def _risk_score(severity: str, probability: str) -> int:
-    """Risk score = severity level × probability level; unknown strings score 0."""
-    return SEVERITY_LEVELS.get(severity, 0) * PROBABILITY_LEVELS.get(probability, 0)
-
-
-def _days_since(value) -> int:
-    """Days since a datetime/string timestamp; 0 when unparseable.
-
-    Handles offset-naive and offset-aware datetimes (Postgres returns
-    timezone-aware values; utcnow() is naive) — compare in UTC.
-    """
-    if value is None:
-        return 0
-    if isinstance(value, datetime):
-        now = datetime.now(value.tzinfo) if value.tzinfo else datetime.utcnow()
-        return (now - value).days
-    if isinstance(value, date):
-        return (date.today() - value).days
-    s = str(value)
-    for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%d"):
-        try:
-            parsed = datetime.strptime(s[:26] if ".%f" in fmt else s[:19] if "%H" in fmt else s[:10], fmt)
-            return (datetime.utcnow() - parsed).days if "%H" in fmt else (date.today() - parsed.date()).days
-        except ValueError:
-            continue
-    return 0
+    bundles = grounding.get_bundles(db, list(grounding.BUNDLES), user, tenant, proj_ids, project_id=project_id)
+    return grounding.assemble(bundles)
 
 
 def _render_schedule_block(s: dict, max_items: int = 40) -> str:
@@ -574,10 +234,189 @@ CHAT_SYSTEM_PROMPT = (
 )
 
 
-def _call_llm(system_prompt: str, user_prompt: str, tenant_config: dict, max_tokens: int = 900) -> str:
-    """Thin wrapper so tests can monkeypatch copilot_service._call_llm."""
+def _call_llm(
+    system_prompt: str, user_prompt: str, tenant_config: dict,
+    max_tokens: int = 900, feature: str = REASONED_FEATURE,
+) -> str:
+    """Thin wrapper so tests can monkeypatch copilot_service._call_llm.
+
+    `feature` labels the llm_usage row (per-capability metering): every
+    copilot writer call is `copilot.reasoned` unless the caller names another
+    capability. Tests that replace this wrapper keep their exact signatures —
+    the call sites below never pass feature through.
+    """
     from app.services.ai import _call_llm as _ai_call
-    return _ai_call(system_prompt, user_prompt, max_tokens=max_tokens, json_mode=True, tenant_config=tenant_config)
+    return _ai_call(system_prompt, user_prompt, max_tokens=max_tokens, json_mode=True,
+                    tenant_config=tenant_config, feature=feature)
+
+
+# ── Intent routing (Rethink slice 2): rules-first, keyword/entity ────────
+# The old frontend 5-verb regex (^(move|assign|draft|escalate|create)) is
+# replaced SERVER-SIDE by a keyword/entity router:
+#   - _FAST_RULES: lookup-shaped questions ("how many approvals", "what is
+#     overdue", "release status", "what needs me") fire the FAST path — the
+#     matching bundle runs and a deterministic digest renders from its
+#     records with ZERO LLM tokens. Anchored on the spelled-out lookup
+#     phrasings: conversational questions ("what's overdue?") keep the
+#     reasoned writer (the chat contract tests pin that path).
+#   - _SELECTION_RULES: pick the 1–3 bundles the reasoned writer sees.
+_FAST_RULES = [
+    ("release_readiness", _re.compile(r"\bhow\s+many\s+approvals?\b")),
+    ("release_readiness", _re.compile(r"\brelease\s+(status|readiness|ready)\b")),
+    ("release_readiness", _re.compile(r"\bis\s+[^.?!]*\brelease\b[^.?!]*\bready\b")),
+    ("release_readiness", _re.compile(r"\bwhat('?s| is)?\s+ready\s+to\s+ship\b")),
+    ("project_health", _re.compile(r"\bwhat\s+is\s+overdue\b")),
+    ("project_health", _re.compile(r"\bhow\s+many\s+(overdue|tasks?)\b")),
+    ("project_health", _re.compile(r"\bwhat\s+needs\s+(me|my\s+attention)\b")),
+    ("risk_exposure", _re.compile(r"\bhow\s+many\s+risks?\b")),
+    ("risk_exposure", _re.compile(r"\b(open|top|show|list)\s+risks\b")),
+    ("risk_exposure", _re.compile(r"\brisk\s+exposure\b")),
+    ("stakeholder_map", _re.compile(r"\bwho\s+(are|is)\b[^.?!]*\b(stakeholder|pm|manager|owner|sponsor)s?\b")),
+    ("stakeholder_map", _re.compile(r"\bstakeholders?\b")),
+    ("backlog_shape", _re.compile(r"\bhow\s+(many|big)\s+(is\s+the\s+)?(backlog|features?|epics?)\b")),
+    ("backlog_shape", _re.compile(r"\bbacklog\s+shape\b")),
+]
+
+_SELECTION_RULES = [
+    ("release_readiness", _re.compile(r"\b(approvals?|gate|release|readiness|deliverables?|sign.?off|uat)\b")),
+    ("risk_exposure", _re.compile(r"\b(risks?|exposure|threat|mitigation|blockers?)\b")),
+    ("stakeholder_map", _re.compile(r"\b(stakeholders?|sponsor|clients?|raci|team|owners?|who)\b")),
+    ("backlog_shape", _re.compile(r"\b(backlog|epics?|features?|requirements|scope|items?)\b")),
+]
+
+
+def _fast_route(question: str) -> list[str] | None:
+    """The fast-path bundle(s) for a lookup-shaped question, or None.
+
+    Rules-first: the first matching rule wins; "what needs me" spans two
+    bundles (the needs-you aggregate lives in project_health's overdue/aging
+    plus release_readiness's pending approvals)."""
+    q = (question or "").lower()
+    for bundles, pattern in _FAST_RULES:
+        if pattern.search(q):
+            if bundles == "project_health" and ("needs me" in q or "needs my attention" in q):
+                return ["project_health", "release_readiness"]
+            return [bundles]
+    return None
+
+
+def _select_bundles(question: str) -> list[str]:
+    """Rule-based bundle selection for the reasoned path (1–3 bundles).
+
+    project_health is always the spine (identity + schedule + aging +
+    overdue); the keyword rules add the bundles the question names. A
+    question that matches NO rule is broad — it gets the full grounding
+    (all five), the same context the pre-facade chat assembled, so general
+    questions lose nothing."""
+    q = (question or "").lower()
+    if not any(pattern.search(q) for _, pattern in _SELECTION_RULES):
+        return list(grounding.BUNDLES)
+    selected = ["project_health"]
+    for name, pattern in _SELECTION_RULES:
+        if pattern.search(q) and name not in selected:
+            selected.append(name)
+    return selected[:3]
+
+
+# ── Deterministic digest renderer (fast path + degraded fallback) ────────
+
+
+def render_digest(bundles: list[dict], question: str = "", degraded: bool = False) -> str:
+    """Deterministic markdown digest over bundle records — the fast path's
+    answer and the degraded fallback. Records → prose with ZERO LLM tokens:
+    one bold verdict line per bundle, then the records behind it. Every line
+    cites its record by type + id so the citation validator can turn it into
+    a clickable deep link."""
+    sections = [s for s in (_digest_for_bundle(b) for b in bundles) if s]
+    if not sections:
+        return "No signal data found for your assignments."
+    body = "\n\n".join(sections)
+    footer = (
+        "_Computed without narrative — the AI writer was unavailable; these are the live records._"
+        if degraded else
+        "_Computed from the live records — no AI call._"
+    )
+    return body + "\n\n" + footer
+
+
+def _digest_for_bundle(bundle: dict) -> str:
+    """One bundle's digest: a bold verdict line + its top records."""
+    name = bundle.get("bundle")
+    counts = bundle.get("counts") or {}
+    sections = bundle.get("sections") or {}
+
+    if name == "project_health":
+        parts = []
+        if counts.get("overdue_tasks"):
+            parts.append(f"{counts['overdue_tasks']} overdue task{'s' if counts['overdue_tasks'] != 1 else ''}")
+        if counts.get("aging_items"):
+            parts.append(f"{counts['aging_items']} aging item{'s' if counts['aging_items'] != 1 else ''}")
+        if counts.get("predictive_flags"):
+            parts.append(f"{counts['predictive_flags']} predictive flag{'s' if counts['predictive_flags'] != 1 else ''}")
+        n_projects = counts.get("projects", 0)
+        if not parts:
+            return f"**Project health: all clear across {n_projects} project{'s' if n_projects != 1 else ''} — nothing overdue or aging.**"
+        lines = [f"**Project health: {', '.join(parts)} across {n_projects} project{'s' if n_projects != 1 else ''}.**"]
+        for t in (sections.get("overdue_tasks") or [])[:8]:
+            lines.append(f"- Task {t['entity_id']}: {t['title']} (status {t.get('status')}, due {t['due_date']} — {t['days_overdue']} days overdue)")
+        for i in (sections.get("aging_items") or [])[:8]:
+            lines.append(f"- Item {i['entity_id']}: {i['title']} — {i['phase']} for {i['days_in_phase']} days")
+        for f in (sections.get("predictive_flags") or [])[:8]:
+            lines.append(f"- {f.get('message')} (trend: {f.get('trend')}, severity {f.get('severity')})")
+        return "\n".join(lines)
+
+    if name == "release_readiness":
+        lines = [
+            f"**Release readiness: {counts.get('pending_approvals', 0)} pending approval(s), "
+            f"{counts.get('at_risk_releases', 0)} at-risk release(s), "
+            f"{counts.get('incomplete_items', 0)} incomplete item(s), "
+            f"{counts.get('drifted_releases', 0)} drifted.**"
+        ]
+        for a in (sections.get("pending_approvals") or [])[:8]:
+            lines.append(f"- Approval {a['entity_id']}: {a['title']} (awaiting {a.get('awaiting_role') or 'next role'}, pending for {a.get('days_pending', 0)} days)")
+        drift_by_id = {r["entity_id"]: r for r in (sections.get("release_drift") or [])}
+        for r in (sections.get("at_risk_releases") or [])[:8]:
+            line = f"- Release {r['entity_id']}: {r['title']} — {'; '.join(r['reasons'])}"
+            drift = drift_by_id.get(r["entity_id"])
+            if drift and drift.get("drift_days"):
+                line += f"; the plan runs {drift['drift_days']} days past the target"
+            lines.append(line)
+        for ri in (sections.get("release_items") or [])[:8]:
+            lines.append(f"- Item {ri['backlog_item_id']}: {ri['title']} (bundled to Release {ri['release_id']}, status {ri['status']})")
+        for d in (sections.get("release_drift") or [])[:6]:
+            if d["entity_id"] not in {r["entity_id"] for r in sections.get("at_risk_releases") or []}:
+                lines.append(f"- Release {d['entity_id']}: {d['title']} — the plan runs {d['drift_days']} days past the target")
+        return "\n".join(lines)
+
+    if name == "risk_exposure":
+        n = counts.get("open_risks", 0)
+        lines = [f"**{n} open risk{'s' if n != 1 else ''}**"]
+        top = sorted(sections.get("open_risks") or [], key=lambda r: -r.get("score", 0))[:8]
+        for r in top:
+            lines.append(
+                f"- Risk {r['entity_id']}: {r['title']} (severity {r['severity']} × probability "
+                f"{r['probability']}, score {r['score']}, {r['status']})"
+            )
+        return "\n".join(lines)
+
+    if name == "stakeholder_map":
+        n = counts.get("stakeholders", 0)
+        lines = [f"**{n} stakeholder{'s' if n != 1 else ''} across {len({s.get('project_id') for s in sections.get('stakeholders') or []})} project(s)**"]
+        for s in (sections.get("stakeholders") or [])[:10]:
+            company = f", {s['company']}" if s.get("company") else ""
+            lines.append(f"- Project {s.get('project_id')}: {s['title']} ({s.get('role_name')}, {s.get('raci_type') or 'I'}{company})")
+        return "\n".join(lines)
+
+    if name == "backlog_shape":
+        by_epic = counts.get("by_epic") or {}
+        lines = [
+            f"**Backlog: {counts.get('items', 0)} item(s) across {counts.get('epics', 0)} epic(s)**"
+        ]
+        for epic, shape in list(by_epic.items())[:8]:
+            lines.append(f"- Epic '{epic}': {shape['total']} item(s), {shape['done']} done")
+        return "\n".join(lines)
+
+    return ""
 
 
 def _unwrap_chat_answer(raw: str, parsed: dict) -> tuple[str, list]:
@@ -644,20 +483,70 @@ def copilot_chat(
     tenant_config: dict,
     project_id: int | None = None,
     history: list[dict] | None = None,
+    mode: str = "auto",
 ) -> dict:
     """Grounded Q&A scoped to the open project when one is selected.
+
+    Rethink slice 2 — intent routes rules-first (the keyword/entity router
+    above, replacing the old frontend 5-verb regex):
+
+    - FAST path (mode="lookup", or "auto" + a lookup rule): the matching
+      bundle(s) run and a deterministic markdown digest renders from their
+      records — ZERO LLM tokens, no llm_usage row, no quota burn.
+    - REASONED path (mode="reasoned", or "auto" + no lookup rule): rule-based
+      bundle selection → compact prompt (only those bundles' records) →
+      strict-JSON writer with ONE repair retry on parse failure → server-side
+      citation validation against the bundles fetched this turn.
+    - DEGRADED fallback: LLM down/timeout/unparseable → the digest renderer
+      over the already-fetched bundles with degraded=True — never a raw 502
+      for a read-only question. A quota 403 keeps propagating (the plan gate
+      is a deliberate hard stop, not an outage).
 
     Read-only: never writes records. With a project_id the context covers that
     project only (when the user can see it); without one it covers every
     assigned project, with an identity block (client, description, vision) per
     project so answers are relevant across the whole portfolio. `history` is
     the recent conversation (oldest first, [{role, text}, ...]) so follow-up
-    questions keep their context. Returns {answer, sources, interaction_id}.
+    questions keep their context. Returns {answer, sources, references,
+    interaction_id, mode, bundles_used, degraded, counts}.
     """
     from app.services.ai import _extract_json
+    from app.services.llm import FALLBACK_TEXT
 
-    ctx = build_context(db, user, tenant, project_id=project_id)
+    if mode not in ("auto", "lookup", "reasoned"):
+        raise ValueError("mode must be one of: auto, lookup, reasoned")
+
+    proj_ids = grounding.resolve_project_ids(db, user, tenant, project_id)
     scope_label = f"the selected project (id={project_id})" if project_id else "all your assigned projects"
+
+    # ── Fast path: deterministic digest, zero LLM tokens ─────────────────
+    fast_bundles = _fast_route(question) if mode in ("auto", "lookup") else None
+    if mode == "lookup" and not fast_bundles:
+        # Forced lookup with no matching rule: the orientation bundle, still
+        # zero LLM tokens.
+        fast_bundles = ["project_health"]
+    if fast_bundles:
+        bundles = grounding.get_bundles(db, fast_bundles, user, tenant, proj_ids, project_id=project_id)
+        answer = render_digest(bundles, question)
+        # Citations in the digest validate against exactly what the digest
+        # was rendered from.
+        labels, references = _validate_references(answer, [], grounding.assemble(bundles))
+        interaction = _persist_chat(db, user, tenant, question, answer, references)
+        return {
+            "answer": answer,
+            "sources": labels,         # backward compatible: the VALIDATED labels
+            "references": references,  # entity_type/entity_id/title/url deep links
+            "interaction_id": interaction.id,
+            "mode": "lookup",
+            "bundles_used": [b["bundle"] for b in bundles],
+            "degraded": False,
+            "counts": {b["bundle"]: b.get("counts", {}) for b in bundles},
+        }
+
+    # ── Reasoned path: rule-based bundles → compact prompt → writer ──────
+    selected = _select_bundles(question)
+    bundles = grounding.get_bundles(db, selected, user, tenant, proj_ids, project_id=project_id)
+    ctx = grounding.assemble(bundles)
     context_text = summarize_context(ctx)
 
     conversation = ""
@@ -679,15 +568,37 @@ def copilot_chat(
     )
 
     raw = _call_llm(CHAT_SYSTEM_PROMPT, user_prompt, tenant_config, max_tokens=900)
-    parsed = _extract_json(raw) or {}
-    answer, model_sources = _unwrap_chat_answer(raw, parsed)
+    answer, model_sources, degraded = _reasoned_answer(
+        raw, user_prompt, tenant_config, bundles, _extract_json, FALLBACK_TEXT,
+    )
 
-    # Rethink MVP #2: citations are validated SERVER-SIDE against the context
-    # fetched this turn — an id the context doesn't contain is dropped before
-    # render, and every surviving citation becomes a clickable deep-link
-    # reference. AiInteraction.sources stores the validated shape.
-    labels, references = _validate_references(answer, model_sources, ctx)
+    # Rethink MVP #2 + slice 2: citations are validated SERVER-SIDE against
+    # the bundles fetched this turn — an id they don't contain is dropped
+    # before render, and every surviving citation becomes a clickable
+    # deep-link reference. AiInteraction.sources stores the validated shape.
+    if degraded:
+        labels, references = _validate_references(answer, [], ctx)
+    else:
+        labels, references = _validate_references(answer, model_sources, ctx)
 
+    interaction = _persist_chat(db, user, tenant, question, answer, references)
+
+    return {
+        "answer": answer,
+        "sources": labels,        # backward compatible: now the VALIDATED labels
+        "references": references,  # entity_type/entity_id/title/url deep links
+        "interaction_id": interaction.id,
+        "mode": "reasoned",
+        "bundles_used": [b["bundle"] for b in bundles],
+        "degraded": degraded,
+        "counts": {b["bundle"]: b.get("counts", {}) for b in bundles},
+    }
+
+
+def _persist_chat(db: Session, user: User, tenant: Tenant, question: str,
+                  answer: str, references: list) -> AiInteraction:
+    """Persist one chat interaction (kind=query) with the validated sources —
+    the audit trail for both the fast and reasoned paths."""
     interaction = AiInteraction(
         tenant_id=tenant.id,
         user_id=user.id,
@@ -700,13 +611,48 @@ def copilot_chat(
     db.add(interaction)
     db.commit()
     db.refresh(interaction)
+    return interaction
 
-    return {
-        "answer": answer,
-        "sources": labels,        # backward compatible: now the VALIDATED labels
-        "references": references,  # entity_type/entity_id/title/url deep links
-        "interaction_id": interaction.id,
-    }
+
+def _reasoned_answer(
+    raw: str,
+    user_prompt: str,
+    tenant_config: dict,
+    bundles: list[dict],
+    extract_json,
+    fallback_text: str,
+) -> tuple[str, list, bool]:
+    """Strict-JSON writer with ONE repair retry; degraded fallback.
+
+    Returns (answer, model_sources, degraded). LLM down/timeout (the door's
+    FALLBACK_TEXT) or unparseable after the repair retry → the deterministic
+    digest over the already-fetched bundles, degraded=True — a read-only
+    question never surfaces a raw error."""
+    def _door_failure(text: str) -> bool:
+        return not text or text == fallback_text or "AI service unavailable" in text
+
+    if _door_failure(raw):
+        return render_digest(bundles, degraded=True), [], True
+
+    parsed = extract_json(raw)
+    if parsed is None:
+        # ONE repair retry — the writer gets its broken reply back.
+        repair_prompt = (
+            f"{user_prompt}\n\n"
+            "Your previous reply was not valid JSON. Reply ONLY with the JSON object "
+            '{"answer": "...", "sources": ["..."]} — no prose, no code fences, no commentary.'
+        )
+        raw = _call_llm(CHAT_SYSTEM_PROMPT, repair_prompt, tenant_config, max_tokens=900)
+        if _door_failure(raw):
+            return render_digest(bundles, degraded=True), [], True
+        parsed = extract_json(raw)
+        if parsed is None:
+            return render_digest(bundles, degraded=True), [], True
+
+    answer, model_sources = _unwrap_chat_answer(raw, parsed)
+    if not answer:
+        return render_digest(bundles, degraded=True), [], True
+    return answer, model_sources, False
 
 
 # ── Clickable deep-link references (Rethink MVP #2) ──────────────────────

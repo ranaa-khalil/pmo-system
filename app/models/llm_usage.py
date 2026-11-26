@@ -16,9 +16,13 @@ class LlmUsage(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=True, index=True)
-    feature = Column(String(50), nullable=False, index=True)  # ai | intake | brief | copilot | evidence
+    feature = Column(String(50), nullable=False, index=True)  # copilot.reasoned | copilot.briefing | ai | intake | interview.*
     ok = Column(Boolean, nullable=False, default=True)
     latency_ms = Column(Integer, nullable=False, default=0)
+    # Per-capability metering (Rethink slice 2): the provider's usage payload
+    # when present — NULL when the provider doesn't report tokens.
+    prompt_tokens = Column(Integer, nullable=True)
+    completion_tokens = Column(Integer, nullable=True)
     error = Column(String(200), nullable=True)  # fallback reason — never key values
     created_at = Column(String, server_default=func.now(), nullable=False)
 

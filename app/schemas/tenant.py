@@ -97,6 +97,9 @@ class UsageResponse(BaseModel):
     storage_limit: int | None = None  # None = unlimited (bytes never use the count sentinel)
     portals: int = 0
     portals_limit: int = 999999
+    # Per-capability metering (Rethink slice 2): LLM burn per llm_usage
+    # feature label — {calls, prompt_tokens, completion_tokens} per label.
+    ai_capabilities: dict[str, dict] = {}
 
 
 class AdminCreateUserRequest(BaseModel):

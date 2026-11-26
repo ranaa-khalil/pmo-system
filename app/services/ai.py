@@ -55,20 +55,22 @@ def _extract_json(raw: str) -> dict | None:
     return None
 
 
-def _call_llm(system_prompt: str, user_prompt: str, max_tokens: int = 1500, json_mode: bool = False, tenant_config: dict | None = None) -> str:
+def _call_llm(system_prompt: str, user_prompt: str, max_tokens: int = 1500, json_mode: bool = False, tenant_config: dict | None = None, feature: str = "ai") -> str:
     """Call the LLM API and return the response text.
 
     Delegates to the ONE resilience wrapper (app/services/llm.py): ~20s
     timeout per attempt, exactly one retry, a deterministic fallback on
     failure (AI never blocks a user flow), and an LlmUsage row per call.
-    Signature unchanged — tests monkeypatch this name.
+    `feature` labels the llm_usage row (per-capability metering: e.g.
+    "copilot.reasoned", "copilot.briefing", "ai", "intake"). Signature stays
+    backward compatible — feature is the last optional param.
     """
     from app.services.llm import call_llm
 
     return call_llm(
         system_prompt, user_prompt,
         tenant_config=tenant_config, max_tokens=max_tokens, json_mode=json_mode,
-        feature="ai",
+        feature=feature,
     )
 
 

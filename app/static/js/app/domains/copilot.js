@@ -153,6 +153,17 @@ copilotStartReleaseIntake() {
     this.interviewStart('release', this.selectedProject.id);
 },
 
+// Point-of-work launcher (Rethink final slice): the approval detail's
+// "Escalate with AI" button starts the escalation interview with THIS
+// approval pre-selected in the picker. The drawer's fallback list stays for
+// everything else; the engine + endpoints are unchanged.
+copilotStartEscalationIntake() {
+    const approval = this.selectedApproval;
+    this._interviewPresetApprovalId = approval?.id || null;
+    this.copilotOpen = true;
+    this.interviewStart('escalation', approval?.project_id ?? (this.selectedProject ? this.selectedProject.id : null));
+},
+
 async copilotAsk(text) {
     const question = (text || this.copilotInput || '').trim();
     if (!question || this.copilotBusy) return;
@@ -525,8 +536,10 @@ async interviewFinish() {
                 text: `Here's the structured draft: **${(d.summary || '').slice(0, 200)}**\n\n- ${(d.epics || []).length} epics / ${featCount} features\n- ${(d.personas || []).length} personas\n- ${(d.kpis || []).length} KPIs\n\nReview it in the panel — edit inline if needed, then **Apply** to create the records. Nothing is created until you do.`,
             });
         } else if (data.flow === 'escalation') {
-            // Load the project's open approvals for the picker (read-only)
-            this.interviewEscalationApprovalId = '';
+            // Load the project's open approvals for the picker (read-only);
+            // a point-of-work launch pre-selects the approval it came from.
+            this.interviewEscalationApprovalId = this._interviewPresetApprovalId ? String(this._interviewPresetApprovalId) : '';
+            this._interviewPresetApprovalId = null;
             try {
                 const pid = data.draft.project_id ?? (this.selectedProject ? this.selectedProject.id : null);
                 if (pid) {

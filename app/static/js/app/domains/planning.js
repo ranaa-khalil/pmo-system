@@ -688,7 +688,7 @@ projectTab: 'cockpit',
         backlog: ['backlogRail'],
         docs: ['releases', 'vision'],
         risks: ['risks'],
-        releases: ['releases'],
+        releases: ['releases', 'driftRadar'],
         stakeholders: ['stakeholders'],
         infrastructure: ['infrastructure'],
         github: ['githubConfig', 'githubSync'],
@@ -1177,6 +1177,7 @@ runProjectTabLoader(ds) {
         case 'releases': this.loadReleases(); break;
         case 'approvals': this.loadApprovals(); break;
         case 'risks': this.loadRisks(); break;
+        case 'driftRadar': this.loadDriftRadar(); break;
         case 'backlog': this.loadBacklog(); break;
         case 'backlogRail': this.loadBacklogRail(this.selectedProject.id); break;
         case 'coverage': this.loadCoverage(); break;

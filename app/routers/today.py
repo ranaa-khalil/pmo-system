@@ -18,6 +18,7 @@ from app.models.tag import Tag, backlog_item_tags
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.work import WorkList
+from app.services.grounding import drift_radar
 from app.services.scope import tenant_scoped
 from app.services.tenant import get_current_tenant
 from app.services.today import build_brief, build_today
@@ -31,8 +32,13 @@ def today_endpoint(
     current_user: User = Depends(get_current_user),
     current_tenant: Tenant = Depends(get_current_tenant),
 ):
-    """The needs-you aggregate: approvals on your gates, blocked, overdue, escalated."""
-    return build_today(db, current_tenant, current_user)
+    """The needs-you aggregate: approvals on your gates, blocked, overdue, escalated
+    + the drift radar (Rethink §3 #3 — per in-flight release, deterministic)."""
+    result = build_today(db, current_tenant, current_user)
+    # Drift Radar: the Today Brief card's Drift section — deterministic compute
+    # (schedule.py's plan-vs-target), rendered without any LLM call.
+    result["drift_radar"] = drift_radar(db, current_tenant)
+    return result
 
 
 @router.get("/work", response_model=WorkList)

@@ -324,6 +324,13 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-1.5">
+                    <!-- Point-of-work launcher (Rethink final slice): the
+                         escalation interview starts from the approval detail with
+                         THIS approval pre-selected in the picker; the drawer's
+                         in-panel fallback list stays for everything else. -->
+                    <button @click="copilotStartEscalationIntake()" class="px-3 py-1.5 rounded-lg text-[11px] font-medium text-ink-600 border border-ink-200 hover:bg-ink-50 transition-colors" title="Escalation interview — draft the note with the PMO Copilot">
+                        Escalate with AI
+                    </button>
                     <button @click="openDraftDeskForProject(selectedApproval?.project_id)" class="px-3 py-1.5 rounded-lg text-[11px] font-medium text-white bg-brand-600 hover:bg-brand-700 transition-colors" title="Draft Desk — draft an update for this approval's project">
                         Draft update
                     </button>

@@ -158,6 +158,42 @@ async loadReleases() {
     try {
         this.projectReleases = await this.api('GET', `/projects/${this.selectedProject.id}/releases`);
     } catch { this.projectReleases = []; }
+    // The drift banner reads the radar — a fresh release list refreshes it
+    // while the Releases tab is showing (advance/save call loadReleases).
+    if (this.route === 'project-detail' && this.projectTab === 'releases') this.loadDriftRadar(true);
+},
+
+// ===== Drift Radar (Rethink §3 #3) =====
+// Deterministic per-release drift (schedule.py's plan-vs-target compute via
+// GET /api/projects/{id}/releases/drift): the Releases tab banner and the
+// Today Brief's Drift section read the same payload. The suggested move is
+// rules-based — never LLM-authored.
+driftRadar: null,           // {records: [{entity_id, drift_days, causing_items, suggested_move, ...}]}
+driftRadarLoadedFor: null,  // project id already fetched (lazy-once guard)
+driftRadarLoading: false,
+
+async loadDriftRadar(force = false) {
+    if (!this.selectedProject) return;
+    if (!force && this.driftRadarLoadedFor === this.selectedProject.id) return;
+    this.driftRadarLoading = true;
+    try {
+        this.driftRadar = await this.api('GET', `/projects/${this.selectedProject.id}/releases/drift`);
+        this.driftRadarLoadedFor = this.selectedProject.id;
+    } catch { this.driftRadar = null; }
+    finally { this.driftRadarLoading = false; }
+},
+
+// The drift record for one release card (or null — no banner).
+releaseDrift(releaseId) {
+    return (this.driftRadar?.records || []).find(r => r.entity_id === releaseId) || null;
+},
+
+// Today Brief Drift section: a drifted release lands in its project at the
+// Releases tab (the openOutcomeRecord pattern — open, then set the tab).
+async openDriftRelease(row) {
+    if (!row || !row.project_id) return;
+    await this.openProjectRef(row.project_id, row.project_name);
+    this.projectTab = 'releases';
 },
 
 

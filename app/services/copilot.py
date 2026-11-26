@@ -265,6 +265,12 @@ _FAST_RULES = [
     ("release_readiness", _re.compile(r"\brelease\s+(status|readiness|ready)\b")),
     ("release_readiness", _re.compile(r"\bis\s+[^.?!]*\brelease\b[^.?!]*\bready\b")),
     ("release_readiness", _re.compile(r"\bwhat('?s| is)?\s+ready\s+to\s+ship\b")),
+    # Drift Radar (Rethink §3 #3): "what's drifted?" is a lookup — the
+    # release_readiness bundle carries the release_drift rows (schedule.py's
+    # plan-vs-target compute), so drift questions burn ZERO LLM tokens.
+    ("release_readiness", _re.compile(r"\bwhat('?s| is| has)?\s+drifted\b")),
+    ("release_readiness", _re.compile(r"\bdrifted\s+releases?\b")),
+    ("release_readiness", _re.compile(r"\brelease\s+drift\b")),
     ("project_health", _re.compile(r"\bwhat\s+is\s+overdue\b")),
     ("project_health", _re.compile(r"\bhow\s+many\s+(overdue|tasks?)\b")),
     ("project_health", _re.compile(r"\bwhat\s+needs\s+(me|my\s+attention)\b")),

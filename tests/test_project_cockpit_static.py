@@ -592,9 +592,9 @@ def test_css_version_parity():
     index = (REPO / "app/templates/index.html").read_text(encoding="utf-8")
     link = re.search(r'tailwind\.compiled\.css\?v=([a-z0-9]+)', index)
     assert link, "the CSS link must carry ?v="
-    app_js = _read(APP_JS) if "APP_JS" in dir() else None
-    if app_js is None:
-        import pathlib
+    if "APP_JS" in dir():
+        app_js = _read(APP_JS)
+    else:
         app_js = (REPO / "app/static/js/app/pmo-app.js").read_text(encoding="utf-8")
     # the domain import specifiers only — ALPINE_URL carries its own deliberate pin
     js_versions = set(re.findall(r"from '\./domains/[a-z_]+\.js\?v=([a-z0-9]+)'", app_js))

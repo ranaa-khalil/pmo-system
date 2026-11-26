@@ -711,6 +711,28 @@ def remove_item_from_release(
     db.commit()
 
 
+@router.get("/projects/{project_id}/releases/drift")
+def release_drift_radar(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """Drift Radar (Rethink §3 #3) for one project's in-flight releases.
+
+    Deterministic compute (app/services/grounding.py drift_radar, consuming
+    schedule.py's project_schedule): per in-flight release — target vs
+    planned-finish drift + the critical-path items causing it + one
+    rules-based suggested move. Surfaces on the release view, not on request.
+    """
+    from app.services.grounding import drift_radar
+
+    project = tenant_scoped(db, Project, current_tenant.id).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return drift_radar(db, current_tenant, [project.id])
+
+
 @router.get("/projects/{project_id}/releases/next-version")
 def get_next_version(
     project_id: int,

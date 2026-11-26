@@ -48,7 +48,7 @@ SEAM_SITES = {
     "app/routers/dashboard.py": 3,
     "app/routers/projects.py": 6,
     "app/routers/backlog.py": 27,
-    "app/routers/releases.py": 25,
+    "app/routers/releases.py": 26,
     "app/routers/approvals.py": 13,
     "app/routers/ai.py": 17,
     "app/routers/clients.py": 4,
@@ -58,7 +58,7 @@ SEAM_SITES = {
     "app/services/stats.py": 4,
     "app/services/schedule.py": 1,
     "app/services/copilot.py": 5,  # slice 2: build_context's queries carved into grounding
-    "app/services/grounding.py": 17,  # the five bundles — every read through the seam
+    "app/services/grounding.py": 22,  # the five bundles + drift_radar — every read through the seam
 }
 
 # Every inline `tenant_id ==` fragment left in a hot file, each carried by the

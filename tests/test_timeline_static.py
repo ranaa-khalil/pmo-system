@@ -37,7 +37,7 @@ PLANNING_JS = REPO / "app/static/js/app/domains/planning.js"
 APP_JS = REPO / "app/static/js/app/pmo-app.js"
 INDEX_HTML = REPO / "app/templates/index.html"
 
-JS_VERSION = "20261126b"
+JS_VERSION = "20261126c"
 
 
 def _read(path: Path) -> str:

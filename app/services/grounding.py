@@ -669,6 +669,219 @@ _BUILDERS = {
 }
 
 
+# ── Drift Radar (Rethink §3 #3) ───────────────────────────────────────────
+# PM capability #3: "Weekly, per release: target vs planned-finish drift +
+# the critical-path items causing it + one suggested move. Deterministic
+# compute; the LLM only narrates. Surfaces in Today Brief and the release
+# view — not on request." The compute stands alone (project_schedule is the
+# ONE drift source, consumed — never re-implemented); every surface renders
+# its records, and the suggested move is RULES-based, never LLM-authored.
+
+
+def drift_radar(
+    db: Session, tenant, project_ids: list[int] | None = None,
+    project_id: int | None = None,
+) -> dict:
+    """Per in-flight release: drift days vs target + the critical-path items
+    causing it + one rules-based suggested move.
+
+    Scope: the given projects (the release view's one project), or — when
+    none are given — every ACTIVE project in the tenant (the Today Brief's
+    cross-project scope, the same filter build_today applies). In-flight
+    only: Cancelled and shipped releases (the ladder's done set — the same
+    ladder-aware filter release_readiness's at-risk applies) are outside the
+    radar. Deterministic: same data in, same records out.
+    """
+    tid = tenant.id
+    today = date.today()
+    if not project_ids:
+        project_ids = [
+            p.id for p in tenant_scoped(db, Project, tid).filter(
+                Project.status == "Active",
+            ).all()
+        ]
+    if not project_ids:
+        return _radar_shell(tid, [], [], notes=["no projects — nothing is in flight"])
+
+    projects_by_id = {
+        p.id: p for p in tenant_scoped(db, Project, tid).filter(
+            Project.id.in_(project_ids),
+        ).all()
+    }
+    releases = tenant_scoped(db, Release, tid).filter(
+        Release.project_id.in_(project_ids),
+    ).all()
+    if not releases:
+        return _radar_shell(tid, sorted(project_ids), [],
+                            counts={"releases_scanned": 0},
+                            notes=["no releases on the scoped projects"])
+
+    # In-flight filter — ladder-aware (the same rule release_readiness's
+    # at-risk applies): Cancelled is terminal; a release whose status is in
+    # ITS project ladder's done set has shipped.
+    from app.services.lifecycle import release_done_phases
+    done_cache: dict = {}
+    in_flight = []
+    for rel in releases:
+        if rel.status == "Cancelled":
+            continue  # terminal, outside the gate path
+        p_type = getattr(projects_by_id.get(rel.project_id), "project_type", None)
+        if p_type not in done_cache:
+            done_cache[p_type] = release_done_phases(db, tid, p_type)
+        if rel.status in done_cache[p_type]:
+            continue  # shipped (at its ladder's live stage or beyond)
+        in_flight.append(rel)
+    if not in_flight:
+        return _radar_shell(tid, sorted(project_ids), [],
+                            counts={"releases_scanned": len(releases)},
+                            notes=["every release is shipped or cancelled — nothing in flight"])
+
+    # ONE project_schedule run per project with in-flight releases — the SAME
+    # compute the Gantt API serves (schedule.py: CPM forward/backward pass +
+    # the plan-vs-target drift). Consumed, never re-implemented here.
+    from app.services.schedule import project_schedule
+
+    gantts: dict = {}
+    for pid in sorted({r.project_id for r in in_flight}):
+        p = projects_by_id.get(pid)
+        gantts[pid] = project_schedule(db, pid, tid, getattr(p, "project_type", None))
+
+    pending_by_project = _pending_gates_by_project(db, tid, list(gantts))
+
+    records = []
+    for rel in sorted(in_flight, key=lambda r: (r.project_id, r.id)):
+        target = None
+        try:
+            target = rel.target_date if isinstance(rel.target_date, date) else date.fromisoformat(str(rel.target_date))
+        except (TypeError, ValueError):
+            continue  # free-text target — no line, never drift (schedule.py's rule)
+        gantt = gantts[rel.project_id]
+        release_row = next(
+            (r for r in gantt.get("releases", []) if r["id"] == rel.id), None)
+        plan_drift = 0
+        if release_row and release_row.get("drift_days"):
+            plan_drift = release_row["drift_days"]  # planned finish vs target (schedule.py)
+        days_late = max((today - target).days, 0)   # today vs target (real-time lateness)
+        drift_days = max(plan_drift, days_late)
+        if drift_days <= 0:
+            continue
+        causing = _drift_causes(gantt, target)
+        move = _drift_move(
+            drift_days, plan_drift, causing,
+            pending_by_project.get(rel.project_id) or [],
+        )
+        records.append({
+            "entity_type": "release", "entity_id": rel.id,
+            "record_type": "Release",
+            "title": f"{rel.version} {rel.name}".strip(),
+            "project_id": rel.project_id,
+            "project_name": projects_by_id[rel.project_id].name,
+            "status": rel.status,
+            "target_date": str(rel.target_date),
+            "planned_finish": gantt.get("end"),
+            "plan_drift_days": plan_drift,
+            "days_past_target": days_late,
+            "drift_days": drift_days,
+            "causing_items": causing,
+            "suggested_move": move,
+        })
+    # Worst drift first — the Today Brief's top row is the one to work.
+    records.sort(key=lambda r: (-r["drift_days"], r["entity_id"]))
+    return _radar_shell(tid, sorted(project_ids), records,
+                        counts={"releases_scanned": len(releases)})
+
+
+def _radar_shell(tid: int, project_ids: list[int], records: list[dict],
+                 counts: dict | None = None, notes: list[str] | None = None) -> dict:
+    """The drift radar's envelope: {bundle, scope, records[], counts{}, notes[]}."""
+    return {
+        "bundle": "drift_radar",
+        "scope": {"tenant_id": tid, "project_ids": list(project_ids)},
+        "records": records,
+        "counts": {"drifted_releases": len(records), **(counts or {})},
+        "notes": notes if notes is not None else [
+            "drift = max(planned finish vs target, today vs target) on an in-flight release — computed from schedule.py, never a manual flag",
+            "causes = CPM critical-path items whose planned end is past the target (zero float)",
+            "the suggested move is RULES-based (escalate the pending gate / reassign the critical path / re-target) — never LLM-authored",
+        ],
+    }
+
+
+def _drift_causes(gantt: dict, target: date) -> list[dict]:
+    """The critical-path items whose planned end is past the target — the
+    items causing the drift (zero float against the planned windows)."""
+    causes = []
+    for it in gantt.get("items", []):
+        if not it.get("is_critical") or not it.get("end_date"):
+            continue
+        try:
+            end = (it["end_date"] if isinstance(it["end_date"], date)
+                   else date.fromisoformat(str(it["end_date"])))
+        except (TypeError, ValueError):
+            continue
+        if end > target:
+            causes.append({
+                "entity_type": "backlog_item", "entity_id": it["id"],
+                "record_type": "Item",
+                "title": it["title"], "status": it["status"],
+                "phase": it["current_phase"],
+                "end_date": str(it["end_date"]),
+                "days_past_target": (end - target).days,
+            })
+    causes.sort(key=lambda c: (-c["days_past_target"], c["entity_id"]))
+    return causes[:3]
+
+
+def _drift_move(drift_days: int, plan_drift: int, causing: list[dict],
+                pending: list[dict]) -> str:
+    """One rules-based suggested move (first rule wins; never LLM-authored):
+    1. a pending gate approval on the project → escalate it (gates hold
+       everything behind them — the Today briefing's own advice);
+    2. critical-path items past the target → reassign or re-scope;
+    3. the window itself overruns with no critical item over → re-scope the
+       tail item or re-target;
+    4. the target passed while the plan ends before it → re-target or ship.
+    """
+    if pending:
+        gate = pending[0]
+        role = gate.get("awaiting_role") or "the assigned approver"
+        return (f"Approval \"{gate['title']}\" pending {gate['days_pending']} days "
+                f"with {role} — escalate")
+    if causing:
+        names = ", ".join(f"\"{c['title']}\"" for c in causing[:2])
+        return f"Items {names} on the critical path end past the target — reassign or re-scope"
+    if plan_drift > 0:
+        return (f"The plan window ends {plan_drift} days past the target with no "
+                "critical-path item over — re-scope the tail item or re-target the release")
+    return (f"Target passed {drift_days} days ago with the plan ending before it — "
+            "re-target the release or ship what is ready")
+
+
+def _pending_gates_by_project(db: Session, tid: int, project_ids: list[int]) -> dict:
+    """Oldest-first pending gate approvals per project — the drift radar's
+    escalation suspect (the same compute release_readiness's pending block
+    applies, grouped by project)."""
+    if not project_ids:
+        return {}
+    approvals = tenant_scoped(db, ApprovalRequest, tid).filter(
+        ApprovalRequest.status == "Pending",
+        ApprovalRequest.project_id.in_(project_ids),
+    ).order_by(ApprovalRequest.created_at, ApprovalRequest.id).all()
+    by_project: dict = {}
+    for a in approvals:
+        step = tenant_scoped(db, ApprovalStep, tid).filter(
+            ApprovalStep.request_id == a.id,
+            ApprovalStep.status == "Pending",
+        ).order_by(ApprovalStep.step_order).first()
+        by_project.setdefault(a.project_id, []).append({
+            "entity_type": "approval_request", "entity_id": a.id,
+            "title": a.title,
+            "awaiting_role": step.role_name if step else None,
+            "days_pending": _days_since(a.created_at),
+        })
+    return by_project
+
+
 # ── Shared computed pieces (carved from services/copilot.py build_context) ─
 
 

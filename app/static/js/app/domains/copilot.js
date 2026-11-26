@@ -11,7 +11,7 @@ copilotMessages: [],        // [{role: 'user'|'assistant', text, sources, propos
 copilotInput: '',
 copilotBusy: false,
 copilotPendingProposal: null,  // {proposal_id, operations}
-copilotTab: 'chat',         // 'chat' | 'intake'
+intakeKickoffOpen: false,  // Rethink MVP #4: kickoff paste card open in the ONE Ask surface
 
 // ===== Intake state =====
 intakeKickoff: '',
@@ -32,14 +32,6 @@ interviewApplying: false,
 interviewResult: null,
 interviewApprovals: [],     // open approvals for the escalation flow picker
 interviewEscalationApprovalId: '',
-
-// ===== Daily briefing state =====
-briefingSummary: '',
-briefingVerdict: '',
-briefingRisks: [],
-briefingLoading: false,
-briefingGeneratedAt: null,
-
 
 // ===== Copilot methods =====
 // Structured chat answer rendering: escape HTML, then convert the copilot's
@@ -103,6 +95,17 @@ toggleCopilot() {
 copilotNewTopic() {
     this.copilotMessages = [];
     this.copilotPendingProposal = null;
+    // Rethink MVP #4: clear every in-panel surface so the capability
+    // fallback row is reachable again (one Ask surface, no tabs).
+    this.intakeKickoffOpen = false;
+    this.intakeKickoff = '';
+    this.intakeDraft = null;
+    this.intakeResult = null;
+    this.interviewSession = null;
+    this.interviewDraft = null;
+    this.interviewFinished = false;
+    this.interviewResult = null;
+    this.copilotInput = '';
     if (!this.copilotOpen) {
         this.toggleCopilot();
     } else {
@@ -110,30 +113,35 @@ copilotNewTopic() {
     }
 },
 
+// Rethink MVP #4: capability fallback stays reachable in-panel while no
+// session/draft/result is open — kickoff + guided flows, one Ask surface.
+get showCopilotCapabilities() {
+    return !this.intakeKickoffOpen && !this.intakeDraft && !this.intakeResult
+        && !this.interviewSession && !this.interviewDraft && !this.interviewResult;
+},
+
 copilotStartProjectKickoff() {
     this.copilotOpen = true;
     this.copilotMessages.push({ role: 'user', text: 'Start a project kickoff' });
     this.copilotMessages.push({
         role: 'assistant',
-        text: 'Paste your kickoff notes on the **Kickoff** tab (⚡ menu → Kickoff) — a paragraph, meeting notes, or a doc. I\'ll structure them into epics, features, personas, and KPIs; you review and Apply. Or just tell me about the project here and I\'ll ask for what\'s missing.',
+        text: 'Paste your kickoff notes in the card below — a paragraph, meeting notes, or a doc. I\'ll structure them into epics, features, personas, and KPIs; you review and Apply. Or just tell me about the project here and I\'ll ask for what\'s missing.',
     });
+    this.intakeKickoffOpen = true;
 },
 
 copilotStartFeatureIntake() {
     this.copilotOpen = true;
-    this.copilotTab = 'chat';
     this.interviewStart('feature', this.selectedProject ? this.selectedProject.id : null);
 },
 
 copilotStartRiskIntake() {
     this.copilotOpen = true;
-    this.copilotTab = 'chat';
     this.interviewStart('risk', this.selectedProject ? this.selectedProject.id : null);
 },
 
 copilotStartReleaseIntake() {
     this.copilotOpen = true;
-    this.copilotTab = 'chat';
     if (!this.selectedProject) {
         this.copilotMessages.push({ role: 'user', text: 'Plan a release' });
         this.copilotMessages.push({
@@ -162,6 +170,7 @@ async copilotAsk(text) {
             role: 'assistant',
             text: data.answer,
             sources: data.sources || [],
+            references: data.references || [],  // validated deep-link records
         });
     } catch (e) {
         this.copilotMessages.push({
@@ -172,6 +181,38 @@ async copilotAsk(text) {
     }
     this.copilotBusy = false;
     this.copilotScroll();
+},
+
+// Clickable reference chips (Rethink MVP #2): a validated citation lands at
+// the record — the openNotification pattern (route match, then project path
+// with the right tab), closing the drawer first so the record is visible.
+async openReference(ref) {
+    if (!ref) return;
+    const url = (ref.url || '').trim();
+    if (!url) return;
+    this.copilotOpen = false;
+    const route = url.replace(/^\/+/, '');
+    // Route-level links (/tasks) navigate directly
+    if (this.navItems && this.navItems.some(i => i.id === route)) { this.navigate(route); return; }
+    // Project paths: /projects/<id>[/tab] → open the project at the tab
+    const projectMatch = route.match(/^projects\/(\d+)(?:\/([a-z-]+))?$/);
+    if (projectMatch) {
+        const projectId = parseInt(projectMatch[1], 10);
+        const tab = projectMatch[2] || '';
+        const project = (this.projects || []).find(p => p.id === projectId);
+        if (project) {
+            await this.openProject(project);
+        } else {
+            await this.selectProjectById(projectId);
+        }
+        const tabMap = { backlog: 'backlog', approvals: 'approvals', releases: 'releases', risks: 'risks', kpis: 'kpis', docs: 'docs' };
+        if (tab && tabMap[tab]) this.projectTab = tabMap[tab];
+        return;
+    }
+    // Fallback: a bare route id
+    if (this.navItems && this.navItems.some(i => i.id === route.split('/')[0])) {
+        this.navigate(route.split('/')[0]);
+    }
 },
 
 async copilotPropose(intent) {
@@ -273,7 +314,6 @@ async interviewBack() {
             this.interviewSession = null;
             this.interviewDraft = null;
             this.interviewFinished = false;
-            this.copilotTab = 'interview';
             this.copilotMessages.push({
                 role: 'assistant',
                 text: 'No problem — choose another guided option below, or just tell me what you need.',
@@ -298,92 +338,6 @@ copilotSubmit() {
     }
 },
 
-// ===== Daily briefing (exec verdict shape, computed from live data) =====
-// Parse the copilot's structured briefing answer into sections:
-// "**Verdict: ...**", "**Overdue tasks (3):**\n- item", "**At-risk releases (2):**"
-// — no regex-on-prose chips, no truncation.
-parseBriefing(answer) {
-    const text = String(answer || '').trim();
-    const sections = {};   // lowercase section title → [items] or string
-    let current = null;
-    for (const raw of text.split(/\r?\n/)) {
-        const line = raw.trim();
-        if (!line) continue;
-        // Header: "**Verdict: Needs attention** — rest" or "**Overdue tasks:**"
-        // The colon may sit inside OR outside the bold — split on it after capture.
-        const header = line.match(/^\*\*(.+?)\*\*\s*—?\s*(.*)$/);
-        if (header) {
-            let title = header[1].trim();
-            const rest = header[2].trim();
-            // "**Verdict: Needs attention**" — colon inside the bold: the part
-            // before the colon is the section title, after it is the content
-            if (title.includes(':')) {
-                const [before, ...after] = title.split(':');
-                title = before.trim();
-                const inline = after.join(':').trim();
-                if (inline && !rest) sections[title.toLowerCase()] = [inline];
-                else if (inline) sections[title.toLowerCase()] = [inline, ...(rest ? [rest] : [])];
-                else sections[title.toLowerCase()] = [];
-            } else {
-                sections[title.replace(/:$/, '').toLowerCase()] = rest ? [rest] : [];
-            }
-            current = title.toLowerCase();
-            continue;
-        }
-        if (current) {
-            const bullet = line.match(/^[-*]\s+(.*)$/) || line.match(/^\d+\.\s+(.*)$/);
-            if (bullet) sections[current].push(bullet[1]);
-            else if (Array.isArray(sections[current]) && sections[current].length === 0) sections[current] = [line];
-            else sections[current] = (sections[current] || []) ;
-        }
-    }
-    return { text, sections };
-},
-
-async generateBriefing() {
-    if (this.briefingLoading) return;
-    this.briefingLoading = true;
-    try {
-        // Ask the copilot in briefing mode — grounded in the same data spine
-        const data = await this.api('POST', '/ai/copilot/chat', {
-            question: 'Give me my daily briefing: overall verdict (on track / needs attention), overdue tasks, pending gate approvals, and at-risk releases. Be brief.',
-            project_id: this.selectedProject ? this.selectedProject.id : null,
-        });
-        const { text, sections } = this.parseBriefing(data.answer || '');
-        // Full answer, never truncated — the card renders it as markdown
-        this.briefingSummary = text;
-        // Verdict: from the parsed Verdict section, not string sniffing
-        const verdictRaw = (sections['verdict'] || [])[0] || '';
-        this.briefingVerdict = /needs attention|at risk/i.test(verdictRaw) ? 'needs attention' : 'on track';
-        // Risk chips: the bullet items of the at-risk section (real items, not regex fragments)
-        const riskItems = sections['at-risk releases'] || sections['risks'] || sections['at risk'] || [];
-        this.briefingRisks = riskItems
-            .map(r => String(r).replace(/\*\*/g, '').split(/[:—-]/)[0].trim())
-            .filter(Boolean).slice(0, 3);
-        this.briefingGeneratedAt = new Date().toISOString();
-        this.briefingLoading = false;
-        // Predictive flags (P3): load after the briefing text so the card
-        // shows KPI drift/spend/capacity chips even before chat finishes.
-        await this.loadPredictiveFlags();
-    } catch (e) {
-        this.briefingSummary = e?.message || 'Briefing unavailable — check AI configuration in Settings.';
-        this.briefingVerdict = '';
-        this.briefingRisks = [];
-    }
-    this.briefingLoading = false;
-},
-
-// ===== Predictive flags (P3) — KPI off-target / deteriorating trends =====
-// Derived server-side from KPI values + KpiHistory; template-aware kind
-// (drift for AI, spend for marketing, capacity for operations).
-async loadPredictiveFlags() {
-    try {
-        const data = await this.api('GET', '/ai/predictive-flags');
-        this.predictiveFlags = Array.isArray(data.flags) ? data.flags : [];
-    } catch (e) {
-        this.predictiveFlags = [];  // flags are advisory — never block the card
-    }
-},
 
 async selectProjectById(projectId) {
     if (!projectId) return;
@@ -395,10 +349,11 @@ async selectProjectById(projectId) {
 },
 
 // ===== Conversational intake (structure → review → Apply) =====
-// Open the copilot intake tab from a core flow (new project / backlog).
+// Open the kickoff paste card inside the ONE Ask surface
+// (Rethink MVP #4: no intake tab — the card is a message-type panel).
 openCopilotIntake() {
     this.copilotOpen = true;
-    this.copilotTab = 'intake';
+    this.intakeKickoffOpen = true;
 },
 
 // Feature verdict (exists / fits an epic / new) — debounced fetch as the PM
@@ -495,7 +450,7 @@ async interviewStart(flow, projectId) {
     if (this.interviewBusy) return;
     this.interviewBusy = true;
     this.copilotOpen = true;
-    this.copilotTab = 'interview';
+    this.intakeKickoffOpen = false;
     this.interviewDraft = null;
     this.interviewFinished = false;
     try {
@@ -634,7 +589,6 @@ async interviewApply() {
             this.interviewFinished = false;
             this.copilotOpen = false;
             this.showBacklogForm = true;
-            this.copilotTab = 'chat';
             this.showToast('Feature answers pre-filled in the backlog form — review and save.', 'success');
         } else if (this.interviewFlow === 'project') {
             // From scratch: create the project shell first, then apply into it.

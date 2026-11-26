@@ -6,6 +6,9 @@ export const planning = {
 // ===== Today + Work (R1 spine) =====
 today: null,
 todayLoading: false,
+todayNarrative: '',         // Rethink MVP #3: 3-sentence AI brief over the deterministic card
+todayNarrativeLoading: false,
+todayNarrativeDegraded: false,
 workItems: [],
 workFilter: 'all',
 workTagFilter: null,  // cross-tagging filter (tag id or null)
@@ -36,6 +39,27 @@ async loadToday() {
         this.today = await this.api('GET', '/today');
     } catch { this.today = null; }
     this.todayLoading = false;
+    // ONE AI narrative call (Rethink MVP #3): 3 sentences over the
+    // deterministic needs-you aggregate, fired wherever the card renders.
+    this.loadTodayNarrative();
+},
+
+// The narrative is additive — the deterministic card (verdict + needs-you
+// rows) stands alone whenever the LLM is down, unconfigured or over quota
+// (degraded=true). The LLM never blocks the card: a failed call just leaves
+// it empty.
+async loadTodayNarrative() {
+    if (this.todayNarrativeLoading) return;
+    this.todayNarrativeLoading = true;
+    try {
+        const data = await this.api('POST', '/ai/today-brief/narrative');
+        this.todayNarrative = data.narrative || '';
+        this.todayNarrativeDegraded = !!data.degraded;
+    } catch {
+        this.todayNarrative = '';
+        this.todayNarrativeDegraded = true;
+    }
+    this.todayNarrativeLoading = false;
 },
 
 async loadWork() {

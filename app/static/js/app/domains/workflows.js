@@ -169,6 +169,19 @@ statusReport: null,
 statusReportEntry: null,
 statusReports: [],
 reportLoading: false,
+
+// ===== Draft Desk (Rethink MVP #1) — per-audience drafts, editable, ONE send path =====
+draftDeskAudience: '',
+draftDeskMarkdown: '',
+draftDeskBusy: false,
+draftDeskSending: false,
+draftDeskDegraded: false,
+draftDeskReportId: null,
+draftAudiences: [
+    { key: 'exec_weekly', label: 'Executive weekly' },
+    { key: 'pm_weekly', label: 'PM weekly' },
+    { key: 'client', label: 'Client update' },
+],
 async openStatusReport() {
     this.showReportModal = true;
     this.statusReport = null;
@@ -177,6 +190,59 @@ async openStatusReport() {
     try { this.statusReports = await this.api('GET', `/projects/${this.selectedProject.id}/reports`); }
     catch { this.statusReports = []; }
     this.reportLoading = false;
+},
+async openDraftDesk(audience = '') {
+    // The Draft Desk lives in the ONE reports surface, pre-scoped to the open project
+    this.showReportModal = true;
+    this.draftDeskAudience = audience || '';
+    this.draftDeskMarkdown = '';
+    this.draftDeskDegraded = false;
+    this.draftDeskReportId = null;
+    this.statusReport = null;
+    this.statusReportEntry = null;
+    this.reportLoading = true;
+    try { this.statusReports = await this.api('GET', `/projects/${this.selectedProject.id}/reports`); }
+    catch { this.statusReports = []; }
+    this.reportLoading = false;
+},
+async openDraftDeskForProject(projectId, audience = '') {
+    // Contextual entry (approvals): pre-scope the Draft Desk to the record's project
+    if (!projectId) { this.openDraftDesk(audience); return; }
+    if (this.selectedProject && this.selectedProject.id === projectId) { this.openDraftDesk(audience); return; }
+    const project = (this.projects || []).find(p => p.id === projectId);
+    if (project) { this.selectedProject = project; this.openDraftDesk(audience); return; }
+    await this.selectProjectById(projectId);
+    if (this.selectedProject && this.selectedProject.id === projectId) this.openDraftDesk(audience);
+},
+async generateDraft(audience) {
+    if (this.draftDeskBusy || !this.selectedProject) return;
+    this.draftDeskBusy = true;
+    this.draftDeskAudience = audience;
+    try {
+        const data = await this.api('POST', `/projects/${this.selectedProject.id}/reports/draft`, { audience });
+        this.draftDeskMarkdown = data.markdown || '';
+        this.draftDeskDegraded = !!data.degraded;
+        this.draftDeskReportId = data.report_id || null;
+    } catch (e) { this.showToast(e?.message || 'Draft generation failed.', 'error'); }
+    this.draftDeskBusy = false;
+},
+async sendDraft() {
+    if (!this.draftDeskMarkdown.trim() || this.draftDeskSending || !this.selectedProject) return;
+    this.draftDeskSending = true;
+    try {
+        // THE ONE send path — POST /projects/{id}/reports/send
+        const result = await this.api('POST', `/projects/${this.selectedProject.id}/reports/send`, {
+            audience: this.draftDeskAudience || null,
+            markdown: this.draftDeskMarkdown,
+            report_id: this.draftDeskReportId,
+        });
+        this.showToast(`Draft sent — chain entry #${result.entry.seq}`, 'success');
+        this.draftDeskMarkdown = '';
+        this.draftDeskReportId = null;
+        this.draftDeskDegraded = false;
+        this.statusReports = await this.api('GET', `/projects/${this.selectedProject.id}/reports`);
+    } catch (e) { this.showToast(e?.message || 'Send failed.', 'error'); }
+    this.draftDeskSending = false;
 },
 async generateStatusReport() {
     try {
@@ -190,6 +256,8 @@ async generateStatusReport() {
 viewStoredReport(r) {
     this.statusReport = r.report;
     this.statusReportEntry = { seq: r.seq, hash: r.hash, created_at: r.created_at, actor_name: r.actor_name };
+    this.draftDeskAudience = r.draft?.audience || '';
+    this.draftDeskMarkdown = r.draft?.markdown || '';
 },
 
 async openGuestLinks() {

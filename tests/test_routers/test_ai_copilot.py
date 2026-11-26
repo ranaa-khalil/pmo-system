@@ -59,8 +59,13 @@ def copilot_world(db):
 def ai_configured(monkeypatch):
     """Mock the per-tenant AI config and _call_llm (no live calls)."""
     from app.services import settings_service
+    import app.routers.ai as ai_router
 
-    monkeypatch.setattr(settings_service, "get_ai_config", lambda db, tid: {"api_key": "k", "base_url": "u", "model": "m"})
+    # get_ai_config is imported into app.routers.ai's namespace (from-import),
+    # so patch the router binding — settings_service alone does not reach it.
+    mock = lambda db, tid: {"api_key": "k", "base_url": "u", "model": "m"}
+    monkeypatch.setattr(settings_service, "get_ai_config", mock)
+    monkeypatch.setattr(ai_router, "get_ai_config", mock)
 
 
 def test_chat_requires_auth(anon_client, copilot_world):

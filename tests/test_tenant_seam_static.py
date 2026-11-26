@@ -115,7 +115,7 @@ COLD_SEAM_SITES = {
     "app/routers/item_types.py": 5,
     "app/routers/guest_links.py": 5,
     "app/routers/engagements.py": 4,
-    "app/routers/reports.py": 4,
+    "app/routers/reports.py": 5,  # +1: the Draft Desk draft endpoint routes its project read through the seam
     "app/routers/proofs.py": 4,
     "app/routers/lifecycle.py": 4,
     "app/routers/today.py": 3,

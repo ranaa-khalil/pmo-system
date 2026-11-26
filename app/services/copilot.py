@@ -223,7 +223,7 @@ def build_context(
                 "entity_type": "backlog_item", "entity_id": it["id"],
                 "record_type": "Item",
                 "title": it["title"], "phase": it["current_phase"],
-                "status": it["status"],
+                "status": it["status"], "project_id": p.id,
             }
             for it in gantt["items"] if it.get("is_critical")
         ][:10]
@@ -233,6 +233,7 @@ def build_context(
                 "record_type": "Release",
                 "title": f"{r['version']} {r['name']}".strip(),
                 "status": r["status"], "target_date": r["target_date"],
+                "project_id": p.id,
                 "drift_days": r["drift_days"], "live_stage": r["live_stage"],
             }
             for r in gantt["releases"]
@@ -374,6 +375,7 @@ def _epic_tree(db: Session, proj_ids: list[int]) -> dict:
             "entity_type": "backlog_item", "entity_id": item.id,
             "title": item.title, "phase": item.current_phase,
             "status": item.status, "item_type": item.item_type,
+            "project_id": item.project_id,  # deep links for validated citations
         })
     return tree
 
@@ -678,7 +680,13 @@ def copilot_chat(
 
     raw = _call_llm(CHAT_SYSTEM_PROMPT, user_prompt, tenant_config, max_tokens=900)
     parsed = _extract_json(raw) or {}
-    answer, sources = _unwrap_chat_answer(raw, parsed)
+    answer, model_sources = _unwrap_chat_answer(raw, parsed)
+
+    # Rethink MVP #2: citations are validated SERVER-SIDE against the context
+    # fetched this turn — an id the context doesn't contain is dropped before
+    # render, and every surviving citation becomes a clickable deep-link
+    # reference. AiInteraction.sources stores the validated shape.
+    labels, references = _validate_references(answer, model_sources, ctx)
 
     interaction = AiInteraction(
         tenant_id=tenant.id,
@@ -686,14 +694,191 @@ def copilot_chat(
         kind="query",
         question=question,
         answer=answer,
-        sources=json.dumps(sources),
+        sources=json.dumps(references),
         status="pending",
     )
     db.add(interaction)
     db.commit()
     db.refresh(interaction)
 
-    return {"answer": answer, "sources": sources, "interaction_id": interaction.id}
+    return {
+        "answer": answer,
+        "sources": labels,        # backward compatible: now the VALIDATED labels
+        "references": references,  # entity_type/entity_id/title/url deep links
+        "interaction_id": interaction.id,
+    }
+
+
+# ── Clickable deep-link references (Rethink MVP #2) ──────────────────────
+# The model's free-text citations ("Task 2", "Approval 7", "Item 5",
+# "Release 1", "Risk 3", "Project 1") are VALIDATED server-side against the
+# context fetched this turn: an id the context doesn't contain is dropped,
+# never rendered. Every surviving citation becomes a reference record
+# (entity_type, entity_id, title, url) the drawer renders as a CLICKABLE
+# deep link (the openNotification + projectTab navigation pattern).
+
+# Spoken record type → context entity_type
+_CITATION_TYPES = {
+    "task": "user_task",
+    "approval": "approval_request",
+    "item": "backlog_item",
+    "feature": "backlog_item",
+    "release": "release",
+    "risk": "risk",
+    "project": "project",
+    "epic": "epic",
+}
+
+# entity_type → the drawer's deep-link target (route or project path)
+_REFERENCE_URLS = {
+    "project": "/projects/{project_id}",
+    "backlog_item": "/projects/{project_id}/backlog",
+    "approval_request": "/projects/{project_id}/approvals",
+    "release": "/projects/{project_id}/releases",
+    "risk": "/projects/{project_id}/risks",
+    "user_task": "/tasks",
+}
+
+
+def _reference_url(entity_type: str, entity_id: int, project_id: int | None) -> str | None:
+    """The deep-link path for a validated reference (openNotification pattern)."""
+    template = _REFERENCE_URLS.get(entity_type)
+    if not template:
+        return None
+    if "{project_id}" in template:
+        if not project_id:
+            return None
+        return template.format(project_id=project_id)
+    return template.format(project_id=project_id)
+
+
+def _context_registry(ctx: dict) -> dict:
+    """(entity_type, entity_id) → record for every entry in this turn's context.
+
+    Walks the context lists (pending_approvals, aging_items, overdue_tasks,
+    at_risk_releases, open_risks, projects, schedules) and the epic tree —
+    the SAME entries the model was shown, so a citation validated here is a
+    record the copilot can actually see.
+    """
+    registry: dict = {}
+
+    def _add(entry: dict) -> None:
+        if not isinstance(entry, dict):
+            return
+        etype, eid = entry.get("entity_type"), entry.get("entity_id")
+        if etype is None or eid is None:
+            return
+        registry.setdefault(
+            (etype, eid),
+            {
+                "entity_type": etype,
+                "entity_id": eid,
+                "title": entry.get("title") or "",
+                "project_id": entry.get("project_id"),
+            },
+        )
+
+    for key in ("projects", "pending_approvals", "aging_items", "overdue_tasks",
+                "at_risk_releases", "open_risks"):
+        for entry in ctx.get(key) or []:
+            _add(entry)
+    for entry in ctx.get("schedules") or []:
+        _add(entry)
+        for item in entry.get("critical_items") or []:
+            _add(item)
+        for rel in entry.get("releases") or []:
+            _add(rel)
+    schedule = ctx.get("schedule")
+    if schedule:
+        _add(schedule)
+        for item in schedule.get("critical_items") or []:
+            _add(item)
+        for rel in schedule.get("releases") or []:
+            _add(rel)
+    for node in (ctx.get("epic_tree") or {}).values():
+        _add(node)
+        for feat in node.get("features") or []:
+            _add(feat)
+    return registry
+
+
+def _validate_references(answer: str, sources: list, ctx: dict) -> tuple[list, list]:
+    """Validate the model's citations against this turn's context.
+
+    Returns (labels, references): the surviving citation labels (backward
+    compatible `sources` strings) and the validated reference records
+    (entity_type, entity_id, title, url) for the clickable chips. Citations
+    whose (entity_type, entity_id) the context doesn't contain are DROPPED —
+    citation without a validated record is never rendered.
+    """
+    import re as _re
+
+    registry = _context_registry(ctx)
+    if not registry:
+        return [], []
+
+    # 1. Structured model sources can carry ids directly (defensive: the
+    #    contract asks for label strings, but dict sources pass through).
+    candidate_ids: set = set()
+    for src in sources or []:
+        if isinstance(src, dict):
+            etype, eid = src.get("entity_type"), src.get("entity_id")
+            if etype and eid is not None:
+                candidate_ids.add((etype, eid))
+
+    # 2. Free-text citations in the answer + model-authored source labels:
+    #    "Task 2", "Approval 7", "Item 5", "Release 1", "Risk 3", "Project 1".
+    seen_order: list = []
+    matched_labels: set = set()
+
+    def _match_text(text: str) -> None:
+        if not text:
+            return
+        for m in _re.finditer(r"\b(Task|Approval|Item|Feature|Release|Risk|Project|Epic)\s+#?(\d+)\b", text, _re.IGNORECASE):
+            etype = _CITATION_TYPES.get(m.group(1).lower())
+            if not etype:
+                continue
+            key = (etype, int(m.group(2)))
+            if key in registry:
+                candidate_ids.add(key)
+                label = f"{m.group(1).title()} {m.group(2)}"
+                if label not in matched_labels:
+                    matched_labels.add(label)
+                    seen_order.append(label)
+
+    _match_text(answer or "")
+    for src in sources or []:
+        if isinstance(src, str):
+            _match_text(src)
+
+    # 3. Structured ids first (ordered as given), then free-text labels.
+    labels: list = []
+    references: list = []
+    for key in candidate_ids:
+        record = registry[key]
+        label = None
+        for src in sources or []:
+            if isinstance(src, dict) and (src.get("entity_type"), src.get("entity_id")) == key:
+                label = src.get("label") or src.get("title")
+                break
+        if not label:
+            type_label = next(
+                (spoken.title() for spoken, et in _CITATION_TYPES.items() if et == record["entity_type"]),
+                record["entity_type"].replace("_", " ").title(),
+            )
+            label = f"{type_label} {record['entity_id']}"
+        if label not in labels:
+            labels.append(label)
+        url = _reference_url(record["entity_type"], record["entity_id"], record.get("project_id"))
+        references.append({
+            "entity_type": record["entity_type"],
+            "entity_id": record["entity_id"],
+            "label": label,
+            "title": record.get("title") or "",
+            "url": url,
+            "project_id": record.get("project_id"),
+        })
+    return labels, references
 
 
 # ── Action proposals (draft → human confirm → execute) ───────────────────

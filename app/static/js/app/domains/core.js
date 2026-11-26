@@ -485,6 +485,21 @@ closePalette() { this.paletteOpen = false; },
 get paletteResults() {
     const q = (this.paletteQuery || '').trim().toLowerCase();
     const results = [];
+    // Rethink MVP #4: AI commands lead the palette — "Ask AI about the
+    // current view" is the first result when a project is open, and the
+    // kickoff/guided capabilities stay reachable without the drawer tabs.
+    const aiCommands = [
+        { type: 'ai_ask', label: this.selectedProject ? `Ask AI about ${this.selectedProject.name}` : 'Ask AI about the current view', icon: '⚡', sub: 'AI' },
+        { type: 'ai_intake', label: 'New project kickoff', icon: '⚡', sub: 'AI' },
+        { type: 'ai_feature', label: 'Feature intake', icon: '⚡', sub: 'AI' },
+        { type: 'ai_risk', label: 'Risk entry', icon: '⚡', sub: 'AI' },
+        { type: 'ai_release', label: 'Release planning', icon: '⚡', sub: 'AI' },
+        { type: 'ai_escalation', label: 'Escalation', icon: '⚡', sub: 'AI' },
+        { type: 'ai_draft', label: 'Draft status update', icon: '⚡', sub: 'AI' },
+    ];
+    for (const a of aiCommands) {
+        if (!q || a.label.toLowerCase().includes(q) || a.sub.toLowerCase().includes(q)) results.push(a);
+    }
     const views = [
         { type: 'view', label: 'Today', route: 'today', icon: '📅', sub: 'View' },
         { type: 'view', label: 'Work', route: 'work', icon: '🗂️', sub: 'View' },
@@ -528,6 +543,26 @@ paletteGo(result) {
     else if (result.type === 'project') { this.navigate('projects'); }
     else if (result.type === 'client') { this.navigate('clients'); }
     else if (result.type === 'task') { this.navigate('tasks'); this.openTaskModal(result.task); }
+    // Rethink MVP #4: AI commands — ask is a launcher (pre-filled input, no
+    // surprise LLM call); capabilities reuse the existing starters.
+    else if (result.type === 'ai_ask') { this.aiAskCurrentView(); }
+    else if (result.type === 'ai_intake') { this.copilotStartProjectKickoff(); }
+    else if (result.type === 'ai_feature') { this.copilotStartFeatureIntake(); }
+    else if (result.type === 'ai_risk') { this.copilotStartRiskIntake(); }
+    else if (result.type === 'ai_release') { this.copilotStartReleaseIntake(); }
+    else if (result.type === 'ai_escalation') { this.interviewStart('escalation', this.selectedProject ? this.selectedProject.id : null); }
+    else if (result.type === 'ai_draft') { this.openDraftDesk(); }
+},
+
+// Rethink MVP #4: open the ONE Ask surface pre-filled for the current view —
+// a launcher, not an auto-fire (the user presses enter; no surprise LLM call).
+aiAskCurrentView() {
+    this.copilotOpen = true;
+    if (!this.copilotMessages.length) this.seedCopilotGreeting();
+    if (this.selectedProject) this.copilotInput = `What needs attention in ${this.selectedProject.name}?`;
+    else if (this.route === 'tasks') this.copilotInput = 'What is overdue for me?';
+    else if (this.route === 'work') this.copilotInput = 'What should I work on next?';
+    else this.copilotInput = 'What is overdue for me?';
 },
 
 

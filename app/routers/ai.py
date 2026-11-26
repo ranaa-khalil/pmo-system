@@ -343,6 +343,96 @@ def copilot_reject_endpoint(
     return result
 
 
+# ── Today Brief narrative (Rethink MVP #3) ────────────────────────────────
+# build_today computes the needs-you aggregate + verdict DETERMINISTICALLY;
+# the LLM only narrates (3 sentences: verdict, what moved, what's at risk).
+# LLM down, unconfigured or over quota → degraded=true and the client renders
+# the deterministic card alone (the one-call intake verbatim-fallback house
+# pattern: the LLM never blocks a user flow).
+
+
+@router.post("/today-brief/narrative")
+def today_brief_narrative_endpoint(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """ONE AI narrative call over the deterministic needs-you aggregate.
+
+    Deterministic floor: verdict + lines always come from build_today; the
+    narrative is additive and degrades to "" (the card alone) whenever the
+    LLM is unavailable."""
+    from app.services.llm import FALLBACK_TEXT
+    from app.services.plan_enforcement import require_feature
+    from app.services.today import build_today
+
+    require_feature(current_tenant.plan, "ai_assistant")
+
+    today = build_today(db, current_tenant, current_user)
+    briefing = today.get("briefing") or {}
+    verdict = briefing.get("verdict", "on_track")
+    lines = briefing.get("lines", [])
+    counts = today.get("counts", {})
+
+    tenant_config = get_ai_config(db, current_tenant.id)
+    if not tenant_config["api_key"]:
+        return {
+            "narrative": "",
+            "verdict": verdict,
+            "lines": lines,
+            "degraded": True,
+            "needs_you_count": today.get("total_needs_you", 0),
+        }
+
+    system = (
+        "You write a 3-sentence daily brief for a project manager. Sentence 1: "
+        "the verdict (on track / needs attention / at risk) with the counts. "
+        "Sentence 2: what needs them most — the top of the list. Sentence 3: "
+        "what is at risk if it is not worked today. Answer only from the "
+        "provided data — never invent records. Plain prose, no markdown, no "
+        "lists, exactly 3 sentences."
+    )
+    rows = today.get("needs_you") or []
+    row_lines = "\n".join(
+        f"- {r['title']} ({r['project']}) — {r['why']}" for r in rows[:8]
+    ) or "- nothing needs you"
+    user_prompt = (
+        f"TODAY'S AGGREGATE: verdict={verdict}, "
+        f"{today.get('total_needs_you', 0)} things need the user "
+        f"(approvals {counts.get('approval', 0)}, blocked {counts.get('blocked', 0)}, "
+        f"overdue {counts.get('overdue', 0)}).\n"
+        f"TOP OF THE LIST:\n{row_lines}"
+    )
+
+    from app.services.ai import _call_llm as ai_call
+    try:
+        narrative = (ai_call(system, user_prompt, tenant_config=tenant_config, max_tokens=200) or "").strip()
+    except HTTPException:
+        # Quota exceeded (403 at the ONE door) → the deterministic card alone
+        narrative = ""
+    degraded = not narrative or narrative == FALLBACK_TEXT or "AI service unavailable" in narrative
+
+    if narrative and not degraded:
+        db.add(AiInteraction(
+            tenant_id=current_tenant.id,
+            user_id=current_user.id,
+            kind="today_brief",
+            question="today narrative",
+            answer=narrative,
+            sources=json.dumps({"verdict": verdict, "counts": counts}),
+            status="generated",
+        ))
+        db.commit()
+
+    return {
+        "narrative": "" if degraded else narrative,
+        "verdict": verdict,
+        "lines": lines,
+        "degraded": degraded,
+        "needs_you_count": today.get("total_needs_you", 0),
+    }
+
+
 # ── Conversational project intake ────────────────────────────────────────
 
 class IntakeStructureRequest(BaseModel):

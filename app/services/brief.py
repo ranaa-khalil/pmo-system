@@ -34,6 +34,11 @@ AUDIENCE_PROFILES = {
         "sections": ["waiting_on_me", "evidence_summary", "changed_since_last"],
         "style": "gate-only: what's waiting on me + evidence; no status noise",
     },
+    "client": {
+        "label": "Client status update",
+        "sections": ["verdict", "progress", "upcoming", "risks"],
+        "style": "client-facing, plain language, progress and next steps, no internal phase jargon",
+    },
     "team_daily": {
         "label": "Team daily tasks",
         "sections": ["today_tasks", "sent_back", "blocked"],
@@ -114,6 +119,108 @@ def generate_report(
         "sections": sections,
         "data_hash": data_hash,
         "report_id": interaction.id,
+    }
+
+
+def render_snapshot_markdown(report: dict) -> str:
+    """Markdown rendering of the deterministic status-report snapshot.
+
+    The send path emails THIS, never json.dumps output: stakeholders get
+    readable sections (backlog progress, releases, open risks, milestones)
+    regardless of whether the send carried an edited Draft Desk draft or
+    the deterministic snapshot.
+    """
+    project = report.get("project") or {}
+    lines = [f"# Status report — {project.get('name', 'Project')}", ""]
+    generated = report.get("generated_at")
+    by = report.get("generated_by")
+    meta = []
+    if generated:
+        meta.append(str(generated))
+    if by:
+        meta.append(f"by {by}")
+    if meta:
+        lines.append("*" + " · ".join(meta) + "*")
+        lines.append("")
+
+    backlog = report.get("backlog") or {}
+    if backlog:
+        lines.append("## Backlog progress")
+        lines.append(
+            f"- {backlog.get('done', 0)}/{backlog.get('total', 0)} items done "
+            f"({backlog.get('progress', 0)}%)"
+        )
+        by_phase = backlog.get("by_phase") or {}
+        if by_phase:
+            lines.append("- By phase: " + ", ".join(f"{p} {n}" for p, n in by_phase.items()))
+        lines.append("")
+
+    releases = report.get("releases") or []
+    if releases:
+        lines.append("## Releases")
+        for r in releases:
+            name = f" — {r['name']}" if r.get("name") else ""
+            lines.append(f"- {r.get('version', '')}{name} ({r.get('status', '')})")
+        lines.append("")
+
+    risks = report.get("open_risks") or []
+    if risks:
+        lines.append("## Open risks")
+        for r in risks:
+            lines.append(f"- {r.get('title', '')} ({r.get('severity', '')}, {r.get('status', '')})")
+        lines.append("")
+
+    milestones = report.get("milestones") or []
+    if milestones:
+        lines.append("## Milestones")
+        for m in milestones:
+            target = f", target {m['target_date']}" if m.get("target_date") else ""
+            lines.append(f"- {m.get('title', '')}{target} ({m.get('status', '')})")
+        lines.append("")
+
+    return "\n".join(lines).strip()
+
+
+def draft_report(
+    db: Session,
+    tenant: Tenant,
+    project,
+    audience: str,
+    user: User | None = None,
+    tenant_config: dict | None = None,
+    fallback_markdown: str | None = None,
+) -> dict:
+    """Draft Desk draft for ONE audience — LLM narrative with a deterministic floor.
+
+    Tries generate_report (the LLM path over the data spine). When the LLM is
+    down, unconfigured or over quota the fallback is the deterministic
+    snapshot rendered as markdown, flagged degraded — the Draft Desk never
+    blocks on the LLM (FR-AI12: deterministic fallback for read-only
+    surfaces, labeled "computed without narrative").
+    """
+    try:
+        report = generate_report(
+            db, tenant, project, audience=audience, user=user, tenant_config=tenant_config,
+        )
+    except Exception:  # noqa: BLE001 — the draft never blocks on the LLM
+        report = None
+
+    if report and report.get("sections"):
+        report["degraded"] = False
+        return report
+
+    # LLM down / unconfigured / over quota → deterministic markdown draft
+    data_hash = _data_fingerprint({"project_id": project.id, "audience": audience})
+    return {
+        "audience": audience,
+        "content": {},
+        "markdown": fallback_markdown or render_markdown(
+            project, AUDIENCE_PROFILES[audience], {},
+        ),
+        "sections": [],
+        "data_hash": data_hash,
+        "report_id": None,
+        "degraded": True,
     }
 
 

@@ -46,6 +46,10 @@ def intake_world(db):
 
 
 def _mock_llm(monkeypatch):
+    # The routers import get_ai_config into their own namespace (from-import),
+    # so patch the router binding — the AI-config gate must pass without .env.
+    import app.routers.ai as ai_router
+    monkeypatch.setattr(ai_router, "get_ai_config", lambda db, tid: {"api_key": "k", "base_url": "u", "model": "m"})
     monkeypatch.setattr(intake_service, "_call_llm", lambda *a, **k: json.dumps({
         "summary": "Cloud platform for PNU student services",
         "epics": [{"name": "Authentication", "features": [

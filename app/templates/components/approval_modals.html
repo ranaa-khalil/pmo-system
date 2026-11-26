@@ -324,6 +324,9 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-1.5">
+                    <button @click="openDraftDeskForProject(selectedApproval?.project_id)" class="px-3 py-1.5 rounded-lg text-[11px] font-medium text-white bg-brand-600 hover:bg-brand-700 transition-colors" title="Draft Desk — draft an update for this approval's project">
+                        Draft update
+                    </button>
                     <button @click="openGuestLinks()" class="px-3 py-1.5 rounded-lg text-[11px] font-medium text-ink-600 border border-ink-200 hover:bg-ink-50 transition-colors" title="Share with an external approver">
                         Guest link
                     </button>
@@ -428,21 +431,61 @@
             </div>
         </div>
     </div></template>
-            <!-- Status report modal (locked on delivery) -->
+            <!-- Draft Desk modal (Rethink MVP #1) — the ONE reports surface:
+                 per-audience drafts from live data, editable inline, sent through
+                 the ONE approval-gated send path; every send is a chain entry. -->
             <template x-if="showReportModal"><div x-show="showReportModal" x-cloak class="fixed inset-0 z-50" aria-modal="true">
                 <div class="fixed inset-0 bg-black/30 backdrop-blur-sm" @click="showReportModal = false"></div>
                 <div class="flex min-h-full items-center justify-center p-4 relative">
                     <div class="surface rounded-3xl shadow-modal w-full max-w-lg max-h-[85vh] overflow-y-auto modal-enter border border-black/[0.06]">
                         <div class="sticky top-0 bg-white/95 backdrop-blur border-b border-black/[0.06] px-6 py-4 flex items-center justify-between rounded-t-3xl z-10">
                             <div>
-                                <h3 class="text-[15px] font-bold text-ink-900">Status report</h3>
-                                <p class="text-[11px] text-ink-400 mt-0.5">Locked on delivery — every send is a chain entry</p>
+                                <h3 class="text-[15px] font-bold text-ink-900">Draft Desk</h3>
+                                <p class="text-[11px] text-ink-400 mt-0.5">Drafts from live data, editable before send — locked on delivery</p>
                             </div>
                             <button @click="showReportModal = false" class="p-2 text-ink-400 hover:text-ink-700 hover:bg-ink-100 rounded-lg transition-colors">
                                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                             </button>
                         </div>
                         <div class="px-6 py-5 space-y-4">
+                            <!-- Draft Desk: per-audience draft, editable, ONE send path -->
+                            <div>
+                                <div class="text-[11px] font-semibold text-ink-500 uppercase tracking-wide mb-2">Draft an update</div>
+                                <div class="flex flex-wrap gap-1.5 mb-3">
+                                    <template x-for="a in draftAudiences" :key="a.key">
+                                        <button @click="generateDraft(a.key)" :disabled="draftDeskBusy"
+                                                class="inline-flex items-center gap-1.5 text-[11.5px] font-medium px-3 py-1.5 rounded-full border transition-colors disabled:opacity-50"
+                                                :class="draftDeskAudience === a.key ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-ink-600 border-ink-200 hover:border-brand-300 hover:text-brand-700'">
+                                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                            <span x-text="a.label"></span>
+                                        </button>
+                                    </template>
+                                </div>
+                                <div x-show="draftDeskBusy" class="flex items-center gap-2 text-[11.5px] text-ink-400 py-2">
+                                    <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9" stroke-dasharray="40" stroke-dashoffset="18"/></svg>
+                                    Drafting from live data…
+                                </div>
+                                <div x-show="draftDeskDegraded && !draftDeskBusy" class="rounded-lg bg-ink-100/70 border border-ink-200/60 px-3 py-2 text-[10.5px] text-ink-500 mb-2">
+                                    Computed without narrative — the deterministic snapshot (AI unavailable).
+                                </div>
+                                <div x-show="draftDeskMarkdown && !draftDeskBusy" x-cloak class="space-y-2">
+                                    <textarea x-model="draftDeskMarkdown" rows="12"
+                                              placeholder="Draft an update first — pick an audience above."
+                                              class="w-full px-3.5 py-2.5 rounded-xl border border-ink-200 text-[12px] leading-relaxed font-mono focus:ring-2 focus:ring-brand-400 focus:border-brand-400 outline-none transition-all bg-white resize-none"></textarea>
+                                    <div class="flex items-center gap-2">
+                                        <button @click="draftDeskMarkdown = ''; draftDeskReportId = null; draftDeskDegraded = false"
+                                                class="flex-1 px-3 py-2 rounded-xl text-[12px] font-semibold text-ink-500 hover:bg-ink-100 transition-colors">Discard draft</button>
+                                        <button @click="sendDraft()" :disabled="draftDeskSending || !draftDeskMarkdown.trim()"
+                                                class="flex-1 px-3 py-2 rounded-xl bg-emerald-600 text-white text-[12px] font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                            <span x-text="draftDeskSending ? 'Sending…' : 'Send draft'"></span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div x-show="!draftDeskMarkdown && !draftDeskBusy" class="text-[10.5px] text-ink-400">
+                                    Same data spine as the digest, per audience. Edit inline, then send — the email is rendered markdown, never JSON.
+                                </div>
+                            </div>
                             <template x-if="statusReport">
                                 <div class="space-y-4">
                                     <div class="flex items-center justify-between">
@@ -502,10 +545,10 @@
                                 </div>
                             </template>
                             <template x-if="!statusReport">
-                                <div class="text-center py-6">
-                                    <p class="text-[12px] text-ink-400 mb-4">Generate a snapshot of this project's health. Each send appends a tamper-evident entry to the project's audit chain.</p>
-                                    <button @click="generateStatusReport()" :disabled="reportLoading" class="px-4 py-2.5 rounded-xl bg-brand-600 text-white text-[13px] font-semibold hover:bg-brand-700 transition-colors shadow-sm disabled:opacity-50">
-                                        <span x-text="reportLoading ? 'Generating…' : 'Generate & send'"></span>
+                                <div class="text-center py-4">
+                                    <p class="text-[11.5px] text-ink-400 mb-3">Or send the deterministic snapshot as-is — same audit chain, rendered markdown email.</p>
+                                    <button @click="generateStatusReport()" :disabled="reportLoading" class="px-4 py-2 rounded-xl bg-white text-[12px] font-semibold text-ink-600 border border-ink-200 hover:bg-ink-50 transition-colors disabled:opacity-50">
+                                        <span x-text="reportLoading ? 'Generating…' : 'Send snapshot'"></span>
                                     </button>
                                 </div>
                             </template>
@@ -516,7 +559,10 @@
                                     <template x-for="r in statusReports" :key="'rep-' + r.id">
                                         <div class="flex items-center justify-between px-3 py-2 rounded-xl border border-ink-100 hover:bg-ink-50 transition-colors cursor-pointer" @click="viewStoredReport(r)">
                                             <div class="min-w-0">
-                                                <div class="text-[12px] text-ink-800 font-medium" x-text="'#' + r.seq + ' · ' + (r.actor_name || 'system')"></div>
+                                                <div class="text-[12px] text-ink-800 font-medium">
+                                                    <span x-text="'#' + r.seq + ' · ' + (r.actor_name || 'system')"></span>
+                                                    <span x-show="r.draft?.audience" class="ml-2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700" x-text="r.draft?.audience"></span>
+                                                </div>
                                                 <div class="text-[10px] text-ink-400" x-text="new Date(r.created_at).toLocaleString()"></div>
                                             </div>
                                             <span class="text-[10px] text-ink-300 font-mono" x-text="(r.hash || '').slice(0, 8)"></span>

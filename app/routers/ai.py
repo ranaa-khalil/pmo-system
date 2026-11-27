@@ -3,6 +3,7 @@
 import json
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -15,6 +16,7 @@ from app.models.project_vision import ProjectVision
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.models.user_persona import UserPersona
+from app.services import grounding
 from app.services.ai import (
     fill_field,
     suggest_features,
@@ -290,6 +292,61 @@ def copilot_chat_endpoint(
             "copilot_chat failed: %s: %s\n%s", type(e).__name__, e, traceback.format_exc()
         )
         raise HTTPException(502, f"AI request failed: {str(e)}")
+
+
+@router.post("/copilot/chat/stream")
+def copilot_chat_stream_endpoint(
+    req: CopilotChatRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+):
+    """SSE stream of the grounded Q&A (Rethink phase 3).
+
+    Fast path / lookup mode: 200 JSON immediately — the path is instant, no
+    SSE (the client renders it identically to the non-streaming contract).
+    Reasoned path: text/event-stream — token events as the writer generates,
+    a tool event per tool round, then ONE terminal event (final | degraded)
+    carrying the full structured payload (mode, bundles_used, tools_used,
+    degraded, references) so the client finishes identically to the
+    non-streaming contract. A mid-stream LLM failure emits the degraded
+    digest — never a broken half answer."""
+    from app.services.plan_enforcement import require_feature
+    require_feature(current_tenant.plan, "ai_assistant")
+
+    tenant_config = get_ai_config(db, current_tenant.id)
+    if not tenant_config["api_key"]:
+        raise HTTPException(400, "AI is not configured. Set the API key in Settings.")
+
+    from app.services import copilot as copilot_service
+    from app.services.llm import enforce_ai_quota
+
+    # The quota gate runs BEFORE the stream starts: a 403 is a deliberate
+    # hard stop with clean status semantics, not a mid-stream break.
+    enforce_ai_quota(tenant_config)
+
+    try:
+        mode = copilot_service.resolve_mode(req.question, req.mode)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    if mode == "lookup":
+        # Fast path is instant — plain 200 JSON, no SSE.
+        proj_ids = grounding.resolve_project_ids(db, current_user, current_tenant, req.project_id)
+        return JSONResponse(status_code=200, content=copilot_service.copilot_lookup(
+            db, current_user, current_tenant, req.question,
+            project_id=req.project_id, proj_ids=proj_ids,
+            forced=(req.mode == "lookup"),
+        ))
+
+    return StreamingResponse(
+        copilot_service.copilot_chat_stream(
+            db, current_user, current_tenant, req.question, tenant_config,
+            project_id=req.project_id, history=req.history,
+        ),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post("/copilot/propose")

@@ -79,7 +79,7 @@ BRAND_ALPHA_RE = re.compile(
     r"^(?:bg|border|ring|from|via|to|shadow|text|divide|fill|stroke|decoration|outline|accent|caret)"
     r"-brand-\d+/"
 )
-RENDERS_NOTHING = {"h-4.5", "w-4.5", "z-5", "prose-ul:my-0.5"}
+RENDERS_NOTHING = {"h-4.5", "w-4.5", "z-5", "prose-ul:my-0.5", "content-type"}
 
 
 def _is_utility_shape(token: str) -> bool:

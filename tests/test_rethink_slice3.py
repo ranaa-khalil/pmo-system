@@ -447,7 +447,7 @@ class TestLauncherStatics:
         app_js = APP_JS.read_text()
         js_versions = set(__import__("re").findall(
             r"from '\./[a-z_/]+\.js\?v=([a-z0-9]+)'", app_js))
-        assert js_versions == {"20261126c"}, f"the JS graph must pin 20261126c, found {js_versions}"
+        assert js_versions == {"20261126d"}, f"the JS graph must pin 20261126d, found {js_versions}"
         index = INDEX_HTML.read_text()
         link = __import__("re").search(r"tailwind\.compiled\.css\?v=([a-z0-9]+)", index)
-        assert link and link.group(1) == "20261126c"
+        assert link and link.group(1) == "20261126d"

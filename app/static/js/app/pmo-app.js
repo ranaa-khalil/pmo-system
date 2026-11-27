@@ -5,20 +5,20 @@
 // from the original monolithic pmoApp(). We merge them with property
 // descriptors so Alpine getters (computed properties) stay reactive, and
 // every method keeps `this` bound to the merged store.
-import { core } from './domains/core.js?v=20261126c';
-import { tasks } from './domains/tasks.js?v=20261126c';
-import { backlog } from './domains/backlog.js?v=20261126c';
-import { planning } from './domains/planning.js?v=20261126c';
-import { projects } from './domains/projects.js?v=20261126c';
-import { decisions } from './domains/decisions.js?v=20261126c';
-import { engagements } from './domains/engagements.js?v=20261126c';
-import { ai } from './domains/ai.js?v=20261126c';
-import { copilot } from './domains/copilot.js?v=20261126c';
-import { workflows } from './domains/workflows.js?v=20261126c';
-import { tenants } from './domains/tenants.js?v=20261126c';
-import { portal } from './domains/portal.js?v=20261126c';
-import { fab } from './fab.js?v=20261126c';
-import { captureBox } from './capture_box.js?v=20261126c';
+import { core } from './domains/core.js?v=20261126d';
+import { tasks } from './domains/tasks.js?v=20261126d';
+import { backlog } from './domains/backlog.js?v=20261126d';
+import { planning } from './domains/planning.js?v=20261126d';
+import { projects } from './domains/projects.js?v=20261126d';
+import { decisions } from './domains/decisions.js?v=20261126d';
+import { engagements } from './domains/engagements.js?v=20261126d';
+import { ai } from './domains/ai.js?v=20261126d';
+import { copilot } from './domains/copilot.js?v=20261126d';
+import { workflows } from './domains/workflows.js?v=20261126d';
+import { tenants } from './domains/tenants.js?v=20261126d';
+import { portal } from './domains/portal.js?v=20261126d';
+import { fab } from './fab.js?v=20261126d';
+import { captureBox } from './capture_box.js?v=20261126d';
 
 const DOMAINS = [core, tasks, backlog, planning, projects, decisions, engagements, ai, copilot, workflows, tenants, portal];
 

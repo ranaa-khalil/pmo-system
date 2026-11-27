@@ -206,7 +206,8 @@ def summarize_context(ctx: dict, max_items: int = 40) -> str:
 
 # ── Chat (grounded, read-only Q&A) ───────────────────────────────────────
 
-CHAT_SYSTEM_PROMPT = (
+# Grounding preamble — shared by the plain and the tool-aware writers.
+_CHAT_GROUNDING_PROMPT = (
     "You are the PMO Copilot — the user's AI PMO officer inside the PMO System. "
     "Answer only from the provided project data. Cite sources by record type and id "
     "(e.g. 'Task 2', 'Approval 7', 'Item 5', 'Release 1') and by project NAME "
@@ -227,10 +228,27 @@ CHAT_SYSTEM_PROMPT = (
     "never a manual flag. Answer schedule questions (what's blocking the release, what to move) "
     "from it. "
     "If the data doesn't contain the answer, say so plainly — never invent records. "
+)
+
+CHAT_SYSTEM_PROMPT = _CHAT_GROUNDING_PROMPT + (
     "Reply ONLY with a JSON object with EXACTLY these keys: "
     '{"answer": "<your answer as concise markdown>", "sources": ["Task 2", "Approval 7", "PNU Cloud"]}. '
     "Never use schema.org JSON-LD (no @type), never add other keys, never wrap the JSON "
     "in prose. Be concise and operational: the user is a PM who needs to act."
+)
+
+# Phase 3 (Ask escalation): the tool-aware writer for broad, multi-hop
+# questions — same grounding rules, plus the read-only tool-request contract.
+# The bounded loop (max 3 tool calls) lives in reasoned_events below.
+CHAT_TOOL_SYSTEM_PROMPT = _CHAT_GROUNDING_PROMPT + (
+    "You MAY first request a read-only tool to pull records the data above lacks: "
+    'reply ONLY with a JSON object {"tool": "<name from the tool list>", "args": {...}} '
+    "and the server runs it and returns the records. When you have enough data — or if "
+    "you don't need a tool — reply ONLY with the answer JSON: "
+    '{"answer": "<your answer as concise markdown>", "sources": ["Task 2", "Approval 7", "PNU Cloud"]}. '
+    "Never use schema.org JSON-LD (no @type), never add other keys, never wrap the JSON "
+    "in prose. Request at most one tool per reply. Be concise and operational: the user "
+    "is a PM who needs to act."
 )
 
 
@@ -322,6 +340,68 @@ def _select_bundles(question: str) -> list[str]:
         if pattern.search(q) and name not in selected:
             selected.append(name)
     return selected[:3]
+
+
+# ── Mode routing (phase 3: shared by the JSON and SSE paths) ─────────────
+
+def resolve_mode(question: str, mode: str) -> str:
+    """'lookup' | 'reasoned' for a question under mode (auto|lookup|reasoned).
+
+    Shared by copilot_chat and the SSE stream route so both paths route
+    identically. Raises ValueError for an unknown mode (the routers map it
+    to 400)."""
+    if mode not in ("auto", "lookup", "reasoned"):
+        raise ValueError("mode must be one of: auto, lookup, reasoned")
+    if mode == "reasoned":
+        return "reasoned"
+    if mode == "lookup":
+        return "lookup"
+    return "lookup" if _fast_route(question) else "reasoned"
+
+
+# ── Bounded read-only tool loop (phase 3: Ask escalation) ────────────────
+
+def _question_needs_tools(question: str) -> bool:
+    """Broad, multi-hop questions: the selection rules can't resolve them to
+    bundles with confidence → the reasoned writer may escalate to the
+    bounded tool loop. Rule-matched questions keep the plain writer."""
+    q = (question or "").lower()
+    return not any(pattern.search(q) for _, pattern in _SELECTION_RULES)
+
+
+def _tool_request(parsed) -> tuple[str, dict] | None:
+    """A strict-JSON tool request: {"tool": name, "args": {...}} with no
+    answer key. Malformed shapes (non-string name, non-dict args) return
+    None → the caller degrades instead of feeding the writer garbage."""
+    if not isinstance(parsed, dict) or "answer" in parsed:
+        return None
+    tool = parsed.get("tool")
+    if not isinstance(tool, str) or not tool.strip():
+        return None
+    args = parsed.get("args")
+    if args is None:
+        args = {}
+    if not isinstance(args, dict):
+        return None
+    return (tool.strip(), args)
+
+
+def _tool_result_block(result: dict) -> str:
+    """One tool result as compact prompt lines (records-not-prose)."""
+    name = result.get("tool")
+    if result.get("error"):
+        return f"TOOL RESULT for {name}: ERROR — {result['error']}"
+    records = result.get("records") or []
+    counts = result.get("counts") or {}
+    lines = [
+        f"TOOL RESULT for {name} ({len(records)} records; "
+        f"counts: {json.dumps(counts, default=str)}):"
+    ]
+    for rec in records[:20]:
+        lines.append(f"- {json.dumps(rec, default=str)[:300]}")
+    if len(records) > 20:
+        lines.append(f"- … {len(records) - 20} more records")
+    return "\n".join(lines)
 
 
 # ── Deterministic digest renderer (fast path + degraded fallback) ────────
@@ -481,6 +561,49 @@ def _unwrap_chat_answer(raw: str, parsed: dict) -> tuple[str, list]:
     return raw.strip(), []
 
 
+def copilot_lookup(
+    db: Session,
+    user: User,
+    tenant: Tenant,
+    question: str,
+    project_id: int | None = None,
+    proj_ids: list[int] | None = None,
+    forced: bool = False,
+) -> dict:
+    """The FAST path: the matching bundle(s) run and a deterministic markdown
+    digest renders from their records — ZERO LLM tokens, no llm_usage row,
+    no quota burn.
+
+    Extracted verbatim from copilot_chat (phase 3): the SSE route
+    short-circuits lookups to plain 200 JSON (the path is instant) and the
+    non-streaming chat keeps the identical payload. `forced` marks a
+    mode="lookup" question no rule matched — the orientation bundle."""
+    if proj_ids is None:
+        proj_ids = grounding.resolve_project_ids(db, user, tenant, project_id)
+    fast_bundles = _fast_route(question)
+    if forced and not fast_bundles:
+        # Forced lookup with no matching rule: the orientation bundle, still
+        # zero LLM tokens.
+        fast_bundles = ["project_health"]
+    bundles = grounding.get_bundles(db, fast_bundles, user, tenant, proj_ids, project_id=project_id)
+    answer = render_digest(bundles, question)
+    # Citations in the digest validate against exactly what the digest
+    # was rendered from.
+    labels, references = _validate_references(answer, [], grounding.assemble(bundles))
+    interaction = _persist_chat(db, user, tenant, question, answer, references)
+    return {
+        "answer": answer,
+        "sources": labels,         # backward compatible: the VALIDATED labels
+        "references": references,  # entity_type/entity_id/title/url deep links
+        "interaction_id": interaction.id,
+        "mode": "lookup",
+        "bundles_used": [b["bundle"] for b in bundles],
+        "degraded": False,
+        "counts": {b["bundle"]: b.get("counts", {}) for b in bundles},
+        "tools_used": [],
+    }
+
+
 def copilot_chat(
     db: Session,
     user: User,
@@ -493,64 +616,145 @@ def copilot_chat(
 ) -> dict:
     """Grounded Q&A scoped to the open project when one is selected.
 
-    Rethink slice 2 — intent routes rules-first (the keyword/entity router
+    Rethink phase 3 — intent routes rules-first (the keyword/entity router
     above, replacing the old frontend 5-verb regex):
 
     - FAST path (mode="lookup", or "auto" + a lookup rule): the matching
       bundle(s) run and a deterministic markdown digest renders from their
-      records — ZERO LLM tokens, no llm_usage row, no quota burn.
+      records — ZERO LLM tokens, no llm_usage row, no quota burn
+      (copilot_lookup).
     - REASONED path (mode="reasoned", or "auto" + no lookup rule): rule-based
       bundle selection → compact prompt (only those bundles' records) →
       strict-JSON writer with ONE repair retry on parse failure → server-side
-      citation validation against the bundles fetched this turn.
-    - DEGRADED fallback: LLM down/timeout/unparseable → the digest renderer
-      over the already-fetched bundles with degraded=True — never a raw 502
-      for a read-only question. A quota 403 keeps propagating (the plan gate
-      is a deliberate hard stop, not an outage).
+      citation validation against the bundles fetched this turn. Broad,
+      multi-hop questions (no selection rule matched) may ESCALATE to the
+      bounded read-only tool loop: max 3 tool calls, one per iteration, each
+      executed server-side against the caller's visible scope; the results
+      join the prompt and the citation registry. A malformed tool request or
+      an iteration overrun falls through to the degraded fallback.
+    - DEGRADED fallback: LLM down/timeout/unparseable/unexecutable tool → the
+      digest renderer over the already-fetched bundles with degraded=True —
+      never a raw 502 for a read-only question. A quota 403 keeps propagating
+      (the plan gate is a deliberate hard stop, not an outage).
 
-    Read-only: never writes records. With a project_id the context covers that
-    project only (when the user can see it); without one it covers every
-    assigned project, with an identity block (client, description, vision) per
-    project so answers are relevant across the whole portfolio. `history` is
-    the recent conversation (oldest first, [{role, text}, ...]) so follow-up
-    questions keep their context. Returns {answer, sources, references,
-    interaction_id, mode, bundles_used, degraded, counts}.
+    The writer loop lives in reasoned_events (the ONE implementation; the SSE
+    route streams the same events). Read-only: never writes records. With a
+    project_id the context covers that project only (when the user can see
+    it); without one it covers every assigned project. Returns {answer,
+    sources, references, interaction_id, mode, bundles_used, degraded,
+    counts, tools_used}.
     """
-    from app.services.ai import _extract_json
-    from app.services.llm import FALLBACK_TEXT
-
-    if mode not in ("auto", "lookup", "reasoned"):
-        raise ValueError("mode must be one of: auto, lookup, reasoned")
-
+    resolved = resolve_mode(question, mode)
     proj_ids = grounding.resolve_project_ids(db, user, tenant, project_id)
-    scope_label = f"the selected project (id={project_id})" if project_id else "all your assigned projects"
 
     # ── Fast path: deterministic digest, zero LLM tokens ─────────────────
-    fast_bundles = _fast_route(question) if mode in ("auto", "lookup") else None
-    if mode == "lookup" and not fast_bundles:
-        # Forced lookup with no matching rule: the orientation bundle, still
-        # zero LLM tokens.
-        fast_bundles = ["project_health"]
-    if fast_bundles:
-        bundles = grounding.get_bundles(db, fast_bundles, user, tenant, proj_ids, project_id=project_id)
-        answer = render_digest(bundles, question)
-        # Citations in the digest validate against exactly what the digest
-        # was rendered from.
-        labels, references = _validate_references(answer, [], grounding.assemble(bundles))
-        interaction = _persist_chat(db, user, tenant, question, answer, references)
-        return {
-            "answer": answer,
-            "sources": labels,         # backward compatible: the VALIDATED labels
-            "references": references,  # entity_type/entity_id/title/url deep links
-            "interaction_id": interaction.id,
-            "mode": "lookup",
-            "bundles_used": [b["bundle"] for b in bundles],
-            "degraded": False,
-            "counts": {b["bundle"]: b.get("counts", {}) for b in bundles},
-        }
+    if resolved == "lookup":
+        return copilot_lookup(
+            db, user, tenant, question, project_id=project_id,
+            proj_ids=proj_ids, forced=(mode == "lookup"),
+        )
 
-    # ── Reasoned path: rule-based bundles → compact prompt → writer ──────
+    # ── Reasoned path: consume the unified event stream ──────────────────
+    payload = None
+    for event, data in reasoned_events(
+        db, user, tenant, question, tenant_config,
+        proj_ids=proj_ids, project_id=project_id, history=history,
+    ):
+        if event in ("final", "degraded"):
+            payload = data
+    if payload is None:
+        # reasoned_events always terminates with final | degraded (or raises)
+        # — exhaustion without a terminal is a contract violation, never a
+        # silent None payload.
+        raise RuntimeError("reasoned_events exhausted without a terminal event")
+    return payload
+
+
+class _AnswerDeltas:
+    """Streams the answer field's text out of the writer's strict-JSON reply
+    (phase 3): the client renders readable tokens, never JSON scaffolding.
+    Any divergence from the expected shape emits nothing — the terminal event
+    still carries the full parsed answer, so nothing is lost."""
+
+    PREFIX = '{"answer": "'
+    _UNESCAPE = {"n": "\n", "t": "\t", "r": "\r", '"': '"', "\\": "\\", "/": "/"}
+
+    def __init__(self) -> None:
+        self._buf = ""
+        self._in_value = False
+        self._done = False
+
+    def feed(self, delta: str) -> str:
+        """Consume one writer delta; return the readable text it reveals."""
+        if self._done:
+            return ""
+        self._buf += delta
+        if not self._in_value:
+            stripped = self._buf.lstrip()
+            if len(stripped) < len(self.PREFIX):
+                if not self.PREFIX.startswith(stripped):
+                    self._done = True  # unexpected shape — no tokens
+                return ""
+            if not stripped.startswith(self.PREFIX):
+                self._done = True  # unexpected shape — no tokens
+                return ""
+            self._buf = stripped[len(self.PREFIX):]
+            self._in_value = True
+        out: list[str] = []
+        i = 0
+        while i < len(self._buf):
+            ch = self._buf[i]
+            if ch == "\\":
+                if i + 1 >= len(self._buf):
+                    break  # escape split across chunks — hold the backslash
+                out.append(self._UNESCAPE.get(self._buf[i + 1], self._buf[i + 1]))
+                i += 2
+                continue
+            if ch == '"':
+                self._done = True  # closing quote — scaffolding follows
+                break
+            out.append(ch)
+            i += 1
+        self._buf = "" if self._done else self._buf[i:]
+        return "".join(out)
+
+
+def reasoned_events(
+    db: Session,
+    user: User,
+    tenant: Tenant,
+    question: str,
+    tenant_config: dict,
+    proj_ids: list[int] | None = None,
+    project_id: int | None = None,
+    history: list[dict] | None = None,
+    stream: bool = False,
+):
+    """The reasoned turn as an event stream — the ONE implementation of the
+    strict-JSON writer loop; the non-streaming contract and the SSE route
+    both consume it (phase 3).
+
+    Yields (event, data) tuples:
+      ("token", {"delta": str})  — answer deltas as they generate (stream=True
+                                   only; tool-request replies never stream)
+      ("tool",  {"tool", "records", "counts"}) — a tool round ran
+      ("final", payload)         — success: the full structured payload (the
+                                   non-streaming contract, plus tools_used)
+      ("degraded", payload)      — LLM down, unparseable after the ONE repair
+                                   retry, malformed/unexecutable tool request,
+                                   or iteration overrun: the digest fallback
+                                   payload (degraded=True)
+    """
+    from app.services import tools as tools_service
+    from app.services.ai import _extract_json
+    from app.services.llm import FALLBACK_TEXT, LLMStreamError, stream_llm
+
+    if proj_ids is None:
+        proj_ids = grounding.resolve_project_ids(db, user, tenant, project_id)
+    scope_label = f"the selected project (id={project_id})" if project_id else "all your assigned projects"
+
     selected = _select_bundles(question)
+    tools_enabled = _question_needs_tools(question)
     bundles = grounding.get_bundles(db, selected, user, tenant, proj_ids, project_id=project_id)
     ctx = grounding.assemble(bundles)
     context_text = summarize_context(ctx)
@@ -566,39 +770,167 @@ def copilot_chat(
         if turns:
             conversation = "RECENT CONVERSATION (oldest first):\n" + "\n".join(turns) + "\n\n"
 
-    user_prompt = (
+    sys_prompt = CHAT_TOOL_SYSTEM_PROMPT if tools_enabled else CHAT_SYSTEM_PROMPT
+    prompt_holder = [
         f"SCOPE: {scope_label}\n\n"
         f"PROJECT DATA:\n{context_text}\n\n"
+        + (tools_service.tool_registry_prompt() + "\n\n" if tools_enabled else "")
         + conversation
         + f"QUESTION: {question}"
-    )
+    ]
 
-    raw = _call_llm(CHAT_SYSTEM_PROMPT, user_prompt, tenant_config, max_tokens=900)
-    answer, model_sources, degraded = _reasoned_answer(
-        raw, user_prompt, tenant_config, bundles, _extract_json, FALLBACK_TEXT,
-    )
+    tools_used: list[str] = []
+    tool_records: list[dict] = []
+    repair_used = False
 
-    # Rethink MVP #2 + slice 2: citations are validated SERVER-SIDE against
-    # the bundles fetched this turn — an id they don't contain is dropped
-    # before render, and every surviving citation becomes a clickable
-    # deep-link reference. AiInteraction.sources stores the validated shape.
-    if degraded:
-        labels, references = _validate_references(answer, [], ctx)
-    else:
-        labels, references = _validate_references(answer, model_sources, ctx)
+    def _finalize(answer: str, model_sources: list, degraded: bool) -> dict:
+        # Citations validate against the bundles fetched this turn PLUS the
+        # tool results (an answer may cite what a tool surfaced).
+        validation_ctx = {**ctx, "tool_records": tool_records} if tool_records else ctx
+        labels, references = _validate_references(
+            answer, [] if degraded else model_sources, validation_ctx,
+        )
+        interaction = _persist_chat(db, user, tenant, question, answer, references)
+        return {
+            "answer": answer,
+            "sources": labels,        # backward compatible: the VALIDATED labels
+            "references": references,  # entity_type/entity_id/title/url deep links
+            "interaction_id": interaction.id,
+            "mode": "reasoned",
+            "bundles_used": [b["bundle"] for b in bundles],
+            "degraded": degraded,
+            "counts": {b["bundle"]: b.get("counts", {}) for b in bundles},
+            "tools_used": tools_used,
+        }
 
-    interaction = _persist_chat(db, user, tenant, question, answer, references)
+    def _degrade() -> dict:
+        return _finalize(render_digest(bundles, degraded=True), [], True)
 
-    return {
-        "answer": answer,
-        "sources": labels,        # backward compatible: now the VALIDATED labels
-        "references": references,  # entity_type/entity_id/title/url deep links
-        "interaction_id": interaction.id,
-        "mode": "reasoned",
-        "bundles_used": [b["bundle"] for b in bundles],
-        "degraded": degraded,
-        "counts": {b["bundle"]: b.get("counts", {}) for b in bundles},
-    }
+    def _writer():
+        """One writer call — the streaming door or the buffered one. The
+        feature label is copilot.reasoned either way (the loop is part of
+        reasoned)."""
+        if stream:
+            return stream_llm(
+                sys_prompt, prompt_holder[0], tenant_config,
+                max_tokens=900, json_mode=True, feature=REASONED_FEATURE,
+            )
+        raw = _call_llm(sys_prompt, prompt_holder[0], tenant_config, max_tokens=900)
+        return iter([raw]) if raw else iter([])
+
+    while True:
+        try:
+            full_text_parts: list[str] = []
+            sniffed = None  # None = undecided; False = answer (stream); True = tool request
+            head: list[str] = []
+            answer_deltas: _AnswerDeltas | None = _AnswerDeltas() if stream else None
+            for delta in _writer():
+                full_text_parts.append(delta)
+                if answer_deltas is None:  # not streaming — buffered door
+                    continue
+                if sniffed is None:
+                    head.append(delta)
+                    joined = "".join(head).lstrip()
+                    if len(joined) >= 7:
+                        # 7 chars decide tool-request vs answer; the extractor
+                        # cannot emit before its 12-char prefix completes, so
+                        # nothing readable is withheld past this point.
+                        sniffed = joined.startswith('{"tool"')
+                        head = []
+                if sniffed is not True:
+                    # Feed every delta (the extractor buffers internally): once
+                    # the reply reads as an ANSWER, only the text inside the
+                    # answer value streams — JSON scaffolding never renders.
+                    text = answer_deltas.feed(delta)
+                    if text and sniffed is False:
+                        yield ("token", {"delta": text})
+            full_text = "".join(full_text_parts)
+        except LLMStreamError:
+            yield ("degraded", _degrade())
+            return
+
+        # Door failure (the buffered door's fallback text / empty stream).
+        if not full_text or full_text == FALLBACK_TEXT or "AI service unavailable" in full_text:
+            yield ("degraded", _degrade())
+            return
+
+        parsed = _extract_json(full_text)
+        if parsed is None and not repair_used:
+            # ONE repair retry — the writer gets its broken reply back.
+            repair_used = True
+            prompt_holder[0] = (
+                f"{prompt_holder[0]}\n\n"
+                "Your previous reply was not valid JSON. Reply ONLY with the JSON object "
+                '{"answer": "...", "sources": ["..."]} — no prose, no code fences, no commentary.'
+            )
+            continue
+        if parsed is None:
+            yield ("degraded", _degrade())
+            return
+
+        request = _tool_request(parsed)
+        if request is None:
+            # The final strict-JSON answer — same contract as ever.
+            answer, model_sources = _unwrap_chat_answer(full_text, parsed)
+            if not answer:
+                yield ("degraded", _degrade())
+                return
+            yield ("final", _finalize(answer, model_sources, False))
+            return
+
+        tool_name, tool_args = request
+        if not tools_enabled or len(tools_used) >= tools_service.TOOL_LOOP_MAX_ITERATIONS:
+            # Iteration overrun (or a tool request on the plain path): the
+            # existing degraded fallback — never an unbounded loop.
+            yield ("degraded", _degrade())
+            return
+        result = tools_service.run_tool(db, user, tenant, tool_name, tool_args, proj_ids)
+        if result.get("error"):
+            # Malformed/unexecutable tool request → the degraded fallback.
+            yield ("degraded", _degrade())
+            return
+        tools_used.append(tool_name)
+        tool_records.extend(result.get("records") or [])
+        prompt_holder[0] = f"{prompt_holder[0]}\n\n{_tool_result_block(result)}"
+        yield ("tool", {
+            "tool": tool_name,
+            "records": len(result.get("records") or []),
+            "counts": result.get("counts") or {},
+        })
+        # Loop: the next writer call sees the tool result.
+
+
+def copilot_chat_stream(
+    db: Session,
+    user: User,
+    tenant: Tenant,
+    question: str,
+    tenant_config: dict,
+    project_id: int | None = None,
+    history: list[dict] | None = None,
+):
+    """SSE generator for the reasoned path (phase 3): token events as the
+    writer generates, a tool event per tool round, then ONE terminal event
+    (final | degraded) carrying the full structured payload so the client
+    finishes identically to the non-streaming contract. A mid-stream LLM
+    failure emits the degraded digest — never a broken half answer. Any
+    unexpected failure emits an error event; the client falls back to the
+    non-streaming call."""
+    from fastapi import HTTPException
+
+    def _sse(event: str, data: dict) -> str:
+        return f"event: {event}\ndata: {json.dumps(data, default=str)}\n\n"
+
+    try:
+        for event, data in reasoned_events(
+            db, user, tenant, question, tenant_config,
+            project_id=project_id, history=history, stream=True,
+        ):
+            yield _sse(event, data)
+    except HTTPException as exc:
+        yield _sse("error", {"detail": str(exc.detail), "status_code": exc.status_code})
+    except Exception as exc:  # noqa: BLE001 — the stream must end with an event, never hang
+        yield _sse("error", {"detail": f"stream failed: {type(exc).__name__}", "status_code": 502})
 
 
 def _persist_chat(db: Session, user: User, tenant: Tenant, question: str,
@@ -618,47 +950,6 @@ def _persist_chat(db: Session, user: User, tenant: Tenant, question: str,
     db.commit()
     db.refresh(interaction)
     return interaction
-
-
-def _reasoned_answer(
-    raw: str,
-    user_prompt: str,
-    tenant_config: dict,
-    bundles: list[dict],
-    extract_json,
-    fallback_text: str,
-) -> tuple[str, list, bool]:
-    """Strict-JSON writer with ONE repair retry; degraded fallback.
-
-    Returns (answer, model_sources, degraded). LLM down/timeout (the door's
-    FALLBACK_TEXT) or unparseable after the repair retry → the deterministic
-    digest over the already-fetched bundles, degraded=True — a read-only
-    question never surfaces a raw error."""
-    def _door_failure(text: str) -> bool:
-        return not text or text == fallback_text or "AI service unavailable" in text
-
-    if _door_failure(raw):
-        return render_digest(bundles, degraded=True), [], True
-
-    parsed = extract_json(raw)
-    if parsed is None:
-        # ONE repair retry — the writer gets its broken reply back.
-        repair_prompt = (
-            f"{user_prompt}\n\n"
-            "Your previous reply was not valid JSON. Reply ONLY with the JSON object "
-            '{"answer": "...", "sources": ["..."]} — no prose, no code fences, no commentary.'
-        )
-        raw = _call_llm(CHAT_SYSTEM_PROMPT, repair_prompt, tenant_config, max_tokens=900)
-        if _door_failure(raw):
-            return render_digest(bundles, degraded=True), [], True
-        parsed = extract_json(raw)
-        if parsed is None:
-            return render_digest(bundles, degraded=True), [], True
-
-    answer, model_sources = _unwrap_chat_answer(raw, parsed)
-    if not answer:
-        return render_digest(bundles, degraded=True), [], True
-    return answer, model_sources, False
 
 
 # ── Clickable deep-link references (Rethink MVP #2) ──────────────────────
@@ -731,7 +1022,7 @@ def _context_registry(ctx: dict) -> dict:
         )
 
     for key in ("projects", "pending_approvals", "aging_items", "overdue_tasks",
-                "at_risk_releases", "open_risks"):
+                "at_risk_releases", "open_risks", "tool_records"):
         for entry in ctx.get(key) or []:
             _add(entry)
     for entry in ctx.get("schedules") or []:

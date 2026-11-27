@@ -10,6 +10,7 @@ copilotOpen: false,
 copilotMessages: [],        // [{role: 'user'|'assistant', text, sources, proposal_id, ops}]
 copilotInput: '',
 copilotBusy: false,
+copilotStreaming: false,    // phase 3: tokens are streaming into the live bubble
 copilotPendingProposal: null,  // {proposal_id, operations}
 intakeKickoffOpen: false,  // Rethink MVP #4: kickoff paste card open in the ONE Ask surface
 
@@ -169,29 +170,142 @@ async copilotAsk(text) {
     if (!question || this.copilotBusy) return;
     this.copilotInput = '';
     this.copilotMessages.push({ role: 'user', text: question });
+    const history = this.copilotMessages.slice(-8).map(m => ({ role: m.role, text: m.text }));
     this.copilotBusy = true;
     this.copilotScroll();
+    // Phase 3: the streaming bubble — pushed up-front so the answer renders
+    // into it as tokens arrive. Mutations go through the store (Alpine's
+    // reactivity tracks proxy reads, not raw-object writes).
+    this.copilotMessages.push({ role: 'assistant', text: '', streaming: true, sources: [], references: [] });
+    this.copilotStreaming = true;
     try {
-        const data = await this.api('POST', '/ai/copilot/chat', {
-            question,
-            project_id: this.selectedProject ? this.selectedProject.id : null,
-            history: this.copilotMessages.slice(-8).map(m => ({ role: m.role, text: m.text })),
-        });
-        this.copilotMessages.push({
-            role: 'assistant',
-            text: data.answer,
-            sources: data.sources || [],
-            references: data.references || [],  // validated deep-link records
-        });
+        await this._copilotStreamAsk(question, history);
     } catch (e) {
-        this.copilotMessages.push({
-            role: 'assistant',
-            text: e?.message || 'PMO Copilot request failed.',
-            error: true,
-        });
+        // Degrade to the existing non-streaming call on ANY stream failure —
+        // the proven contract renders the answer (or the error) as today.
+        try {
+            const data = await this.api('POST', '/ai/copilot/chat', {
+                question,
+                project_id: this.selectedProject ? this.selectedProject.id : null,
+                history,
+            });
+            const m = this._copilotLastMessage();
+            if (m) {
+                m.streaming = false;
+                m.text = data.answer;
+                m.sources = data.sources || [];
+                m.references = data.references || [];
+            }
+        } catch (e2) {
+            const m = this._copilotLastMessage();
+            if (m) {
+                m.streaming = false;
+                m.text = e2?.message || 'PMO Copilot request failed.';
+                m.error = true;
+            }
+        }
     }
     this.copilotBusy = false;
+    this.copilotStreaming = false;
     this.copilotScroll();
+},
+
+_copilotLastMessage() {
+    return this.copilotMessages.length ? this.copilotMessages[this.copilotMessages.length - 1] : null;
+},
+
+// SSE over fetch + ReadableStream (NOT the browser's native SSE client — the
+// POST body carries the question). Token events append into the live bubble; a tool event
+// resets the partial to the tool status; the terminal event (final |
+// degraded) replaces the text and renders the references/badges — the same
+// finish as the non-streaming contract.
+async _copilotStreamAsk(question, history) {
+    const opts = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            question,
+            project_id: this.selectedProject ? this.selectedProject.id : null,
+            history,
+        }),
+    };
+    if (this.authToken) opts.headers['Authorization'] = 'Bearer ' + this.authToken;
+    const res = await fetch('/api/ai/copilot/chat/stream', opts);
+    if (res.status === 401) {
+        localStorage.removeItem('pmo_token');
+        this.authToken = null;
+        this.currentUser = null;
+        this.isLoggedIn = false;
+        this.loginError = 'Your session has expired. Please log in again.';
+        throw new Error('Session expired — please log in again');
+    }
+    if (!res.ok) {
+        let detail = `API error (${res.status})`;
+        try { const j = await res.json(); detail = j.detail || j.message || detail; } catch (_) { /* non-JSON body */ }
+        throw new Error(detail);
+    }
+    const ctype = (res.headers.get('content-type') || '').toLowerCase();
+    if (!ctype.includes('text/event-stream')) {
+        // Fast-path short-circuit: plain 200 JSON — the non-streaming contract.
+        const data = await res.json();
+        const m = this._copilotLastMessage();
+        if (m) {
+            m.streaming = false;
+            m.text = data.answer;
+            m.sources = data.sources || [];
+            m.references = data.references || [];
+        }
+        this.copilotScroll();
+        return;
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let sep;
+        while ((sep = buf.indexOf('\n\n')) !== -1) {
+            const block = buf.slice(0, sep);
+            buf = buf.slice(sep + 2);
+            const ev = this._parseSSE(block);
+            if (!ev) continue;
+            const m = this._copilotLastMessage();
+            if (!m) return;
+            if (ev.event === 'token') {
+                m.text += (ev.data && ev.data.delta) || '';
+                this.copilotScroll();
+            } else if (ev.event === 'tool') {
+                m.text = '';
+                m.toolStatus = ev.data && ev.data.tool ? `checked ${ev.data.tool}` : '';
+                this.copilotScroll();
+            } else if (ev.event === 'final' || ev.event === 'degraded') {
+                m.streaming = false;
+                m.text = (ev.data && ev.data.answer) || m.text;
+                m.degraded = !!(ev.data && ev.data.degraded);
+                m.sources = (ev.data && ev.data.sources) || [];
+                m.references = (ev.data && ev.data.references) || [];
+                this.copilotScroll();
+                return;
+            } else if (ev.event === 'error') {
+                throw new Error((ev.data && ev.data.detail) || 'stream failed');
+            }
+        }
+    }
+    // The stream ended without a terminal event — a broken half answer is
+    // never rendered: throw so the caller degrades to the non-streaming call.
+    throw new Error('stream ended without a final answer');
+},
+
+_parseSSE(block) {
+    let event = 'message', data = '';
+    for (const line of block.split('\n')) {
+        if (line.startsWith('event:')) event = line.slice(6).trim();
+        else if (line.startsWith('data:')) data += line.slice(5).trimStart();
+    }
+    if (!data) return null;
+    try { return { event, data: JSON.parse(data) }; } catch (e) { return null; }
 },
 
 // Clickable reference chips (Rethink MVP #2): a validated citation lands at
